@@ -39,6 +39,16 @@
   color: #22c55e;
 }
 
+.status-indicator.offline {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.status-indicator.offline::before {
+  content: '●';
+  color: #ef4444;
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); /* Increased minimum width */
@@ -118,7 +128,6 @@
 .service-name {
   font-weight: 500;
   color: #374151;
-  text-transform: capitalize;
 }
 
 .service-status {
@@ -204,4 +213,38 @@
   height: 200px;
   font-size: 1.125rem;
   color: #6b7280;
+}
+
+.error-message {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.error-message h3 {
+  margin: 0 0 1rem 0;
+  color: #dc2626;
+}
+
+.error-message p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.no-data {
+  text-align: center;
+  color: #9ca3af;
+  font-style: italic;
+  padding: 1rem;
+}
+
+.no-data-small {
+  text-align: center;
+  color: #9ca3af;
+  font-style: italic;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
 }

@@ -1,12 +1,49 @@
 // src/App.jsx
 import React, { useState } from 'react';
+import { ThemeProvider, createTheme, CssBaseline, Box } from '@mui/material';
 import Navigation from './components/Navigation';
 import Dashboard from './components/Dashboard';
-import WakeOnLAN from './components/WakeOnLAN';
+import Devices from './components/Devices';
 import SystemResources from './components/SystemResources';
 import PackageManager from './components/PackageManager';
 import Settings from './components/Settings';
 import './App.css';
+
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#3b82f6',
+    },
+    secondary: {
+      main: '#10b981',
+    },
+    background: {
+      default: '#f8fafc',
+    },
+  },
+  typography: {
+    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          textTransform: 'none',
+          fontWeight: 500,
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+        },
+      },
+    },
+  },
+});
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -15,8 +52,9 @@ function App() {
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard />;
-      case 'wol':
-        return <WakeOnLAN />;
+      case 'devices':
+      case 'wol': // Backward compatibility
+        return <Devices />;
       case 'resources':
         return <SystemResources />;
       case 'packages':
@@ -29,12 +67,23 @@ function App() {
   };
 
   return (
-    <div className="App">
-      <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
-      <main className="main-content">
-        {renderActiveComponent()}
-      </main>
-    </div>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+        <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            bgcolor: 'background.default',
+            ml: '280px', // Match drawer width
+            minHeight: '100vh',
+          }}
+        >
+          {renderActiveComponent()}
+        </Box>
+      </Box>
+    </ThemeProvider>
   );
 }
 

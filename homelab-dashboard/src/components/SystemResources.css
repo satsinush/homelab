@@ -178,7 +178,7 @@
 
 .temperature-display {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 1rem;
 }
 
@@ -244,4 +244,34 @@
   .temperature-display {
     grid-template-columns: 1fr;
   }
+}
+
+/* No data styles */
+.no-data {
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+  padding: 2rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 2px dashed #e5e7eb;
+}
+
+.error-message {
+  text-align: center;
+  padding: 3rem 2rem;
+  background: #fef2f2;
+  border-radius: 12px;
+  border: 1px solid #fee2e2;
+  color: #991b1b;
+}
+
+.error-message h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+}
+
+.error-message p {
+  margin: 0;
+  color: #7f1d1d;
 }
