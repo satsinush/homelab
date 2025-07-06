@@ -1,0 +1,71 @@
+/* src/components/PackageManager.css */
+/* src/components/Settings.css */
+.package-manager,
+.settings {
+  padding: 2rem;
+  max-width: none; /* Remove width constraint */
+  margin: 0;
+  width: 100%;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-header h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 2rem;
+  color: #1f2937;
+}
+
+.page-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 1.125rem;
+}
+
+.placeholder-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  padding: 3rem;
+  text-align: center;
+}
+
+.placeholder-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.6;
+}
+
+.placeholder-content h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  color: #1f2937;
+}
+
+.placeholder-content p {
+  margin: 0 0 1.5rem 0;
+  color: #6b7280;
+  font-size: 1rem;
+}
+
+.placeholder-content ul {
+  text-align: left;
+  max-width: 400px;
+  margin: 0 auto 2rem auto;
+  color: #4b5563;
+}
+
+.placeholder-content li {
+  margin-bottom: 0.5rem;
+}
+
+.coming-soon {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 20px;
+  font-weight: 600;
+  display: inline-block;
+}

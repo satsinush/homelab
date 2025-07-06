@@ -1,0 +1,82 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Deploy Frontend to Raspberry Pi",
+            "type": "shell",
+            "command": [
+                // Navigate into the frontend directory on your PC
+                "cd homelab-dashboard &&",
+                // 1. Build the React frontend on your PC
+                "npm run build &&",
+                // Go back to the main folder for scp if needed, or adjust scp path
+                "cd .. &&",
+                // 2. SSH into RPi, remove old 'dist' folder, and set initial parent folder permissions for scp
+                // Note: The destination path on the Pi still needs '/srv/www/homelab-dashboard/'
+                "ssh -t -p 2222 aneedham@10.10.10.10 \"sudo rm -rf /srv/www/homelab-dashboard/dist && sudo mkdir -p /srv/www/homelab-dashboard && sudo chown aneedham:aneedham /srv/www/homelab-dashboard && sudo chmod 755 /srv/www/homelab-dashboard\" &&",
+                // 3. Copy the new 'dist' folder from your PC to RPi
+                // Source path now explicitly points to the 'homelab-dashboard/dist' from the main folder
+                "scp -r -P 2222 ./homelab-dashboard/dist aneedham@10.10.10.10:/srv/www/homelab-dashboard/ &&",
+                // 4. SSH into RPi, set final permissions for Nginx, and reload Nginx
+                "ssh -t -p 2222 aneedham@10.10.10.10 \"sudo chown -R http:http /srv/www/homelab-dashboard/dist/ && sudo chmod -R 755 /srv/www/homelab-dashboard/dist/ && sudo nginx -t && sudo systemctl reload nginx\""
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "Start Dev Server",
+            "type": "shell",
+            "command": [
+                // Navigate into the frontend directory on your PC to run dev server
+                "cd homelab-dashboard &&",
+                "npm run dev"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "isBackground": true
+        },
+        {
+            "label": "Deploy API to Raspberry Pi",
+            "type": "shell",
+            "command": [
+                // Navigate into the backend API directory on your PC
+                "cd homelab-api &&",
+                // Stop the service before transferring files
+                "ssh -t -p 2222 aneedham@10.10.10.10 \"sudo systemctl stop homelab-api.service\" &&",
+                // Copy the API files from your PC to RPi
+                // Source paths now explicitly point to 'homelab-api/server.js' and 'homelab-api/package.json'
+                "scp -P 2222 ./server.js aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                "scp -P 2222 ./package.json aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                // Include package-lock.json if you want exact dependency versions:
+                // "scp -P 2222 ./package-lock.json aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                // Go back to the main folder on PC before next ssh command (optional, but good practice)
+                "cd .. &&",
+                // Perform npm install and restart service on RPi
+                "ssh -t -p 2222 aneedham@10.10.10.10 \"",
+                "cd /home/aneedham/homelab-api &&",
+                "npm install &&", // Reinstall dependencies (crucial after copy)
+                "sudo systemctl start homelab-api.service &&",
+                "sudo systemctl status homelab-api.service\"",
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            }
+        }
+    ]
+}
