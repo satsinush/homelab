@@ -56,14 +56,15 @@ const PackageManager = () => {
 
     if (loading) {
         return (
-            <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2 }, width: '100%' }}>
-                <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
-                    Package Manager
-                </Typography>
-                <Typography variant="h6" color="text.secondary" sx={{ mb: 4 }}>
-                    Manage system packages and updates
-                </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 8 }}>
+            <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
+                <Box sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: 'calc(100vh - 200px)',
+                    py: 8
+                }}>
                     <CircularProgress size={60} sx={{ mb: 2 }} />
                     <Typography variant="h6" color="text.secondary">
                         Loading package information...
@@ -75,32 +76,20 @@ const PackageManager = () => {
 
     if (error) {
         return (
-            <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2 }, width: '100%' }}>
+            <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
                 <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
                     Package Manager
                 </Typography>
-                <Typography variant="h6" color="text.secondary" sx={{ mb: 4 }}>
-                    Manage system packages and updates
-                </Typography>
-
-                <Paper sx={{ p: 6, textAlign: 'center', bgcolor: 'grey.50' }}>
-                    <PackageIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                    <Typography variant="h5" sx={{ mb: 1, fontWeight: 600 }}>
-                        Package Management Unavailable
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                        {error}
-                    </Typography>
-                    <Alert severity="info">
-                        Package management functionality requires API server connection and appropriate system permissions.
-                    </Alert>
-                </Paper>
+                <Alert severity="error">
+                    <Typography variant="h6" sx={{ mb: 1 }}>⚠️ No Data Available</Typography>
+                    <Typography>{error}</Typography>
+                </Alert>
             </Container>
         );
     }
 
     return (
-        <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2 }, width: '100%' }}>
+        <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
             <Box sx={{ mb: 4 }}>
                 <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
                     Package Manager

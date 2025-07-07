@@ -34,39 +34,131 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Define devices with MAC addresses and multiple IP addresses
-const DEVICES = {
+// Define devices with MAC addresses for WOL functionality
+const WOL_DEVICES = {
     "Andrew-Computer": {
         name: "Andrew-Computer",
         mac: "00-D8-61-78-E9-34", // <<< REPLACE WITH YOUR PC's MAC ADDRESS
-        ips: [
-            {
-                ip: "10.10.10.13", // <<< REPLACE WITH YOUR PC's LOCAL IP
-                type: "local"
-            },
-            {
-                ip: "10.10.20.13", // <<< REPLACE WITH YOUR PC's LOCAL IP
-                type: "vpn"
-            }
-            // Add more IPs as needed, e.g.:
-            // { ip: "192.168.1.100", type: "vpn" }
-        ]
+        description: "Main Desktop Computer"
     }
-    // Example of device with multiple IPs:
+    // Add more devices for WOL as needed:
     // "HomeServer": {
-    //     name: "HomeServer",
+    //     name: "HomeServer", 
     //     mac: "AA:BB:CC:DD:EE:FF",
-    //     ips: [
-    //         { ip: "10.10.10.10", type: "local" },
-    //         { ip: "192.168.1.10", type: "vpn" },
-    //         { ip: "172.16.0.10", type: "docker" }
-    //     ]
+    //     description: "Home Server"
     // }
+};
+
+// Network scanning configuration
+const SCAN_CONFIG = {
+    timeout: 30000, // 30 seconds
+    description: "ARP scan for configured WOL devices"
+};
+
+// Cache for discovered devices (to avoid scanning too frequently)
+let deviceCache = {
+    devices: [],
+    lastScan: null,
+    scanInProgress: false
+};
+
+// Cache timeout (5 minutes)
+const CACHE_TIMEOUT = 5 * 60 * 1000;
+
+// Function to perform arp-scan to find IP addresses for configured MAC addresses
+const scanForWolDevices = () => {
+    return new Promise((resolve) => {
+        // Scan the local network to build ARP table
+        const cmd = 'arp-scan 10.10.10.0/24';
+        exec(cmd, { timeout: SCAN_CONFIG.timeout }, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`arp-scan error:`, error.message);
+                resolve([]);
+                return;
+            }
+
+            const arpEntries = new Map(); // MAC -> IP mapping
+            const lines = stdout.split('\n');
+            
+            // Parse arp-scan output to build MAC->IP mapping
+            for (const line of lines) {
+                const match = line.match(/^(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F:]{17})\s+(.+)$/);
+                if (match) {
+                    const [, ip, mac, vendor] = match;
+                    const normalizedMac = mac.toUpperCase().replace(/:/g, '-');
+                    arpEntries.set(normalizedMac, { ip, vendor: vendor.trim() });
+                }
+            }
+            
+            // Create device objects for each WOL device
+            const devices = Object.values(WOL_DEVICES).map(wolDevice => {
+                const normalizedMac = wolDevice.mac.toUpperCase().replace(/:/g, '-');
+                const arpEntry = arpEntries.get(normalizedMac);
+                
+                return {
+                    mac: normalizedMac,
+                    friendlyName: wolDevice.name,
+                    description: wolDevice.description,
+                    deviceKey: normalizedMac,
+                    ip: arpEntry?.ip || null,
+                    vendor: arpEntry?.vendor || 'Unknown',
+                    networkName: "LAN",
+                    networkDescription: "Local Area Network",
+                    wolEnabled: true,
+                    scanMethod: 'arp-scan',
+                    lastSeen: arpEntry ? new Date().toISOString() : null
+                };
+            });
+            
+            resolve(devices);
+        });
+    });
+};
+
+// Function to scan for WOL devices
+const scanNetworks = async () => {
+    if (deviceCache.scanInProgress) {
+        console.log('Scan already in progress, skipping...');
+        return deviceCache.devices;
+    }
+
+    deviceCache.scanInProgress = true;
+    console.log('Starting ARP scan for WOL devices...');
+    
+    try {
+        // Scan for configured WOL devices
+        const devices = await scanForWolDevices();
+        
+        // Update cache
+        deviceCache.devices = devices;
+        deviceCache.lastScan = Date.now();
+        deviceCache.scanInProgress = false;
+        
+        console.log(`ARP scan completed. Found ${devices.length} WOL devices (${devices.filter(d => d.ip).length} online, ${devices.filter(d => !d.ip).length} offline).`);
+        return devices;
+        
+    } catch (error) {
+        console.error('Error during ARP scan:', error);
+        deviceCache.scanInProgress = false;
+        return deviceCache.devices; // Return cached devices on error
+    }
+};
+
+// Function to get devices (with caching)
+const getDevices = async (forceScan = false) => {
+    const now = Date.now();
+    const cacheExpired = !deviceCache.lastScan || (now - deviceCache.lastScan) > CACHE_TIMEOUT;
+    
+    if (forceScan || cacheExpired || deviceCache.devices.length === 0) {
+        return await scanNetworks();
+    }
+    
+    return deviceCache.devices;
 };
 
 app.post('/api/wol', (req, res) => {
     const deviceName = req.body.device;
-    const device = DEVICES[deviceName];
+    const device = WOL_DEVICES[deviceName];
 
     if (!device || !device.mac) {
         return res.status(400).json({ error: "Device not found or MAC address missing." });
@@ -81,18 +173,57 @@ app.post('/api/wol', (req, res) => {
     });
 });
 
-app.get('/api/devices', (req, res) => {
-    const deviceList = Object.keys(DEVICES).map(deviceName => ({
-        name: DEVICES[deviceName].name,
-        mac: DEVICES[deviceName].mac,
-        ips: DEVICES[deviceName].ips
-    }));
-    res.status(200).json(deviceList);
+app.get('/api/devices', async (req, res) => {
+    try {
+        const forceScan = req.query.scan === 'true';
+        const devices = await getDevices(forceScan);
+        
+        res.status(200).json({
+            devices: devices,
+            totalCount: devices.length,
+            wolDevicesCount: devices.length, // All devices are WOL devices
+            onlineDevicesCount: devices.filter(d => d.ip).length,
+            offlineDevicesCount: devices.filter(d => !d.ip).length,
+            lastScan: deviceCache.lastScan ? new Date(deviceCache.lastScan).toISOString() : null,
+            scanConfig: {
+                method: 'arp-scan',
+                description: SCAN_CONFIG.description
+            },
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({ error: `Failed to get devices: ${error.message}` });
+    }
 });
 
-// Get just device names (for backward compatibility)
+// Get just device names (for backward compatibility with WOL)
 app.get('/api/devices/names', (req, res) => {
-    res.status(200).json(Object.keys(DEVICES));
+    res.status(200).json(Object.keys(WOL_DEVICES));
+});
+
+// Get WOL-enabled devices only
+app.get('/api/devices/wol', (req, res) => {
+    const wolDeviceList = Object.keys(WOL_DEVICES).map(deviceName => ({
+        name: WOL_DEVICES[deviceName].name,
+        mac: WOL_DEVICES[deviceName].mac,
+        description: WOL_DEVICES[deviceName].description
+    }));
+    res.status(200).json(wolDeviceList);
+});
+
+// Trigger a network scan manually
+app.post('/api/devices/scan', async (req, res) => {
+    try {
+        const devices = await scanNetworks();
+        res.status(200).json({
+            message: 'Network scan completed',
+            devicesFound: devices.length,
+            devices: devices,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({ error: `Failed to scan network: ${error.message}` });
+    }
 });
 
 // Utility function to ping a device and check if it's online
@@ -110,36 +241,29 @@ const pingDevice = (ip) => {
     });
 };
 
-// Get device status (online/offline) - checks all IPs for the device
-app.get('/api/device-status/:deviceName', async (req, res) => {
-    const deviceName = req.params.deviceName;
-    const device = DEVICES[deviceName];
+// Get device status by IP address
+app.get('/api/device-status/:deviceIp', async (req, res) => {
+    const deviceIp = req.params.deviceIp;
     
-    if (!device || !device.ips || device.ips.length === 0) {
-        return res.status(400).json({ error: "Device not found or no IP addresses configured." });
-    }
-
     try {
-        // Check all IPs for the device
-        const ipStatuses = await Promise.all(
-            device.ips.map(async (ipObj) => {
-                const isOnline = await pingDevice(ipObj.ip);
-                return {
-                    ip: ipObj.ip,
-                    type: ipObj.type,
-                    status: isOnline ? 'online' : 'offline'
-                };
-            })
-        );
-
-        // Device is considered online if any IP is reachable
-        const isDeviceOnline = ipStatuses.some(ipStatus => ipStatus.status === 'online');
+        const isOnline = await pingDevice(deviceIp);
+        const devices = await getDevices();
+        const device = devices.find(d => d.ip === deviceIp);
+        
+        if (!device) {
+            return res.status(404).json({ error: "Device not found in discovered devices." });
+        }
 
         res.status(200).json({
-            device: deviceName,
+            ip: deviceIp,
             mac: device.mac,
-            ips: ipStatuses,
-            overallStatus: isDeviceOnline ? 'online' : 'offline',
+            vendor: device.vendor,
+            friendlyName: device.friendlyName,
+            deviceKey: device.deviceKey,
+            networkName: device.networkName,
+            wolEnabled: device.wolEnabled,
+            status: isOnline ? 'online' : 'offline',
+            lastSeen: device.lastSeen,
             timestamp: new Date().toISOString()
         });
     } catch (error) {
@@ -147,39 +271,52 @@ app.get('/api/device-status/:deviceName', async (req, res) => {
     }
 });
 
-// Get status of all devices
+// Get status of all discovered devices
 app.get('/api/devices/status', async (req, res) => {
     try {
+        const devices = await getDevices();
+        
         const deviceStatuses = await Promise.all(
-            Object.keys(DEVICES).map(async (deviceName) => {
-                const device = DEVICES[deviceName];
+            devices.map(async (device) => {
+                // Only ping devices that have an IP address
+                let isOnline = false;
+                if (device.ip) {
+                    isOnline = await pingDevice(device.ip);
+                }
+                // WOL-only devices (no IP) are considered offline
                 
-                // Check all IPs for this device
-                const ipStatuses = await Promise.all(
-                    device.ips.map(async (ipObj) => {
-                        const isOnline = await pingDevice(ipObj.ip);
-                        return {
-                            ip: ipObj.ip,
-                            type: ipObj.type,
-                            status: isOnline ? 'online' : 'offline'
-                        };
-                    })
-                );
-
-                // Device is considered online if any IP is reachable
-                const isDeviceOnline = ipStatuses.some(ipStatus => ipStatus.status === 'online');
-
                 return {
-                    device: deviceName,
+                    ip: device.ip,
                     mac: device.mac,
-                    ips: ipStatuses,
-                    overallStatus: isDeviceOnline ? 'online' : 'offline'
+                    vendor: device.vendor,
+                    friendlyName: device.friendlyName,
+                    deviceKey: device.deviceKey,
+                    networkName: device.networkName,
+                    networkDescription: device.networkDescription,
+                    wolEnabled: device.wolEnabled,
+                    status: isOnline ? 'online' : 'offline',
+                    lastSeen: device.lastSeen,
+                    scanMethod: device.scanMethod
                 };
             })
         );
         
+        // Group by network for better organization
+        const networkGroups = {};
+        deviceStatuses.forEach(device => {
+            if (!networkGroups[device.networkName]) {
+                networkGroups[device.networkName] = [];
+            }
+            networkGroups[device.networkName].push(device);
+        });
+        
         res.status(200).json({
             devices: deviceStatuses,
+            devicesByNetwork: networkGroups,
+            totalDevices: deviceStatuses.length,
+            onlineDevices: deviceStatuses.filter(d => d.status === 'online').length,
+            wolEnabledDevices: deviceStatuses.filter(d => d.wolEnabled).length,
+            lastScan: deviceCache.lastScan ? new Date(deviceCache.lastScan).toISOString() : null,
             timestamp: new Date().toISOString()
         });
     } catch (error) {
@@ -198,7 +335,7 @@ app.get('/api/system-info', (req, res) => {
             loadavg: os.loadavg(),
             totalmem: os.totalmem(),
             freemem: os.freemem(),
-            cpus: os.cpus().length,
+            cpus: os.cpus(),
             timestamp: new Date().toISOString()
         };
         res.status(200).json(systemInfo);
@@ -373,6 +510,57 @@ app.get('/api/services', (req, res) => {
     });
 });
 
+// Get network scanning information and statistics
+app.get('/api/networks', async (req, res) => {
+    try {
+        const devices = await getDevices();
+        
+        // Calculate statistics for the main LAN network
+        const lanDevices = devices.filter(d => d.networkName === "LAN");
+        const networkStats = [{
+            name: "LAN",
+            subnet: "10.10.10.0/24",
+            description: "Local Area Network",
+            scanType: "arp-scan",
+            totalDevices: lanDevices.length,
+            devicesWithMac: lanDevices.length, // All devices have MAC since they're from WOL config
+            wolEnabledDevices: lanDevices.length, // All devices are WOL enabled
+            onlineDevices: lanDevices.filter(d => d.ip).length,
+            offlineDevices: lanDevices.filter(d => !d.ip).length,
+            lastScanned: deviceCache.lastScan ? new Date(deviceCache.lastScan).toISOString() : null
+        }];
+        
+        res.status(200).json({
+            networks: networkStats,
+            scanStatus: {
+                inProgress: deviceCache.scanInProgress,
+                lastScan: deviceCache.lastScan ? new Date(deviceCache.lastScan).toISOString() : null,
+                cacheTimeout: CACHE_TIMEOUT / 1000, // in seconds
+                scanMethod: 'arp-scan'
+            },
+            wolDevices: Object.keys(WOL_DEVICES).map(key => ({
+                name: WOL_DEVICES[key].name,
+                mac: WOL_DEVICES[key].mac,
+                description: WOL_DEVICES[key].description
+            })),
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({ error: `Failed to get network information: ${error.message}` });
+    }
+});
+
 app.listen(port, '0.0.0.0', () => {
     console.log(`Node.js API listening at http://0.0.0.0:${port}`);
+    
+    // Perform initial network scan on startup (non-blocking)
+    setTimeout(async () => {
+        console.log('Performing initial network scan...');
+        try {
+            const devices = await scanNetworks();
+            console.log(`Initial scan completed. Found ${devices.length} devices.`);
+        } catch (error) {
+            console.error('Initial network scan failed:', error.message);
+        }
+    }, 5000); // Wait 5 seconds after server start
 });

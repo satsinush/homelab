@@ -44,26 +44,32 @@ const Devices = () => {
             try {
                 setError(''); // Clear any previous errors
 
-                // Try to fetch devices list first (use names endpoint for backward compatibility)
-                const devicesResult = await tryApiCall('/devices/names');
-                setDevices(devicesResult.data);
-
-                // Then try to fetch device statuses
+                // Fetch device statuses (this includes all device info)
                 const statusResult = await tryApiCall('/devices/status');
+
+                // Extract device keys for the devices list (use deviceKey which is MAC or IP)
+                const deviceKeys = statusResult.data.devices.map(device => device.deviceKey || device.mac || device.ip);
+                setDevices(deviceKeys);
+
+                // Map device statuses using deviceKey as key
                 const statusMap = {};
                 statusResult.data.devices.forEach(device => {
-                    // Use overall status and find primary IP (prefer local, then first available)
-                    statusMap[device.device] = {
-                        status: device.overallStatus,
-                        ips: device.ips,
-                        mac: device.mac
+                    const deviceKey = device.deviceKey || device.mac || device.ip;
+                    statusMap[deviceKey] = {
+                        status: device.status,
+                        ip: device.ip,
+                        mac: device.mac,
+                        vendor: device.vendor,
+                        networkName: device.networkName,
+                        wolEnabled: device.wolEnabled,
+                        friendlyName: device.friendlyName // Keep friendly name for display
                     };
                 });
                 setDeviceStatuses(statusMap);
                 setLoading(false);
 
                 // Store working API URL for future requests
-                window.workingApiUrl = devicesResult.baseUrl;
+                window.workingApiUrl = statusResult.baseUrl;
 
             } catch (err) {
                 console.error('All API endpoints failed:', err);
@@ -87,11 +93,15 @@ const Devices = () => {
                     const response = await apiCall(window.workingApiUrl, '/devices/status');
                     const statusMap = {};
                     response.devices.forEach(device => {
-                        // Use overall status and find primary IP (prefer local, then first available)
-                        statusMap[device.device] = {
-                            status: device.overallStatus,
-                            ips: device.ips,
-                            mac: device.mac
+                        const deviceKey = device.deviceKey || device.mac || device.ip;
+                        statusMap[deviceKey] = {
+                            status: device.status,
+                            ip: device.ip,
+                            mac: device.mac,
+                            vendor: device.vendor,
+                            networkName: device.networkName,
+                            wolEnabled: device.wolEnabled,
+                            friendlyName: device.friendlyName // Keep friendly name for display
                         };
                     });
                     setDeviceStatuses(statusMap);
@@ -104,9 +114,13 @@ const Devices = () => {
         return () => clearInterval(interval);
     }, []);
 
-    const handleWakeOnLan = async (deviceName) => {
+    const handleWakeOnLan = async (deviceKey) => {
         setMessage('');
         setError('');
+
+        // Get device info to find the friendly name for WOL
+        const deviceInfo = deviceStatuses[deviceKey];
+        const deviceName = deviceInfo?.friendlyName || deviceKey;
 
         try {
             const result = await tryApiCall('/wol', {
@@ -121,20 +135,31 @@ const Devices = () => {
         }
     };
 
-    const handleRefreshDevice = async (deviceName) => {
+    const handleRefreshDevice = async (deviceKey) => {
         if (!window.workingApiUrl) return;
 
+        // Get device IP from device statuses
+        const deviceInfo = deviceStatuses[deviceKey];
+        if (!deviceInfo?.ip) {
+            console.warn(`No IP found for device: ${deviceKey}`);
+            return;
+        }
+
         // Add device to refreshing set
-        setRefreshingDevices(prev => new Set([...prev, deviceName]));
+        setRefreshingDevices(prev => new Set([...prev, deviceKey]));
 
         try {
-            const response = await apiCall(window.workingApiUrl, `/device-status/${deviceName}`);
+            const response = await apiCall(window.workingApiUrl, `/device-status/${deviceInfo.ip}`);
             setDeviceStatuses(prev => ({
                 ...prev,
-                [deviceName]: {
-                    status: response.overallStatus,
-                    ips: response.ips,
-                    mac: response.mac
+                [deviceKey]: {
+                    status: response.status,
+                    ip: response.ip,
+                    mac: response.mac,
+                    vendor: response.vendor,
+                    networkName: response.networkName,
+                    wolEnabled: response.wolEnabled,
+                    friendlyName: response.friendlyName
                 }
             }));
         } catch (err) {
@@ -143,7 +168,7 @@ const Devices = () => {
             // Remove device from refreshing set
             setRefreshingDevices(prev => {
                 const newSet = new Set(prev);
-                newSet.delete(deviceName);
+                newSet.delete(deviceKey);
                 return newSet;
             });
         }
@@ -167,15 +192,35 @@ const Devices = () => {
         return <ComputerIcon />; // Default
     };
 
+    if (loading) {
+        return (
+            <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
+                <Box sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: 'calc(100vh - 200px)',
+                    py: 8
+                }}>
+                    <CircularProgress size={60} sx={{ mb: 2 }} />
+                    <Typography variant="h6" color="text.secondary">
+                        Loading devices...
+                    </Typography>
+                </Box>
+            </Container>
+        );
+    }
+
     return (
-        <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%' }}>
+        <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
             {/* Header Section */}
             <Box sx={{ mb: 4 }}>
                 <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600, color: 'text.primary' }}>
-                    Network Devices
+                    WOL Devices
                 </Typography>
                 <Typography variant="h6" color="text.secondary" sx={{ mb: 3 }}>
-                    Monitor and manage devices on your network
+                    Monitor and wake up configured devices on your network
                 </Typography>
 
                 {/* Stats Cards */}
@@ -186,7 +231,7 @@ const Devices = () => {
                                 {devices.length}
                             </Typography>
                             <Typography variant="body2" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 1 }}>
-                                Total Devices
+                                WOL Devices
                             </Typography>
                         </Paper>
                     </Grid>
@@ -230,14 +275,7 @@ const Devices = () => {
             )}
 
             {/* Content */}
-            {loading ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 8 }}>
-                    <CircularProgress size={60} sx={{ mb: 2 }} />
-                    <Typography variant="h6" color="text.secondary">
-                        Loading devices...
-                    </Typography>
-                </Box>
-            ) : devices.length > 0 ? (
+            {devices.length > 0 ? (
                 <Grid container spacing={3}>
                     {devices.map(device => {
                         const deviceInfo = deviceStatuses[device] || {};
@@ -252,7 +290,7 @@ const Devices = () => {
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                                 <Box sx={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-                                                    {getDeviceTypeIcon(device)}
+                                                    {getDeviceTypeIcon(deviceInfo.friendlyName || device)}
                                                     {isOnline ? (
                                                         <OnlineIcon sx={{ color: 'success.main', fontSize: 16, position: 'absolute', top: -4, right: -4 }} />
                                                     ) : (
@@ -277,11 +315,9 @@ const Devices = () => {
                                                     }
                                                 }} />
                                             </IconButton>
-                                        </Box>
-
-                                        {/* Device Info */}
+                                        </Box>                        {/* Device Info */}
                                         <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
-                                            {device}
+                                            {deviceInfo.friendlyName || device}
                                         </Typography>
 
                                         <Chip
@@ -293,39 +329,42 @@ const Devices = () => {
 
                                         {/* Device Details */}
                                         <Stack spacing={1} sx={{ mb: 3 }}>
+                                            {deviceInfo.ip && (
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <Typography variant="body2" color="text.secondary">IP:</Typography>
+                                                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{deviceInfo.ip}</Typography>
+                                                </Box>
+                                            )}
                                             {deviceInfo.mac && (
                                                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                                     <Typography variant="body2" color="text.secondary">MAC:</Typography>
                                                     <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{deviceInfo.mac}</Typography>
                                                 </Box>
                                             )}
+                                            {deviceInfo.vendor && (
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <Typography variant="body2" color="text.secondary">Vendor:</Typography>
+                                                    <Typography variant="body2">{deviceInfo.vendor}</Typography>
+                                                </Box>
+                                            )}
+                                            {deviceInfo.networkName && (
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <Typography variant="body2" color="text.secondary">Network:</Typography>
+                                                    <Typography variant="body2">{deviceInfo.networkName}</Typography>
+                                                </Box>
+                                            )}
+                                            {deviceInfo.wolEnabled !== undefined && (
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <Typography variant="body2" color="text.secondary">WOL:</Typography>
+                                                    <Chip
+                                                        label={deviceInfo.wolEnabled ? 'Enabled' : 'Disabled'}
+                                                        size="small"
+                                                        color={deviceInfo.wolEnabled ? 'success' : 'default'}
+                                                        variant="outlined"
+                                                    />
+                                                </Box>
+                                            )}
                                         </Stack>
-
-                                        {/* Network Interfaces */}
-                                        {deviceInfo.ips && deviceInfo.ips.length > 0 && (
-                                            <Box>
-                                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                                    Network Interfaces:
-                                                </Typography>
-                                                <Stack spacing={1}>
-                                                    {deviceInfo.ips.map((ipObj, index) => (
-                                                        <Box key={index} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
-                                                            <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                                {ipObj.ip}
-                                                            </Typography>
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                <Chip label={ipObj.type} size="small" variant="outlined" />
-                                                                {ipObj.status === 'online' ? (
-                                                                    <OnlineIcon sx={{ color: 'success.main', fontSize: 16 }} />
-                                                                ) : (
-                                                                    <OfflineIcon sx={{ color: 'error.main', fontSize: 16 }} />
-                                                                )}
-                                                            </Box>
-                                                        </Box>
-                                                    ))}
-                                                </Stack>
-                                            </Box>
-                                        )}
                                     </CardContent>
 
                                     {/* Actions */}
@@ -333,13 +372,12 @@ const Devices = () => {
                                     <Box sx={{ p: 2 }}>
                                         <Button
                                             fullWidth
-                                            variant={isOnline ? "outlined" : "contained"}
+                                            variant="contained"
                                             startIcon={<PowerIcon />}
                                             onClick={() => handleWakeOnLan(device)}
-                                            disabled={isOnline}
                                             color="primary"
                                         >
-                                            {isOnline ? 'Already Online' : 'Wake Device'}
+                                            {'Wake Device'}
                                         </Button>
                                     </Box>
                                 </Card>
@@ -351,10 +389,10 @@ const Devices = () => {
                 <Paper sx={{ p: 6, textAlign: 'center', bgcolor: 'grey.50' }}>
                     <ComputerIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                     <Typography variant="h5" sx={{ mb: 1, fontWeight: 600 }}>
-                        No Devices Found
+                        No WOL Devices Configured
                     </Typography>
                     <Typography variant="body1" color="text.secondary">
-                        No devices are configured or failed to load devices from the server.
+                        No Wake-on-LAN devices are configured or failed to load devices from the server.
                     </Typography>
                 </Paper>
             )}
@@ -362,12 +400,12 @@ const Devices = () => {
             {/* Info Section */}
             <Paper sx={{ p: 3, mt: 4, bgcolor: 'primary.50' }}>
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                    About Device Management
+                    About WOL Device Management
                 </Typography>
                 <Typography variant="body1" color="text.secondary">
-                    This page shows all configured network devices. You can monitor their status,
-                    view network interface information, and wake up devices using Wake-on-LAN.
-                    Device status is automatically refreshed every 30 seconds.
+                    This page shows all configured Wake-on-LAN devices. Each device is checked via ARP scan
+                    to determine if it's currently online (has an IP address) or offline. You can wake up any
+                    device using the Wake-on-LAN button. Device status is automatically refreshed every 30 seconds.
                 </Typography>
             </Paper>
         </Container>

@@ -87,14 +87,15 @@ const Settings = () => {
 
     if (loading) {
         return (
-            <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%' }}>
-                <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
-                    Settings
-                </Typography>
-                <Typography variant="h6" color="text.secondary" sx={{ mb: 4 }}>
-                    Configure your homelab dashboard
-                </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 8 }}>
+            <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
+                <Box sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: 'calc(100vh - 200px)',
+                    py: 8
+                }}>
                     <CircularProgress size={60} sx={{ mb: 2 }} />
                     <Typography variant="h6" color="text.secondary">
                         Loading settings...
@@ -105,7 +106,7 @@ const Settings = () => {
     }
 
     return (
-        <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%' }}>
+        <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
             <Box sx={{ mb: 4 }}>
                 <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
                     Settings
