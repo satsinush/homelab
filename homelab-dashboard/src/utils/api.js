@@ -1,13 +1,44 @@
 // src/utils/api.js
 import axios from 'axios';
 
+// Configure axios defaults
+axios.defaults.withCredentials = true;
+
 // API endpoints in order of preference
 export const API_ENDPOINTS = [
+    //'http://localhost:5000/api',                 // Development first
     'https://admin.rpi5-server.home.arpa/api',  // Primary HTTPS
     'http://admin.rpi5-server.home.arpa/api',   // HTTP fallback
     'http://10.10.10.10:5000/api',              // Direct IP fallback
-    'http://localhost:5000/api'                 // Local development
 ];
+
+// Configure axios interceptors for authentication
+axios.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+            config.headers['Authorization'] = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
+// Add response interceptor to handle auth errors
+axios.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            // Clear token and redirect to login if we get 401
+            localStorage.removeItem('auth_token');
+            delete axios.defaults.headers.common['Authorization'];
+            // The AuthContext will handle the redirect
+        }
+        return Promise.reject(error);
+    }
+);
 
 /**
  * Try API endpoints until one works

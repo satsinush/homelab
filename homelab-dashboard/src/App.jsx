@@ -1,106 +1,87 @@
 // src/App.jsx
 import React, { useState } from 'react';
-import { ThemeProvider, createTheme, CssBaseline, Box, useMediaQuery } from '@mui/material';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { ThemeProvider, CssBaseline, Box } from '@mui/material';
+import { ThemeModeProvider, useThemeMode } from './contexts/ThemeContext';
+import { NotificationProvider } from './contexts/NotificationContext';
+import { AuthProvider } from './contexts/AuthContext';
+import AuthGuard from './components/AuthGuard';
 import Navigation from './components/Navigation';
 import System from './components/System';
 import Devices from './components/Devices';
 import PackageManager from './components/PackageManager';
 import Settings from './components/Settings';
+import Profile from './components/Profile';
 import './App.css';
 
-function App() {
-  const [activeTab, setActiveTab] = useState('system');
+function AppContent() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { theme } = useThemeMode();
+  const location = useLocation();
 
-  const theme = createTheme({
-    palette: {
-      primary: {
-        main: '#3b82f6',
-      },
-      secondary: {
-        main: '#10b981',
-      },
-      background: {
-        default: '#f8fafc',
-      },
-    },
-    typography: {
-      fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-    },
-    breakpoints: {
-      values: {
-        xs: 0,
-        sm: 600,
-        md: 960,
-        lg: 1280,
-        xl: 1920,
-      },
-    },
-    components: {
-      MuiButton: {
-        styleOverrides: {
-          root: {
-            borderRadius: 8,
-            textTransform: 'none',
-            fontWeight: 500,
-          },
-        },
-      },
-      MuiCard: {
-        styleOverrides: {
-          root: {
-            borderRadius: 12,
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-          },
-        },
-      },
-    },
-  });
-
-  const renderActiveComponent = () => {
-    switch (activeTab) {
-      case 'system':
-      case 'dashboard': // Backward compatibility
-      case 'resources': // Backward compatibility
-        return <System />;
-      case 'devices':
-      case 'wol': // Backward compatibility
-        return <Devices />;
-      case 'packages':
-        return <PackageManager />;
-      case 'settings':
-        return <Settings />;
-      default:
-        return <System />;
-    }
+  // Get current tab from URL path
+  const getCurrentTab = () => {
+    const path = location.pathname;
+    if (path === '/' || path === '/system') return 'system';
+    if (path === '/devices') return 'devices';
+    if (path === '/packages') return 'packages';
+    if (path === '/settings') return 'settings';
+    if (path === '/profile') return 'profile';
+    return 'system';
   };
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-        <Navigation
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          mobileOpen={mobileOpen}
-          setMobileOpen={setMobileOpen}
-        />
-        <Box
-          component="main"
-          sx={{
-            flexGrow: 1,
-            bgcolor: 'background.default',
-            minHeight: '100vh',
-            width: { xs: '100%', md: `calc(100% - 280px)` },
-            mt: { xs: '64px', md: 0 }, // Add top margin on mobile for app bar
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          {renderActiveComponent()}
-        </Box>
-      </Box>
+      <NotificationProvider>
+        <AuthGuard>
+          <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+            <Navigation
+              activeTab={getCurrentTab()}
+              mobileOpen={mobileOpen}
+              setMobileOpen={setMobileOpen}
+            />
+            <Box
+              component="main"
+              sx={{
+                flexGrow: 1,
+                bgcolor: 'background.default',
+                minHeight: '100vh',
+                width: { xs: '100%', md: `calc(100% - 280px)` },
+                mt: { xs: '64px', md: 0 }, // Add top margin on mobile for app bar
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <Routes>
+                <Route path="/" element={<Navigate to="/system" replace />} />
+                <Route path="/system" element={<System />} />
+                <Route path="/devices" element={<Devices />} />
+                <Route path="/packages" element={<PackageManager />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/profile" element={<Profile />} />
+                {/* Backward compatibility routes */}
+                <Route path="/dashboard" element={<Navigate to="/system" replace />} />
+                <Route path="/resources" element={<Navigate to="/system" replace />} />
+                <Route path="/wol" element={<Navigate to="/devices" replace />} />
+              </Routes>
+            </Box>
+          </Box>
+        </AuthGuard>
+      </NotificationProvider>
     </ThemeProvider>
+  );
+}
+
+function App() {
+  return (
+    <ThemeModeProvider>
+      <AuthProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </AuthProvider>
+    </ThemeModeProvider>
   );
 }
 

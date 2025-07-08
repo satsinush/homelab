@@ -5,7 +5,6 @@ import {
     Card,
     CardContent,
     Typography,
-    Alert,
     CircularProgress,
     Container,
     Paper,
@@ -26,28 +25,28 @@ import {
     Schedule as PendingIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
+import { useNotification } from '../contexts/NotificationContext';
 
 const PackageManager = () => {
     const [packages, setPackages] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    const { showError } = useNotification();
 
     useEffect(() => {
         const fetchPackages = async () => {
             try {
-                setError('');
                 const result = await tryApiCall('/packages');
                 setPackages(result.data);
                 setLoading(false);
             } catch (err) {
-                setError('Unable to connect to API server - Package management not available');
+                showError('Unable to connect to API server - Package management not available');
                 setLoading(false);
             }
         };
 
         fetchPackages();
-    }, []);
+    }, [showError]);
 
     const filteredPackages = packages.filter(pkg =>
         pkg.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -70,20 +69,6 @@ const PackageManager = () => {
                         Loading package information...
                     </Typography>
                 </Box>
-            </Container>
-        );
-    }
-
-    if (error) {
-        return (
-            <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
-                <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
-                    Package Manager
-                </Typography>
-                <Alert severity="error">
-                    <Typography variant="h6" sx={{ mb: 1 }}>⚠️ No Data Available</Typography>
-                    <Typography>{error}</Typography>
-                </Alert>
             </Container>
         );
     }
@@ -207,7 +192,7 @@ const PackageManager = () => {
                     </CardContent>
                 </Card>
             ) : (
-                <Paper sx={{ p: 6, textAlign: 'center', bgcolor: 'grey.50' }}>
+                <Paper sx={{ p: 6, textAlign: 'center', bgcolor: 'action.selected' }}>
                     <PackageIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                     <Typography variant="h5" sx={{ mb: 1, fontWeight: 600 }}>
                         No Packages Found

@@ -1,86 +1,365 @@
-// C:\dev\homelab-api-server\server.js
+// Simplified Homelab API Server - WOL Dashboard with Authentication
 const express = require('express');
 const wol = require('wake_on_lan');
 const cors = require('cors');
 const { exec } = require('child_process');
 const os = require('os');
+const Database = require('better-sqlite3');
+const path = require('path');
 const fs = require('fs');
+const argon2 = require('argon2');
+const jwt = require('jsonwebtoken');
+const session = require('express-session');
+const rateLimit = require('express-rate-limit');
+const { v4: uuidv4 } = require('uuid');
 const app = express();
 const port = 5000;
 
-app.use(cors({
-    origin: [
-        'http://localhost:5173',  // Vite dev server
-        'http://localhost:3000',  // React dev server (if used)
-        'https://admin.rpi5-server.home.arpa',  // Production domain
-        'http://admin.rpi5-server.home.arpa',   // HTTP version
-        'http://10.10.10.10',    // Direct IP access
-        'https://10.10.10.10'    // HTTPS IP access
-    ],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
-app.use(express.json());
+// =============================================================================
+// CONFIGURATION & DATABASE
+// =============================================================================
 
-// Add a simple health check endpoint
-app.get('/api/health', (req, res) => {
-    res.status(200).json({ 
-        status: 'OK', 
-        timestamp: new Date().toISOString(),
-        platform: os.platform(),
-        hostname: os.hostname(),
-        version: '1.0.0'
-    });
-});
+// Initialize SQLite database
+const dbPath = path.join(__dirname, 'data');
+if (!fs.existsSync(dbPath)) {
+    fs.mkdirSync(dbPath, { recursive: true });
+}
 
-// Define devices with MAC addresses for WOL functionality
-const WOL_DEVICES = {
-    "Andrew-Computer": {
-        name: "Andrew-Computer",
-        mac: "00-D8-61-78-E9-34", // <<< REPLACE WITH YOUR PC's MAC ADDRESS
-        description: "Main Desktop Computer"
-    }
-    // Add more devices for WOL as needed:
-    // "HomeServer": {
-    //     name: "HomeServer", 
-    //     mac: "AA:BB:CC:DD:EE:FF",
-    //     description: "Home Server"
-    // }
+const db = new Database(path.join(dbPath, 'homelab.db'));
+
+// Initialize database tables
+db.exec(`
+    CREATE TABLE IF NOT EXISTS wol_devices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        mac TEXT NOT NULL UNIQUE,
+        description TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS settings (
+        id TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        salt TEXT NOT NULL,
+        roles TEXT NOT NULL DEFAULT '[]',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_login DATETIME
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        token TEXT NOT NULL,
+        expires_at DATETIME NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id)
+    );
+`);
+
+// Authentication constants
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'your-super-secret-session-key-change-in-production';
+
+// Default server settings
+const DEFAULT_SETTINGS = {
+    networkSubnet: '10.10.10.0/24',
+    scanTimeout: 30000,
+    cacheTimeout: 300000, // 5 minutes
+    services: [
+        { name: 'nginx', displayName: 'NGINX Web Server' },
+        { name: 'sshd', displayName: 'SSH Daemon' },
+        { name: 'homelab-api', displayName: 'Homelab API' },
+        { name: 'ddclient', displayName: 'DDClient Dynamic DNS' },
+        { name: 'pihole-FTL', displayName: 'Pi-hole FTL' },
+        { name: 'rustdesk-server-hbbr', displayName: 'RustDesk Relay' },
+        { name: 'rustdesk-server-hbbs', displayName: 'RustDesk Rendezvous' },
+        { name: 'ufw', displayName: 'UFW Firewall' },
+        { name: 'unbound', displayName: 'Unbound DNS' }
+    ]
 };
 
-// Network scanning configuration
-const SCAN_CONFIG = {
-    timeout: 30000, // 30 seconds
-    description: "ARP scan for configured WOL devices"
-};
+// Initialize settings
+let serverSettings = { ...DEFAULT_SETTINGS };
 
-// Cache for discovered devices (to avoid scanning too frequently)
+// Device cache
 let deviceCache = {
     devices: [],
     lastScan: null,
     scanInProgress: false
 };
 
-// Cache timeout (5 minutes)
-const CACHE_TIMEOUT = 5 * 60 * 1000;
+// =============================================================================
+// AUTHENTICATION FUNCTIONS
+// =============================================================================
 
-// Function to perform arp-scan to find IP addresses for configured MAC addresses
-const scanForWolDevices = () => {
+// Create default admin user
+const createDefaultUser = async () => {
+    try {
+        const checkStmt = db.prepare('SELECT COUNT(*) as count FROM users');
+        const result = checkStmt.get();
+        
+        if (result.count === 0) {
+            const salt = uuidv4();
+            const passwordHash = await argon2.hash('password', { salt: Buffer.from(salt) });
+            
+            const insertStmt = db.prepare(`
+                INSERT INTO users (username, password_hash, salt, roles) 
+                VALUES (?, ?, ?, ?)
+            `);
+            
+            insertStmt.run('admin', passwordHash, salt, JSON.stringify(['admin']));
+            console.log('Default admin user created (username: admin, password: password)');
+        }
+    } catch (error) {
+        console.error('Error creating default user:', error);
+    }
+};
+
+// Authenticate user
+const authenticateUser = async (username, password) => {
+    try {
+        const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
+        const user = stmt.get(username);
+        
+        if (!user) {
+            return null;
+        }
+        
+        const isValid = await argon2.verify(user.password_hash, password);
+        
+        if (!isValid) {
+            return null;
+        }
+        
+        // Update last login
+        const updateStmt = db.prepare('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?');
+        updateStmt.run(user.id);
+        
+        return {
+            id: user.id,
+            username: user.username,
+            roles: JSON.parse(user.roles),
+            lastLogin: user.last_login
+        };
+    } catch (error) {
+        console.error('Authentication error:', error);
+        return null;
+    }
+};
+
+// Create session
+const createSession = (userId) => {
+    try {
+        const sessionId = uuidv4();
+        const token = jwt.sign(
+            { 
+                userId, 
+                sessionId,
+                iat: Math.floor(Date.now() / 1000),
+                exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
+            },
+            JWT_SECRET
+        );
+        
+        const expiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000)); // 24 hours
+        
+        const stmt = db.prepare(`
+            INSERT INTO sessions (id, user_id, token, expires_at) 
+            VALUES (?, ?, ?, ?)
+        `);
+        
+        stmt.run(sessionId, userId, token, expiresAt.toISOString());
+        
+        return { sessionId, token, expiresAt };
+    } catch (error) {
+        console.error('Session creation error:', error);
+        return null;
+    }
+};
+
+// Verify session
+const verifySession = (token) => {
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        
+        const stmt = db.prepare(`
+            SELECT s.*, u.username, u.roles 
+            FROM sessions s 
+            JOIN users u ON s.user_id = u.id 
+            WHERE s.id = ? AND s.expires_at > CURRENT_TIMESTAMP
+        `);
+        
+        const session = stmt.get(decoded.sessionId);
+        
+        if (!session) {
+            return null;
+        }
+        
+        return {
+            userId: session.user_id,
+            username: session.username,
+            roles: JSON.parse(session.roles),
+            sessionId: session.id
+        };
+    } catch (error) {
+        console.error('Session verification error:', error);
+        return null;
+    }
+};
+
+// Delete session
+const deleteSession = (sessionId) => {
+    try {
+        const stmt = db.prepare('DELETE FROM sessions WHERE id = ?');
+        return stmt.run(sessionId);
+    } catch (error) {
+        console.error('Session deletion error:', error);
+        return null;
+    }
+};
+
+// Clean expired sessions
+const cleanExpiredSessions = () => {
+    try {
+        const stmt = db.prepare('DELETE FROM sessions WHERE expires_at < CURRENT_TIMESTAMP');
+        const result = stmt.run();
+        if (result.changes > 0) {
+            console.log(`Cleaned ${result.changes} expired sessions`);
+        }
+    } catch (error) {
+        console.error('Session cleanup error:', error);
+    }
+};
+
+// Authentication middleware
+const requireAuth = (requiredRole = null) => {
+    return (req, res, next) => {
+        const token = req.headers.authorization?.replace('Bearer ', '') || req.session.token;
+        
+        if (!token) {
+            return res.status(401).json({ error: 'Authentication required' });
+        }
+        
+        const session = verifySession(token);
+        
+        if (!session) {
+            return res.status(401).json({ error: 'Invalid or expired session' });
+        }
+        
+        // Check role if specified
+        if (requiredRole && !session.roles.includes(requiredRole)) {
+            return res.status(403).json({ error: 'Insufficient permissions' });
+        }
+        
+        req.user = session;
+        next();
+    };
+};
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+// Load settings from database
+const loadSettings = () => {
+    try {
+        const settingsStmt = db.prepare('SELECT data FROM settings WHERE id = ?');
+        const result = settingsStmt.get('server-config');
+        
+        if (result) {
+            serverSettings = { ...DEFAULT_SETTINGS, ...JSON.parse(result.data) };
+            console.log('Server settings loaded from database');
+        } else {
+            // Insert default settings
+            const insertStmt = db.prepare('INSERT INTO settings (id, data) VALUES (?, ?)');
+            insertStmt.run('server-config', JSON.stringify(DEFAULT_SETTINGS));
+            console.log('Default settings created');
+        }
+    } catch (error) {
+        console.error('Error loading settings:', error);
+    }
+};
+
+// Cache timeout from settings
+const getCacheTimeout = () => serverSettings.cacheTimeout || 300000;
+
+// Get WOL devices from database
+const getWolDevices = () => {
+    try {
+        const stmt = db.prepare('SELECT * FROM wol_devices ORDER BY name');
+        const devices = stmt.all();
+        return devices.map(device => ({
+            _id: device.id,
+            name: device.name,
+            mac: device.mac,
+            description: device.description,
+            createdAt: device.created_at,
+            updatedAt: device.updated_at
+        }));
+    } catch (error) {
+        console.error('Error getting WOL devices:', error);
+        return [];
+    }
+};
+
+// Add or update WOL device
+const saveWolDevice = (device) => {
+    try {
+        if (device._id) {
+            // Update existing device
+            const stmt = db.prepare('UPDATE wol_devices SET name = ?, mac = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+            const result = stmt.run(device.name, device.mac, device.description, device._id);
+            return result.changes;
+        } else {
+            // Insert new device
+            const stmt = db.prepare('INSERT INTO wol_devices (name, mac, description) VALUES (?, ?, ?)');
+            const result = stmt.run(device.name, device.mac, device.description);
+            return { _id: result.lastInsertRowid, ...device };
+        }
+    } catch (error) {
+        console.error('Error saving WOL device:', error);
+        throw error;
+    }
+};
+
+// Delete WOL device
+const deleteWolDevice = (deviceId) => {
+    try {
+        const stmt = db.prepare('DELETE FROM wol_devices WHERE id = ?');
+        const result = stmt.run(deviceId);
+        return result.changes;
+    } catch (error) {
+        console.error('Error deleting WOL device:', error);
+        throw error;
+    }
+};
+
+// ARP scan to find devices on network
+const scanForDevices = async () => {
+    const wolDevices = getWolDevices();
+    
     return new Promise((resolve) => {
-        // Scan the local network to build ARP table
-        const cmd = 'arp-scan 10.10.10.0/24';
-        exec(cmd, { timeout: SCAN_CONFIG.timeout }, (error, stdout, stderr) => {
+        const cmd = `arp-scan ${serverSettings.networkSubnet}`;
+        exec(cmd, { timeout: serverSettings.scanTimeout }, (error, stdout, stderr) => {
             if (error) {
-                console.error(`arp-scan error:`, error.message);
+                console.error('ARP scan error:', error.message);
                 resolve([]);
                 return;
             }
 
-            const arpEntries = new Map(); // MAC -> IP mapping
+            // Parse ARP scan output
+            const arpEntries = new Map();
             const lines = stdout.split('\n');
             
-            // Parse arp-scan output to build MAC->IP mapping
             for (const line of lines) {
                 const match = line.match(/^(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F:]{17})\s+(.+)$/);
                 if (match) {
@@ -90,12 +369,13 @@ const scanForWolDevices = () => {
                 }
             }
             
-            // Create device objects for each WOL device
-            const devices = Object.values(WOL_DEVICES).map(wolDevice => {
+            // Create device list from WOL configuration
+            const devices = wolDevices.map(wolDevice => {
                 const normalizedMac = wolDevice.mac.toUpperCase().replace(/:/g, '-');
                 const arpEntry = arpEntries.get(normalizedMac);
                 
                 return {
+                    _id: wolDevice._id,
                     mac: normalizedMac,
                     friendlyName: wolDevice.name,
                     description: wolDevice.description,
@@ -115,107 +395,352 @@ const scanForWolDevices = () => {
     });
 };
 
-// Function to scan for WOL devices
-const scanNetworks = async () => {
+// Main scan function
+const performScan = async () => {
     if (deviceCache.scanInProgress) {
-        console.log('Scan already in progress, skipping...');
+        console.log('Scan already in progress...');
         return deviceCache.devices;
     }
 
     deviceCache.scanInProgress = true;
-    console.log('Starting ARP scan for WOL devices...');
+    console.log('Starting ARP scan...');
     
     try {
-        // Scan for configured WOL devices
-        const devices = await scanForWolDevices();
+        const devices = await scanForDevices();
         
-        // Update cache
         deviceCache.devices = devices;
         deviceCache.lastScan = Date.now();
         deviceCache.scanInProgress = false;
         
-        console.log(`ARP scan completed. Found ${devices.length} WOL devices (${devices.filter(d => d.ip).length} online, ${devices.filter(d => !d.ip).length} offline).`);
+        console.log(`Scan completed: ${devices.length} devices (${devices.filter(d => d.ip).length} online)`);
         return devices;
         
     } catch (error) {
-        console.error('Error during ARP scan:', error);
+        console.error('Scan error:', error);
         deviceCache.scanInProgress = false;
-        return deviceCache.devices; // Return cached devices on error
+        return deviceCache.devices;
     }
 };
 
-// Function to get devices (with caching)
+// Get devices with caching
 const getDevices = async (forceScan = false) => {
     const now = Date.now();
-    const cacheExpired = !deviceCache.lastScan || (now - deviceCache.lastScan) > CACHE_TIMEOUT;
+    const cacheExpired = !deviceCache.lastScan || (now - deviceCache.lastScan) > getCacheTimeout();
     
     if (forceScan || cacheExpired || deviceCache.devices.length === 0) {
-        return await scanNetworks();
+        return await performScan();
     }
     
     return deviceCache.devices;
 };
 
-app.post('/api/wol', (req, res) => {
-    const deviceName = req.body.device;
-    const device = WOL_DEVICES[deviceName];
+// =============================================================================
+// MIDDLEWARE CONFIGURATION
+// =============================================================================
 
-    if (!device || !device.mac) {
-        return res.status(400).json({ error: "Device not found or MAC address missing." });
+// CORS configuration
+app.use(cors({
+    origin: [
+        'http://localhost:5173',  // Vite dev server
+        'http://localhost:3000',  // React dev server
+        'https://admin.rpi5-server.home.arpa',  // Production domain
+        'http://admin.rpi5-server.home.arpa',   // HTTP version
+        'http://10.10.10.10',    // Direct IP access
+        'https://10.10.10.10'    // HTTPS IP access
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Rate limiting for login attempts
+const loginLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: process.env.NODE_ENV === 'production' ? 1 : 60, // Stricter in production
+    message: { error: 'Too many login attempts, please try again later' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// Session configuration
+app.use(session({
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: false, // Set to true in production with HTTPS
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
+}));
 
-    wol.wake(device.mac, (error) => {
-        if (error) {
-            console.error(`Error sending WoL packet to ${deviceName}:`, error);
-            return res.status(500).json({ error: `Failed to send WoL packet: ${error.message}` });
+app.use(express.json());
+
+// =============================================================================
+// AUTHENTICATION ENDPOINTS
+// =============================================================================
+
+// Login endpoint
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        
+        if (!username || !password) {
+            return res.status(400).json({ error: 'Username and password are required' });
         }
-        res.status(200).json({ message: `WoL packet sent to ${deviceName} (${device.mac}).` });
+        
+        const user = await authenticateUser(username, password);
+        
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+        
+        const session = createSession(user.id);
+        
+        if (!session) {
+            return res.status(500).json({ error: 'Failed to create session' });
+        }
+        
+        // Store token in session
+        req.session.token = session.token;
+        req.session.userId = user.id;
+        
+        res.json({
+            message: 'Login successful',
+            user: {
+                id: user.id,
+                username: user.username,
+                roles: user.roles
+            },
+            token: session.token,
+            expiresAt: session.expiresAt
+        });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Logout endpoint
+app.post('/api/auth/logout', (req, res) => {
+    try {
+        const token = req.headers.authorization?.replace('Bearer ', '') || req.session.token;
+        
+        if (token) {
+            const session = verifySession(token);
+            if (session) {
+                deleteSession(session.sessionId);
+            }
+        }
+        
+        req.session.destroy((err) => {
+            if (err) {
+                console.error('Session destruction error:', err);
+            }
+        });
+        
+        res.json({ message: 'Logout successful' });
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get current user info
+app.get('/api/auth/me', requireAuth(), (req, res) => {
+    res.json({
+        user: {
+            id: req.user.userId,
+            username: req.user.username,
+            roles: req.user.roles
+        }
     });
 });
 
-app.get('/api/devices', async (req, res) => {
+// Verify token endpoint
+app.post('/api/auth/verify', (req, res) => {
     try {
-        const forceScan = req.query.scan === 'true';
-        const devices = await getDevices(forceScan);
+        const token = req.headers.authorization?.replace('Bearer ', '') || req.session.token;
         
-        res.status(200).json({
-            devices: devices,
-            totalCount: devices.length,
-            wolDevicesCount: devices.length, // All devices are WOL devices
-            onlineDevicesCount: devices.filter(d => d.ip).length,
-            offlineDevicesCount: devices.filter(d => !d.ip).length,
-            lastScan: deviceCache.lastScan ? new Date(deviceCache.lastScan).toISOString() : null,
-            scanConfig: {
-                method: 'arp-scan',
-                description: SCAN_CONFIG.description
-            },
-            timestamp: new Date().toISOString()
+        if (!token) {
+            return res.status(401).json({ error: 'No token provided' });
+        }
+        
+        const session = verifySession(token);
+        
+        if (!session) {
+            return res.status(401).json({ error: 'Invalid or expired token' });
+        }
+        
+        res.json({
+            valid: true,
+            user: {
+                id: session.userId,
+                username: session.username,
+                roles: session.roles
+            }
         });
     } catch (error) {
-        res.status(500).json({ error: `Failed to get devices: ${error.message}` });
+        console.error('Token verification error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-// Get just device names (for backward compatibility with WOL)
-app.get('/api/devices/names', (req, res) => {
-    res.status(200).json(Object.keys(WOL_DEVICES));
-});
-
-// Get WOL-enabled devices only
-app.get('/api/devices/wol', (req, res) => {
-    const wolDeviceList = Object.keys(WOL_DEVICES).map(deviceName => ({
-        name: WOL_DEVICES[deviceName].name,
-        mac: WOL_DEVICES[deviceName].mac,
-        description: WOL_DEVICES[deviceName].description
-    }));
-    res.status(200).json(wolDeviceList);
-});
-
-// Trigger a network scan manually
-app.post('/api/devices/scan', async (req, res) => {
+// Update user profile
+app.put('/api/auth/profile', requireAuth(), async (req, res) => {
     try {
-        const devices = await scanNetworks();
-        res.status(200).json({
+        const { username, currentPassword, newPassword } = req.body;
+        const userId = req.user.userId;
+        
+        // Validate input
+        if (!username || username.trim().length < 3) {
+            return res.status(400).json({ error: 'Username must be at least 3 characters long' });
+        }
+        
+        if (newPassword && newPassword.length < 6) {
+            return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+        }
+        
+        // Get current user data
+        const userStmt = db.prepare('SELECT * FROM users WHERE id = ?');
+        const user = userStmt.get(userId);
+        
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        // If changing password, verify current password
+        if (newPassword) {
+            if (!currentPassword) {
+                return res.status(400).json({ error: 'Current password is required to change password' });
+            }
+            
+            const isCurrentPasswordValid = await argon2.verify(user.password_hash, currentPassword);
+            if (!isCurrentPasswordValid) {
+                return res.status(401).json({ error: 'Current password is incorrect' });
+            }
+        }
+        
+        // Check if username is already taken (by another user)
+        const existingUserStmt = db.prepare('SELECT id FROM users WHERE username = ? AND id != ?');
+        const existingUser = existingUserStmt.get(username, userId);
+        
+        if (existingUser) {
+            return res.status(409).json({ error: 'Username is already taken' });
+        }
+        
+        // Update user data
+        if (newPassword) {
+            const hashedPassword = await argon2.hash(newPassword);
+            const updateStmt = db.prepare('UPDATE users SET username = ?, password_hash = ? WHERE id = ?');
+            updateStmt.run(username, hashedPassword, userId);
+        } else {
+            const updateStmt = db.prepare('UPDATE users SET username = ? WHERE id = ?');
+            updateStmt.run(username, userId);
+        }
+        
+        // If password was changed, we need to keep the current session but invalidate others
+        if (newPassword) {
+            // Keep only the current session active, invalidate all others
+            const currentSession = req.user.sessionId;
+            const invalidateOtherSessionsStmt = db.prepare(`
+                DELETE FROM sessions 
+                WHERE user_id = ? AND id != ?
+            `);
+            invalidateOtherSessionsStmt.run(userId, currentSession);
+        }
+        
+        res.json({
+            message: 'Profile updated successfully',
+            user: {
+                id: userId,
+                username: username,
+                roles: JSON.parse(user.roles)
+            }
+        });
+    } catch (error) {
+        console.error('Profile update error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// =============================================================================
+// API ENDPOINTS
+// =============================================================================
+
+// Health check (no auth required)
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        platform: os.platform(),
+        hostname: os.hostname(),
+        version: '1.0.0'
+    });
+});
+
+// Wake on LAN
+app.post('/api/wol', requireAuth('admin'), async (req, res) => {
+    const deviceName = req.body.device;
+    
+    try {
+        const wolDevices = getWolDevices();
+        const device = wolDevices.find(d => d.name === deviceName);
+
+        if (!device || !device.mac) {
+            return res.status(400).json({ error: "Device not found or MAC address missing." });
+        }
+
+        wol.wake(device.mac, (error) => {
+            if (error) {
+                console.error(`WoL error for ${deviceName}:`, error);
+                return res.status(500).json({ error: `Failed to send WoL packet: ${error.message}` });
+            }
+            res.json({ message: `WoL packet sent to ${deviceName} (${device.mac})` });
+        });
+    } catch (error) {
+        res.status(500).json({ error: `Failed to get device info: ${error.message}` });
+    }
+});
+
+// Get device status
+app.get('/api/devices/status', requireAuth('admin'), async (req, res) => {
+    try {
+        const devices = await getDevices();
+        
+        // Create device status list
+        const deviceStatuses = devices.map(device => ({
+            ip: device.ip,
+            mac: device.mac,
+            vendor: device.vendor,
+            friendlyName: device.friendlyName,
+            deviceKey: device.deviceKey,
+            networkName: device.networkName,
+            networkDescription: device.networkDescription,
+            wolEnabled: device.wolEnabled,
+            status: device.ip ? 'online' : 'offline',
+            lastSeen: device.lastSeen,
+            scanMethod: device.scanMethod
+        }));
+        
+        res.json({
+            devices: deviceStatuses,
+            totalDevices: deviceStatuses.length,
+            onlineDevices: deviceStatuses.filter(d => d.status === 'online').length,
+            wolEnabledDevices: deviceStatuses.length,
+            lastScan: deviceCache.lastScan ? new Date(deviceCache.lastScan).toISOString() : null,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({ error: `Failed to get device status: ${error.message}` });
+    }
+});
+
+// Trigger network scan
+app.post('/api/devices/scan', requireAuth('admin'), async (req, res) => {
+    try {
+        const devices = await performScan();
+        res.json({
             message: 'Network scan completed',
             devicesFound: devices.length,
             devices: devices,
@@ -226,106 +751,120 @@ app.post('/api/devices/scan', async (req, res) => {
     }
 });
 
-// Utility function to ping a device and check if it's online
-const pingDevice = (ip) => {
-    return new Promise((resolve) => {
-        // Use different ping commands based on OS
-        const isWindows = os.platform() === 'win32';
-        const pingCmd = isWindows 
-            ? `ping -n 1 -w 1000 ${ip}`  // Windows: 1 ping, 1000ms timeout
-            : `ping -c 1 -W 1 ${ip}`;    // Linux/Unix: 1 ping, 1s timeout
-        
-        exec(pingCmd, (error) => {
-            resolve(!error); // true if ping successful, false if failed
-        });
-    });
-};
-
-// Get device status by IP address
-app.get('/api/device-status/:deviceIp', async (req, res) => {
-    const deviceIp = req.params.deviceIp;
-    
+// Get all WOL devices
+app.get('/api/devices/wol', requireAuth('admin'), async (req, res) => {
     try {
-        const isOnline = await pingDevice(deviceIp);
-        const devices = await getDevices();
-        const device = devices.find(d => d.ip === deviceIp);
+        const devices = getWolDevices();
+        res.json({ devices });
+    } catch (error) {
+        res.status(500).json({ error: `Failed to get WOL devices: ${error.message}` });
+    }
+});
+
+// Add new WOL device
+app.post('/api/devices/wol', requireAuth('admin'), async (req, res) => {
+    try {
+        const { name, mac, description } = req.body;
         
-        if (!device) {
-            return res.status(404).json({ error: "Device not found in discovered devices." });
+        if (!name || !mac) {
+            return res.status(400).json({ error: 'Name and MAC address are required' });
         }
 
-        res.status(200).json({
-            ip: deviceIp,
-            mac: device.mac,
-            vendor: device.vendor,
-            friendlyName: device.friendlyName,
-            deviceKey: device.deviceKey,
-            networkName: device.networkName,
-            wolEnabled: device.wolEnabled,
-            status: isOnline ? 'online' : 'offline',
-            lastSeen: device.lastSeen,
-            timestamp: new Date().toISOString()
-        });
+        // Validate MAC address format (allow mixed or no separators, case-insensitive)
+        const macClean = mac.replace(/[^a-fA-F0-9]/g, '');
+        if (macClean.length !== 12) {
+            return res.status(400).json({ error: 'Invalid MAC address format' });
+        }
+        // Reformat to all caps and colon separator
+        const macFormatted = macClean.toUpperCase().match(/.{2}/g).join(':');
+
+        const device = {
+            name: name.trim(),
+            mac: macFormatted.trim(),
+            description: description?.trim() || ''
+        };
+
+        const result = saveWolDevice(device);
+        res.json({ message: 'WOL device added successfully', device: result });
     } catch (error) {
-        res.status(500).json({ error: `Failed to check device status: ${error.message}` });
+        res.status(500).json({ error: `Failed to add WOL device: ${error.message}` });
     }
 });
 
-// Get status of all discovered devices
-app.get('/api/devices/status', async (req, res) => {
+// Update WOL device
+app.put('/api/devices/wol/:id', requireAuth('admin'), async (req, res) => {
     try {
-        const devices = await getDevices();
+        const { id } = req.params;
+        const { name, mac, description } = req.body;
         
-        const deviceStatuses = await Promise.all(
-            devices.map(async (device) => {
-                // Only ping devices that have an IP address
-                let isOnline = false;
-                if (device.ip) {
-                    isOnline = await pingDevice(device.ip);
-                }
-                // WOL-only devices (no IP) are considered offline
-                
-                return {
-                    ip: device.ip,
-                    mac: device.mac,
-                    vendor: device.vendor,
-                    friendlyName: device.friendlyName,
-                    deviceKey: device.deviceKey,
-                    networkName: device.networkName,
-                    networkDescription: device.networkDescription,
-                    wolEnabled: device.wolEnabled,
-                    status: isOnline ? 'online' : 'offline',
-                    lastSeen: device.lastSeen,
-                    scanMethod: device.scanMethod
-                };
-            })
-        );
-        
-        // Group by network for better organization
-        const networkGroups = {};
-        deviceStatuses.forEach(device => {
-            if (!networkGroups[device.networkName]) {
-                networkGroups[device.networkName] = [];
-            }
-            networkGroups[device.networkName].push(device);
-        });
-        
-        res.status(200).json({
-            devices: deviceStatuses,
-            devicesByNetwork: networkGroups,
-            totalDevices: deviceStatuses.length,
-            onlineDevices: deviceStatuses.filter(d => d.status === 'online').length,
-            wolEnabledDevices: deviceStatuses.filter(d => d.wolEnabled).length,
-            lastScan: deviceCache.lastScan ? new Date(deviceCache.lastScan).toISOString() : null,
-            timestamp: new Date().toISOString()
-        });
+        if (!name || !mac) {
+            return res.status(400).json({ error: 'Name and MAC address are required' });
+        }
+
+        // Validate MAC address format
+        const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
+        if (!macRegex.test(mac)) {
+            return res.status(400).json({ error: 'Invalid MAC address format' });
+        }
+
+        const device = {
+            _id: id,
+            name: name.trim(),
+            mac: mac.trim(),
+            description: description?.trim() || ''
+        };
+
+        const result = saveWolDevice(device);
+        res.json({ message: 'WOL device updated successfully', updated: result });
     } catch (error) {
-        res.status(500).json({ error: `Failed to check devices status: ${error.message}` });
+        res.status(500).json({ error: `Failed to update WOL device: ${error.message}` });
     }
 });
 
-// Get system information
-app.get('/api/system-info', (req, res) => {
+// Delete WOL device
+app.delete('/api/devices/wol/:id', requireAuth('admin'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = deleteWolDevice(id);
+        
+        if (result === 0) {
+            return res.status(404).json({ error: 'WOL device not found' });
+        }
+
+        res.json({ message: 'WOL device deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: `Failed to delete WOL device: ${error.message}` });
+    }
+});
+
+// Get server settings
+app.get('/api/settings', requireAuth('admin'), (req, res) => {
+    res.json({ settings: serverSettings });
+});
+
+// Update server settings
+app.put('/api/settings', requireAuth('admin'), (req, res) => {
+    try {
+        const newSettings = { ...serverSettings, ...req.body };
+        
+        const stmt = db.prepare('UPDATE settings SET data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+        const result = stmt.run(JSON.stringify(newSettings), 'server-config');
+        
+        if (result.changes === 0) {
+            // Insert if doesn't exist
+            const insertStmt = db.prepare('INSERT INTO settings (id, data) VALUES (?, ?)');
+            insertStmt.run('server-config', JSON.stringify(newSettings));
+        }
+        
+        serverSettings = newSettings;
+        res.json({ message: 'Settings updated successfully', settings: serverSettings });
+    } catch (error) {
+        res.status(500).json({ error: `Failed to update settings: ${error.message}` });
+    }
+});
+
+// System information
+app.get('/api/system-info', requireAuth('admin'), (req, res) => {
     try {
         const systemInfo = {
             hostname: os.hostname(),
@@ -338,47 +877,22 @@ app.get('/api/system-info', (req, res) => {
             cpus: os.cpus(),
             timestamp: new Date().toISOString()
         };
-        res.status(200).json(systemInfo);
+        res.json(systemInfo);
     } catch (error) {
         res.status(500).json({ error: `Failed to get system info: ${error.message}` });
     }
 });
 
-// Get CPU temperature (Raspberry Pi specific)
-app.get('/api/temperature', (req, res) => {
-    exec('vcgencmd measure_temp', (error, stdout) => {
-        if (error) {
-            // Fallback for non-Raspberry Pi systems
-            res.status(200).json({ 
-                cpu: 'N/A',
-                gpu: 'N/A',
-                error: 'Temperature monitoring not available on this system'
-            });
-        } else {
-            const temp = stdout.trim().replace('temp=', '').replace("'C", '');
-            res.status(200).json({ 
-                cpu: parseFloat(temp),
-                gpu: parseFloat(temp), // On RPi, CPU and GPU temps are usually the same
-                unit: 'Celsius',
-                timestamp: new Date().toISOString()
-            });
-        }
-    });
-});
-
-// Get system resources (CPU, Memory, Disk)
-app.get('/api/resources', (req, res) => {
+// System resources
+app.get('/api/resources', requireAuth('admin'), (req, res) => {
     try {
-        // Memory info
         const totalMem = os.totalmem();
         const freeMem = os.freemem();
         const usedMem = totalMem - freeMem;
-        
-        // CPU info
         const cpus = os.cpus();
         const loadAvg = os.loadavg();
         
-        // Get disk usage (Linux/Unix systems) - raw values in KB
+        // Get disk usage
         exec('df /', (error, stdout) => {
             let diskInfo = { used: 0, total: 0, free: 0, percentage: 0 };
             
@@ -386,33 +900,33 @@ app.get('/api/resources', (req, res) => {
                 const lines = stdout.trim().split('\n');
                 if (lines.length > 1) {
                     const diskLine = lines[1].split(/\s+/);
-                    const totalKB = parseInt(diskLine[1]); // Total in KB
-                    const usedKB = parseInt(diskLine[2]);  // Used in KB
-                    const availableKB = parseInt(diskLine[3]); // Available in KB
+                    const totalKB = parseInt(diskLine[1]);
+                    const usedKB = parseInt(diskLine[2]);
+                    const availableKB = parseInt(diskLine[3]);
                     const percentage = parseInt(diskLine[4].replace('%', ''));
                     
                     diskInfo = {
-                        total: totalKB * 1024,      // Convert KB to bytes
-                        used: usedKB * 1024,        // Convert KB to bytes
-                        free: availableKB * 1024,   // Convert KB to bytes
+                        total: totalKB * 1024,
+                        used: usedKB * 1024,
+                        free: availableKB * 1024,
                         percentage: percentage,
                         filesystem: diskLine[0]
                     };
                 }
             }
 
-            res.status(200).json({
+            res.json({
                 cpu: {
                     cores: cpus.length,
                     model: cpus[0]?.model || 'Unknown',
                     speed: cpus[0]?.speed || 0,
                     loadAverage: loadAvg,
-                    usage: Math.round(loadAvg[0] * 100 / cpus.length) // Approximate CPU usage
+                    usage: Math.round(loadAvg[0] * 100 / cpus.length)
                 },
                 memory: {
-                    total: Math.round(totalMem), // MB
-                    used: Math.round(usedMem), // MB
-                    free: Math.round(freeMem), // MB
+                    total: Math.round(totalMem),
+                    used: Math.round(usedMem),
+                    free: Math.round(freeMem),
                     percentage: Math.round((usedMem / totalMem) * 100)
                 },
                 disk: diskInfo,
@@ -425,66 +939,30 @@ app.get('/api/resources', (req, res) => {
     }
 });
 
-// Get network interface information
-app.get('/api/network', (req, res) => {
-    try {
-        const interfaces = os.networkInterfaces();
-        const networkInfo = {};
-        
-        Object.keys(interfaces).forEach(iface => {
-            interfaces[iface].forEach(details => {
-                if (details.family === 'IPv4' && !details.internal) {
-                    networkInfo[iface] = {
-                        address: details.address,
-                        netmask: details.netmask,
-                        mac: details.mac
-                    };
-                }
+// Temperature monitoring
+app.get('/api/temperature', requireAuth('admin'), (req, res) => {
+    exec('vcgencmd measure_temp', (error, stdout) => {
+        if (error) {
+            res.json({ 
+                cpu: 'N/A',
+                gpu: 'N/A',
+                error: 'Temperature monitoring not available'
             });
-        });
-
-        // Get network statistics (Linux specific)
-        exec('cat /proc/net/dev', (error, stdout) => {
-            let stats = {};
-            if (!error) {
-                const lines = stdout.trim().split('\n');
-                for (let i = 2; i < lines.length; i++) {
-                    const parts = lines[i].trim().split(/\s+/);
-                    const iface = parts[0].replace(':', '');
-                    if (networkInfo[iface]) {
-                        stats[iface] = {
-                            rx_bytes: parseInt(parts[1]),
-                            tx_bytes: parseInt(parts[9])
-                        };
-                    }
-                }
-            }
-
-            res.status(200).json({
-                interfaces: networkInfo,
-                statistics: stats,
+        } else {
+            const temp = stdout.trim().replace('temp=', '').replace("'C", '');
+            res.json({ 
+                cpu: parseFloat(temp),
+                gpu: parseFloat(temp),
+                unit: 'Celsius',
                 timestamp: new Date().toISOString()
             });
-        });
-    } catch (error) {
-        res.status(500).json({ error: `Failed to get network info: ${error.message}` });
-    }
+        }
+    });
 });
 
-// Get service status with display names
-app.get('/api/services', (req, res) => {
-    // Map of service name to display name
-    const services = [
-        { name: 'nginx', displayName: 'NGINX Web Server' },
-        { name: 'sshd', displayName: 'SSH Daemon' },
-        { name: 'homelab-api', displayName: 'Homelab API' },
-        { name: 'ddclient', displayName: 'DDClient Dynamic DNS' },
-        { name: 'pihole-FTL', displayName: 'Pi-hole FTL' },
-        { name: 'rustdesk-server-hbbr', displayName: 'RustDesk Relay (hbbr)' },
-        { name: 'rustdesk-server-hbbs', displayName: 'RustDesk Rendezvous (hbbs)' },
-        { name: 'ufw', displayName: 'Uncomplicated Firewall (UFW)' },
-        { name: 'unbound', displayName: 'Unbound DNS Resolver' }
-    ];
+// Service status
+app.get('/api/services', requireAuth('admin'), (req, res) => {
+    const services = serverSettings.services || [];
 
     Promise.all(services.map(service => {
         return new Promise((resolve) => {
@@ -500,7 +978,7 @@ app.get('/api/services', (req, res) => {
         });
     }))
     .then(serviceStatuses => {
-        res.status(200).json({
+        res.json({
             services: serviceStatuses,
             timestamp: new Date().toISOString()
         });
@@ -510,57 +988,41 @@ app.get('/api/services', (req, res) => {
     });
 });
 
-// Get network scanning information and statistics
-app.get('/api/networks', async (req, res) => {
-    try {
-        const devices = await getDevices();
-        
-        // Calculate statistics for the main LAN network
-        const lanDevices = devices.filter(d => d.networkName === "LAN");
-        const networkStats = [{
-            name: "LAN",
-            subnet: "10.10.10.0/24",
-            description: "Local Area Network",
-            scanType: "arp-scan",
-            totalDevices: lanDevices.length,
-            devicesWithMac: lanDevices.length, // All devices have MAC since they're from WOL config
-            wolEnabledDevices: lanDevices.length, // All devices are WOL enabled
-            onlineDevices: lanDevices.filter(d => d.ip).length,
-            offlineDevices: lanDevices.filter(d => !d.ip).length,
-            lastScanned: deviceCache.lastScan ? new Date(deviceCache.lastScan).toISOString() : null
-        }];
-        
-        res.status(200).json({
-            networks: networkStats,
-            scanStatus: {
-                inProgress: deviceCache.scanInProgress,
-                lastScan: deviceCache.lastScan ? new Date(deviceCache.lastScan).toISOString() : null,
-                cacheTimeout: CACHE_TIMEOUT / 1000, // in seconds
-                scanMethod: 'arp-scan'
-            },
-            wolDevices: Object.keys(WOL_DEVICES).map(key => ({
-                name: WOL_DEVICES[key].name,
-                mac: WOL_DEVICES[key].mac,
-                description: WOL_DEVICES[key].description
-            })),
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        res.status(500).json({ error: `Failed to get network information: ${error.message}` });
-    }
-});
+// =============================================================================
+// SERVER STARTUP
+// =============================================================================
 
-app.listen(port, '0.0.0.0', () => {
-    console.log(`Node.js API listening at http://0.0.0.0:${port}`);
+// Initialize
+(async () => {
+    // Load settings
+    loadSettings();
     
-    // Perform initial network scan on startup (non-blocking)
-    setTimeout(async () => {
-        console.log('Performing initial network scan...');
-        try {
-            const devices = await scanNetworks();
-            console.log(`Initial scan completed. Found ${devices.length} devices.`);
-        } catch (error) {
-            console.error('Initial network scan failed:', error.message);
-        }
-    }, 5000); // Wait 5 seconds after server start
-});
+    // Create default admin user
+    await createDefaultUser();
+    
+    // Clean expired sessions
+    cleanExpiredSessions();
+    setInterval(cleanExpiredSessions, 60 * 60 * 1000); // Clean every hour
+    
+    // Start server
+    app.listen(port, '0.0.0.0', () => {
+        console.log(`Homelab API Server running on http://0.0.0.0:${port}`);
+        console.log(`Database path: ${path.join(__dirname, 'data', 'homelab.db')}`);
+        console.log('Authentication: Enabled (admin/password)');
+        
+        // Initial scan after startup
+        setTimeout(async () => {
+            console.log('Performing initial network scan...');
+            try {
+                const devices = await performScan();
+                console.log(`Initial scan completed: ${devices.length} devices found`);
+                
+                // Log configured WOL devices
+                const wolDevices = getWolDevices();
+                console.log(`Configured WOL devices: ${wolDevices.map(d => d.name).join(', ') || 'None'}`);
+            } catch (error) {
+                console.error('Initial scan failed:', error.message);
+            }
+        }, 5000);
+    });
+})();

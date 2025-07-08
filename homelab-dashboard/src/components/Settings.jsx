@@ -1,5 +1,5 @@
 // src/components/Settings.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box,
     Card,
@@ -8,343 +8,475 @@ import {
     Alert,
     CircularProgress,
     Container,
-    Paper,
-    Switch,
-    FormControlLabel,
     Button,
     TextField,
-    Grid,
-    Divider,
-    Chip,
+    Stack,
     List,
     ListItem,
     ListItemText,
-    ListItemIcon
+    IconButton,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    ToggleButton,
+    ToggleButtonGroup,
+    Divider,
+    Chip,
+    Grid
 } from '@mui/material';
 import {
-    Settings as SettingsIcon,
-    Notifications as NotificationsIcon,
-    Security as SecurityIcon,
-    Api as ApiIcon,
-    Palette as ThemeIcon,
-    Info as InfoIcon,
+    NetworkWifi as NetworkIcon,
+    Timer as TimerIcon,
     Save as SaveIcon,
-    RestartAlt as ResetIcon
+    Computer as ComputerIcon,
+    Build as ServiceIcon,
+    Add as AddIcon,
+    Delete as DeleteIcon,
+    Edit as EditIcon,
+    Palette as ThemeIcon,
+    LightMode as LightIcon,
+    DarkMode as DarkIcon,
+    SettingsBrightness as DeviceIcon,
+    Cloud as ServerIcon,
+    Devices as DevicesIcon
 } from '@mui/icons-material';
-import { tryApiCall } from '../utils/api';
+import { tryApiCall, apiCall } from '../utils/api';
+import { useThemeMode } from '../contexts/ThemeContext';
+import { useNotification } from '../contexts/NotificationContext';
 
 const Settings = () => {
     const [settings, setSettings] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [localSettings, setLocalSettings] = useState({
-        autoRefresh: true,
-        refreshInterval: 5000,
-        darkMode: false,
-        notifications: true,
-        apiTimeout: 10000
-    });
+    const [autoSaving, setAutoSaving] = useState(false);
+    const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
+    const [newService, setNewService] = useState({ name: '', displayName: '' });
+    const [editingService, setEditingService] = useState(null);
+    const [editingServiceIndex, setEditingServiceIndex] = useState(-1);
+    const { themeMode, setThemeMode, actualMode } = useThemeMode();
+    const { showSuccess, showError } = useNotification();    // Auto-save debounced function
+    const debouncedSave = useCallback(
+        debounce(async (settingsToSave) => {
+            if (!window.workingApiUrl) return;
+
+            setAutoSaving(true);
+            try {
+                await apiCall(window.workingApiUrl, '/settings', {
+                    method: 'PUT',
+                    data: settingsToSave
+                });
+                showSuccess('Settings saved automatically');
+            } catch (err) {
+                showError(`Failed to save settings: ${err.message}`);
+            } finally {
+                setAutoSaving(false);
+            }
+        }, 1000),
+        [showSuccess, showError]
+    );
+
+    // Debounce utility function
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
 
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                setError('');
                 const result = await tryApiCall('/settings');
-                setSettings(result.data);
+                setSettings(result.data.settings);
                 setLoading(false);
+                window.workingApiUrl = result.baseUrl;
             } catch (err) {
-                setError('Unable to connect to API server - Settings not available');
+                showError(`Failed to load settings: ${err.message}`);
                 setLoading(false);
-
-                // Load local settings from localStorage
-                const saved = localStorage.getItem('homelabSettings');
-                if (saved) {
-                    setLocalSettings(JSON.parse(saved));
-                }
             }
         };
 
         fetchSettings();
-    }, []);
+    }, [showError]);
 
-    const handleLocalSettingChange = (key, value) => {
-        const updated = { ...localSettings, [key]: value };
-        setLocalSettings(updated);
-        localStorage.setItem('homelabSettings', JSON.stringify(updated));
+    const handleSaveSettings = async () => {
+        if (!window.workingApiUrl) return;
+
+        setAutoSaving(true);
+
+        try {
+            await apiCall(window.workingApiUrl, '/settings', {
+                method: 'PUT',
+                data: settings
+            });
+            showSuccess('Settings saved successfully');
+        } catch (err) {
+            showError(`Failed to save settings: ${err.message}`);
+        } finally {
+            setAutoSaving(false);
+        }
     };
 
-    const resetSettings = () => {
-        const defaults = {
-            autoRefresh: true,
-            refreshInterval: 5000,
-            darkMode: false,
-            notifications: true,
-            apiTimeout: 10000
+    const handleSettingChange = (key, value) => {
+        const newSettings = {
+            ...settings,
+            [key]: value
         };
-        setLocalSettings(defaults);
-        localStorage.setItem('homelabSettings', JSON.stringify(defaults));
+        setSettings(newSettings);
+
+        // Auto-save after change
+        debouncedSave(newSettings);
+    };
+
+    const handleAddService = () => {
+        if (!newService.name || !newService.displayName) return;
+
+        const newSettings = {
+            ...settings,
+            services: [...settings.services, { ...newService }]
+        };
+        setSettings(newSettings);
+        debouncedSave(newSettings);
+
+        setNewService({ name: '', displayName: '' });
+        setServiceDialogOpen(false);
+    };
+
+    const handleEditService = (index) => {
+        setEditingService({ ...settings.services[index] });
+        setEditingServiceIndex(index);
+        setServiceDialogOpen(true);
+    };
+
+    const handleSaveEditedService = () => {
+        if (!editingService.name || !editingService.displayName) return;
+
+        const newSettings = {
+            ...settings,
+            services: settings.services.map((service, index) =>
+                index === editingServiceIndex ? { ...editingService } : service
+            )
+        };
+        setSettings(newSettings);
+        debouncedSave(newSettings);
+
+        setEditingService(null);
+        setEditingServiceIndex(-1);
+        setServiceDialogOpen(false);
+    };
+
+    const handleCancelServiceDialog = () => {
+        setNewService({ name: '', displayName: '' });
+        setEditingService(null);
+        setEditingServiceIndex(-1);
+        setServiceDialogOpen(false);
+    };
+
+    const handleRemoveService = (serviceIndex) => {
+        const newSettings = {
+            ...settings,
+            services: settings.services.filter((_, index) => index !== serviceIndex)
+        };
+        setSettings(newSettings);
+        debouncedSave(newSettings);
+    };
+
+    const clearMessages = () => {
+        // No longer needed with notification system
     };
 
     if (loading) {
         return (
-            <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
-                <Box sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minHeight: 'calc(100vh - 200px)',
-                    py: 8
-                }}>
-                    <CircularProgress size={60} sx={{ mb: 2 }} />
-                    <Typography variant="h6" color="text.secondary">
-                        Loading settings...
-                    </Typography>
+            <Container maxWidth="lg" sx={{ py: 4 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+                    <CircularProgress />
                 </Box>
             </Container>
         );
     }
 
     return (
-        <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
-            <Box sx={{ mb: 4 }}>
-                <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
+        <Container maxWidth="lg" sx={{ py: 4 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h3" component="h1" sx={{ fontWeight: 600 }}>
                     Settings
                 </Typography>
-                <Typography variant="h6" color="text.secondary">
-                    Configure your homelab dashboard preferences
-                </Typography>
+                {autoSaving && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CircularProgress size={16} />
+                        <Typography variant="body2" color="text.secondary">
+                            Auto-saving...
+                        </Typography>
+                    </Box>
+                )}
             </Box>
 
-            {error && (
-                <Alert severity="warning" sx={{ mb: 3 }}>
-                    <Typography variant="body1" sx={{ mb: 1 }}>
-                        Server settings unavailable - using local configuration
-                    </Typography>
-                    <Typography variant="body2">
-                        {error}
-                    </Typography>
-                </Alert>
+            {settings && (
+                <Grid container spacing={4}>
+                    {/* Server Settings Section */}
+                    <Grid size={12}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                            <ServerIcon sx={{ mr: 1, color: 'primary.main' }} />
+                            <Typography variant="h4" component="h2" sx={{ fontWeight: 600 }}>
+                                Server Settings
+                            </Typography>
+                        </Box>
+                        <Grid container spacing={3}>
+                            {/* Network Settings */}
+                            <Grid size={{ xs: 12, md: 6 }}>
+                                <Card>
+                                    <CardContent>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                            <NetworkIcon sx={{ mr: 1 }} />
+                                            <Typography variant="h6">Network Configuration</Typography>
+                                        </Box>
+                                        <Stack spacing={2}>
+                                            <TextField
+                                                label="Network Subnet"
+                                                value={settings.networkSubnet || ''}
+                                                onChange={(e) => handleSettingChange('networkSubnet', e.target.value)}
+                                                placeholder='e.g., 192.168.0.0/24'
+                                                fullWidth
+                                                helperText="Network subnet for ARP scanning"
+                                            />
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+
+                            {/* Timing Settings */}
+                            <Grid size={{ xs: 12, md: 6 }}>
+                                <Card>
+                                    <CardContent>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                            <TimerIcon sx={{ mr: 1 }} />
+                                            <Typography variant="h6">Timing Configuration</Typography>
+                                        </Box>
+                                        <Stack spacing={2}>
+                                            <TextField
+                                                label="Scan Timeout (ms)"
+                                                type="number"
+                                                value={settings.scanTimeout}
+                                                onChange={(e) => handleSettingChange('scanTimeout', parseInt(e.target.value))}
+                                                fullWidth
+                                                helperText="Timeout for network scan operations"
+                                                InputProps={{
+                                                    sx: {
+                                                        '& input[type=number]': {
+                                                            MozAppearance: 'textfield',
+                                                        },
+                                                        '& input[type=number]::-webkit-outer-spin-button': {
+                                                            WebkitAppearance: 'none',
+                                                            margin: 0,
+                                                        },
+                                                        '& input[type=number]::-webkit-inner-spin-button': {
+                                                            WebkitAppearance: 'none',
+                                                            margin: 0,
+                                                        },
+                                                    },
+                                                }}
+                                            />
+                                            <TextField
+                                                label="Cache Timeout (ms)"
+                                                type="number"
+                                                value={settings.cacheTimeout}
+                                                onChange={(e) => handleSettingChange('cacheTimeout', parseInt(e.target.value))}
+                                                fullWidth
+                                                helperText="How long to cache device status"
+                                                InputProps={{
+                                                    sx: {
+                                                        '& input[type=number]': {
+                                                            MozAppearance: 'textfield',
+                                                        },
+                                                        '& input[type=number]::-webkit-outer-spin-button': {
+                                                            WebkitAppearance: 'none',
+                                                            margin: 0,
+                                                        },
+                                                        '& input[type=number]::-webkit-inner-spin-button': {
+                                                            WebkitAppearance: 'none',
+                                                            margin: 0,
+                                                        },
+                                                    },
+                                                }}
+                                            />
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+
+                            {/* Service Management */}
+                            <Grid size={12}>
+                                <Card>
+                                    <CardContent>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                <ServiceIcon sx={{ mr: 1 }} />
+                                                <Typography variant="h6">Service Monitoring</Typography>
+                                            </Box>
+                                            <Button
+                                                variant="outlined"
+                                                startIcon={<AddIcon />}
+                                                onClick={() => setServiceDialogOpen(true)}
+                                            >
+                                                Add Service
+                                            </Button>
+                                        </Box>
+                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                            Configure which services to monitor for status checking. All services in this list will be monitored.
+                                        </Typography>
+                                        <List>
+                                            {settings.services?.map((service, index) => (
+                                                <ListItem
+                                                    key={service.name}
+                                                    divider
+                                                    secondaryAction={
+                                                        <Box>
+                                                            <IconButton
+                                                                edge="end"
+                                                                aria-label="edit"
+                                                                onClick={() => handleEditService(index)}
+                                                                sx={{ mr: 1 }}
+                                                            >
+                                                                <EditIcon />
+                                                            </IconButton>
+                                                            <IconButton
+                                                                edge="end"
+                                                                aria-label="delete"
+                                                                onClick={() => handleRemoveService(index)}
+                                                            >
+                                                                <DeleteIcon />
+                                                            </IconButton>
+                                                        </Box>
+                                                    }
+                                                >
+                                                    <ListItemText
+                                                        primary={service.displayName}
+                                                        secondary={`Service: ${service.name}`}
+                                                    />
+                                                </ListItem>
+                                            ))}
+                                        </List>
+                                        {settings.services?.length === 0 && (
+                                            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                                                No services configured. Add services to monitor their status.
+                                            </Typography>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+
+                    {/* Device Settings Section */}
+                    <Grid size={12}>
+                        <Divider sx={{ my: 2 }} />
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                            <DevicesIcon sx={{ mr: 1, color: 'secondary.main' }} />
+                            <Typography variant="h4" component="h2" sx={{ fontWeight: 600 }}>
+                                Device Settings
+                            </Typography>
+                        </Box>
+                        <Grid container spacing={3}>
+                            {/* Theme Settings */}
+                            <Grid size={{ xs: 12, md: 6 }}>
+                                <Card>
+                                    <CardContent>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                            <ThemeIcon sx={{ mr: 1 }} />
+                                            <Typography variant="h6">Appearance</Typography>
+                                        </Box>
+                                        <Stack spacing={2}>
+                                            <Box>
+                                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                                    Theme Mode
+                                                </Typography>
+                                                <ToggleButtonGroup
+                                                    value={themeMode}
+                                                    exclusive
+                                                    onChange={(e, newMode) => newMode && setThemeMode(newMode)}
+                                                    aria-label="theme mode"
+                                                    fullWidth
+                                                >
+                                                    <ToggleButton value="light" aria-label="light mode">
+                                                        <LightIcon sx={{ mr: 1 }} />
+                                                        Light
+                                                    </ToggleButton>
+                                                    <ToggleButton value="dark" aria-label="dark mode">
+                                                        <DarkIcon sx={{ mr: 1 }} />
+                                                        Dark
+                                                    </ToggleButton>
+                                                    <ToggleButton value="device" aria-label="device mode">
+                                                        <DeviceIcon sx={{ mr: 1 }} />
+                                                        Device
+                                                    </ToggleButton>
+                                                </ToggleButtonGroup>
+                                                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                                    Currently using: {actualMode} mode
+                                                    {themeMode === 'device' && ' (following device preference)'}
+                                                </Typography>
+                                            </Box>
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                </Grid>
             )}
 
-            <Grid container spacing={3}>
-                {/* Dashboard Settings */}
-                <Grid size={{ xs: 12, md: 6 }}>
-                    <Card>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                                <SettingsIcon sx={{ mr: 1, color: 'primary.main' }} />
-                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                    Dashboard Settings
-                                </Typography>
-                            </Box>
-
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={localSettings.autoRefresh}
-                                            onChange={(e) => handleLocalSettingChange('autoRefresh', e.target.checked)}
-                                        />
-                                    }
-                                    label="Auto-refresh data"
-                                />
-
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        Refresh Interval (seconds)
-                                    </Typography>
-                                    <TextField
-                                        type="number"
-                                        value={localSettings.refreshInterval / 1000}
-                                        onChange={(e) => handleLocalSettingChange('refreshInterval', parseInt(e.target.value) * 1000)}
-                                        disabled={!localSettings.autoRefresh}
-                                        fullWidth
-                                        size="small"
-                                        inputProps={{ min: 1, max: 60 }}
-                                    />
-                                </Box>
-
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={localSettings.notifications}
-                                            onChange={(e) => handleLocalSettingChange('notifications', e.target.checked)}
-                                        />
-                                    }
-                                    label="Enable notifications"
-                                />
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                {/* API Settings */}
-                <Grid size={{ xs: 12, md: 6 }}>
-                    <Card>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                                <ApiIcon sx={{ mr: 1, color: 'primary.main' }} />
-                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                    API Configuration
-                                </Typography>
-                            </Box>
-
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        API Timeout (milliseconds)
-                                    </Typography>
-                                    <TextField
-                                        type="number"
-                                        value={localSettings.apiTimeout}
-                                        onChange={(e) => handleLocalSettingChange('apiTimeout', parseInt(e.target.value))}
-                                        fullWidth
-                                        size="small"
-                                        inputProps={{ min: 1000, max: 30000, step: 1000 }}
-                                    />
-                                </Box>
-
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        Current API Status
-                                    </Typography>
-                                    <Chip
-                                        label={window.workingApiUrl ? "Connected" : "Disconnected"}
-                                        color={window.workingApiUrl ? "success" : "error"}
-                                        icon={<ApiIcon />}
-                                    />
-                                    {window.workingApiUrl && (
-                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1, fontFamily: 'monospace' }}>
-                                            {window.workingApiUrl}
-                                        </Typography>
-                                    )}
-                                </Box>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                {/* Theme Settings */}
-                <Grid size={{ xs: 12, md: 6 }}>
-                    <Card>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                                <ThemeIcon sx={{ mr: 1, color: 'primary.main' }} />
-                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                    Appearance
-                                </Typography>
-                            </Box>
-
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={localSettings.darkMode}
-                                            onChange={(e) => handleLocalSettingChange('darkMode', e.target.checked)}
-                                            disabled={true} // Not yet implemented
-                                        />
-                                    }
-                                    label="Dark mode (Coming Soon)"
-                                />
-
-                                <Alert severity="info">
-                                    Dark mode support will be added in a future update.
-                                </Alert>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                {/* System Information */}
-                <Grid size={{ xs: 12, md: 6 }}>
-                    <Card>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                                <InfoIcon sx={{ mr: 1, color: 'primary.main' }} />
-                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                    System Information
-                                </Typography>
-                            </Box>
-
-                            <List sx={{ py: 0 }}>
-                                <ListItem sx={{ px: 0 }}>
-                                    <ListItemText
-                                        primary="Dashboard Version"
-                                        secondary="1.0.0"
-                                    />
-                                </ListItem>
-                                <ListItem sx={{ px: 0 }}>
-                                    <ListItemText
-                                        primary="Last Updated"
-                                        secondary={new Date().toLocaleDateString()}
-                                    />
-                                </ListItem>
-                                <ListItem sx={{ px: 0 }}>
-                                    <ListItemText
-                                        primary="Browser"
-                                        secondary={navigator.userAgent.split(' ')[0]}
-                                    />
-                                </ListItem>
-                            </List>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                {/* Server Settings (if available) */}
-                {settings && (
-                    <Grid size={{ xs: 12 }}>
-                        <Card>
-                            <CardContent>
-                                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                                    Server Configuration
-                                </Typography>
-                                <Alert severity="info">
-                                    Server-side settings are read-only from this interface.
-                                </Alert>
-                                <Box sx={{ mt: 2 }}>
-                                    <pre style={{ background: '#f5f5f5', padding: '16px', borderRadius: '4px', overflow: 'auto' }}>
-                                        {JSON.stringify(settings, null, 2)}
-                                    </pre>
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                )}
-            </Grid>
-
-            {/* Action Buttons */}
-            <Box sx={{ mt: 4, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-                <Button
-                    variant="outlined"
-                    startIcon={<ResetIcon />}
-                    onClick={resetSettings}
-                >
-                    Reset to Defaults
-                </Button>
-                <Button
-                    variant="contained"
-                    startIcon={<SaveIcon />}
-                    onClick={() => {
-                        // Settings are automatically saved to localStorage
-                        alert('Settings saved successfully!');
-                    }}
-                >
-                    Save Settings
-                </Button>
-            </Box>
-
-            {/* Info Section */}
-            <Paper sx={{ p: 3, mt: 4, bgcolor: 'primary.50' }}>
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                    About Settings
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                    Settings are automatically saved to your browser's local storage.
-                    Server-side configuration requires API connectivity and appropriate permissions.
-                    Changes to refresh intervals and API timeouts will take effect immediately.
-                </Typography>
-            </Paper>
+            {/* Add/Edit Service Dialog */}
+            <Dialog open={serviceDialogOpen} onClose={handleCancelServiceDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>{editingService ? 'Edit Service' : 'Add Service'}</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} sx={{ mt: 1 }}>
+                        <TextField
+                            label="Service Name"
+                            value={editingService ? editingService.name : newService.name}
+                            onChange={(e) => {
+                                if (editingService) {
+                                    setEditingService(prev => ({ ...prev, name: e.target.value }));
+                                } else {
+                                    setNewService(prev => ({ ...prev, name: e.target.value }));
+                                }
+                            }}
+                            fullWidth
+                            helperText="System service name (e.g., nginx, sshd)"
+                        />
+                        <TextField
+                            label="Display Name"
+                            value={editingService ? editingService.displayName : newService.displayName}
+                            onChange={(e) => {
+                                if (editingService) {
+                                    setEditingService(prev => ({ ...prev, displayName: e.target.value }));
+                                } else {
+                                    setNewService(prev => ({ ...prev, displayName: e.target.value }));
+                                }
+                            }}
+                            fullWidth
+                            helperText="Friendly name to display in the dashboard"
+                        />
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCancelServiceDialog}>Cancel</Button>
+                    <Button
+                        onClick={editingService ? handleSaveEditedService : handleAddService}
+                        variant="contained"
+                        disabled={
+                            editingService
+                                ? !editingService.name || !editingService.displayName
+                                : !newService.name || !newService.displayName
+                        }
+                    >
+                        {editingService ? 'Save Changes' : 'Add Service'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Container>
     );
 };

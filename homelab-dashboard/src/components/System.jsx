@@ -6,7 +6,6 @@ import {
     CardContent,
     Typography,
     Grid,
-    Alert,
     CircularProgress,
     Container,
     Paper,
@@ -34,6 +33,8 @@ import {
     Settings as ServiceIcon
 } from '@mui/icons-material';
 import { tryApiCall, apiCall } from '../utils/api';
+import { useThemeMode } from '../contexts/ThemeContext';
+import { useNotification } from '../contexts/NotificationContext';
 
 const System = () => {
     const [systemInfo, setSystemInfo] = useState(null);
@@ -41,14 +42,12 @@ const System = () => {
     const [services, setServices] = useState(null);
     const [temperature, setTemperature] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const { showError } = useNotification();
 
     const fetchSystemData = async () => {
         try {
-            setError('');
-
             // Fetch system info and resources in parallel
             const [systemResult, resourcesResult] = await Promise.allSettled([
                 tryApiCall('/system-info'),
@@ -87,7 +86,7 @@ const System = () => {
 
             setLoading(false);
         } catch (err) {
-            setError('Unable to connect to API server');
+            showError('Unable to connect to API server');
             setLoading(false);
         }
     };
@@ -168,20 +167,6 @@ const System = () => {
                         Loading system information...
                     </Typography>
                 </Box>
-            </Container>
-        );
-    }
-
-    if (error) {
-        return (
-            <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
-                <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
-                    System Overview
-                </Typography>
-                <Alert severity="error">
-                    <Typography variant="h6" sx={{ mb: 1 }}>⚠️ No Data Available</Typography>
-                    <Typography>{error}</Typography>
-                </Alert>
             </Container>
         );
     }
@@ -438,7 +423,7 @@ const System = () => {
                             ) : systemInfo?.storage && systemInfo.storage.length > 0 ? (
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                     {systemInfo.storage.slice(0, 2).map((disk, index) => (
-                                        <Paper key={index} sx={{ p: 2, bgcolor: 'grey.50' }}>
+                                        <Paper key={index} sx={{ p: 2, bgcolor: 'action.selected' }}>
                                             <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
                                                 {disk.filesystem}
                                             </Typography>
@@ -478,7 +463,7 @@ const System = () => {
                             </Box>
                             {temperature ? (
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
+                                    <Paper sx={{ p: 2, bgcolor: 'action.selected' }}>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <Typography variant="body2" color="text.secondary">CPU:</Typography>
                                             <Chip
@@ -489,7 +474,7 @@ const System = () => {
                                         </Box>
                                     </Paper>
                                     {temperature.gpu && temperature.gpu !== 'N/A' && (
-                                        <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
+                                        <Paper sx={{ p: 2, bgcolor: 'action.selected' }}>
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <Typography variant="body2" color="text.secondary">GPU:</Typography>
                                                 <Chip
@@ -591,7 +576,7 @@ const System = () => {
                                                 )}
                                             </ListItemIcon>
                                             <ListItemText
-                                                primary={service.name}
+                                                primary={service.displayName || service.name}
                                                 secondary={service.status}
                                             />
                                             <Box sx={{ ml: 'auto' }}>
@@ -622,7 +607,7 @@ const System = () => {
                                 </Typography>
                                 <Grid container spacing={2}>
                                     <Grid size={4}>
-                                        <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'grey.50' }}>
+                                        <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'action.selected' }}>
                                             <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
                                                 {resources.processes.total ?? 0}
                                             </Typography>
@@ -632,21 +617,21 @@ const System = () => {
                                         </Paper>
                                     </Grid>
                                     <Grid size={4}>
-                                        <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.50' }}>
-                                            <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                                        <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.light', color: 'success.contrastText' }}>
+                                            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
                                                 {resources.processes.running ?? 0}
                                             </Typography>
-                                            <Typography variant="body2" color="text.secondary">
+                                            <Typography variant="body2" color="inherit">
                                                 Running
                                             </Typography>
                                         </Paper>
                                     </Grid>
                                     <Grid size={4}>
-                                        <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.50' }}>
-                                            <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'warning.main' }}>
+                                        <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.light', color: 'warning.contrastText' }}>
+                                            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
                                                 {resources.processes.sleeping ?? 0}
                                             </Typography>
-                                            <Typography variant="body2" color="text.secondary">
+                                            <Typography variant="body2" color="inherit">
                                                 Sleeping
                                             </Typography>
                                         </Paper>
@@ -659,7 +644,7 @@ const System = () => {
             </Grid>
 
             {/* Update Timestamp */}
-            <Paper sx={{ p: 2, mt: 3, bgcolor: 'grey.50' }}>
+            <Paper sx={{ p: 2, mt: 3, bgcolor: 'action.selected' }}>
                 <Typography variant="body2" color="text.secondary" align="center">
                     Last updated: {new Date().toLocaleString()} •
                     {autoRefresh ? ' Auto-refreshing every 5 seconds' : ' Auto-refresh disabled'}

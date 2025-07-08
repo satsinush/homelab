@@ -5,7 +5,6 @@ import {
     Card,
     CardContent,
     Typography,
-    Grid,
     Alert,
     CircularProgress,
     Container,
@@ -15,7 +14,8 @@ import {
     IconButton,
     LinearProgress,
     Chip,
-    Divider
+    Divider,
+    Grid
 } from '@mui/material';
 import {
     Memory as MemoryIcon,
@@ -167,8 +167,8 @@ const SystemResources = () => {
                         disabled={refreshing}
                         color="primary"
                         sx={{
-                            bgcolor: 'primary.50',
-                            '&:hover': { bgcolor: 'primary.100' }
+                            bgcolor: 'action.selected',
+                            '&:hover': { bgcolor: 'action.hover' }
                         }}
                     >
                         <RefreshIcon sx={{
@@ -338,7 +338,7 @@ const SystemResources = () => {
                             </Box>
                             {temperature ? (
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
+                                    <Paper sx={{ p: 2, bgcolor: 'action.selected' }}>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <Typography variant="body2" color="text.secondary">CPU:</Typography>
                                             <Chip
@@ -349,7 +349,7 @@ const SystemResources = () => {
                                         </Box>
                                     </Paper>
                                     {/* {temperature.gpu && temperature.gpu !== 'N/A' && (
-                                        <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
+                                        <Paper sx={{ p: 2, bgcolor: 'action.selected' }}>
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <Typography variant="body2" color="text.secondary">GPU:</Typography>
                                                 <Chip
@@ -381,21 +381,21 @@ const SystemResources = () => {
                                 </Box>
                                 <Grid container spacing={2}>
                                     <Grid size={6}>
-                                        <Paper sx={{ p: 2, bgcolor: 'primary.50' }}>
-                                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        <Paper sx={{ p: 2, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+                                            <Typography variant="body2" color="inherit" gutterBottom>
                                                 Download
                                             </Typography>
-                                            <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
                                                 {formatBytes(resources.network.download ?? 0)}/s
                                             </Typography>
                                         </Paper>
                                     </Grid>
                                     <Grid size={6}>
-                                        <Paper sx={{ p: 2, bgcolor: 'secondary.50' }}>
-                                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        <Paper sx={{ p: 2, bgcolor: 'secondary.light', color: 'secondary.contrastText' }}>
+                                            <Typography variant="body2" color="inherit" gutterBottom>
                                                 Upload
                                             </Typography>
-                                            <Typography variant="h6" sx={{ fontWeight: 600, color: 'secondary.main' }}>
+                                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
                                                 {formatBytes(resources.network.upload ?? 0)}/s
                                             </Typography>
                                         </Paper>
@@ -433,7 +433,7 @@ const SystemResources = () => {
                                 </Typography>
                                 <Grid container spacing={2}>
                                     <Grid size={4}>
-                                        <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'grey.50' }}>
+                                        <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'action.selected' }}>
                                             <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
                                                 {resources.processes.total ?? 0}
                                             </Typography>
@@ -443,21 +443,21 @@ const SystemResources = () => {
                                         </Paper>
                                     </Grid>
                                     <Grid size={4}>
-                                        <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.50' }}>
-                                            <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                                        <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.light', color: 'success.contrastText' }}>
+                                            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
                                                 {resources.processes.running ?? 0}
                                             </Typography>
-                                            <Typography variant="body2" color="text.secondary">
+                                            <Typography variant="body2" color="inherit">
                                                 Running
                                             </Typography>
                                         </Paper>
                                     </Grid>
                                     <Grid size={4}>
-                                        <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.50' }}>
-                                            <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'warning.main' }}>
+                                        <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.light', color: 'warning.contrastText' }}>
+                                            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
                                                 {resources.processes.sleeping ?? 0}
                                             </Typography>
-                                            <Typography variant="body2" color="text.secondary">
+                                            <Typography variant="body2" color="inherit">
                                                 Sleeping
                                             </Typography>
                                         </Paper>
@@ -470,7 +470,7 @@ const SystemResources = () => {
             </Grid>
 
             {/* Update Timestamp */}
-            <Paper sx={{ p: 2, mt: 3, bgcolor: 'grey.50' }}>
+            <Paper sx={{ p: 2, mt: 3, bgcolor: 'action.selected' }}>
                 <Typography variant="body2" color="text.secondary" align="center">
                     Last updated: {new Date().toLocaleString()} •
                     {autoRefresh ? ' Auto-refreshing every 5 seconds' : ' Auto-refresh disabled'}

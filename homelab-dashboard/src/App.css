@@ -14,7 +14,6 @@ html, body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f9fafb;
 }
 
 .App {
@@ -29,7 +28,6 @@ html, body {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden; /* Prevent horizontal scrolling */
-  background-color: #f9fafb;
   min-height: 100vh;
   width: 100%;
   max-width: 100%;

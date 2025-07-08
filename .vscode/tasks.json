@@ -77,6 +77,33 @@
                 "panel": "new",
                 "focus": true
             }
+        },
+        {
+            "label": "Deploy All (API + Frontend)",
+            "type": "shell",
+            "command": [
+                // Build frontend first
+                "cd homelab-dashboard &&",
+                "npm run build &&",
+                "cd .. &&",
+                // SSH once to prepare everything and stop services
+                "ssh -t -p 2222 aneedham@10.10.10.10 \"sudo systemctl stop homelab-api.service && sudo rm -rf /srv/www/homelab-dashboard/dist && sudo mkdir -p /srv/www/homelab-dashboard && sudo chown aneedham:aneedham /srv/www/homelab-dashboard && sudo chmod 755 /srv/www/homelab-dashboard\" &&",
+                // Copy all files sequentially (works on Windows)
+                "scp -P 2222 ./homelab-api/server.js aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                "scp -P 2222 ./homelab-api/package.json aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                "scp -r -P 2222 ./homelab-dashboard/dist aneedham@10.10.10.10:/srv/www/homelab-dashboard/ &&",
+                // SSH once more to install dependencies, set permissions, and start services
+                "ssh -t -p 2222 aneedham@10.10.10.10 \"cd /home/aneedham/homelab-api && npm install && sudo chown -R http:http /srv/www/homelab-dashboard/dist/ && sudo chmod -R 755 /srv/www/homelab-dashboard/dist/ && sudo nginx -t && sudo systemctl start homelab-api.service && sudo systemctl reload nginx && sudo systemctl status homelab-api.service\""
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build"
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            }
         }
     ]
 }
