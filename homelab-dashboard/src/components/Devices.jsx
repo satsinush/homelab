@@ -18,8 +18,10 @@ import {
     DialogContent,
     DialogActions,
     TextField,
-    Fab,
-    Grid
+    Grid,
+    ToggleButton,
+    ToggleButtonGroup,
+    InputAdornment
 } from '@mui/material';
 import {
     Refresh as RefreshIcon,
@@ -35,7 +37,9 @@ import {
     Cancel as OfflineIcon,
     Add as AddIcon,
     Edit as EditIcon,
-    Delete as DeleteIcon
+    Delete as DeleteIcon,
+    Search as SearchIcon,
+    FilterList as FilterIcon
 } from '@mui/icons-material';
 import { tryApiCall, apiCall } from '../utils/api';
 import { useNotification } from '../contexts/NotificationContext';
@@ -50,11 +54,11 @@ const Devices = () => {
     // Device management states
     const [deviceDialog, setDeviceDialog] = useState(false);
     const [editingDevice, setEditingDevice] = useState(null);
-    const [deviceForm, setDeviceForm] = useState({
-        name: '',
-        mac: '',
-        description: ''
-    });
+    const [deviceForm, setDeviceForm] = useState({ name: '', mac: '', description: '' });
+
+    // Filter and search states
+    const [filterStatus, setFilterStatus] = useState('all');
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         fetchDevicesAndStatus();
@@ -95,6 +99,7 @@ const Devices = () => {
             response.devices.forEach(device => {
                 const deviceKey = device.deviceKey || device.mac || device.ip;
                 statusMap[deviceKey] = {
+                    _id: device._id,
                     status: device.status,
                     ip: device.ip,
                     mac: device.mac,
@@ -139,8 +144,27 @@ const Devices = () => {
             await apiCall(window.workingApiUrl, `/devices/wol/${deviceId}`, {
                 method: 'DELETE'
             });
+
+            // Immediately remove device from local state for instant UI feedback
+            setDevices(prevDevices => prevDevices.filter(device => {
+                const deviceInfo = deviceStatuses[device];
+                return deviceInfo?._id !== deviceId;
+            }));
+
+            // Also remove from device statuses
+            setDeviceStatuses(prevStatuses => {
+                const newStatuses = { ...prevStatuses };
+                Object.keys(newStatuses).forEach(key => {
+                    if (newStatuses[key]._id === deviceId) {
+                        delete newStatuses[key];
+                    }
+                });
+                return newStatuses;
+            });
+
             showSuccess('Device deleted successfully');
-            // Refresh device list
+
+            // Refresh device list in background to ensure consistency
             await fetchDevicesAndStatus();
         } catch (err) {
             showError(`Failed to delete device: ${err.message}`);
@@ -164,22 +188,61 @@ const Devices = () => {
 
             if (editingDevice) {
                 // Update existing device
-                await apiCall(window.workingApiUrl, `/devices/wol/${editingDevice._id}`, {
+                const response = await apiCall(window.workingApiUrl, `/devices/wol/${editingDevice._id}`, {
                     method: 'PUT',
                     data: deviceData
                 });
+
+                // Immediately update device in local state
+                const deviceKey = editingDevice.mac || editingDevice.deviceKey;
+                setDeviceStatuses(prevStatuses => ({
+                    ...prevStatuses,
+                    [deviceKey]: {
+                        ...prevStatuses[deviceKey],
+                        friendlyName: deviceData.name,
+                        description: deviceData.description,
+                        mac: deviceData.mac
+                    }
+                }));
+
                 showSuccess('Device updated successfully');
             } else {
                 // Add new device
-                await apiCall(window.workingApiUrl, '/devices/wol', {
+                const response = await apiCall(window.workingApiUrl, '/devices/wol', {
                     method: 'POST',
                     data: deviceData
                 });
+
+                // Immediately add new device to local state for instant UI feedback
+                const normalizedMac = deviceData.mac.toUpperCase().replace(/:/g, '-');
+                const newDevice = {
+                    _id: response.device._id || Date.now(), // Use response ID or fallback
+                    status: 'offline', // Default to offline until next scan
+                    ip: null,
+                    mac: normalizedMac,
+                    vendor: 'Unknown',
+                    networkName: 'LAN',
+                    wolEnabled: true,
+                    friendlyName: deviceData.name,
+                    description: deviceData.description,
+                    deviceKey: normalizedMac
+                };
+
+                // Add to devices list
+                setDevices(prevDevices => [...prevDevices, normalizedMac]);
+
+                // Add to device statuses
+                setDeviceStatuses(prevStatuses => ({
+                    ...prevStatuses,
+                    [normalizedMac]: newDevice
+                }));
+
                 showSuccess('Device added successfully');
             }
 
             setDeviceDialog(false);
-            // Refresh device list
+
+            // Refresh device list in background to ensure consistency
             await fetchDevicesAndStatus();
         } catch (err) {
             showError(`Failed to save device: ${err.message}`);
@@ -200,6 +263,7 @@ const Devices = () => {
             statusResult.data.devices.forEach(device => {
                 const deviceKey = device.deviceKey || device.mac || device.ip;
                 statusMap[deviceKey] = {
+                    _id: device._id,
                     status: device.status,
                     ip: device.ip,
                     mac: device.mac,
@@ -207,8 +271,7 @@ const Devices = () => {
                     networkName: device.networkName,
                     wolEnabled: device.wolEnabled,
                     friendlyName: device.friendlyName,
-                    description: device.description,
-                    _id: device._id
+                    description: device.description
                 };
             });
             setDeviceStatuses(statusMap);
@@ -245,6 +308,24 @@ const Devices = () => {
         return <ComputerIcon />; // Default
     };
 
+    // Filter devices based on status and search term
+    const filteredDevices = devices.filter(device => {
+        const deviceInfo = deviceStatuses[device] || {};
+        const deviceName = (deviceInfo.friendlyName || device).toLowerCase();
+        const isOnline = deviceInfo.status === 'online';
+
+        // Filter by status
+        if (filterStatus === 'online' && !isOnline) return false;
+        if (filterStatus === 'offline' && isOnline) return false;
+
+        // Filter by search term
+        if (searchTerm && !deviceName.includes(searchTerm.toLowerCase())) {
+            return false;
+        }
+
+        return true;
+    });
+
     if (loading) {
         return (
             <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
@@ -272,27 +353,37 @@ const Devices = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                     <Box>
                         <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600, color: 'text.primary' }}>
-                            WOL Devices
+                            Network Devices
                         </Typography>
-                        <Typography variant="h6" color="text.secondary" sx={{ mb: 3 }}>
-                            Monitor and wake up configured devices on your network
+                        <Typography variant="h6" color="text.secondary">
+                            Monitor and wake up devices on your network
                         </Typography>
                     </Box>
-                    <Button
-                        variant="contained"
-                        startIcon={<RefreshIcon sx={{
-                            animation: refreshingAll ? 'spin 1s linear infinite' : 'none',
-                            '@keyframes spin': {
-                                '0%': { transform: 'rotate(0deg)' },
-                                '100%': { transform: 'rotate(360deg)' }
-                            }
-                        }} />}
-                        onClick={handleRefreshAll}
-                        disabled={refreshingAll}
-                        sx={{ alignSelf: 'flex-start' }}
-                    >
-                        {refreshingAll ? 'Refreshing...' : 'Refresh All'}
-                    </Button>
+                    <Box sx={{ display: 'flex', gap: 2, alignSelf: 'flex-start' }}>
+                        <Button
+                            variant="outlined"
+                            startIcon={<AddIcon />}
+                            onClick={handleAddDevice}
+                            sx={{ whiteSpace: 'nowrap' }}
+                        >
+                            Add Device
+                        </Button>
+                        <Button
+                            variant="contained"
+                            startIcon={<RefreshIcon sx={{
+                                animation: refreshingAll ? 'spin 1s linear infinite' : 'none',
+                                '@keyframes spin': {
+                                    '0%': { transform: 'rotate(0deg)' },
+                                    '100%': { transform: 'rotate(360deg)' }
+                                }
+                            }} />}
+                            onClick={handleRefreshAll}
+                            disabled={refreshingAll}
+                            sx={{ whiteSpace: 'nowrap' }}
+                        >
+                            {refreshingAll ? 'Refreshing...' : 'Refresh All'}
+                        </Button>
+                    </Box>
                 </Box>
 
                 {/* Stats Cards */}
@@ -333,7 +424,7 @@ const Devices = () => {
             {/* Content */}
             {devices.length > 0 ? (
                 <Grid container spacing={3}>
-                    {devices.map(device => {
+                    {filteredDevices.map(device => {
                         const deviceInfo = deviceStatuses[device] || {};
                         const isOnline = deviceInfo.status === 'online';
 
@@ -461,7 +552,7 @@ const Devices = () => {
             )}
 
             {/* Info Section */}
-            <Paper sx={{ p: 3, mt: 4, bgcolor: 'info.light', color: 'info.contrastText' }}>
+            {/* <Paper sx={{ p: 3, mt: 4, bgcolor: 'info.light', color: 'info.contrastText' }}>
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
                     About WOL Device Management
                 </Typography>
@@ -471,22 +562,7 @@ const Devices = () => {
                     device using the Wake-on-LAN button. Use the "Refresh All" button to trigger a new ARP scan
                     and update the status of all devices.
                 </Typography>
-            </Paper>
-
-            {/* Add Device FAB */}
-            <Fab
-                color="primary"
-                aria-label="add device"
-                onClick={handleAddDevice}
-                sx={{
-                    position: 'fixed',
-                    bottom: 16,
-                    right: 16,
-                    zIndex: 1000
-                }}
-            >
-                <AddIcon />
-            </Fab>
+            </Paper> */}
 
             {/* Device Management Dialog */}
             <Dialog open={deviceDialog} onClose={() => setDeviceDialog(false)} maxWidth="sm" fullWidth>

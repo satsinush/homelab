@@ -35,7 +35,7 @@ function AppContent() {
       <CssBaseline />
       <NotificationProvider>
         <AuthGuard>
-          <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+          <Box sx={{ display: 'flex', minHeight: '100vh', width: '100vw' }}>
             <Navigation
               activeTab={getCurrentTab()}
               mobileOpen={mobileOpen}
@@ -47,7 +47,7 @@ function AppContent() {
                 flexGrow: 1,
                 bgcolor: 'background.default',
                 minHeight: '100vh',
-                width: { xs: '100%', md: `calc(100% - 280px)` },
+                width: '100%', // Ensure main content fills available space
                 mt: { xs: '64px', md: 0 }, // Add top margin on mobile for app bar
                 display: 'flex',
                 flexDirection: 'column',

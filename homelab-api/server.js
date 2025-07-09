@@ -710,6 +710,7 @@ app.get('/api/devices/status', requireAuth('admin'), async (req, res) => {
         
         // Create device status list
         const deviceStatuses = devices.map(device => ({
+            _id: device._id,
             ip: device.ip,
             mac: device.mac,
             vendor: device.vendor,
@@ -720,7 +721,8 @@ app.get('/api/devices/status', requireAuth('admin'), async (req, res) => {
             wolEnabled: device.wolEnabled,
             status: device.ip ? 'online' : 'offline',
             lastSeen: device.lastSeen,
-            scanMethod: device.scanMethod
+            scanMethod: device.scanMethod,
+            description: device.description
         }));
         
         res.json({
@@ -785,6 +787,13 @@ app.post('/api/devices/wol', requireAuth('admin'), async (req, res) => {
         };
 
         const result = saveWolDevice(device);
+        
+        // Invalidate device cache to force refresh on next request
+        deviceCache.devices = [];
+        deviceCache.lastScan = null;
+        
+        console.log(`New WOL device added: ${device.name} (${device.mac})`);
+        
         res.json({ message: 'WOL device added successfully', device: result });
     } catch (error) {
         res.status(500).json({ error: `Failed to add WOL device: ${error.message}` });
@@ -815,6 +824,11 @@ app.put('/api/devices/wol/:id', requireAuth('admin'), async (req, res) => {
         };
 
         const result = saveWolDevice(device);
+        
+        // Invalidate device cache to force refresh on next request
+        deviceCache.devices = [];
+        deviceCache.lastScan = null;
+        
         res.json({ message: 'WOL device updated successfully', updated: result });
     } catch (error) {
         res.status(500).json({ error: `Failed to update WOL device: ${error.message}` });
@@ -830,6 +844,10 @@ app.delete('/api/devices/wol/:id', requireAuth('admin'), async (req, res) => {
         if (result === 0) {
             return res.status(404).json({ error: 'WOL device not found' });
         }
+
+        // Invalidate device cache to force refresh on next request
+        deviceCache.devices = [];
+        deviceCache.lastScan = null;
 
         res.json({ message: 'WOL device deleted successfully' });
     } catch (error) {
@@ -863,129 +881,155 @@ app.put('/api/settings', requireAuth('admin'), (req, res) => {
     }
 });
 
-// System information
-app.get('/api/system-info', requireAuth('admin'), (req, res) => {
-    try {
-        const systemInfo = {
-            hostname: os.hostname(),
-            platform: os.platform(),
-            arch: os.arch(),
-            uptime: Math.floor(os.uptime()),
-            loadavg: os.loadavg(),
-            totalmem: os.totalmem(),
-            freemem: os.freemem(),
-            cpus: os.cpus(),
-            timestamp: new Date().toISOString()
-        };
-        res.json(systemInfo);
-    } catch (error) {
-        res.status(500).json({ error: `Failed to get system info: ${error.message}` });
-    }
-});
 
-// System resources
-app.get('/api/resources', requireAuth('admin'), (req, res) => {
+
+// Combined system information endpoint
+app.get('/api/system', requireAuth('admin'), async (req, res) => {
     try {
-        const totalMem = os.totalmem();
-        const freeMem = os.freemem();
-        const usedMem = totalMem - freeMem;
-        const cpus = os.cpus();
-        const loadAvg = os.loadavg();
+        const startTime = Date.now();
         
-        // Get disk usage
-        exec('df /', (error, stdout) => {
-            let diskInfo = { used: 0, total: 0, free: 0, percentage: 0 };
-            
-            if (!error) {
-                const lines = stdout.trim().split('\n');
-                if (lines.length > 1) {
-                    const diskLine = lines[1].split(/\s+/);
-                    const totalKB = parseInt(diskLine[1]);
-                    const usedKB = parseInt(diskLine[2]);
-                    const availableKB = parseInt(diskLine[3]);
-                    const percentage = parseInt(diskLine[4].replace('%', ''));
-                    
-                    diskInfo = {
-                        total: totalKB * 1024,
-                        used: usedKB * 1024,
-                        free: availableKB * 1024,
-                        percentage: percentage,
-                        filesystem: diskLine[0]
+        // Gather all system data in parallel for better performance
+        const [systemInfoResult, resourcesResult, temperatureResult, servicesResult] = await Promise.allSettled([
+            // System info
+            new Promise((resolve) => {
+                try {
+                    const systemInfo = {
+                        hostname: os.hostname(),
+                        platform: os.platform(),
+                        arch: os.arch(),
+                        uptime: Math.floor(os.uptime()),
+                        loadavg: os.loadavg(),
+                        totalmem: os.totalmem(),
+                        freemem: os.freemem(),
+                        cpus: os.cpus(),
+                        memory: {
+                            total: os.totalmem(),
+                            used: os.totalmem() - os.freemem(),
+                            free: os.freemem()
+                        }
                     };
+                    resolve(systemInfo);
+                } catch (error) {
+                    resolve(null);
                 }
-            }
-
-            res.json({
-                cpu: {
-                    cores: cpus.length,
-                    model: cpus[0]?.model || 'Unknown',
-                    speed: cpus[0]?.speed || 0,
-                    loadAverage: loadAvg,
-                    usage: Math.round(loadAvg[0] * 100 / cpus.length)
-                },
-                memory: {
-                    total: Math.round(totalMem),
-                    used: Math.round(usedMem),
-                    free: Math.round(freeMem),
-                    percentage: Math.round((usedMem / totalMem) * 100)
-                },
-                disk: diskInfo,
-                uptime: os.uptime(),
-                timestamp: new Date().toISOString()
-            });
-        });
-    } catch (error) {
-        res.status(500).json({ error: `Failed to get system resources: ${error.message}` });
-    }
-});
-
-// Temperature monitoring
-app.get('/api/temperature', requireAuth('admin'), (req, res) => {
-    exec('vcgencmd measure_temp', (error, stdout) => {
-        if (error) {
-            res.json({ 
-                cpu: 'N/A',
-                gpu: 'N/A',
-                error: 'Temperature monitoring not available'
-            });
-        } else {
-            const temp = stdout.trim().replace('temp=', '').replace("'C", '');
-            res.json({ 
-                cpu: parseFloat(temp),
-                gpu: parseFloat(temp),
-                unit: 'Celsius',
-                timestamp: new Date().toISOString()
-            });
-        }
-    });
-});
-
-// Service status
-app.get('/api/services', requireAuth('admin'), (req, res) => {
-    const services = serverSettings.services || [];
-
-    Promise.all(services.map(service => {
-        return new Promise((resolve) => {
-            exec(`systemctl is-active ${service.name}`, (error, stdout) => {
-                const status = stdout.trim();
-                resolve({
-                    name: service.name,
-                    displayName: service.displayName,
-                    status: status === 'active' ? 'running' : 'stopped',
-                    active: status === 'active'
+            }),
+            
+            // Resources
+            new Promise((resolve) => {
+                try {
+                    const totalMem = os.totalmem();
+                    const freeMem = os.freemem();
+                    const usedMem = totalMem - freeMem;
+                    const cpus = os.cpus();
+                    const loadAvg = os.loadavg();
+                    
+                    // Get disk usage
+                    exec('df /', (error, stdout) => {
+                        let diskInfo = { total: 0, used: 0, free: 0, percentage: 0 };
+                        
+                        if (!error && stdout) {
+                            const lines = stdout.trim().split('\n');
+                            if (lines.length > 1) {
+                                const diskLine = lines[1].split(/\s+/);
+                                if (diskLine.length >= 4) {
+                                    const total = parseInt(diskLine[1]) * 1024; // Convert from KB
+                                    const used = parseInt(diskLine[2]) * 1024;
+                                    const free = parseInt(diskLine[3]) * 1024;
+                                    const percentage = Math.round((used / total) * 100);
+                                    diskInfo = { total, used, free, percentage };
+                                }
+                            }
+                        }
+                        
+                        const resources = {
+                            cpu: {
+                                usage: Math.round(loadAvg[0] * 100 / cpus.length),
+                                cores: cpus.length,
+                                loadAvg: loadAvg
+                            },
+                            memory: {
+                                total: totalMem,
+                                used: usedMem,
+                                free: freeMem,
+                                percentage: Math.round((usedMem / totalMem) * 100)
+                            },
+                            disk: diskInfo
+                        };
+                        
+                        resolve(resources);
+                    });
+                } catch (error) {
+                    resolve(null);
+                }
+            }),
+            
+            // Temperature
+            new Promise((resolve) => {
+                exec('vcgencmd measure_temp', (error, stdout) => {
+                    if (error) {
+                        resolve({ cpu: 'N/A', gpu: 'N/A' });
+                    } else {
+                        const temp = stdout.match(/temp=([0-9.]+)/);
+                        resolve({
+                            cpu: temp ? parseFloat(temp[1]) : 'N/A',
+                            gpu: 'N/A'
+                        });
+                    }
                 });
-            });
-        });
-    }))
-    .then(serviceStatuses => {
+            }),
+            
+            // Services
+            new Promise((resolve) => {
+                const services = serverSettings.services || [];
+                
+                Promise.all(services.map(service => {
+                    return new Promise((serviceResolve) => {
+                        exec(`systemctl is-active ${service.name}`, (error, stdout) => {
+                            const status = stdout.trim();
+                            const active = status === 'active';
+                            serviceResolve({
+                                name: service.name,
+                                displayName: service.displayName || service.name,
+                                status: status,
+                                active: active
+                            });
+                        });
+                    });
+                }))
+                .then(serviceStatuses => resolve({ services: serviceStatuses }))
+                .catch(() => resolve({ services: [] }));
+            })
+        ]);
+        
+        // Extract results from Promise.allSettled
+        const systemInfo = systemInfoResult.status === 'fulfilled' ? systemInfoResult.value : null;
+        const resources = resourcesResult.status === 'fulfilled' ? resourcesResult.value : null;
+        const temperature = temperatureResult.status === 'fulfilled' ? temperatureResult.value : { cpu: 'N/A', gpu: 'N/A' };
+        const services = servicesResult.status === 'fulfilled' ? servicesResult.value : { services: [] };
+        
+        const endTime = Date.now();
+        const responseTime = endTime - startTime;
+        
+        // Return combined response
         res.json({
-            services: serviceStatuses,
-            timestamp: new Date().toISOString()
+            system: systemInfo,
+            resources: resources,
+            temperature: temperature,
+            services: services,
+            metadata: {
+                timestamp: new Date().toISOString(),
+                responseTime: `${responseTime}ms`,
+                endpoint: 'combined'
+            }
         });
-    })
-    .catch(error => {
-        res.status(500).json({ error: `Failed to check services: ${error.message}` });
-    });
+        
+    } catch (error) {
+        console.error('Combined system endpoint error:', error);
+        res.status(500).json({ 
+            error: 'Failed to get system information',
+            details: error.message 
+        });
+    }
 });
 
 // =============================================================================
