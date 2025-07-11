@@ -690,7 +690,7 @@ const System = () => {
                                                         </ListItemIcon>
                                                         <ListItemText
                                                             primary={service.displayName || service.name}
-                                                            secondary={service.status}
+                                                            secondary={service.displayName ? service.name : null}
                                                         />
                                                         <Box sx={{ ml: 'auto' }}>
                                                             <Chip
@@ -801,9 +801,6 @@ const System = () => {
                                             </Box>
                                             <Typography color="text.secondary" sx={{ mb: 2 }}>
                                                 No network interface data available.
-                                            </Typography>
-                                            <Typography variant="body2" color="text.secondary">
-                                                This could be because Netdata is not running or the NETDATA_URL environment variable is not configured.
                                             </Typography>
                                         </CardContent>
                                     </Card>

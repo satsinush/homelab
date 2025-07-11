@@ -35,11 +35,9 @@ const db = new Database(path.join(dbPath, 'homelab.db'));
 
 // Initialize database tables
 db.exec(`
-    CREATE TABLE IF NOT EXISTS saved_devices (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        mac TEXT NOT NULL UNIQUE,
-        description TEXT,
+    CREATE TABLE IF NOT EXISTS devices (
+        mac TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -67,26 +65,6 @@ db.exec(`
         sess TEXT NOT NULL
     );
 `);
-
-// Migrate from old table name if it exists
-try {
-    // Check if old table exists and new table is empty
-    const oldTableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='wol_devices'").get();
-    if (oldTableExists) {
-        const newTableCount = db.prepare('SELECT COUNT(*) as count FROM saved_devices').get();
-        if (newTableCount.count === 0) {
-            // Migrate data from old table to new table
-            db.exec(`
-                INSERT INTO saved_devices (id, name, mac, description, created_at, updated_at)
-                SELECT id, name, mac, description, created_at, updated_at FROM wol_devices;
-                DROP TABLE wol_devices;
-            `);
-            console.log('Migrated data from wol_devices to saved_devices table');
-        }
-    }
-} catch (error) {
-    console.log('Table migration completed or not needed');
-}
 
 // Authentication constants
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -125,11 +103,9 @@ const DEFAULT_SETTINGS = {
 // Initialize settings
 let serverSettings = { ...DEFAULT_SETTINGS };
 
-// Device cache
+// Device cache - simplified to just hold the current state
 let deviceCache = {
-    allDevices: [],
-    savedDevices: [],
-    discoveredDevices: [],
+    devices: [], // All devices from database
     lastScan: null,
     scanInProgress: false
 };
@@ -298,212 +274,288 @@ const loadSettings = () => {
 // Cache timeout from settings
 const getCacheTimeout = () => serverSettings.cacheTimeout || 300000;
 
-// Get saved devices from database
-const getSavedDevices = () => {
+// Validate MAC address format and normalize it
+const validateAndNormalizeMac = (mac) => {
+    if (!mac) {
+        throw new Error('MAC address is required');
+    }
+    
+    const macClean = mac.replace(/[^a-fA-F0-9]/g, '');
+    if (macClean.length !== 12) {
+        throw new Error('Invalid MAC address format');
+    }
+    
+    return macClean.toUpperCase().match(/.{2}/g).join('-');
+};
+
+// Check if device exists by MAC address (now simplified since MAC is the primary key)
+const findDeviceByMac = (mac) => {
     try {
-        const stmt = db.prepare('SELECT * FROM saved_devices ORDER BY name');
-        const devices = stmt.all();
-        return devices.map(device => ({
-            _id: device.id,
-            name: device.name,
-            mac: device.mac,
-            description: device.description,
-            createdAt: device.created_at,
-            updatedAt: device.updated_at
-        }));
+        const stmt = db.prepare('SELECT * FROM devices WHERE mac = ?');
+        const row = stmt.get(mac);
+        
+        if (!row) {
+            return null;
+        }
+        
+        try {
+            const deviceData = JSON.parse(row.data);
+            return {
+                ...deviceData,
+                mac: row.mac, // Ensure MAC is always set from the key
+                createdAt: row.created_at,
+                updatedAt: row.updated_at
+            };
+        } catch (parseError) {
+            console.error('Invalid device data for MAC', mac, ':', parseError.message);
+            // Delete invalid device
+            const deleteStmt = db.prepare('DELETE FROM devices WHERE mac = ?');
+            deleteStmt.run(mac);
+            console.log(`Deleted device with invalid data: MAC ${mac}`);
+            return null;
+        }
     } catch (error) {
-        console.error('Error getting saved devices:', error);
+        console.error('Error finding device by MAC:', error);
+        return null;
+    }
+};
+
+// Get all devices from database - simplified with MAC as primary key
+const getAllDevices = () => {
+    try {
+        const stmt = db.prepare('SELECT * FROM devices ORDER BY updated_at DESC');
+        const devices = stmt.all();
+        const parsedDevices = [];
+        
+        // Parse devices and handle any with invalid data
+        for (const device of devices) {
+            try {
+                const deviceData = JSON.parse(device.data);
+                parsedDevices.push({
+                    ...deviceData,
+                    mac: device.mac, // Ensure MAC is always set from the key
+                    createdAt: device.created_at,
+                    updatedAt: device.updated_at
+                });
+            } catch (parseError) {
+                console.error('Invalid device data for MAC', device.mac, ':', parseError.message);
+                // Delete invalid devices
+                try {
+                    const deleteStmt = db.prepare('DELETE FROM devices WHERE mac = ?');
+                    deleteStmt.run(device.mac);
+                    console.log(`Deleted device with invalid data: MAC ${device.mac}`);
+                } catch (deleteError) {
+                    console.error('Error deleting invalid device:', deleteError);
+                }
+            }
+        }
+        
+        return parsedDevices;
+    } catch (error) {
+        console.error('Error getting devices:', error);
         return [];
     }
 };
 
-// Add or update saved device
-const saveSavedDevice = (device) => {
+// Save or update device in database using MAC as primary key
+const saveDevice = (deviceData) => {
     try {
-        if (device._id) {
+        const now = new Date().toISOString();
+        
+        if (!deviceData.mac) {
+            throw new Error('MAC address is required for saving device');
+        }
+        
+        // Check if device exists
+        const existingDevice = findDeviceByMac(deviceData.mac);
+        
+        // Prepare data without MAC (since it's the primary key)
+        const dataToStore = { ...deviceData };
+        delete dataToStore.mac;
+        delete dataToStore.createdAt;
+        delete dataToStore.updatedAt;
+        
+        if (existingDevice) {
             // Update existing device
-            const stmt = db.prepare('UPDATE saved_devices SET name = ?, mac = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-            const result = stmt.run(device.name, device.mac, device.description, device._id);
-            return result.changes;
+            const stmt = db.prepare('UPDATE devices SET data = ?, updated_at = ? WHERE mac = ?');
+            stmt.run(JSON.stringify(dataToStore), now, deviceData.mac);
         } else {
             // Insert new device
-            const stmt = db.prepare('INSERT INTO saved_devices (name, mac, description) VALUES (?, ?, ?)');
-            const result = stmt.run(device.name, device.mac, device.description);
-            return { _id: result.lastInsertRowid, ...device };
+            const stmt = db.prepare('INSERT INTO devices (mac, data, created_at, updated_at) VALUES (?, ?, ?, ?)');
+            stmt.run(deviceData.mac, JSON.stringify(dataToStore), now, now);
         }
+        
+        return deviceData.mac; // Return MAC instead of numeric ID
     } catch (error) {
         console.error('Error saving device:', error);
         throw error;
     }
 };
 
-// Delete saved device
-const deleteSavedDevice = (deviceId) => {
+// Delete device from database using MAC as primary key
+const deleteDevice = (mac) => {
     try {
-        const stmt = db.prepare('DELETE FROM saved_devices WHERE id = ?');
-        const result = stmt.run(deviceId);
+        const stmt = db.prepare('DELETE FROM devices WHERE mac = ?');
+        const result = stmt.run(mac);
+        console.log(`Deleted device with MAC ${mac} from database`);
         return result.changes;
     } catch (error) {
-        console.error('Error deleting saved device:', error);
+        console.error('Error deleting device:', error);
         throw error;
     }
 };
 
-// Network discovery using arp-scan -l to find all devices
-const discoverAllDevices = async () => {
-    return new Promise((resolve) => {
-        const cmd = 'arp-scan -l'; // Scan local network
-        exec(cmd, { timeout: 15000 }, (error, stdout, stderr) => {
-            if (error) {
-                console.error('ARP discovery error:', error.message);
-                resolve([]);
-                return;
-            }
-
-            const discoveredDevices = [];
-            const lines = stdout.split('\n');
-            
-            for (const line of lines) {
-                // Parse arp-scan output format: "10.10.10.1      3c:84:6a:a4:b7:70       TP-LINK TECHNOLOGIES CO.,LTD."
-                const match = line.match(/^(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F:]{17})\s+(.+)$/);
-                if (match) {
-                    const [, ip, mac, vendor] = match;
-                    const normalizedMac = mac.toUpperCase().replace(/:/g, '-');
-                    
-                    discoveredDevices.push({
-                        ip: ip,
-                        mac: normalizedMac,
-                        vendor: vendor.trim(),
-                        discoveredAt: new Date().toISOString(),
-                        scanMethod: 'arp-scan'
-                    });
-                }
-            }
-            
-            resolve(discoveredDevices);
-        });
-    });
-};
-
-// ARP scan to find all devices on network
-const scanForAllDevices = async () => {
-    return new Promise((resolve) => {
-        const cmd = 'arp-scan -l'; // Scan local network automatically
-        exec(cmd, { timeout: serverSettings.scanTimeout }, (error, stdout, stderr) => {
-            if (error) {
-                console.error('ARP scan error:', error.message);
-                resolve([]);
-                return;
-            }
-
-            // Parse ARP scan output
-            const discoveredDevices = [];
-            const lines = stdout.split('\n');
-            
-            for (const line of lines) {
-                const match = line.match(/^(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F:]{17})\s+(.+)$/);
-                if (match) {
-                    const [, ip, mac, vendor] = match;
-                    const normalizedMac = mac.toUpperCase().replace(/:/g, '-');
-                    
-                    discoveredDevices.push({
-                        ip: ip,
-                        mac: normalizedMac,
-                        vendor: vendor.trim(),
-                        status: 'online',
-                        lastSeen: new Date().toISOString(),
-                        scanMethod: 'arp-scan'
-                    });
-                }
-            }
-            
-            resolve(discoveredDevices);
-        });
-    });
-};
-
-// Get devices with saved device info merged
-const getDevicesWithSavedInfo = async () => {
-    const [allDevices, savedDevices] = await Promise.all([
-        scanForAllDevices(),
-        Promise.resolve(getSavedDevices())
-    ]);
-    
-    // Create a map of saved devices by MAC
-    const savedDeviceMap = new Map();
-    savedDevices.forEach(device => {
-        const normalizedMac = device.mac.toUpperCase().replace(/:/g, '-');
-        savedDeviceMap.set(normalizedMac, device);
-    });
-    
-    // Merge discovered devices with saved device info
-    const mergedDevices = allDevices.map(device => {
-        const savedDevice = savedDeviceMap.get(device.mac);
-        return {
-            ...device,
-            _id: savedDevice?._id || null,
-            friendlyName: savedDevice?.name || null,
-            description: savedDevice?.description || null,
-            isSaved: !!savedDevice,
-            wolEnabled: !!savedDevice
-        };
-    });
-    
-    // Add saved devices that aren't currently online
-    savedDevices.forEach(savedDevice => {
-        const normalizedMac = savedDevice.mac.toUpperCase().replace(/:/g, '-');
-        const existsInDiscovered = mergedDevices.find(d => d.mac === normalizedMac);
+// Delete all non-saved devices from database
+const clearNonSavedDevices = () => {
+    try {
+        // Get all devices and filter for non-saved ones
+        const allDevices = getAllDevices();
+        const nonSavedDevices = allDevices.filter(device => !device.isSaved && device.isSaved !== undefined);
         
-        if (!existsInDiscovered) {
-            mergedDevices.push({
-                _id: savedDevice._id,
-                ip: null,
-                mac: normalizedMac,
-                vendor: 'Unknown',
-                status: 'offline',
-                lastSeen: null,
-                scanMethod: 'saved',
-                friendlyName: savedDevice.name,
-                description: savedDevice.description,
-                isSaved: true,
-                wolEnabled: true
+        console.log(`Found ${nonSavedDevices.length} non-saved devices to clear out of ${allDevices.length} total devices`);
+        
+        if (nonSavedDevices.length > 0) {
+            const stmt = db.prepare('DELETE FROM devices WHERE mac = ?');
+            nonSavedDevices.forEach(device => {
+                // Double check that device is actually not saved before deleting
+                if (!device.isSaved) {
+                    console.log(`Deleting non-saved device: ${device.name || 'Unknown'} (${device.mac})`);
+                    stmt.run(device.mac);
+                } else {
+                    console.warn(`WARNING: Skipped deleting saved device: ${device.name} (${device.mac})`);
+                }
             });
+            console.log(`Deleted ${nonSavedDevices.length} non-saved devices from database`);
         }
-    });
-    
-    return {
-        allDevices: mergedDevices,
-        savedDevices: mergedDevices.filter(d => d.isSaved),
-        discoveredDevices: mergedDevices.filter(d => !d.isSaved)
-    };
+        
+        return nonSavedDevices.length;
+    } catch (error) {
+        console.error('Error clearing non-saved devices:', error);
+        throw error;
+    }
 };
 
-// Main scan function
-const performScan = async () => {
+// Simplified network scanning - scan and update devices without complex deduplication
+const scanAndUpdateDevices = async () => {
     if (deviceCache.scanInProgress) {
         console.log('Scan already in progress...');
-        return deviceCache;
+        return deviceCache.devices;
     }
 
     deviceCache.scanInProgress = true;
-    console.log('Starting ARP scan...');
+    console.log('Starting device scan...');
     
     try {
-        const deviceData = await getDevicesWithSavedInfo();
+        // Run arp-scan to discover devices
+        const scannedDevices = await new Promise((resolve) => {
+            const cmd = 'arp-scan -l';
+            exec(cmd, { timeout: serverSettings.scanTimeout }, (error, stdout, stderr) => {
+                if (error) {
+                    console.error('ARP scan error:', error.message);
+                    resolve([]);
+                    return;
+                }
+
+                const discoveredDevices = [];
+                const lines = stdout.split('\n');
+                
+                for (const line of lines) {
+                    const match = line.match(/^(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F:]{17})\s+(.+)$/);
+                    if (match) {
+                        const [, ip, mac, vendor] = match;
+                        const normalizedMac = mac.toUpperCase().replace(/:/g, '-');
+                        
+                        discoveredDevices.push({
+                            ip: ip,
+                            mac: normalizedMac,
+                            vendor: vendor.trim(),
+                            status: 'online',
+                            lastSeen: new Date().toISOString(),
+                            scanMethod: 'arp-scan'
+                        });
+                    }
+                }
+                
+                resolve(discoveredDevices);
+            });
+        });
+
+        // Get current devices from database
+        const databaseDevices = getAllDevices();
         
-        deviceCache.allDevices = deviceData.allDevices;
-        deviceCache.savedDevices = deviceData.savedDevices;
-        deviceCache.discoveredDevices = deviceData.discoveredDevices;
+        console.log(`Scanned: ${scannedDevices.length} devices, Database: ${databaseDevices.length} devices`);
+        
+        const now = new Date().toISOString();
+        const updatedDevices = [];
+        
+        // Update or create devices based on scan results
+        for (const scannedDevice of scannedDevices) {
+            const existingDevice = databaseDevices.find(d => d.mac === scannedDevice.mac);
+            
+            if (existingDevice) {
+                // Update existing device
+                const updatedDevice = {
+                    ...existingDevice,
+                    ip: scannedDevice.ip,
+                    vendor: scannedDevice.vendor || existingDevice.vendor,
+                    status: 'online',
+                    lastSeen: now,
+                    lastScanned: now,
+                    scanMethod: scannedDevice.scanMethod
+                };
+                
+                saveDevice(updatedDevice);
+                updatedDevices.push(updatedDevice);
+            } else {
+                // New discovered device
+                const newDevice = {
+                    name: null,
+                    mac: scannedDevice.mac,
+                    ip: scannedDevice.ip,
+                    vendor: scannedDevice.vendor || 'Unknown',
+                    description: null,
+                    isSaved: false,
+                    status: 'online',
+                    lastSeen: now,
+                    lastScanned: now,
+                    scanMethod: scannedDevice.scanMethod
+                };
+                
+                saveDevice(newDevice);
+                updatedDevices.push(newDevice);
+            }
+        }
+        
+        // Mark devices not found in scan as offline
+        const scannedMacs = new Set(scannedDevices.map(d => d.mac));
+        for (const device of databaseDevices) {
+            if (!scannedMacs.has(device.mac)) {
+                const offlineDevice = {
+                    ...device,
+                    status: 'offline',
+                    lastScanned: now,
+                    ip: device.isSaved ? device.ip : null // Keep IP for saved devices
+                };
+                
+                saveDevice(offlineDevice);
+                updatedDevices.push(offlineDevice);
+            }
+        }
+        
+        deviceCache.devices = updatedDevices;
         deviceCache.lastScan = Date.now();
         deviceCache.scanInProgress = false;
         
-        console.log(`Scan completed: ${deviceData.allDevices.length} total devices (${deviceData.allDevices.filter(d => d.status === 'online').length} online, ${deviceData.savedDevices.length} saved)`);
-        return deviceCache;
+        const onlineCount = updatedDevices.filter(d => d.status === 'online').length;
+        const savedCount = updatedDevices.filter(d => d.isSaved).length;
+        
+        console.log(`Scan completed: ${updatedDevices.length} total devices (${onlineCount} online, ${savedCount} saved)`);
+        return updatedDevices;
         
     } catch (error) {
         console.error('Scan error:', error);
         deviceCache.scanInProgress = false;
-        return deviceCache;
+        return deviceCache.devices;
     }
 };
 
@@ -512,11 +564,19 @@ const getDevices = async (forceScan = false) => {
     const now = Date.now();
     const cacheExpired = !deviceCache.lastScan || (now - deviceCache.lastScan) > getCacheTimeout();
     
-    if (forceScan || cacheExpired || deviceCache.allDevices.length === 0) {
-        return await performScan();
+    if (forceScan || cacheExpired || deviceCache.devices.length === 0) {
+        // Perform scan and update cache
+        deviceCache.devices = await scanAndUpdateDevices();
+    } else {
+        // Use cached data but refresh from database to get any manual changes
+        deviceCache.devices = getAllDevices();
     }
     
-    return deviceCache;
+    return {
+        devices: deviceCache.devices,
+        lastScan: deviceCache.lastScan,
+        scanInProgress: deviceCache.scanInProgress
+    };
 };
 
 // =============================================================================
@@ -754,19 +814,23 @@ app.get('/api/health', (req, res) => {
 // SIMPLIFIED DEVICE ENDPOINTS
 // =============================================================================
 
-// GET /devices - Get all scanned and saved devices from cache
+// GET /devices - Get all devices from database
 app.get('/api/devices', requireAuth('admin'), async (req, res) => {
     try {
         const deviceData = await getDevices();
+        const devices = deviceData.devices;
+        
+        // Calculate stats for compatibility
+        const savedCount = devices.filter(d => d.isSaved).length;
+        const discoveredCount = devices.filter(d => !d.isSaved).length;
+        const onlineCount = devices.filter(d => d.status === 'online').length;
         
         res.json({
-            allDevices: deviceData.allDevices,
-            savedDevices: deviceData.savedDevices,
-            discoveredDevices: deviceData.discoveredDevices,
-            totalDevices: deviceData.allDevices.length,
-            savedDevicesCount: deviceData.savedDevices.length,
-            discoveredDevicesCount: deviceData.discoveredDevices.length,
-            onlineDevices: deviceData.allDevices.filter(d => d.status === 'online').length,
+            devices: devices,
+            totalDevices: devices.length,
+            savedDevicesCount: savedCount,
+            discoveredDevicesCount: discoveredCount,
+            onlineDevices: onlineCount,
             lastScan: deviceCache.lastScan ? new Date(deviceCache.lastScan).toISOString() : null,
             timestamp: new Date().toISOString()
         });
@@ -776,19 +840,23 @@ app.get('/api/devices', requireAuth('admin'), async (req, res) => {
     }
 });
 
-// POST /devices/scan - Scan for new devices and update status of saved devices
+// POST /devices/scan - Scan for devices and update database
 app.post('/api/devices/scan', requireAuth('admin'), async (req, res) => {
     try {
-        const deviceData = await performScan();
+        const devices = await scanAndUpdateDevices();
+        
+        // Calculate stats
+        const savedCount = devices.filter(d => d.isSaved).length;
+        const discoveredCount = devices.filter(d => !d.isSaved).length;
+        const onlineCount = devices.filter(d => d.status === 'online').length;
+        
         res.json({
-            message: 'Network scan completed',
-            allDevices: deviceData.allDevices,
-            savedDevices: deviceData.savedDevices,
-            discoveredDevices: deviceData.discoveredDevices,
-            totalDevices: deviceData.allDevices.length,
-            savedDevicesCount: deviceData.savedDevices.length,
-            discoveredDevicesCount: deviceData.discoveredDevices.length,
-            onlineDevices: deviceData.allDevices.filter(d => d.status === 'online').length,
+            message: 'Device scan completed',
+            devices: devices,
+            totalDevices: devices.length,
+            savedDevicesCount: savedCount,
+            discoveredDevicesCount: discoveredCount,
+            onlineDevices: onlineCount,
             timestamp: new Date().toISOString()
         });
     } catch (error) {
@@ -797,83 +865,167 @@ app.post('/api/devices/scan', requireAuth('admin'), async (req, res) => {
     }
 });
 
-// POST /devices - Add new device (save a discovered device or add manually)
-app.post('/api/devices', requireAuth('admin'), async (req, res) => {
+// POST /devices/clear-cache - Clear non-saved devices and perform fresh scan
+app.post('/api/devices/clear-cache', requireAuth('admin'), async (req, res) => {
     try {
-        const { name, mac, description } = req.body;
+        console.log('Clearing non-saved devices from database...');
         
-        if (!name || !mac) {
-            return res.status(400).json({ error: 'Name and MAC address are required' });
-        }
-
-        // Validate and normalize MAC address format
-        const macClean = mac.replace(/[^a-fA-F0-9]/g, '');
-        if (macClean.length !== 12) {
-            return res.status(400).json({ error: 'Invalid MAC address format' });
-        }
-        const macFormatted = macClean.toUpperCase().match(/.{2}/g).join(':');
-
-        const device = {
-            name: name.trim(),
-            mac: macFormatted,
-            description: description?.trim() || ''
-        };
-
-        const result = saveSavedDevice(device);
+        // Clear non-saved devices from database
+        const deletedCount = clearNonSavedDevices();
         
-        // Invalidate device cache to force refresh on next request
-        deviceCache.allDevices = [];
-        deviceCache.savedDevices = [];
-        deviceCache.discoveredDevices = [];
+        // Clear the device cache to force fresh scan
+        deviceCache.devices = [];
         deviceCache.lastScan = null;
         
-        console.log(`New device saved: ${device.name} (${device.mac})`);
+        // Perform a fresh scan
+        const devices = await scanAndUpdateDevices();
         
-        res.json({ 
-            message: 'Device saved successfully', 
-            device: result 
+        // Calculate stats
+        const savedCount = devices.filter(d => d.isSaved).length;
+        const discoveredCount = devices.filter(d => !d.isSaved).length;
+        const onlineCount = devices.filter(d => d.status === 'online').length;
+        
+        console.log(`Cleared ${deletedCount} non-saved devices and completed fresh scan: ${devices.length} total devices, ${discoveredCount} discovered`);
+        
+        res.json({
+            message: `Cleared ${deletedCount} non-saved devices and completed fresh scan`,
+            devices: devices,
+            totalDevices: devices.length,
+            savedDevicesCount: savedCount,
+            discoveredDevicesCount: discoveredCount,
+            onlineDevices: onlineCount,
+            deletedCount: deletedCount,
+            timestamp: new Date().toISOString(),
+            cacheCleared: true
         });
     } catch (error) {
-        console.error('Add device error:', error);
-        res.status(500).json({ error: `Failed to save device: ${error.message}` });
+        console.error('Clear cache error:', error);
+        res.status(500).json({ error: `Failed to clear cache and scan: ${error.message}` });
     }
 });
 
-// PUT /devices/:id - Update saved device
-app.put('/api/devices/:id', requireAuth('admin'), async (req, res) => {
+// POST /devices - Add new device with proper validation
+app.post('/api/devices', requireAuth('admin'), async (req, res) => {
     try {
-        const { id } = req.params;
-        const { name, mac, description } = req.body;
+        const { name, mac, description, isSaved } = req.body;
         
         if (!name || !mac) {
             return res.status(400).json({ error: 'Name and MAC address are required' });
         }
 
-        // Validate and normalize MAC address format
-        const macClean = mac.replace(/[^a-fA-F0-9]/g, '');
-        if (macClean.length !== 12) {
-            return res.status(400).json({ error: 'Invalid MAC address format' });
+        // Validate and normalize MAC address
+        let macFormatted;
+        try {
+            macFormatted = validateAndNormalizeMac(mac);
+        } catch (error) {
+            return res.status(400).json({ error: error.message });
         }
-        const macFormatted = macClean.toUpperCase().match(/.{2}/g).join(':');
 
-        const device = {
-            _id: parseInt(id),
+        // Check if device with this MAC already exists
+        const existingDevice = findDeviceByMac(macFormatted);
+        if (existingDevice) {
+            return res.status(409).json({ 
+                error: `Device with MAC address ${macFormatted} already exists`,
+                existingDevice: {
+                    mac: existingDevice.mac,
+                    name: existingDevice.name
+                }
+            });
+        }
+
+        // Create new device
+        const newDevice = {
             name: name.trim(),
             mac: macFormatted,
-            description: description?.trim() || ''
+            description: description?.trim() || '',
+            isSaved: isSaved !== undefined ? isSaved : true,
+            status: 'offline',
+            ip: null,
+            vendor: 'Unknown',
+            lastSeen: null,
+            lastScanned: null,
+            scanMethod: 'manual'
         };
-
-        const result = saveSavedDevice(device);
         
-        // Invalidate device cache to force refresh on next request
-        deviceCache.allDevices = [];
-        deviceCache.savedDevices = [];
-        deviceCache.discoveredDevices = [];
+        saveDevice(newDevice);
+        
+        // Clear cache to force refresh
+        deviceCache.devices = [];
         deviceCache.lastScan = null;
         
+        console.log(`New device created: ${newDevice.name} (${newDevice.mac})`);
+        res.status(201).json({ 
+            message: 'Device created successfully', 
+            device: newDevice 
+        });
+    } catch (error) {
+        console.error('Add device error:', error);
+        res.status(500).json({ error: `Failed to create device: ${error.message}` });
+    }
+});
+
+// PUT /devices/:mac - Update existing device with proper validation
+app.put('/api/devices/:mac', requireAuth('admin'), async (req, res) => {
+    try {
+        const { mac: paramMac } = req.params;
+        const { name, mac, description, isSaved } = req.body;
+        
+        if (!name || !mac) {
+            return res.status(400).json({ error: 'Name and MAC address are required' });
+        }
+
+        // Validate and normalize MAC addresses
+        let paramMacFormatted, bodyMacFormatted;
+        try {
+            paramMacFormatted = validateAndNormalizeMac(paramMac);
+            bodyMacFormatted = validateAndNormalizeMac(mac);
+        } catch (error) {
+            return res.status(400).json({ error: error.message });
+        }
+
+        // Get existing device by MAC from URL parameter
+        const existingDevice = findDeviceByMac(paramMacFormatted);
+        
+        if (!existingDevice) {
+            return res.status(404).json({ error: 'Device not found' });
+        }
+
+        // Check if MAC address is being changed to one that already exists
+        if (paramMacFormatted !== bodyMacFormatted) {
+            const deviceWithSameMac = findDeviceByMac(bodyMacFormatted);
+            if (deviceWithSameMac) {
+                return res.status(409).json({ 
+                    error: `Another device with MAC address ${bodyMacFormatted} already exists`,
+                    conflictingDevice: {
+                        mac: deviceWithSameMac.mac,
+                        name: deviceWithSameMac.name
+                    }
+                });
+            }
+            
+            // If MAC is changing, we need to delete the old entry and create a new one
+            deleteDevice(paramMacFormatted);
+        }
+
+        // Update device
+        const updatedDevice = {
+            ...existingDevice,
+            name: name.trim(),
+            mac: bodyMacFormatted,
+            description: description?.trim() || '',
+            isSaved: isSaved !== undefined ? isSaved : true
+        };
+
+        saveDevice(updatedDevice);
+        
+        // Clear cache to force refresh
+        deviceCache.devices = [];
+        deviceCache.lastScan = null;
+        
+        console.log(`Device updated: ${updatedDevice.name} (${updatedDevice.mac})`);
         res.json({ 
             message: 'Device updated successfully', 
-            updated: result 
+            device: updatedDevice 
         });
     } catch (error) {
         console.error('Update device error:', error);
@@ -881,22 +1033,30 @@ app.put('/api/devices/:id', requireAuth('admin'), async (req, res) => {
     }
 });
 
-// DELETE /devices/:id - Delete saved device
-app.delete('/api/devices/:id', requireAuth('admin'), async (req, res) => {
+// DELETE /devices/:mac - Delete device
+app.delete('/api/devices/:mac', requireAuth('admin'), async (req, res) => {
     try {
-        const { id } = req.params;
-        const result = deleteSavedDevice(parseInt(id));
+        const { mac } = req.params;
+        
+        // Validate and normalize MAC address
+        let macFormatted;
+        try {
+            macFormatted = validateAndNormalizeMac(mac);
+        } catch (error) {
+            return res.status(400).json({ error: error.message });
+        }
+        
+        const result = deleteDevice(macFormatted);
         
         if (result === 0) {
             return res.status(404).json({ error: 'Device not found' });
         }
 
-        // Invalidate device cache to force refresh on next request
-        deviceCache.allDevices = [];
-        deviceCache.savedDevices = [];
-        deviceCache.discoveredDevices = [];
+        // Clear cache to force refresh
+        deviceCache.devices = [];
         deviceCache.lastScan = null;
 
+        console.log(`Device deleted: MAC ${macFormatted}`);
         res.json({ message: 'Device deleted successfully' });
     } catch (error) {
         console.error('Delete device error:', error);
@@ -913,27 +1073,35 @@ app.post('/api/wol', requireAuth('admin'), async (req, res) => {
             return res.status(400).json({ error: 'Device identifier is required' });
         }
         
-        // Get all saved devices from database
-        const savedDevices = getSavedDevices();
+        // Get all devices from database
+        const allDevices = getAllDevices();
         
         // Find device by friendly name OR mac address OR device key
-        const targetDevice = savedDevices.find(d => 
-            d.name === device ||
-            d.mac === device ||
-            d.mac.replace(/:/g, '-').toUpperCase() === device.toUpperCase()
+        const targetDevice = allDevices.find(d => 
+            (d.name === device) ||
+            (d.mac === device) ||
+            (d.mac.replace(/-/g, ':') === device) ||
+            (d.mac.replace(/-/g, ':').toUpperCase() === device.toUpperCase())
         );
 
         if (!targetDevice) {
-            return res.status(404).json({ error: `Saved device '${device}' not found. Only saved devices can receive WOL packets.` });
+            return res.status(404).json({ error: `Device '${device}' not found.` });
         }
 
-        wol.wake(targetDevice.mac, (error) => {
+        if (!targetDevice.isSaved) {
+            return res.status(400).json({ error: `Device '${device}' must be saved before sending WOL packets.` });
+        }
+
+        // Convert MAC format for WOL library (expects colon format)
+        const macForWol = targetDevice.mac.replace(/-/g, ':');
+
+        wol.wake(macForWol, (error) => {
             if (error) {
                 console.error(`WoL error for ${device}:`, error);
                 return res.status(500).json({ error: `Failed to send WoL packet: ${error.message}` });
             }
             res.json({ 
-                message: `WoL packet sent to ${targetDevice.name} (${targetDevice.mac})` 
+                message: `WoL packet sent to ${targetDevice.name || targetDevice.mac} (${targetDevice.mac})` 
             });
         });
     } catch (error) {
@@ -1561,17 +1729,23 @@ const discoverNetworkInterfaces = async () => {
         
         // Initial scan after startup
         (async () => {
-            console.log('Performing initial network scan...');
+            console.log('Performing initial device scan...');
             try {
                 // Discover network interfaces once at startup
                 await discoverNetworkInterfaces();
                 
-                const deviceData = await performScan();
-                console.log(`Initial scan completed: ${deviceData.allDevices.length} devices found (${deviceData.savedDevices.length} saved)`);
+                const devices = await scanAndUpdateDevices();
+                const savedDevices = devices.filter(d => d.isSaved);
+                const onlineDevices = devices.filter(d => d.status === 'online');
+                
+                console.log(`Initial scan completed: ${devices.length} devices found (${savedDevices.length} saved, ${onlineDevices.length} online)`);
                 
                 // Log configured saved devices
-                const savedDevices = getSavedDevices();
-                console.log(`Configured saved devices: ${savedDevices.map(d => d.name).join(', ') || 'None'}`);
+                if (savedDevices.length > 0) {
+                    console.log(`Saved devices: ${savedDevices.map(d => d.name || d.mac).join(', ')}`);
+                } else {
+                    console.log('No saved devices configured');
+                }
             } catch (error) {
                 console.error('Initial scan failed:', error.message);
             }
