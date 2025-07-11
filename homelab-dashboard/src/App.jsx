@@ -7,6 +7,7 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import { AuthProvider } from './contexts/AuthContext';
 import AuthGuard from './components/AuthGuard';
 import Navigation from './components/Navigation';
+import Home from './components/Home';
 import System from './components/System';
 import Devices from './components/Devices';
 import PackageManager from './components/PackageManager';
@@ -22,12 +23,14 @@ function AppContent() {
   // Get current tab from URL path
   const getCurrentTab = () => {
     const path = location.pathname;
-    if (path === '/' || path === '/system') return 'system';
+    if (path === '/') return 'home';
+    if (path === '/home') return 'home';
+    if (path === '/system') return 'system';
     if (path === '/devices') return 'devices';
     if (path === '/packages') return 'packages';
     if (path === '/settings') return 'settings';
     if (path === '/profile') return 'profile';
-    return 'system';
+    return 'home';
   };
 
   return (
@@ -54,7 +57,8 @@ function AppContent() {
               }}
             >
               <Routes>
-                <Route path="/" element={<Navigate to="/system" replace />} />
+                <Route path="/" element={<Home />} />
+                <Route path="/home" element={<Home />} />
                 <Route path="/system" element={<System />} />
                 <Route path="/devices" element={<Devices />} />
                 <Route path="/packages" element={<PackageManager />} />

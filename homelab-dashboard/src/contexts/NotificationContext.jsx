@@ -1,6 +1,16 @@
 // src/contexts/NotificationContext.jsx
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { Snackbar, Alert, Slide } from '@mui/material';
+import {
+    Snackbar,
+    Alert,
+    Slide,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
+    Typography
+} from '@mui/material';
 
 const NotificationContext = createContext();
 
@@ -18,6 +28,18 @@ function SlideTransition(props) {
 
 export const NotificationProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([]);
+
+    // Confirmation dialog state
+    const [confirmDialog, setConfirmDialog] = useState({
+        open: false,
+        title: '',
+        message: '',
+        confirmText: 'Confirm',
+        cancelText: 'Cancel',
+        confirmColor: 'primary',
+        onConfirm: null,
+        onCancel: null
+    });
 
     const showNotification = useCallback((message, severity = 'info', duration = 6000) => {
         const id = Date.now() + Math.random();
@@ -76,6 +98,63 @@ export const NotificationProvider = ({ children }) => {
         setNotifications([]);
     }, []);
 
+    // Confirmation dialog functions
+    const showConfirmDialog = useCallback((options) => {
+        const {
+            title = 'Confirm Action',
+            message = 'Are you sure?',
+            confirmText = 'Confirm',
+            cancelText = 'Cancel',
+            confirmColor = 'primary',
+            onConfirm = null,
+            onCancel = null
+        } = options;
+
+        setConfirmDialog({
+            open: true,
+            title,
+            message,
+            confirmText,
+            cancelText,
+            confirmColor,
+            onConfirm,
+            onCancel
+        });
+    }, []);
+
+    const hideConfirmDialog = useCallback(() => {
+        setConfirmDialog(prev => ({
+            ...prev,
+            open: false
+        }));
+    }, []);
+
+    // Convenience method for delete confirmations
+    const showDeleteConfirmation = useCallback((itemName, onConfirm, onCancel = null) => {
+        showConfirmDialog({
+            title: 'Delete Item',
+            message: `Are you sure you want to delete "${itemName}"? This action cannot be undone.`,
+            confirmText: 'Delete',
+            confirmColor: 'error',
+            onConfirm,
+            onCancel
+        });
+    }, [showConfirmDialog]);
+
+    const handleConfirmDialogConfirm = useCallback(() => {
+        if (confirmDialog.onConfirm) {
+            confirmDialog.onConfirm();
+        }
+        hideConfirmDialog();
+    }, [confirmDialog.onConfirm, hideConfirmDialog]);
+
+    const handleConfirmDialogCancel = useCallback(() => {
+        if (confirmDialog.onCancel) {
+            confirmDialog.onCancel();
+        }
+        hideConfirmDialog();
+    }, [confirmDialog.onCancel, hideConfirmDialog]);
+
     const value = {
         showNotification,
         showSuccess,
@@ -83,7 +162,10 @@ export const NotificationProvider = ({ children }) => {
         showWarning,
         showInfo,
         hideNotification,
-        clearAll
+        clearAll,
+        showConfirmDialog,
+        showDeleteConfirmation,
+        hideConfirmDialog
     };
 
     return (
@@ -122,6 +204,39 @@ export const NotificationProvider = ({ children }) => {
                     </Alert>
                 </Snackbar>
             ))}
+
+            {/* Confirmation Dialog */}
+            <Dialog
+                open={confirmDialog.open}
+                onClose={handleConfirmDialogCancel}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle sx={{ pb: 2 }}>
+                    {confirmDialog.title}
+                </DialogTitle>
+                <DialogContent>
+                    <Typography variant="body1">
+                        {confirmDialog.message}
+                    </Typography>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 3 }}>
+                    <Button
+                        onClick={handleConfirmDialogCancel}
+                        variant="outlined"
+                    >
+                        {confirmDialog.cancelText}
+                    </Button>
+                    <Button
+                        onClick={handleConfirmDialogConfirm}
+                        variant="contained"
+                        color={confirmDialog.confirmColor}
+                        autoFocus
+                    >
+                        {confirmDialog.confirmText}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </NotificationContext.Provider>
     );
 };

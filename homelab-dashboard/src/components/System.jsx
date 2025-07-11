@@ -34,7 +34,7 @@ import {
     Error as ErrorIcon,
     Settings as ServiceIcon
 } from '@mui/icons-material';
-import { tryApiCall, apiCall } from '../utils/api';
+import { tryApiCall } from '../utils/api';
 import { useThemeMode } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -44,7 +44,11 @@ const System = () => {
     const [services, setServices] = useState(null);
     const [temperature, setTemperature] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [autoRefresh, setAutoRefresh] = useState(true);
+    const [autoRefresh, setAutoRefresh] = useState(() => {
+        // Load auto-refresh setting from localStorage, default to true
+        const saved = localStorage.getItem('systemAutoRefresh');
+        return saved !== null ? JSON.parse(saved) : true;
+    });
     const [refreshing, setRefreshing] = useState(false);
     const [tabValue, setTabValue] = useState(0);
     const { showError } = useNotification();
@@ -55,7 +59,6 @@ const System = () => {
             const systemDataResult = await tryApiCall('/system');
 
             const data = systemDataResult.data;
-            window.workingApiUrl = systemDataResult.baseUrl;
 
             // Set all state from the combined response
             setSystemInfo(data.system);
@@ -76,20 +79,19 @@ const System = () => {
         let interval;
         if (autoRefresh) {
             interval = setInterval(async () => {
-                if (window.workingApiUrl) {
-                    try {
-                        // Use combined endpoint for refresh
-                        const systemData = await apiCall(window.workingApiUrl, '/system');
+                try {
+                    // Use tryApiCall for refresh
+                    const systemDataResult = await tryApiCall('/system');
+                    const systemData = systemDataResult.data;
 
-                        if (systemData) {
-                            // Update all state from combined response
-                            if (systemData.resources) setResources(systemData.resources);
-                            if (systemData.temperature) setTemperature(systemData.temperature);
-                            if (systemData.services) setServices(systemData.services?.services || systemData.services);
-                        }
-                    } catch (err) {
-                        // Don't show error for refresh failures
+                    if (systemData) {
+                        // Update all state from combined response
+                        if (systemData.resources) setResources(systemData.resources);
+                        if (systemData.temperature) setTemperature(systemData.temperature);
+                        if (systemData.services) setServices(systemData.services?.services || systemData.services);
                     }
+                } catch (err) {
+                    // Don't show error for refresh failures
                 }
             }, 5000);
         }
@@ -99,6 +101,15 @@ const System = () => {
         };
     }, [autoRefresh]);
 
+    // Save auto-refresh setting to localStorage whenever it changes
+    useEffect(() => {
+        localStorage.setItem('systemAutoRefresh', JSON.stringify(autoRefresh));
+    }, [autoRefresh]);
+
+    const handleAutoRefreshToggle = (event) => {
+        setAutoRefresh(event.target.checked);
+    };
+
     const handleManualRefresh = async () => {
         setRefreshing(true);
         await fetchSystemData();
@@ -106,7 +117,7 @@ const System = () => {
     };
 
     const formatBytes = (bytes) => {
-        if (bytes === 0) return '0 B';
+        if (bytes === 0 || !bytes || bytes === null || bytes === undefined || isNaN(bytes)) return '0 B';
         const k = 1024;
         const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -194,7 +205,7 @@ const System = () => {
                                     control={
                                         <Switch
                                             checked={autoRefresh}
-                                            onChange={(e) => setAutoRefresh(e.target.checked)}
+                                            onChange={handleAutoRefreshToggle}
                                             color="primary"
                                         />
                                     }
@@ -711,55 +722,69 @@ const System = () => {
                 >
                     {tabValue === 3 && (
                         <Grid container spacing={3}>
-                            {/* Network Usage (if available) */}
-                            {resources?.network ? (
+                            {/* Network Interfaces */}
+                            {resources?.network?.detailedInterfaces && resources.network.detailedInterfaces.length > 0 ? (
                                 <Grid size={12}>
-                                    <Card sx={{ height: '100%' }}>
+                                    <Card>
                                         <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                                                 <NetworkIcon sx={{ mr: 1, color: 'primary.main' }} />
                                                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                    Network Usage
+                                                    Network Interfaces
                                                 </Typography>
+                                                {resources.network?.source && (
+                                                    <Chip
+                                                        label={`Source: ${resources.network.source}`}
+                                                        size="small"
+                                                        variant="outlined"
+                                                        sx={{ ml: 'auto' }}
+                                                    />
+                                                )}
                                             </Box>
                                             <Grid container spacing={2}>
-                                                <Grid size={6}>
-                                                    <Paper sx={{ p: 2, bgcolor: 'primary.50' }}>
-                                                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                                                            Download
-                                                        </Typography>
-                                                        <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                                                            {formatBytes(resources.network.download ?? 0)}/s
-                                                        </Typography>
-                                                    </Paper>
-                                                </Grid>
-                                                <Grid size={6}>
-                                                    <Paper sx={{ p: 2, bgcolor: 'secondary.50' }}>
-                                                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                                                            Upload
-                                                        </Typography>
-                                                        <Typography variant="h6" sx={{ fontWeight: 600, color: 'secondary.main' }}>
-                                                            {formatBytes(resources.network.upload ?? 0)}/s
-                                                        </Typography>
-                                                    </Paper>
-                                                </Grid>
+                                                {resources.network.detailedInterfaces.map((iface, index) => (
+                                                    <Grid size={{ xs: 12, md: 6, lg: 4 }} key={index}>
+                                                        <Paper sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                                                <Typography variant="subtitle1" sx={{ fontWeight: 600, flexGrow: 1 }}>
+                                                                    {iface.name}
+                                                                </Typography>
+                                                                <Chip
+                                                                    label={iface.active ? 'Active' : 'Inactive'}
+                                                                    size="small"
+                                                                    color={iface.active ? 'success' : 'default'}
+                                                                />
+                                                            </Box>
+                                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                                                <Typography variant="body2" color="text.secondary">
+                                                                    Download:
+                                                                </Typography>
+                                                                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
+                                                                    {iface.received !== undefined && iface.received !== null
+                                                                        ? `${formatBytes(iface.received)}/s`
+                                                                        : 'N/A'
+                                                                    }
+                                                                </Typography>
+                                                            </Box>
+                                                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                                <Typography variant="body2" color="text.secondary">
+                                                                    Upload:
+                                                                </Typography>
+                                                                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
+                                                                    {iface.sent !== undefined && iface.sent !== null
+                                                                        ? `${formatBytes(iface.sent)}/s`
+                                                                        : 'N/A'
+                                                                    }
+                                                                </Typography>
+                                                            </Box>
+                                                        </Paper>
+                                                    </Grid>
+                                                ))}
                                             </Grid>
-                                            {resources.network.interfaces && (
-                                                <Box sx={{ mt: 2 }}>
-                                                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                                                        Active Interfaces:
-                                                    </Typography>
-                                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                                        {resources.network.interfaces.map((iface, index) => (
-                                                            <Chip
-                                                                key={index}
-                                                                label={iface}
-                                                                size="small"
-                                                                variant="outlined"
-                                                            />
-                                                        ))}
-                                                    </Box>
-                                                </Box>
+                                            {resources.network.timestamp && (
+                                                <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
+                                                    Last updated: {new Date(resources.network.timestamp).toLocaleTimeString()}
+                                                </Typography>
                                             )}
                                         </CardContent>
                                     </Card>
@@ -771,10 +796,15 @@ const System = () => {
                                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                                                 <NetworkIcon sx={{ mr: 1, color: 'primary.main' }} />
                                                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                    Network Information
+                                                    Network Interfaces
                                                 </Typography>
                                             </Box>
-                                            <Typography color="text.secondary">No network data available</Typography>
+                                            <Typography color="text.secondary" sx={{ mb: 2 }}>
+                                                No network interface data available.
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                This could be because Netdata is not running or the NETDATA_URL environment variable is not configured.
+                                            </Typography>
                                         </CardContent>
                                     </Card>
                                 </Grid>

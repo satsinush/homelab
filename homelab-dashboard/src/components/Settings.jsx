@@ -45,7 +45,7 @@ import {
     Person as UserIcon,
     Security as SecurityIcon
 } from '@mui/icons-material';
-import { tryApiCall, apiCall } from '../utils/api';
+import { tryApiCall } from '../utils/api';
 import { useThemeMode } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
 
@@ -62,11 +62,9 @@ const Settings = () => {
     const { showSuccess, showError } = useNotification();    // Auto-save debounced function
     const debouncedSave = useCallback(
         debounce(async (settingsToSave) => {
-            if (!window.workingApiUrl) return;
-
             setAutoSaving(true);
             try {
-                await apiCall(window.workingApiUrl, '/settings', {
+                await tryApiCall('/settings', {
                     method: 'PUT',
                     data: settingsToSave
                 });
@@ -99,7 +97,6 @@ const Settings = () => {
                 const result = await tryApiCall('/settings');
                 setSettings(result.data.settings);
                 setLoading(false);
-                window.workingApiUrl = result.baseUrl;
             } catch (err) {
                 showError(`Failed to load settings: ${err.message}`);
                 setLoading(false);
@@ -110,12 +107,10 @@ const Settings = () => {
     }, [showError]);
 
     const handleSaveSettings = async () => {
-        if (!window.workingApiUrl) return;
-
         setAutoSaving(true);
 
         try {
-            await apiCall(window.workingApiUrl, '/settings', {
+            await tryApiCall('/settings', {
                 method: 'PUT',
                 data: settings
             });
@@ -292,28 +287,6 @@ const Settings = () => {
                     >
                         {tabValue === 0 && (
                             <Grid container spacing={3}>
-                                {/* Network Settings */}
-                                <Grid size={{ xs: 12, md: 6 }}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                                <NetworkIcon sx={{ mr: 1 }} />
-                                                <Typography variant="h6">Network Configuration</Typography>
-                                            </Box>
-                                            <Stack spacing={2}>
-                                                <TextField
-                                                    label="Network Subnet"
-                                                    value={settings.networkSubnet || ''}
-                                                    onChange={(e) => handleSettingChange('networkSubnet', e.target.value)}
-                                                    placeholder='e.g., 192.168.0.0/24'
-                                                    fullWidth
-                                                    helperText="Network subnet for ARP scanning"
-                                                />
-                                            </Stack>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-
                                 {/* Timing Settings */}
                                 <Grid size={{ xs: 12, md: 6 }}>
                                     <Card>

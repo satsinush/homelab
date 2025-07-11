@@ -1,4 +1,8 @@
 // Simplified Homelab API Server - WOL Dashboard with Authentication
+
+// Load environment variables first
+require('dotenv').config();
+
 const express = require('express');
 const wol = require('wake_on_lan');
 const cors = require('cors');
@@ -10,10 +14,12 @@ const fs = require('fs');
 const argon2 = require('argon2');
 const jwt = require('jsonwebtoken');
 const session = require('express-session');
+const SQLiteStore = require('connect-sqlite3')(session);
 const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
+const axios = require('axios');
 const app = express();
-const port = 5000;
+const port = process.env.PORT || 5000;
 
 // =============================================================================
 // CONFIGURATION & DATABASE
@@ -29,7 +35,7 @@ const db = new Database(path.join(dbPath, 'homelab.db'));
 
 // Initialize database tables
 db.exec(`
-    CREATE TABLE IF NOT EXISTS wol_devices (
+    CREATE TABLE IF NOT EXISTS saved_devices (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         mac TEXT NOT NULL UNIQUE,
@@ -56,22 +62,51 @@ db.exec(`
     );
 
     CREATE TABLE IF NOT EXISTS sessions (
-        id TEXT PRIMARY KEY,
-        user_id INTEGER NOT NULL,
-        token TEXT NOT NULL,
-        expires_at DATETIME NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id)
+        sid TEXT PRIMARY KEY,
+        expired INTEGER NOT NULL,
+        sess TEXT NOT NULL
     );
 `);
 
+// Migrate from old table name if it exists
+try {
+    // Check if old table exists and new table is empty
+    const oldTableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='wol_devices'").get();
+    if (oldTableExists) {
+        const newTableCount = db.prepare('SELECT COUNT(*) as count FROM saved_devices').get();
+        if (newTableCount.count === 0) {
+            // Migrate data from old table to new table
+            db.exec(`
+                INSERT INTO saved_devices (id, name, mac, description, created_at, updated_at)
+                SELECT id, name, mac, description, created_at, updated_at FROM wol_devices;
+                DROP TABLE wol_devices;
+            `);
+            console.log('Migrated data from wol_devices to saved_devices table');
+        }
+    }
+} catch (error) {
+    console.log('Table migration completed or not needed');
+}
+
 // Authentication constants
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
-const SESSION_SECRET = process.env.SESSION_SECRET || 'your-super-secret-session-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+const SESSION_SECRET = process.env.SESSION_SECRET;
+
+// Validate required environment variables
+if (!JWT_SECRET) {
+    console.error('ERROR: JWT_SECRET environment variable is required!');
+    console.error('Please set JWT_SECRET in your .env file or environment variables.');
+    process.exit(1);
+}
+
+if (!SESSION_SECRET) {
+    console.error('ERROR: SESSION_SECRET environment variable is required!');
+    console.error('Please set SESSION_SECRET in your .env file or environment variables.');
+    process.exit(1);
+}
 
 // Default server settings
 const DEFAULT_SETTINGS = {
-    networkSubnet: '10.10.10.0/24',
     scanTimeout: 30000,
     cacheTimeout: 300000, // 5 minutes
     services: [
@@ -92,10 +127,15 @@ let serverSettings = { ...DEFAULT_SETTINGS };
 
 // Device cache
 let deviceCache = {
-    devices: [],
+    allDevices: [],
+    savedDevices: [],
+    discoveredDevices: [],
     lastScan: null,
     scanInProgress: false
 };
+
+// Network interfaces discovered at startup
+let systemNetworkInterfaces = [];
 
 // =============================================================================
 // AUTHENTICATION FUNCTIONS
@@ -156,14 +196,12 @@ const authenticateUser = async (username, password) => {
     }
 };
 
-// Create session
-const createSession = (userId) => {
+// Create JWT token for user
+const createToken = (userId) => {
     try {
-        const sessionId = uuidv4();
         const token = jwt.sign(
             { 
-                userId, 
-                sessionId,
+                userId,
                 iat: Math.floor(Date.now() / 1000),
                 exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
             },
@@ -172,71 +210,39 @@ const createSession = (userId) => {
         
         const expiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000)); // 24 hours
         
-        const stmt = db.prepare(`
-            INSERT INTO sessions (id, user_id, token, expires_at) 
-            VALUES (?, ?, ?, ?)
-        `);
-        
-        stmt.run(sessionId, userId, token, expiresAt.toISOString());
-        
-        return { sessionId, token, expiresAt };
+        return { token, expiresAt };
     } catch (error) {
-        console.error('Session creation error:', error);
+        console.error('Token creation error:', error);
         return null;
     }
 };
 
-// Verify session
-const verifySession = (token) => {
+// Verify JWT token
+const verifyToken = (token) => {
     try {
         const decoded = jwt.verify(token, JWT_SECRET);
         
+        // Get user data
         const stmt = db.prepare(`
-            SELECT s.*, u.username, u.roles 
-            FROM sessions s 
-            JOIN users u ON s.user_id = u.id 
-            WHERE s.id = ? AND s.expires_at > CURRENT_TIMESTAMP
+            SELECT u.id, u.username, u.roles 
+            FROM users u 
+            WHERE u.id = ?
         `);
         
-        const session = stmt.get(decoded.sessionId);
+        const user = stmt.get(decoded.userId);
         
-        if (!session) {
+        if (!user) {
             return null;
         }
         
         return {
-            userId: session.user_id,
-            username: session.username,
-            roles: JSON.parse(session.roles),
-            sessionId: session.id
+            userId: user.id,
+            username: user.username,
+            roles: JSON.parse(user.roles)
         };
     } catch (error) {
-        console.error('Session verification error:', error);
+        console.error('Token verification error:', error);
         return null;
-    }
-};
-
-// Delete session
-const deleteSession = (sessionId) => {
-    try {
-        const stmt = db.prepare('DELETE FROM sessions WHERE id = ?');
-        return stmt.run(sessionId);
-    } catch (error) {
-        console.error('Session deletion error:', error);
-        return null;
-    }
-};
-
-// Clean expired sessions
-const cleanExpiredSessions = () => {
-    try {
-        const stmt = db.prepare('DELETE FROM sessions WHERE expires_at < CURRENT_TIMESTAMP');
-        const result = stmt.run();
-        if (result.changes > 0) {
-            console.log(`Cleaned ${result.changes} expired sessions`);
-        }
-    } catch (error) {
-        console.error('Session cleanup error:', error);
     }
 };
 
@@ -249,18 +255,18 @@ const requireAuth = (requiredRole = null) => {
             return res.status(401).json({ error: 'Authentication required' });
         }
         
-        const session = verifySession(token);
+        const user = verifyToken(token);
         
-        if (!session) {
-            return res.status(401).json({ error: 'Invalid or expired session' });
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid or expired token' });
         }
         
         // Check role if specified
-        if (requiredRole && !session.roles.includes(requiredRole)) {
+        if (requiredRole && !user.roles.includes(requiredRole)) {
             return res.status(403).json({ error: 'Insufficient permissions' });
         }
         
-        req.user = session;
+        req.user = user;
         next();
     };
 };
@@ -292,10 +298,10 @@ const loadSettings = () => {
 // Cache timeout from settings
 const getCacheTimeout = () => serverSettings.cacheTimeout || 300000;
 
-// Get WOL devices from database
-const getWolDevices = () => {
+// Get saved devices from database
+const getSavedDevices = () => {
     try {
-        const stmt = db.prepare('SELECT * FROM wol_devices ORDER BY name');
+        const stmt = db.prepare('SELECT * FROM saved_devices ORDER BY name');
         const devices = stmt.all();
         return devices.map(device => ({
             _id: device.id,
@@ -306,49 +312,83 @@ const getWolDevices = () => {
             updatedAt: device.updated_at
         }));
     } catch (error) {
-        console.error('Error getting WOL devices:', error);
+        console.error('Error getting saved devices:', error);
         return [];
     }
 };
 
-// Add or update WOL device
-const saveWolDevice = (device) => {
+// Add or update saved device
+const saveSavedDevice = (device) => {
     try {
         if (device._id) {
             // Update existing device
-            const stmt = db.prepare('UPDATE wol_devices SET name = ?, mac = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+            const stmt = db.prepare('UPDATE saved_devices SET name = ?, mac = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
             const result = stmt.run(device.name, device.mac, device.description, device._id);
             return result.changes;
         } else {
             // Insert new device
-            const stmt = db.prepare('INSERT INTO wol_devices (name, mac, description) VALUES (?, ?, ?)');
+            const stmt = db.prepare('INSERT INTO saved_devices (name, mac, description) VALUES (?, ?, ?)');
             const result = stmt.run(device.name, device.mac, device.description);
             return { _id: result.lastInsertRowid, ...device };
         }
     } catch (error) {
-        console.error('Error saving WOL device:', error);
+        console.error('Error saving device:', error);
         throw error;
     }
 };
 
-// Delete WOL device
-const deleteWolDevice = (deviceId) => {
+// Delete saved device
+const deleteSavedDevice = (deviceId) => {
     try {
-        const stmt = db.prepare('DELETE FROM wol_devices WHERE id = ?');
+        const stmt = db.prepare('DELETE FROM saved_devices WHERE id = ?');
         const result = stmt.run(deviceId);
         return result.changes;
     } catch (error) {
-        console.error('Error deleting WOL device:', error);
+        console.error('Error deleting saved device:', error);
         throw error;
     }
 };
 
-// ARP scan to find devices on network
-const scanForDevices = async () => {
-    const wolDevices = getWolDevices();
-    
+// Network discovery using arp-scan -l to find all devices
+const discoverAllDevices = async () => {
     return new Promise((resolve) => {
-        const cmd = `arp-scan ${serverSettings.networkSubnet}`;
+        const cmd = 'arp-scan -l'; // Scan local network
+        exec(cmd, { timeout: 15000 }, (error, stdout, stderr) => {
+            if (error) {
+                console.error('ARP discovery error:', error.message);
+                resolve([]);
+                return;
+            }
+
+            const discoveredDevices = [];
+            const lines = stdout.split('\n');
+            
+            for (const line of lines) {
+                // Parse arp-scan output format: "10.10.10.1      3c:84:6a:a4:b7:70       TP-LINK TECHNOLOGIES CO.,LTD."
+                const match = line.match(/^(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F:]{17})\s+(.+)$/);
+                if (match) {
+                    const [, ip, mac, vendor] = match;
+                    const normalizedMac = mac.toUpperCase().replace(/:/g, '-');
+                    
+                    discoveredDevices.push({
+                        ip: ip,
+                        mac: normalizedMac,
+                        vendor: vendor.trim(),
+                        discoveredAt: new Date().toISOString(),
+                        scanMethod: 'arp-scan'
+                    });
+                }
+            }
+            
+            resolve(discoveredDevices);
+        });
+    });
+};
+
+// ARP scan to find all devices on network
+const scanForAllDevices = async () => {
+    return new Promise((resolve) => {
+        const cmd = 'arp-scan -l'; // Scan local network automatically
         exec(cmd, { timeout: serverSettings.scanTimeout }, (error, stdout, stderr) => {
             if (error) {
                 console.error('ARP scan error:', error.message);
@@ -357,7 +397,7 @@ const scanForDevices = async () => {
             }
 
             // Parse ARP scan output
-            const arpEntries = new Map();
+            const discoveredDevices = [];
             const lines = stdout.split('\n');
             
             for (const line of lines) {
@@ -365,60 +405,105 @@ const scanForDevices = async () => {
                 if (match) {
                     const [, ip, mac, vendor] = match;
                     const normalizedMac = mac.toUpperCase().replace(/:/g, '-');
-                    arpEntries.set(normalizedMac, { ip, vendor: vendor.trim() });
+                    
+                    discoveredDevices.push({
+                        ip: ip,
+                        mac: normalizedMac,
+                        vendor: vendor.trim(),
+                        status: 'online',
+                        lastSeen: new Date().toISOString(),
+                        scanMethod: 'arp-scan'
+                    });
                 }
             }
             
-            // Create device list from WOL configuration
-            const devices = wolDevices.map(wolDevice => {
-                const normalizedMac = wolDevice.mac.toUpperCase().replace(/:/g, '-');
-                const arpEntry = arpEntries.get(normalizedMac);
-                
-                return {
-                    _id: wolDevice._id,
-                    mac: normalizedMac,
-                    friendlyName: wolDevice.name,
-                    description: wolDevice.description,
-                    deviceKey: normalizedMac,
-                    ip: arpEntry?.ip || null,
-                    vendor: arpEntry?.vendor || 'Unknown',
-                    networkName: "LAN",
-                    networkDescription: "Local Area Network",
-                    wolEnabled: true,
-                    scanMethod: 'arp-scan',
-                    lastSeen: arpEntry ? new Date().toISOString() : null
-                };
-            });
-            
-            resolve(devices);
+            resolve(discoveredDevices);
         });
     });
+};
+
+// Get devices with saved device info merged
+const getDevicesWithSavedInfo = async () => {
+    const [allDevices, savedDevices] = await Promise.all([
+        scanForAllDevices(),
+        Promise.resolve(getSavedDevices())
+    ]);
+    
+    // Create a map of saved devices by MAC
+    const savedDeviceMap = new Map();
+    savedDevices.forEach(device => {
+        const normalizedMac = device.mac.toUpperCase().replace(/:/g, '-');
+        savedDeviceMap.set(normalizedMac, device);
+    });
+    
+    // Merge discovered devices with saved device info
+    const mergedDevices = allDevices.map(device => {
+        const savedDevice = savedDeviceMap.get(device.mac);
+        return {
+            ...device,
+            _id: savedDevice?._id || null,
+            friendlyName: savedDevice?.name || null,
+            description: savedDevice?.description || null,
+            isSaved: !!savedDevice,
+            wolEnabled: !!savedDevice
+        };
+    });
+    
+    // Add saved devices that aren't currently online
+    savedDevices.forEach(savedDevice => {
+        const normalizedMac = savedDevice.mac.toUpperCase().replace(/:/g, '-');
+        const existsInDiscovered = mergedDevices.find(d => d.mac === normalizedMac);
+        
+        if (!existsInDiscovered) {
+            mergedDevices.push({
+                _id: savedDevice._id,
+                ip: null,
+                mac: normalizedMac,
+                vendor: 'Unknown',
+                status: 'offline',
+                lastSeen: null,
+                scanMethod: 'saved',
+                friendlyName: savedDevice.name,
+                description: savedDevice.description,
+                isSaved: true,
+                wolEnabled: true
+            });
+        }
+    });
+    
+    return {
+        allDevices: mergedDevices,
+        savedDevices: mergedDevices.filter(d => d.isSaved),
+        discoveredDevices: mergedDevices.filter(d => !d.isSaved)
+    };
 };
 
 // Main scan function
 const performScan = async () => {
     if (deviceCache.scanInProgress) {
         console.log('Scan already in progress...');
-        return deviceCache.devices;
+        return deviceCache;
     }
 
     deviceCache.scanInProgress = true;
     console.log('Starting ARP scan...');
     
     try {
-        const devices = await scanForDevices();
+        const deviceData = await getDevicesWithSavedInfo();
         
-        deviceCache.devices = devices;
+        deviceCache.allDevices = deviceData.allDevices;
+        deviceCache.savedDevices = deviceData.savedDevices;
+        deviceCache.discoveredDevices = deviceData.discoveredDevices;
         deviceCache.lastScan = Date.now();
         deviceCache.scanInProgress = false;
         
-        console.log(`Scan completed: ${devices.length} devices (${devices.filter(d => d.ip).length} online)`);
-        return devices;
+        console.log(`Scan completed: ${deviceData.allDevices.length} total devices (${deviceData.allDevices.filter(d => d.status === 'online').length} online, ${deviceData.savedDevices.length} saved)`);
+        return deviceCache;
         
     } catch (error) {
         console.error('Scan error:', error);
         deviceCache.scanInProgress = false;
-        return deviceCache.devices;
+        return deviceCache;
     }
 };
 
@@ -427,11 +512,11 @@ const getDevices = async (forceScan = false) => {
     const now = Date.now();
     const cacheExpired = !deviceCache.lastScan || (now - deviceCache.lastScan) > getCacheTimeout();
     
-    if (forceScan || cacheExpired || deviceCache.devices.length === 0) {
+    if (forceScan || cacheExpired || deviceCache.allDevices.length === 0) {
         return await performScan();
     }
     
-    return deviceCache.devices;
+    return deviceCache;
 };
 
 // =============================================================================
@@ -462,8 +547,14 @@ const loginLimiter = rateLimit({
     legacyHeaders: false,
 });
 
-// Session configuration
+// Session configuration with SQLite store
 app.use(session({
+    store: new SQLiteStore({
+        db: 'homelab.db',
+        dir: path.join(__dirname, 'data'),
+        table: 'sessions',
+        concurrentDB: true
+    }),
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
@@ -495,14 +586,14 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
         
-        const session = createSession(user.id);
+        const tokenData = createToken(user.id);
         
-        if (!session) {
-            return res.status(500).json({ error: 'Failed to create session' });
+        if (!tokenData) {
+            return res.status(500).json({ error: 'Failed to create token' });
         }
         
         // Store token in session
-        req.session.token = session.token;
+        req.session.token = tokenData.token;
         req.session.userId = user.id;
         
         res.json({
@@ -512,8 +603,8 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
                 username: user.username,
                 roles: user.roles
             },
-            token: session.token,
-            expiresAt: session.expiresAt
+            token: tokenData.token,
+            expiresAt: tokenData.expiresAt
         });
     } catch (error) {
         console.error('Login error:', error);
@@ -524,22 +615,13 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
 // Logout endpoint
 app.post('/api/auth/logout', (req, res) => {
     try {
-        const token = req.headers.authorization?.replace('Bearer ', '') || req.session.token;
-        
-        if (token) {
-            const session = verifySession(token);
-            if (session) {
-                deleteSession(session.sessionId);
-            }
-        }
-        
         req.session.destroy((err) => {
             if (err) {
                 console.error('Session destruction error:', err);
+                return res.status(500).json({ error: 'Failed to logout' });
             }
+            res.json({ message: 'Logout successful' });
         });
-        
-        res.json({ message: 'Logout successful' });
     } catch (error) {
         console.error('Logout error:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -566,18 +648,18 @@ app.post('/api/auth/verify', (req, res) => {
             return res.status(401).json({ error: 'No token provided' });
         }
         
-        const session = verifySession(token);
+        const user = verifyToken(token);
         
-        if (!session) {
+        if (!user) {
             return res.status(401).json({ error: 'Invalid or expired token' });
         }
         
         res.json({
             valid: true,
             user: {
-                id: session.userId,
-                username: session.username,
-                roles: session.roles
+                id: user.userId,
+                username: user.username,
+                roles: user.roles
             }
         });
     } catch (error) {
@@ -639,17 +721,6 @@ app.put('/api/auth/profile', requireAuth(), async (req, res) => {
             updateStmt.run(username, userId);
         }
         
-        // If password was changed, we need to keep the current session but invalidate others
-        if (newPassword) {
-            // Keep only the current session active, invalidate all others
-            const currentSession = req.user.sessionId;
-            const invalidateOtherSessionsStmt = db.prepare(`
-                DELETE FROM sessions 
-                WHERE user_id = ? AND id != ?
-            `);
-            invalidateOtherSessionsStmt.run(userId, currentSession);
-        }
-        
         res.json({
             message: 'Profile updated successfully',
             user: {
@@ -679,92 +750,55 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Wake on LAN
-app.post('/api/wol', requireAuth('admin'), async (req, res) => {
-    const deviceName = req.body.device;
-    
+// =============================================================================
+// SIMPLIFIED DEVICE ENDPOINTS
+// =============================================================================
+
+// GET /devices - Get all scanned and saved devices from cache
+app.get('/api/devices', requireAuth('admin'), async (req, res) => {
     try {
-        const wolDevices = getWolDevices();
-        const device = wolDevices.find(d => d.name === deviceName);
-
-        if (!device || !device.mac) {
-            return res.status(400).json({ error: "Device not found or MAC address missing." });
-        }
-
-        wol.wake(device.mac, (error) => {
-            if (error) {
-                console.error(`WoL error for ${deviceName}:`, error);
-                return res.status(500).json({ error: `Failed to send WoL packet: ${error.message}` });
-            }
-            res.json({ message: `WoL packet sent to ${deviceName} (${device.mac})` });
-        });
-    } catch (error) {
-        res.status(500).json({ error: `Failed to get device info: ${error.message}` });
-    }
-});
-
-// Get device status
-app.get('/api/devices/status', requireAuth('admin'), async (req, res) => {
-    try {
-        const devices = await getDevices();
-        
-        // Create device status list
-        const deviceStatuses = devices.map(device => ({
-            _id: device._id,
-            ip: device.ip,
-            mac: device.mac,
-            vendor: device.vendor,
-            friendlyName: device.friendlyName,
-            deviceKey: device.deviceKey,
-            networkName: device.networkName,
-            networkDescription: device.networkDescription,
-            wolEnabled: device.wolEnabled,
-            status: device.ip ? 'online' : 'offline',
-            lastSeen: device.lastSeen,
-            scanMethod: device.scanMethod,
-            description: device.description
-        }));
+        const deviceData = await getDevices();
         
         res.json({
-            devices: deviceStatuses,
-            totalDevices: deviceStatuses.length,
-            onlineDevices: deviceStatuses.filter(d => d.status === 'online').length,
-            wolEnabledDevices: deviceStatuses.length,
+            allDevices: deviceData.allDevices,
+            savedDevices: deviceData.savedDevices,
+            discoveredDevices: deviceData.discoveredDevices,
+            totalDevices: deviceData.allDevices.length,
+            savedDevicesCount: deviceData.savedDevices.length,
+            discoveredDevicesCount: deviceData.discoveredDevices.length,
+            onlineDevices: deviceData.allDevices.filter(d => d.status === 'online').length,
             lastScan: deviceCache.lastScan ? new Date(deviceCache.lastScan).toISOString() : null,
             timestamp: new Date().toISOString()
         });
     } catch (error) {
-        res.status(500).json({ error: `Failed to get device status: ${error.message}` });
+        console.error('Get devices error:', error);
+        res.status(500).json({ error: `Failed to get devices: ${error.message}` });
     }
 });
 
-// Trigger network scan
+// POST /devices/scan - Scan for new devices and update status of saved devices
 app.post('/api/devices/scan', requireAuth('admin'), async (req, res) => {
     try {
-        const devices = await performScan();
+        const deviceData = await performScan();
         res.json({
             message: 'Network scan completed',
-            devicesFound: devices.length,
-            devices: devices,
+            allDevices: deviceData.allDevices,
+            savedDevices: deviceData.savedDevices,
+            discoveredDevices: deviceData.discoveredDevices,
+            totalDevices: deviceData.allDevices.length,
+            savedDevicesCount: deviceData.savedDevices.length,
+            discoveredDevicesCount: deviceData.discoveredDevices.length,
+            onlineDevices: deviceData.allDevices.filter(d => d.status === 'online').length,
             timestamp: new Date().toISOString()
         });
     } catch (error) {
+        console.error('Scan devices error:', error);
         res.status(500).json({ error: `Failed to scan network: ${error.message}` });
     }
 });
 
-// Get all WOL devices
-app.get('/api/devices/wol', requireAuth('admin'), async (req, res) => {
-    try {
-        const devices = getWolDevices();
-        res.json({ devices });
-    } catch (error) {
-        res.status(500).json({ error: `Failed to get WOL devices: ${error.message}` });
-    }
-});
-
-// Add new WOL device
-app.post('/api/devices/wol', requireAuth('admin'), async (req, res) => {
+// POST /devices - Add new device (save a discovered device or add manually)
+app.post('/api/devices', requireAuth('admin'), async (req, res) => {
     try {
         const { name, mac, description } = req.body;
         
@@ -772,36 +806,41 @@ app.post('/api/devices/wol', requireAuth('admin'), async (req, res) => {
             return res.status(400).json({ error: 'Name and MAC address are required' });
         }
 
-        // Validate MAC address format (allow mixed or no separators, case-insensitive)
+        // Validate and normalize MAC address format
         const macClean = mac.replace(/[^a-fA-F0-9]/g, '');
         if (macClean.length !== 12) {
             return res.status(400).json({ error: 'Invalid MAC address format' });
         }
-        // Reformat to all caps and colon separator
         const macFormatted = macClean.toUpperCase().match(/.{2}/g).join(':');
 
         const device = {
             name: name.trim(),
-            mac: macFormatted.trim(),
+            mac: macFormatted,
             description: description?.trim() || ''
         };
 
-        const result = saveWolDevice(device);
+        const result = saveSavedDevice(device);
         
         // Invalidate device cache to force refresh on next request
-        deviceCache.devices = [];
+        deviceCache.allDevices = [];
+        deviceCache.savedDevices = [];
+        deviceCache.discoveredDevices = [];
         deviceCache.lastScan = null;
         
-        console.log(`New WOL device added: ${device.name} (${device.mac})`);
+        console.log(`New device saved: ${device.name} (${device.mac})`);
         
-        res.json({ message: 'WOL device added successfully', device: result });
+        res.json({ 
+            message: 'Device saved successfully', 
+            device: result 
+        });
     } catch (error) {
-        res.status(500).json({ error: `Failed to add WOL device: ${error.message}` });
+        console.error('Add device error:', error);
+        res.status(500).json({ error: `Failed to save device: ${error.message}` });
     }
 });
 
-// Update WOL device
-app.put('/api/devices/wol/:id', requireAuth('admin'), async (req, res) => {
+// PUT /devices/:id - Update saved device
+app.put('/api/devices/:id', requireAuth('admin'), async (req, res) => {
     try {
         const { id } = req.params;
         const { name, mac, description } = req.body;
@@ -810,48 +849,96 @@ app.put('/api/devices/wol/:id', requireAuth('admin'), async (req, res) => {
             return res.status(400).json({ error: 'Name and MAC address are required' });
         }
 
-        // Validate MAC address format
-        const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
-        if (!macRegex.test(mac)) {
+        // Validate and normalize MAC address format
+        const macClean = mac.replace(/[^a-fA-F0-9]/g, '');
+        if (macClean.length !== 12) {
             return res.status(400).json({ error: 'Invalid MAC address format' });
         }
+        const macFormatted = macClean.toUpperCase().match(/.{2}/g).join(':');
 
         const device = {
-            _id: id,
+            _id: parseInt(id),
             name: name.trim(),
-            mac: mac.trim(),
+            mac: macFormatted,
             description: description?.trim() || ''
         };
 
-        const result = saveWolDevice(device);
+        const result = saveSavedDevice(device);
         
         // Invalidate device cache to force refresh on next request
-        deviceCache.devices = [];
+        deviceCache.allDevices = [];
+        deviceCache.savedDevices = [];
+        deviceCache.discoveredDevices = [];
         deviceCache.lastScan = null;
         
-        res.json({ message: 'WOL device updated successfully', updated: result });
+        res.json({ 
+            message: 'Device updated successfully', 
+            updated: result 
+        });
     } catch (error) {
-        res.status(500).json({ error: `Failed to update WOL device: ${error.message}` });
+        console.error('Update device error:', error);
+        res.status(500).json({ error: `Failed to update device: ${error.message}` });
     }
 });
 
-// Delete WOL device
-app.delete('/api/devices/wol/:id', requireAuth('admin'), async (req, res) => {
+// DELETE /devices/:id - Delete saved device
+app.delete('/api/devices/:id', requireAuth('admin'), async (req, res) => {
     try {
         const { id } = req.params;
-        const result = deleteWolDevice(id);
+        const result = deleteSavedDevice(parseInt(id));
         
         if (result === 0) {
-            return res.status(404).json({ error: 'WOL device not found' });
+            return res.status(404).json({ error: 'Device not found' });
         }
 
         // Invalidate device cache to force refresh on next request
-        deviceCache.devices = [];
+        deviceCache.allDevices = [];
+        deviceCache.savedDevices = [];
+        deviceCache.discoveredDevices = [];
         deviceCache.lastScan = null;
 
-        res.json({ message: 'WOL device deleted successfully' });
+        res.json({ message: 'Device deleted successfully' });
     } catch (error) {
-        res.status(500).json({ error: `Failed to delete WOL device: ${error.message}` });
+        console.error('Delete device error:', error);
+        res.status(500).json({ error: `Failed to delete device: ${error.message}` });
+    }
+});
+
+// POST /wol - Send WOL packet
+app.post('/api/wol', requireAuth('admin'), async (req, res) => {
+    try {
+        const { device } = req.body;
+        
+        if (!device) {
+            return res.status(400).json({ error: 'Device identifier is required' });
+        }
+        
+        // Get all saved devices from database
+        const savedDevices = getSavedDevices();
+        
+        // Find device by friendly name OR mac address OR device key
+        const targetDevice = savedDevices.find(d => 
+            d.name === device ||
+            d.mac === device ||
+            d.mac.replace(/:/g, '-').toUpperCase() === device.toUpperCase()
+        );
+
+        if (!targetDevice) {
+            return res.status(404).json({ error: `Saved device '${device}' not found. Only saved devices can receive WOL packets.` });
+        }
+
+        wol.wake(targetDevice.mac, (error) => {
+            if (error) {
+                console.error(`WoL error for ${device}:`, error);
+                return res.status(500).json({ error: `Failed to send WoL packet: ${error.message}` });
+            }
+            res.json({ 
+                message: `WoL packet sent to ${targetDevice.name} (${targetDevice.mac})` 
+            });
+        });
+    } catch (error) {
+        console.error('WOL error:', error);
+        res.status(500).json({ error: `Failed to send WOL packet: ${error.message}` });
     }
 });
 
@@ -881,6 +968,154 @@ app.put('/api/settings', requireAuth('admin'), (req, res) => {
     }
 });
 
+// Get all packages with update information
+app.get('/api/packages', requireAuth('admin'), async (req, res) => {
+    try {
+        // Get all explicitly installed packages and available updates in parallel
+        const getInstalledPackages = () => {
+            return new Promise((resolve, reject) => {
+                exec('pacman -Qe', { timeout: 30000 }, (error, stdout, stderr) => {
+                    if (error) {
+                        console.error('Package list error:', error.message);
+                        reject(error);
+                        return;
+                    }
+
+                    const packages = new Map();
+                    const lines = stdout.split('\n').filter(line => line.trim());
+                    
+                    for (const line of lines) {
+                        // pacman -Qe output format: "package-name version"
+                        const match = line.match(/^(.+?)\s+(.+?)$/);
+                        if (match) {
+                            const [, name, version] = match;
+                            packages.set(name.trim(), {
+                                name: name.trim(),
+                                currentVersion: version.trim(),
+                                newVersion: null,
+                                hasUpdate: false,
+                                status: 'installed'
+                            });
+                        }
+                    }
+                    
+                    resolve(packages);
+                });
+            });
+        };
+
+        const getPackageSyncTime = () => {
+            return new Promise((resolve) => {
+                exec('stat -c %Y /var/lib/pacman/sync/core.db', { timeout: 10000 }, (error, stdout, stderr) => {
+                    if (error) {
+                        console.error('Package sync time error:', error.message);
+                        resolve(null);
+                        return;
+                    }
+                    
+                    const timestamp = parseInt(stdout.trim());
+                    if (!isNaN(timestamp)) {
+                        resolve(new Date(timestamp * 1000));
+                    } else {
+                        resolve(null);
+                    }
+                });
+            });
+        };
+
+        const getAvailableUpdates = () => {
+            return new Promise((resolve) => {
+                exec('pacman -Qu', { timeout: 30000 }, (error, stdout, stderr) => {
+                    if (error) {
+                        // If error is just "no upgrades", that's okay
+                        if (error.code === 1 && !stdout.trim()) {
+                            resolve(new Map());
+                            return;
+                        }
+                        console.error('Package update check error:', error.message);
+                        resolve(new Map());
+                        return;
+                    }
+
+                    const updates = new Map();
+                    const lines = stdout.split('\n').filter(line => line.trim());
+                    
+                    for (const line of lines) {
+                        // pacman -Qu output format: "package-name old-version -> new-version"
+                        const match = line.match(/^(.+?)\s+(.+?)\s+->\s+(.+?)$/);
+                        if (match) {
+                            const [, name, currentVersion, newVersion] = match;
+                            updates.set(name.trim(), {
+                                currentVersion: currentVersion.trim(),
+                                newVersion: newVersion.trim()
+                            });
+                        }
+                    }
+                    
+                    resolve(updates);
+                });
+            });
+        };
+
+        // Execute all commands in parallel
+        const [installedPackages, availableUpdates, syncTime] = await Promise.all([
+            getInstalledPackages(),
+            getAvailableUpdates(),
+            getPackageSyncTime()
+        ]);
+
+        // Merge the data
+        const packages = [];
+        for (const [packageName, packageData] of installedPackages) {
+            const updateInfo = availableUpdates.get(packageName);
+            
+            if (updateInfo) {
+                // Package has an update available
+                packages.push({
+                    name: packageName,
+                    currentVersion: updateInfo.currentVersion,
+                    newVersion: updateInfo.newVersion,
+                    hasUpdate: true,
+                    status: 'upgradeable'
+                });
+            } else {
+                // Package is up to date
+                packages.push({
+                    name: packageName,
+                    currentVersion: packageData.currentVersion,
+                    newVersion: null,
+                    hasUpdate: false,
+                    status: 'installed'
+                });
+            }
+        }
+
+        // Sort packages by name
+        packages.sort((a, b) => a.name.localeCompare(b.name));
+
+        const updatesAvailable = packages.filter(pkg => pkg.hasUpdate).length;
+        
+        res.json({
+            packages: packages,
+            totalPackages: packages.length,
+            updatesAvailable: updatesAvailable,
+            lastChecked: new Date().toISOString(),
+            lastSynced: syncTime ? syncTime.toISOString() : null,
+            packageManager: 'pacman',
+            note: updatesAvailable > 0 
+                ? `${updatesAvailable} updates available out of ${packages.length} packages`
+                : `All ${packages.length} packages are up to date`
+        });
+
+    } catch (error) {
+        console.error('Package fetch error:', error);
+        res.status(500).json({ 
+            error: 'Failed to fetch package information',
+            details: error.message 
+        });
+    }
+});
+
 
 
 // Combined system information endpoint
@@ -889,7 +1124,7 @@ app.get('/api/system', requireAuth('admin'), async (req, res) => {
         const startTime = Date.now();
         
         // Gather all system data in parallel for better performance
-        const [systemInfoResult, resourcesResult, temperatureResult, servicesResult] = await Promise.allSettled([
+        const [systemInfoResult, resourcesResult, temperatureResult, servicesResult, networkResult] = await Promise.allSettled([
             // System info
             new Promise((resolve) => {
                 try {
@@ -998,6 +1233,25 @@ app.get('/api/system', requireAuth('admin'), async (req, res) => {
                 }))
                 .then(serviceStatuses => resolve({ services: serviceStatuses }))
                 .catch(() => resolve({ services: [] }));
+            }),
+            
+            // Network data from Netdata
+            new Promise(async (resolve) => {
+                try {
+                    const [networkStats, networkInterfaces] = await Promise.all([
+                        getNetworkStats(),
+                        getNetworkInterfaces()
+                    ]);
+                    
+                    resolve({
+                        ...networkStats,
+                        interfaces: networkInterfaces,
+                        detailedInterfaces: networkInterfaces
+                    });
+                } catch (error) {
+                    console.error('Network data fetch error:', error);
+                    resolve(null);
+                }
             })
         ]);
         
@@ -1006,6 +1260,7 @@ app.get('/api/system', requireAuth('admin'), async (req, res) => {
         const resources = resourcesResult.status === 'fulfilled' ? resourcesResult.value : null;
         const temperature = temperatureResult.status === 'fulfilled' ? temperatureResult.value : { cpu: 'N/A', gpu: 'N/A' };
         const services = servicesResult.status === 'fulfilled' ? servicesResult.value : { services: [] };
+        const network = networkResult.status === 'fulfilled' ? networkResult.value : null;
         
         const endTime = Date.now();
         const responseTime = endTime - startTime;
@@ -1013,9 +1268,13 @@ app.get('/api/system', requireAuth('admin'), async (req, res) => {
         // Return combined response
         res.json({
             system: systemInfo,
-            resources: resources,
+            resources: {
+                ...resources,
+                network: network
+            },
             temperature: temperature,
             services: services,
+            network: network,
             metadata: {
                 timestamp: new Date().toISOString(),
                 responseTime: `${responseTime}ms`,
@@ -1033,6 +1292,254 @@ app.get('/api/system', requireAuth('admin'), async (req, res) => {
 });
 
 // =============================================================================
+// NETDATA INTEGRATION
+// =============================================================================
+
+// Netdata API helper function
+const fetchNetdataData = async (endpoint, chart, dimension = null) => {
+    try {
+        const netdataUrl = process.env.NETDATA_URL || 'http://localhost:19999';
+        let url = `${netdataUrl}/api/v1/data?chart=${chart}&format=json&points=3&after=-10`; // Get last 3 points over 10 seconds
+        
+        if (dimension) {
+            url += `&dimension=${dimension}`;
+        }
+        
+        const response = await axios.get(url, {
+            timeout: 5000, // 5 second timeout
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        return response.data;
+    } catch (error) {
+        console.error(`Netdata fetch error for ${chart}:`, error.message);
+        return null;
+    }
+};
+
+// Get network interface statistics from Netdata
+const getNetworkStats = async () => {
+    try {
+        // Get available network interfaces from the system
+        const interfaceNames = await getSystemNetworkInterfaces();
+        let netData = null;
+        let foundInterface = null;
+        let usedChart = null;
+        
+        for (const iface of interfaceNames) {
+            try {
+                // Try different chart naming conventions in order of preference
+                const possibleCharts = [
+                    `net.${iface}`,        // Standard format: net.end0
+                    `net_${iface}`,        // Alternative format: net_end0
+                    `system.net.${iface}`, // System format
+                    `proc.net.dev_${iface}` // Proc format
+                ];
+                
+                for (const chart of possibleCharts) {
+                    try {
+                        netData = await fetchNetdataData('/api/v1/data', chart, null);
+                        if (netData && netData.data && netData.data.length > 0) {
+                            foundInterface = iface;
+                            usedChart = chart;
+                            break;
+                        }
+                    } catch (err) {
+                        // Continue to next chart format
+                        continue;
+                    }
+                }
+                
+                if (netData && netData.data && netData.data.length > 0) {
+                    break; // Found working interface
+                }
+            } catch (err) {
+                continue; // Try next interface
+            }
+        }
+        
+        if (!netData || !netData.data || netData.data.length === 0) {
+            return null;
+        }
+        
+        const latestData = netData.data[0];
+        const labels = netData.labels;
+        
+        // Find received and sent bytes indexes
+        const receivedIndex = labels.findIndex(label => 
+            label.includes('received') || label.includes('in') || label.includes('download')
+        );
+        const sentIndex = labels.findIndex(label => 
+            label.includes('sent') || label.includes('out') || label.includes('upload')
+        );
+        
+        // Get the actual values and ensure they're positive numbers
+        let downloadRate = 0;
+        let uploadRate = 0;
+        
+        if (receivedIndex >= 0 && latestData[receivedIndex] !== null && receivedIndex < latestData.length) {
+            downloadRate = Math.abs(parseFloat(latestData[receivedIndex])) || 0;
+        }
+        
+        if (sentIndex >= 0 && latestData[sentIndex] !== null && sentIndex < latestData.length) {
+            uploadRate = Math.abs(parseFloat(latestData[sentIndex])) || 0;
+        }
+        
+        // Convert timestamp (Netdata uses seconds, we want milliseconds)
+        const timestamp = latestData[0] ? latestData[0] * 1000 : Date.now();
+        
+        const networkStats = {
+            interfaces: [foundInterface],
+            download: downloadRate,
+            upload: uploadRate,
+            timestamp: timestamp,
+            source: 'netdata',
+            activeInterface: foundInterface,
+            labels: labels,
+            chartUsed: usedChart
+        };
+        
+        return networkStats;
+    } catch (error) {
+        console.error('Network stats error:', error);
+        return null;
+    }
+};
+
+// Get detailed network interface information
+const getNetworkInterfaces = async () => {
+    try {
+        // Get available network interfaces from the system
+        const systemInterfaces = await getSystemNetworkInterfaces();
+        
+        // Try to get interface list from Netdata charts
+        const netdataUrl = process.env.NETDATA_URL || 'http://localhost:19999';
+        const chartsResponse = await axios.get(`${netdataUrl}/api/v1/charts`, {
+            timeout: 5000,
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        const chartsData = chartsResponse.data;
+        const networkCharts = Object.keys(chartsData.charts).filter(chart => 
+            (chart.startsWith('net.') || chart.startsWith('net_')) && !chart.includes('_dup')
+        );
+        
+        const interfaces = [];
+        
+        // Try only the interfaces we discovered from the system
+        for (const interfaceName of systemInterfaces) {
+            // Try different chart naming conventions in order of preference
+            const possibleCharts = [
+                `net.${interfaceName}`,        // Standard format: net.end0
+                `net_${interfaceName}`,        // Alternative format: net_end0
+                `system.net.${interfaceName}`, // System format
+                `proc.net.dev_${interfaceName}` // Proc format
+            ];
+            
+            let interfaceData = null;
+            let usedChart = null;
+            
+            for (const chart of possibleCharts) {
+                if (networkCharts.includes(chart)) {
+                    try {
+                        interfaceData = await fetchNetdataData('/api/v1/data', chart);
+                        if (interfaceData && interfaceData.data && interfaceData.data.length > 0) {
+                            usedChart = chart;
+                            break;
+                        }
+                    } catch (err) {
+                        continue; // Try next chart format
+                    }
+                }
+            }
+            
+            if (interfaceData && interfaceData.data && interfaceData.data.length > 0) {
+                const latestData = interfaceData.data[0];
+                const labels = interfaceData.labels;
+                
+                const receivedIndex = labels.findIndex(label => 
+                    label.includes('received') || label.includes('in')
+                );
+                const sentIndex = labels.findIndex(label => 
+                    label.includes('sent') || label.includes('out')
+                );
+                
+                let received = 0;
+                let sent = 0;
+                
+                if (receivedIndex >= 0 && latestData[receivedIndex] !== null && receivedIndex < latestData.length) {
+                    received = Math.abs(parseFloat(latestData[receivedIndex])) || 0;
+                }
+                
+                if (sentIndex >= 0 && latestData[sentIndex] !== null && sentIndex < latestData.length) {
+                    sent = Math.abs(parseFloat(latestData[sentIndex])) || 0;
+                }
+                
+                interfaces.push({
+                    name: interfaceName,
+                    received: received,
+                    sent: sent,
+                    active: true,
+                    chart: usedChart
+                });
+            }
+        }
+        
+        return interfaces;
+    } catch (error) {
+        console.error('Network interfaces error:', error);
+        return [];
+    }
+};
+
+// Get available network interfaces from system (returns cached interfaces)
+const getSystemNetworkInterfaces = async () => {
+    return systemNetworkInterfaces;
+};
+
+// Discover network interfaces at startup
+const discoverNetworkInterfaces = async () => {
+    return new Promise((resolve) => {
+        exec('ip a', (error, stdout) => {
+            if (error) {
+                console.error('Failed to get network interfaces:', error.message);
+                systemNetworkInterfaces = [];
+                resolve(systemNetworkInterfaces);
+                return;
+            }
+
+            const interfaces = [];
+            const lines = stdout.split('\n');
+            
+            for (const line of lines) {
+                // Match interface lines like "2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP>"
+                const match = line.match(/^\d+:\s+([^:@]+)[@:]?\s*<.*>/);
+                if (match) {
+                    const interfaceName = match[1].trim();
+                    // Filter out loopback and other virtual interfaces
+                    if (!interfaceName.includes('lo') && 
+                        !interfaceName.includes('docker') && 
+                        !interfaceName.includes('br-') &&
+                        !interfaceName.includes('veth') &&
+                        !interfaceName.includes('virbr')) {
+                        interfaces.push(interfaceName);
+                    }
+                }
+            }
+            
+            systemNetworkInterfaces = interfaces.length > 0 ? interfaces : ['eth0']; // Fallback to eth0 if none found
+            
+            console.log(`Discovered network interfaces: ${systemNetworkInterfaces.join(', ')}`);
+            resolve(systemNetworkInterfaces);
+        });
+    });
+};
+
+// =============================================================================
 // SERVER STARTUP
 // =============================================================================
 
@@ -1044,29 +1551,32 @@ app.get('/api/system', requireAuth('admin'), async (req, res) => {
     // Create default admin user
     await createDefaultUser();
     
-    // Clean expired sessions
-    cleanExpiredSessions();
-    setInterval(cleanExpiredSessions, 60 * 60 * 1000); // Clean every hour
-    
     // Start server
     app.listen(port, '0.0.0.0', () => {
         console.log(`Homelab API Server running on http://0.0.0.0:${port}`);
         console.log(`Database path: ${path.join(__dirname, 'data', 'homelab.db')}`);
-        console.log('Authentication: Enabled (admin/password)');
+        console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`Authentication: Enabled (admin/password)`);
+        console.log(`Security: Environment variables loaded ✓`);
         
         // Initial scan after startup
-        setTimeout(async () => {
+        (async () => {
             console.log('Performing initial network scan...');
             try {
-                const devices = await performScan();
-                console.log(`Initial scan completed: ${devices.length} devices found`);
+                // Discover network interfaces once at startup
+                await discoverNetworkInterfaces();
                 
-                // Log configured WOL devices
-                const wolDevices = getWolDevices();
-                console.log(`Configured WOL devices: ${wolDevices.map(d => d.name).join(', ') || 'None'}`);
+                const deviceData = await performScan();
+                console.log(`Initial scan completed: ${deviceData.allDevices.length} devices found (${deviceData.savedDevices.length} saved)`);
+                
+                // Log configured saved devices
+                const savedDevices = getSavedDevices();
+                console.log(`Configured saved devices: ${savedDevices.map(d => d.name).join(', ') || 'None'}`);
             } catch (error) {
                 console.error('Initial scan failed:', error.message);
             }
-        }, 5000);
+        })();
     });
 })();
+
+

@@ -43,6 +43,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }) => {
     const navigate = useNavigate();
 
     const tabs = [
+        { id: 'home', label: 'Home', icon: <HomeIcon />, path: '/home' },
         { id: 'system', label: 'System', icon: <DashboardIcon />, path: '/system' },
         { id: 'devices', label: 'Devices', icon: <DevicesIcon />, path: '/devices' },
         { id: 'packages', label: 'Packages', icon: <PackagesIcon />, path: '/packages' },
@@ -84,14 +85,40 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }) => {
     const drawerContent = (
         <Box sx={{ overflow: 'auto', height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Header */}
-            <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <HomeIcon sx={{ fontSize: 32, color: 'primary.main' }} />
-                <Typography variant="h5" component="h2" sx={{
-                    fontWeight: 600,
-                    color: 'text.primary'
-                }}>
-                    Homelab Admin
-                </Typography>
+            <Box sx={{
+                p: 3,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                cursor: 'pointer',
+                '&:hover': {
+                    backgroundColor: actualMode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
+                }
+            }}>
+                <Box
+                    component={Link}
+                    to="/home"
+                    sx={{
+                        textDecoration: 'none',
+                        color: 'inherit',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1
+                    }}
+                    onClick={() => {
+                        if (isMobile) {
+                            setMobileOpen(false);
+                        }
+                    }}
+                >
+                    <HomeIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+                    <Typography variant="h5" component="h2" sx={{
+                        fontWeight: 600,
+                        color: 'text.primary'
+                    }}>
+                        Homelab Admin
+                    </Typography>
+                </Box>
             </Box>
 
             <Divider />

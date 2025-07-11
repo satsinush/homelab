@@ -8,21 +8,28 @@ import {
     CircularProgress,
     Container,
     Paper,
-    List,
-    ListItem,
-    ListItemText,
-    ListItemIcon,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
     Chip,
     Button,
     TextField,
-    InputAdornment
+    InputAdornment,
+    FormControl,
+    Select,
+    MenuItem,
+    InputLabel
 } from '@mui/material';
 import {
     Inventory as PackageIcon,
     Search as SearchIcon,
-    SystemUpdate as UpdateIcon,
+    Schedule as PendingIcon,
+    Refresh as RefreshIcon,
     CheckCircle as InstalledIcon,
-    Schedule as PendingIcon
+    FilterList as FilterIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/NotificationContext';
@@ -31,27 +38,112 @@ const PackageManager = () => {
     const [packages, setPackages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [versionSearchTerm, setVersionSearchTerm] = useState('');
+    const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'updates', 'uptodate'
+    const [lastSynced, setLastSynced] = useState(null);
     const { showError } = useNotification();
 
-    useEffect(() => {
-        const fetchPackages = async () => {
-            try {
-                const result = await tryApiCall('/packages');
-                setPackages(result.data);
-                setLoading(false);
-            } catch (err) {
-                showError('Unable to connect to API server - Package management not available');
-                setLoading(false);
-            }
-        };
+    const fetchPackages = async () => {
+        setLoading(true);
+        try {
+            const result = await tryApiCall('/packages');
+            setPackages(result.data.packages || []);
+            setLastSynced(result.data.lastSynced);
 
+            // Show any notes from the backend
+            if (result.note) {
+                console.log('Package status:', result.note);
+            }
+        } catch (err) {
+            showError('Unable to fetch package information - Package management not available');
+            setPackages([]);
+            setLastSynced(null);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchPackages();
     }, [showError]);
 
-    const filteredPackages = packages.filter(pkg =>
-        pkg.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pkg.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Generate dynamic filter options
+    const getUniqueStatusValues = () => {
+        const statusValues = packages.map(pkg => {
+            return pkg.hasUpdate ? 'updates' : 'uptodate';
+        });
+        return [...new Set(statusValues)].sort();
+    };
+
+    const statusOptions = getUniqueStatusValues();
+
+    const filteredPackages = packages.filter(pkg => {
+        // Filter by package name search term
+        const matchesPackageSearch = pkg.name?.toLowerCase().includes(searchTerm.toLowerCase());
+
+        // Filter by version search term
+        const packageVersion = pkg.hasUpdate ? `${pkg.currentVersion} → ${pkg.newVersion}` : pkg.currentVersion;
+        const matchesVersionSearch = packageVersion?.toLowerCase().includes(versionSearchTerm.toLowerCase());
+
+        // Filter by status
+        let matchesFilter = true;
+        if (filterStatus === 'updates') {
+            matchesFilter = pkg.hasUpdate === true;
+        } else if (filterStatus === 'uptodate') {
+            matchesFilter = pkg.hasUpdate === false;
+        }
+
+        return matchesPackageSearch && matchesVersionSearch && matchesFilter;
+    });
+
+    const getUpdateStatusChip = (pkg) => {
+        if (pkg.hasUpdate) {
+            return (
+                <Chip
+                    label="Update Available"
+                    size="small"
+                    color="warning"
+                    variant="filled"
+                />
+            );
+        } else {
+            return (
+                <Chip
+                    label="Up to Date"
+                    size="small"
+                    color="success"
+                    variant="outlined"
+                />
+            );
+        }
+    };
+
+    const getVersionDisplay = (pkg) => {
+        if (pkg.hasUpdate) {
+            return `${pkg.currentVersion} → ${pkg.newVersion}`;
+        } else {
+            return pkg.currentVersion;
+        }
+    };
+
+    const getStatsForFilter = (filter) => {
+        if (filter === 'updates') return packages.filter(pkg => pkg.hasUpdate).length;
+        if (filter === 'uptodate') return packages.filter(pkg => !pkg.hasUpdate).length;
+        return packages.length;
+    };
+
+    const formatSyncTime = (syncTime) => {
+        if (!syncTime) return 'Unknown';
+
+        const date = new Date(syncTime);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / (1000 * 60));
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+        return date.toLocaleString();
+    };
 
     if (loading) {
         return (
@@ -80,125 +172,157 @@ const PackageManager = () => {
                     Package Manager
                 </Typography>
                 <Typography variant="h6" color="text.secondary" sx={{ mb: 3 }}>
-                    Manage system packages and updates
+                    Manage Arch Linux packages with update information
                 </Typography>
 
-                {/* Search and Stats */}
+                {/* Stats and Sync Info */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-                    <TextField
-                        placeholder="Search packages..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon />
-                                </InputAdornment>
-                            ),
-                        }}
-                        sx={{ minWidth: 300 }}
-                    />
-
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                        <Chip
-                            icon={<PackageIcon />}
-                            label={`${packages.length} Total Packages`}
-                            color="primary"
-                            variant="outlined"
-                        />
-                        <Chip
-                            icon={<InstalledIcon />}
-                            label={`${packages.filter(p => p.status === 'installed').length} Installed`}
-                            color="success"
-                            variant="outlined"
-                        />
+                    <Box>
+                        <Typography variant="body1" color="text.secondary">
+                            {packages.length > 0 && `Total: ${packages.length} packages, ${packages.filter(pkg => pkg.hasUpdate).length} updates available`}
+                        </Typography>
+                        {lastSynced && (
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                Package database last synced: {formatSyncTime(lastSynced)}
+                            </Typography>
+                        )}
                     </Box>
+
+                    <Button
+                        startIcon={<RefreshIcon />}
+                        variant="outlined"
+                        onClick={fetchPackages}
+                        disabled={loading}
+                    >
+                        Refresh
+                    </Button>
                 </Box>
             </Box>
 
-            {packages.length > 0 ? (
-                <Card>
-                    <CardContent>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                Installed Packages
-                            </Typography>
-                            <Button
-                                startIcon={<UpdateIcon />}
-                                variant="outlined"
-                                color="primary"
-                            >
-                                Check for Updates
-                            </Button>
-                        </Box>
-
-                        {filteredPackages.length > 0 ? (
-                            <List sx={{ py: 0 }}>
-                                {filteredPackages.map((pkg, index) => (
-                                    <ListItem
-                                        key={index}
-                                        sx={{
-                                            px: 0,
-                                            py: 1,
-                                            borderBottom: index < filteredPackages.length - 1 ? '1px solid' : 'none',
-                                            borderBottomColor: 'divider'
-                                        }}
-                                    >
-                                        <ListItemIcon sx={{ minWidth: 40 }}>
-                                            {pkg.status === 'installed' ? (
-                                                <InstalledIcon sx={{ color: 'success.main' }} />
-                                            ) : (
-                                                <PendingIcon sx={{ color: 'warning.main' }} />
-                                            )}
-                                        </ListItemIcon>
-                                        <ListItemText
-                                            primary={
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
-                                                        {pkg.name}
-                                                    </Typography>
-                                                    {pkg.version && (
-                                                        <Chip
-                                                            label={pkg.version}
-                                                            size="small"
-                                                            variant="outlined"
-                                                            sx={{ fontFamily: 'monospace' }}
-                                                        />
-                                                    )}
-                                                    <Chip
-                                                        label={pkg.status || 'unknown'}
-                                                        size="small"
-                                                        color={pkg.status === 'installed' ? 'success' : 'default'}
-                                                        variant="filled"
-                                                    />
-                                                </Box>
-                                            }
-                                            secondary={pkg.description || 'No description available'}
+            <Card>
+                <CardContent>
+                    <TableContainer sx={{ maxHeight: 600, overflow: 'auto' }}>
+                        <Table stickyHeader>
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell sx={{ fontWeight: 600, pb: 1, width: '50%', bgcolor: 'background.paper' }}>
+                                        Package
+                                        <TextField
+                                            placeholder="Search packages..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            size="small"
+                                            InputProps={{
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <SearchIcon fontSize="small" />
+                                                    </InputAdornment>
+                                                ),
+                                            }}
+                                            sx={{ mt: 1, width: '100%' }}
                                         />
-                                    </ListItem>
+                                    </TableCell>
+                                    <TableCell sx={{ fontWeight: 600, width: '25%', pb: 1, bgcolor: 'background.paper' }}>
+                                        Version
+                                        <TextField
+                                            placeholder="Search versions..."
+                                            value={versionSearchTerm}
+                                            onChange={(e) => setVersionSearchTerm(e.target.value)}
+                                            size="small"
+                                            InputProps={{
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <SearchIcon fontSize="small" />
+                                                    </InputAdornment>
+                                                ),
+                                            }}
+                                            sx={{ mt: 1, width: '100%' }}
+                                        />
+                                    </TableCell>
+                                    <TableCell sx={{ fontWeight: 600, pb: 1, width: '25%', bgcolor: 'background.paper' }}>
+                                        Update Status
+                                        <FormControl size="small" sx={{ mt: 1, width: '100%' }}>
+                                            <Select
+                                                value={filterStatus}
+                                                onChange={(e) => setFilterStatus(e.target.value)}
+                                                displayEmpty
+                                            >
+                                                <MenuItem value="all">All Packages</MenuItem>
+                                                {statusOptions.includes('updates') && (
+                                                    <MenuItem value="updates">Updates Available</MenuItem>
+                                                )}
+                                                {statusOptions.includes('uptodate') && (
+                                                    <MenuItem value="uptodate">Up to Date</MenuItem>
+                                                )}
+                                            </Select>
+                                        </FormControl>
+                                    </TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {filteredPackages.map((pkg) => (
+                                    <TableRow
+                                        key={pkg.name}
+                                        sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                                    >
+                                        <TableCell sx={{ width: '50%' }}>
+                                            <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+                                                {pkg.name}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell sx={{ width: '25%' }}>
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    fontFamily: 'monospace',
+                                                    color: pkg.hasUpdate ? 'warning.main' : 'text.primary'
+                                                }}
+                                            >
+                                                {getVersionDisplay(pkg)}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell sx={{ width: '25%' }}>
+                                            {getUpdateStatusChip(pkg)}
+                                        </TableCell>
+                                    </TableRow>
                                 ))}
-                            </List>
-                        ) : (
-                            <Box sx={{ textAlign: 'center', py: 4 }}>
-                                <SearchIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
-                                <Typography variant="h6" color="text.secondary">
-                                    No packages found matching "{searchTerm}"
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                    Try adjusting your search terms
-                                </Typography>
-                            </Box>
-                        )}
-                    </CardContent>
-                </Card>
-            ) : (
-                <Paper sx={{ p: 6, textAlign: 'center', bgcolor: 'action.selected' }}>
+                                {filteredPackages.length === 0 && packages.length > 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={3} sx={{ textAlign: 'center', py: 4 }}>
+                                            <SearchIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+                                            <Typography variant="h6" color="text.secondary">
+                                                No Matching Packages
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                No packages found matching your search and filter criteria.
+                                            </Typography>
+                                            <Button
+                                                sx={{ mt: 2 }}
+                                                onClick={() => {
+                                                    setSearchTerm('');
+                                                    setVersionSearchTerm('');
+                                                    setFilterStatus('all');
+                                                }}
+                                            >
+                                                Clear Filters
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </CardContent>
+            </Card>
+
+            {packages.length === 0 && !loading && (
+                <Paper sx={{ p: 6, textAlign: 'center', bgcolor: 'action.selected', mt: 3 }}>
                     <PackageIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                     <Typography variant="h5" sx={{ mb: 1, fontWeight: 600 }}>
                         No Packages Found
                     </Typography>
                     <Typography variant="body1" color="text.secondary">
-                        No package information is available from the server.
+                        No packages found or package management not available.
                     </Typography>
                 </Paper>
             )}
@@ -208,10 +332,30 @@ const PackageManager = () => {
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
                     About Package Management
                 </Typography>
-                <Typography variant="body1" color="text.secondary">
-                    This page displays information about installed system packages. Package management operations
-                    require appropriate system permissions and may not be available in all environments.
-                    Use this interface to monitor installed software and check for available updates.
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+                    This interface shows all explicitly installed Arch Linux packages with update information.
+                    Package database is automatically synced each day.
+                    {lastSynced && (
+                        <span> Last sync: {formatSyncTime(lastSynced)}.</span>
+                    )}
+                </Typography>
+
+
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 500 }}>
+                    To upgrade packages:
+                </Typography>
+                <Typography variant="body2" color="text.secondary" component="div">
+                    Run upgrades manually via SSH:
+                    <br />
+                    <code style={{ backgroundColor: 'rgba(0,0,0,0.1)', padding: '2px 4px', borderRadius: '3px' }}>
+                        sudo pacman -Syu
+                    </code>
+                    <br />
+                    Or upgrade specific packages:
+                    <br />
+                    <code style={{ backgroundColor: 'rgba(0,0,0,0.1)', padding: '2px 4px', borderRadius: '3px' }}>
+                        sudo pacman -S package-name
+                    </code>
                 </Typography>
             </Paper>
         </Container>

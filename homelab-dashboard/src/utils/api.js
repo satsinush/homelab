@@ -8,8 +8,8 @@ axios.defaults.withCredentials = true;
 export const API_ENDPOINTS = [
     //'http://localhost:5000/api',                 // Development first
     'https://admin.rpi5-server.home.arpa/api',  // Primary HTTPS
-    'http://admin.rpi5-server.home.arpa/api',   // HTTP fallback
-    'http://10.10.10.10:5000/api',              // Direct IP fallback
+    //'http://admin.rpi5-server.home.arpa/api',   // HTTP fallback
+    //'http://10.10.10.10:5000/api',              // Direct IP fallback
 ];
 
 // Configure axios interceptors for authentication
@@ -71,41 +71,4 @@ export const tryApiCall = async (path, options = {}) => {
     throw new Error('All API endpoints failed');
 };
 
-/**
- * Get a working API base URL by testing the health endpoint
- * @returns {Promise<string>} Working API base URL
- */
-export const getWorkingApiUrl = async () => {
-    try {
-        const result = await tryApiCall('/health');
-        return result.baseUrl;
-    } catch (err) {
-        throw new Error('No API endpoints are responding');
-    }
-};
 
-/**
- * Make an API call using a known working base URL
- * @param {string} baseUrl - The working base URL
- * @param {string} path - The API path to call
- * @param {Object} options - Additional axios options
- * @returns {Promise<any>} Response data
- */
-export const apiCall = async (baseUrl, path, options = {}) => {
-    const defaultOptions = {
-        timeout: 5000,
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        }
-    };
-
-    const mergedOptions = { ...defaultOptions, ...options };
-    
-    const response = await axios({
-        ...mergedOptions,
-        url: `${baseUrl}${path}`
-    });
-    
-    return response.data;
-};
