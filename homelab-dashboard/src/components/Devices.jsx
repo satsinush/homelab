@@ -49,7 +49,6 @@ import {
     Cancel as OfflineIcon,
     Add as AddIcon,
     Edit as EditIcon,
-    Delete as DeleteIcon,
     Clear as ClearIcon,
     Search as SearchIcon,
     FilterList as FilterIcon,
@@ -57,7 +56,9 @@ import {
     ViewList as TableViewIcon,
     Sort as SortIcon,
     ArrowUpward as ArrowUpIcon,
-    ArrowDownward as ArrowDownIcon
+    ArrowDownward as ArrowDownIcon,
+    Star as StarIcon,
+    StarBorder as StarBorderIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/NotificationContext';
@@ -71,7 +72,7 @@ const DeviceDialog = React.memo(({
     onSave
 }) => {
     // Internal form state - completely isolated from parent component
-    const [deviceForm, setDeviceForm] = useState({ name: '', mac: '', description: '', isSaved: false });
+    const [deviceForm, setDeviceForm] = useState({ name: '', mac: '', description: '' });
 
     // Update internal form when dialog opens with new data
     useEffect(() => {
@@ -79,7 +80,7 @@ const DeviceDialog = React.memo(({
             setDeviceForm(initialDeviceForm);
         } else if (!open) {
             // Reset form when dialog closes
-            setDeviceForm({ name: '', mac: '', description: '', isSaved: false });
+            setDeviceForm({ name: '', mac: '', description: '' });
         }
     }, [open, initialDeviceForm]);
 
@@ -126,21 +127,12 @@ const DeviceDialog = React.memo(({
                         rows={2}
                         placeholder="e.g., Main Desktop Computer"
                     />
-                    <FormControlLabel
-                        control={
-                            <Checkbox
-                                checked={deviceForm.isSaved}
-                                onChange={(e) => handleFormChange('isSaved', e.target.checked)}
-                            />
-                        }
-                        label="Mark as Saved Device"
-                    />
                 </Stack>
             </DialogContent>
             <DialogActions>
                 <Button onClick={onClose}>Cancel</Button>
                 <Button onClick={handleSave} variant="contained">
-                    {editingDevice ? 'Save' : 'Add'}
+                    {editingDevice ? 'Save' : 'Add Favorite'}
                 </Button>
             </DialogActions>
         </Dialog>
@@ -172,11 +164,10 @@ const Devices = () => {
     const [ipFilter, setIpFilter] = useState('');
     const [vendorFilter, setVendorFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
-    const [typeFilter, setTypeFilter] = useState('');
 
     // Sorting states
-    const [sortBy, setSortBy] = useState('type');
-    const [sortOrder, setSortOrder] = useState('desc'); // 'asc' or 'desc'
+    const [sortBy, setSortBy] = useState('name');
+    const [sortOrder, setSortOrder] = useState('asc'); // 'asc' or 'desc'
 
     useEffect(() => {
         fetchDevices();
@@ -224,7 +215,7 @@ const Devices = () => {
 
         showConfirmDialog({
             title: `Clear ${discoveredCount} discovered devices and rescan`,
-            message: `Are you sure you want to clear ${discoveredCount} discovered devices and perform a fresh scan? Your saved devices will not be affected.`,
+            message: `Are you sure you want to clear ${discoveredCount} discovered devices and perform a fresh scan? Your favorite devices will not be affected.`,
             confirmText: 'Confirm',
             cancelText: 'Cancel',
             confirmColor: 'error',
@@ -260,43 +251,46 @@ const Devices = () => {
     // Device management functions
     const handleAddDevice = () => {
         setEditingDevice(null);
-        setInitialDeviceForm({ name: '', mac: '', description: '', isSaved: true });
+        setInitialDeviceForm({ name: '', mac: '', description: '' });
         setDeviceDialog(true);
     };
 
     const handleEditDevice = (device) => {
+        // Only allow editing favorite devices
+        if (!device.isFavorite) {
+            showError('Only favorite devices can be edited');
+            return;
+        }
+
         setEditingDevice(device);
         setInitialDeviceForm({
             name: device.name || '',
             mac: device.mac.replace(/-/g, ':') || '',
-            description: device.description || '',
-            isSaved: device.isSaved || false
+            description: device.description || ''
         });
         setDeviceDialog(true);
     };
 
-    const handleDeleteDevice = async (deviceMac) => {
-        const device = devices.find(d => d.mac === deviceMac);
-        const deviceName = device?.name || 'this device';
+    const handleToggleFavorite = async (device) => {
+        try {
+            const response = await tryApiCall(`/devices/${encodeURIComponent(device.mac)}/favorite`, {
+                method: 'POST'
+            });
 
-        showDeleteConfirmation(deviceName, async () => {
-            try {
-                // Use MAC address as identifier for DELETE request
-                await tryApiCall(`/devices/${encodeURIComponent(deviceMac)}`, {
-                    method: 'DELETE'
-                });
+            const updatedDevice = response.data.device;
+            const message = response.data.message;
 
-                // Immediately remove device from local state for instant UI feedback
-                setDevices(prevDevices => prevDevices.filter(d => d.mac !== deviceMac));
+            // Update local state immediately
+            setDevices(prevDevices =>
+                prevDevices.map(d =>
+                    d.mac === device.mac ? updatedDevice : d
+                )
+            );
 
-                showSuccess('Device deleted successfully');
-
-                // Refresh device list in background to ensure consistency
-                await fetchDevices();
-            } catch (err) {
-                showError(`Failed to delete device: ${err.message}`);
-            }
-        });
+            showSuccess(message);
+        } catch (err) {
+            showError(`Failed to toggle favorite: ${err.message}`);
+        }
     };
 
     const handleSaveDevice = async (deviceForm) => {
@@ -327,8 +321,7 @@ const Devices = () => {
             const deviceData = {
                 name: deviceForm.name.trim(),
                 mac: deviceForm.mac.trim(),
-                description: deviceForm.description.trim(),
-                isSaved: deviceForm.isSaved
+                description: deviceForm.description.trim()
             };
 
             if (editingDevice) {
@@ -351,7 +344,7 @@ const Devices = () => {
                     )
                 );
 
-                showSuccess('Device updated successfully');
+                showSuccess('Favorite device updated successfully');
             } else {
                 // Add new device - use POST
                 const response = await tryApiCall('/devices', {
@@ -364,12 +357,12 @@ const Devices = () => {
                 // Add to devices list
                 setDevices(prevDevices => [...prevDevices, newDevice]);
 
-                showSuccess('Device added successfully');
+                showSuccess('Favorite device added successfully');
             }
 
             setDeviceDialog(false);
             setEditingDevice(null);
-            setInitialDeviceForm({ name: '', mac: '', description: '', isSaved: false });
+            setInitialDeviceForm({ name: '', mac: '', description: '' });
 
         } catch (err) {
             showError(`Failed to save device: ${err.message}`);
@@ -399,11 +392,10 @@ const Devices = () => {
         setIpFilter('');
         setVendorFilter('');
         setStatusFilter('');
-        setTypeFilter('');
         setFilterStatus('all');
         setSearchTerm('');
-        setSortBy('type');
-        setSortOrder('desc');
+        setSortBy('name');
+        setSortOrder('asc');
     };
 
     const getDeviceTypeIcon = (deviceName) => {
@@ -437,17 +429,17 @@ const Devices = () => {
             if (vendorFilter && !deviceVendor.includes(vendorFilter.toLowerCase())) return false;
             if (statusFilter && !deviceStatus.includes(statusFilter.toLowerCase())) return false;
 
-            // Type filter - check if device is saved or discovered
-            if (typeFilter) {
-                const deviceType = device.isSaved ? 'saved' : 'discovered';
-                if (!deviceType.includes(typeFilter.toLowerCase())) return false;
-            }
-
             return true;
         });
 
-        // Sort the filtered results
+        // Sort the filtered results - always show favorites first
         return filtered.sort((a, b) => {
+            // First, sort by favorite status (favorites always on top)
+            if (a.isFavorite !== b.isFavorite) {
+                return b.isFavorite ? 1 : -1;
+            }
+
+            // If both are favorites or both are discovered, sort by the selected criteria
             let aValue, bValue;
 
             switch (sortBy) {
@@ -471,9 +463,10 @@ const Devices = () => {
                     aValue = (a.status || '').toLowerCase();
                     bValue = (b.status || '').toLowerCase();
                     break;
-                case 'type':
-                    aValue = a.isSaved ? 'saved' : 'discovered';
-                    bValue = b.isSaved ? 'saved' : 'discovered';
+                case 'isFavorite':
+                    // If sorting by favorite and both have same favorite status, sort by name
+                    aValue = (a.name || a.vendor || 'Unknown').toLowerCase();
+                    bValue = (b.name || b.vendor || 'Unknown').toLowerCase();
                     break;
                 default:
                     aValue = (a.name || a.vendor || 'Unknown').toLowerCase();
@@ -486,14 +479,13 @@ const Devices = () => {
                 return bValue.localeCompare(aValue);
             }
         });
-    }, [nameFilter, macFilter, ipFilter, vendorFilter, statusFilter, typeFilter, sortBy, sortOrder]);
+    }, [nameFilter, macFilter, ipFilter, vendorFilter, statusFilter, sortBy, sortOrder]);
 
     // Memoized function to generate dynamic filter options
     const getUniqueValues = useCallback((devices, key) => {
         const values = devices
             .map(device => {
                 if (key === 'status') return device.status;
-                if (key === 'type') return device.isSaved ? 'saved' : 'discovered';
                 return '';
             })
             .filter(value => value && value.trim() !== '')
@@ -503,11 +495,10 @@ const Devices = () => {
 
     // Memoize expensive computations to prevent re-calculation on every render
     const statusOptions = useMemo(() => getUniqueValues(devices, 'status'), [devices]);
-    const typeOptions = useMemo(() => getUniqueValues(devices, 'type'), [devices]);
 
     const filteredAllDevices = useMemo(() => {
         return getFilteredDevices(devices);
-    }, [devices, nameFilter, macFilter, ipFilter, vendorFilter, statusFilter, typeFilter, sortBy, sortOrder]);
+    }, [devices, nameFilter, macFilter, ipFilter, vendorFilter, statusFilter, sortBy, sortOrder]);
 
     const renderCards = () => (
         <>
@@ -520,8 +511,8 @@ const Devices = () => {
                                 height: '100%',
                                 display: 'flex',
                                 flexDirection: 'column',
-                                border: device.isSaved ? '2px solid' : '1px solid',
-                                borderColor: device.isSaved ? 'primary.main' : 'divider'
+                                border: device.isFavorite ? '2px solid' : '1px solid',
+                                borderColor: device.isFavorite ? 'primary.main' : 'divider'
                             }}>
                                 <CardContent sx={{ flexGrow: 1 }}>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -542,12 +533,22 @@ const Devices = () => {
                                                 icon={device.status === 'online' ? <OnlineIcon /> : <OfflineIcon />}
                                             />
                                         </Box>
-                                        <Chip
-                                            label={device.isSaved ? "SAVED" : "DISCOVERED"}
-                                            color={device.isSaved ? "primary" : "warning"}
-                                            size="small"
-                                            variant={device.isSaved ? 'filled' : 'outlined'}
-                                        />
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Chip
+                                                label={device.isFavorite ? "FAVORITE" : "DISCOVERED"}
+                                                color={device.isFavorite ? "primary" : "default"}
+                                                size="small"
+                                                variant={device.isFavorite ? 'filled' : 'outlined'}
+                                                icon={device.isFavorite ? <StarIcon /> : undefined}
+                                            />
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => handleToggleFavorite(device)}
+                                                color={device.isFavorite ? "primary" : "default"}
+                                            >
+                                                {device.isFavorite ? <StarIcon /> : <StarBorderIcon />}
+                                            </IconButton>
+                                        </Box>
                                     </Box>
 
                                     <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
@@ -596,7 +597,7 @@ const Devices = () => {
                                         >
                                             Wake Device
                                         </Button>
-                                        <Stack direction="row" spacing={1}>
+                                        {device.isFavorite && (
                                             <Button
                                                 fullWidth
                                                 variant="outlined"
@@ -606,17 +607,7 @@ const Devices = () => {
                                             >
                                                 Edit
                                             </Button>
-                                            <Button
-                                                fullWidth
-                                                variant="outlined"
-                                                startIcon={<DeleteIcon />}
-                                                onClick={() => handleDeleteDevice(device.mac)}
-                                                color="error"
-                                                size="small"
-                                            >
-                                                Delete
-                                            </Button>
-                                        </Stack>
+                                        )}
                                     </Stack>
                                 </Box>
                             </Card>
@@ -657,7 +648,6 @@ const Devices = () => {
                         <TableCell>IP Address</TableCell>
                         <TableCell>Vendor</TableCell>
                         <TableCell>Status</TableCell>
-                        <TableCell>Type</TableCell>
                         <TableCell align="center">Actions</TableCell>
                     </TableRow>
                 </TableHead>
@@ -671,6 +661,9 @@ const Devices = () => {
                                         <Typography variant="body2" sx={{ fontWeight: 600 }}>
                                             {device.name || device.vendor || 'Unknown Device'}
                                         </Typography>
+                                        {device.isFavorite && (
+                                            <StarIcon sx={{ color: 'primary.main', fontSize: 16 }} />
+                                        )}
                                     </Box>
                                 </TableCell>
                                 <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
@@ -688,16 +681,17 @@ const Devices = () => {
                                         icon={device.status === 'online' ? <OnlineIcon /> : <OfflineIcon />}
                                     />
                                 </TableCell>
-                                <TableCell>
-                                    <Chip
-                                        label={device.isSaved ? 'SAVED' : 'DISCOVERED'}
-                                        color={device.isSaved ? 'primary' : 'warning'}
-                                        size="small"
-                                        variant={device.isSaved ? 'filled' : 'outlined'}
-                                    />
-                                </TableCell>
                                 <TableCell align="center">
                                     <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                                        <Tooltip title="Toggle Favorite">
+                                            <IconButton
+                                                onClick={() => handleToggleFavorite(device)}
+                                                color={device.isFavorite ? "primary" : "default"}
+                                                size="small"
+                                            >
+                                                {device.isFavorite ? <StarIcon /> : <StarBorderIcon />}
+                                            </IconButton>
+                                        </Tooltip>
                                         <Tooltip title={"Wake Device"}>
                                             <IconButton
                                                 onClick={() => handleWakeOnLan(device)}
@@ -707,30 +701,23 @@ const Devices = () => {
                                                 <PowerIcon />
                                             </IconButton>
                                         </Tooltip>
-                                        <Tooltip title="Edit Device">
-                                            <IconButton
-                                                onClick={() => handleEditDevice(device)}
-                                                size="small"
-                                            >
-                                                <EditIcon />
-                                            </IconButton>
-                                        </Tooltip>
-                                        <Tooltip title="Delete Device">
-                                            <IconButton
-                                                onClick={() => handleDeleteDevice(device.mac)}
-                                                color="error"
-                                                size="small"
-                                            >
-                                                <DeleteIcon />
-                                            </IconButton>
-                                        </Tooltip>
+                                        {device.isFavorite && (
+                                            <Tooltip title="Edit Device">
+                                                <IconButton
+                                                    onClick={() => handleEditDevice(device)}
+                                                    size="small"
+                                                >
+                                                    <EditIcon />
+                                                </IconButton>
+                                            </Tooltip>
+                                        )}
                                     </Box>
                                 </TableCell>
                             </TableRow>
                         ))
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
+                            <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4 }}>
                                 <ComputerIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2, display: 'block', mx: 'auto' }} />
                                 <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
                                     No Devices Found
@@ -810,7 +797,7 @@ const Devices = () => {
                             startIcon={<AddIcon />}
                             onClick={handleAddDevice}
                         >
-                            Add Device
+                            Add Favorite
                         </Button>
                         <Button
                             variant="contained"
@@ -1049,42 +1036,6 @@ const Devices = () => {
                                 }}
                             >
                                 {sortBy === 'status' && sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />}
-                            </IconButton>
-                        </Box>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <FormControl size="small" fullWidth>
-                                <Select
-                                    value={typeFilter}
-                                    onChange={(e) => setTypeFilter(e.target.value)}
-                                    displayEmpty
-                                    variant="outlined"
-                                >
-                                    <MenuItem value="">All Types</MenuItem>
-                                    {typeOptions.map(type => (
-                                        <MenuItem key={type} value={type}>
-                                            {type.charAt(0).toUpperCase() + type.slice(1)}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                            <IconButton
-                                size="small"
-                                onClick={() => {
-                                    if (sortBy === 'type') {
-                                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                                    } else {
-                                        setSortBy('type');
-                                        setSortOrder('asc');
-                                    }
-                                }}
-                                sx={{
-                                    color: sortBy === 'type' ? 'primary.main' : 'text.secondary',
-                                    bgcolor: sortBy === 'type' ? 'primary.50' : 'transparent'
-                                }}
-                            >
-                                {sortBy === 'type' && sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />}
                             </IconButton>
                         </Box>
                     </Grid>

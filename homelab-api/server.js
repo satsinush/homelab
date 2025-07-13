@@ -405,32 +405,32 @@ const deleteDevice = (mac) => {
     }
 };
 
-// Delete all non-saved devices from database
-const clearNonSavedDevices = () => {
+// Delete all non-favorite devices from database
+const clearNonFavoriteDevices = () => {
     try {
-        // Get all devices and filter for non-saved ones
+        // Get all devices and filter for non-favorite ones
         const allDevices = getAllDevices();
-        const nonSavedDevices = allDevices.filter(device => !device.isSaved && device.isSaved !== undefined);
+        const nonFavoriteDevices = allDevices.filter(device => !device.isFavorite && device.isFavorite !== undefined);
         
-        console.log(`Found ${nonSavedDevices.length} non-saved devices to clear out of ${allDevices.length} total devices`);
+        console.log(`Found ${nonFavoriteDevices.length} non-favorite devices to clear out of ${allDevices.length} total devices`);
         
-        if (nonSavedDevices.length > 0) {
+        if (nonFavoriteDevices.length > 0) {
             const stmt = db.prepare('DELETE FROM devices WHERE mac = ?');
-            nonSavedDevices.forEach(device => {
-                // Double check that device is actually not saved before deleting
-                if (!device.isSaved) {
-                    console.log(`Deleting non-saved device: ${device.name || 'Unknown'} (${device.mac})`);
+            nonFavoriteDevices.forEach(device => {
+                // Double check that device is actually not favorite before deleting
+                if (!device.isFavorite) {
+                    console.log(`Deleting non-favorite device: ${device.name || 'Unknown'} (${device.mac})`);
                     stmt.run(device.mac);
                 } else {
-                    console.warn(`WARNING: Skipped deleting saved device: ${device.name} (${device.mac})`);
+                    console.warn(`WARNING: Skipped deleting favorite device: ${device.name} (${device.mac})`);
                 }
             });
-            console.log(`Deleted ${nonSavedDevices.length} non-saved devices from database`);
+            console.log(`Deleted ${nonFavoriteDevices.length} non-favorite devices from database`);
         }
         
-        return nonSavedDevices.length;
+        return nonFavoriteDevices.length;
     } catch (error) {
-        console.error('Error clearing non-saved devices:', error);
+        console.error('Error clearing non-favorite devices:', error);
         throw error;
     }
 };
@@ -480,24 +480,33 @@ const scanAndUpdateDevices = async () => {
             });
         });
 
-        // Get current devices from database
-        const databaseDevices = getAllDevices();
+        // Get current favorite devices from database (only favorites are persisted)
+        const favoriteDevices = getAllDevices();
         
-        console.log(`Scanned: ${scannedDevices.length} devices, Database: ${databaseDevices.length} devices`);
+        // Get existing cached devices to preserve discovered device data
+        const existingCachedDevices = deviceCache.devices || [];
+        
+        console.log(`Scanned: ${scannedDevices.length} devices, Favorites in DB: ${favoriteDevices.length} devices, Cached: ${existingCachedDevices.length} devices`);
         
         const now = new Date().toISOString();
-        const updatedDevices = [];
+        const allDevices = [];
         
-        // Update or create devices based on scan results
+        // Create maps for efficient lookups
+        const favoritesByMac = new Map(favoriteDevices.map(d => [d.mac, d]));
+        const scannedByMac = new Map(scannedDevices.map(d => [d.mac, d]));
+        const cachedByMac = new Map(existingCachedDevices.map(d => [d.mac, d]));
+        
+        // Process all scanned devices
         for (const scannedDevice of scannedDevices) {
-            const existingDevice = databaseDevices.find(d => d.mac === scannedDevice.mac);
+            const favoriteDevice = favoritesByMac.get(scannedDevice.mac);
+            const cachedDevice = cachedByMac.get(scannedDevice.mac);
             
-            if (existingDevice) {
-                // Update existing device
+            if (favoriteDevice) {
+                // Update favorite device with current scan data
                 const updatedDevice = {
-                    ...existingDevice,
+                    ...favoriteDevice,
                     ip: scannedDevice.ip,
-                    vendor: scannedDevice.vendor || existingDevice.vendor,
+                    vendor: scannedDevice.vendor || favoriteDevice.vendor,
                     status: 'online',
                     lastSeen: now,
                     lastScanned: now,
@@ -505,52 +514,81 @@ const scanAndUpdateDevices = async () => {
                 };
                 
                 saveDevice(updatedDevice);
-                updatedDevices.push(updatedDevice);
+                allDevices.push(updatedDevice);
             } else {
-                // New discovered device
-                const newDevice = {
-                    name: null,
+                // Discovered device - merge with existing cached data if available
+                const discoveredDevice = {
+                    // Use cached device data as base if it exists
+                    ...(cachedDevice || {}),
+                    // Override with fresh scan data
                     mac: scannedDevice.mac,
                     ip: scannedDevice.ip,
-                    vendor: scannedDevice.vendor || 'Unknown',
-                    description: null,
-                    isSaved: false,
+                    vendor: scannedDevice.vendor || cachedDevice?.vendor || 'Unknown',
                     status: 'online',
                     lastSeen: now,
                     lastScanned: now,
-                    scanMethod: scannedDevice.scanMethod
+                    scanMethod: scannedDevice.scanMethod,
+                    // Ensure these stay as discovered device defaults
+                    isFavorite: false,
+                    name: null, // Don't persist custom names for discovered devices
+                    description: null
                 };
                 
-                saveDevice(newDevice);
-                updatedDevices.push(newDevice);
+                // Don't save to DB, just add to cache
+                allDevices.push(discoveredDevice);
             }
         }
         
-        // Mark devices not found in scan as offline
-        const scannedMacs = new Set(scannedDevices.map(d => d.mac));
-        for (const device of databaseDevices) {
-            if (!scannedMacs.has(device.mac)) {
+        // Mark favorite devices not found in scan as offline
+        for (const favoriteDevice of favoriteDevices) {
+            if (!scannedByMac.has(favoriteDevice.mac)) {
                 const offlineDevice = {
-                    ...device,
+                    ...favoriteDevice,
                     status: 'offline',
                     lastScanned: now,
-                    ip: device.isSaved ? device.ip : null // Keep IP for saved devices
+                    // Keep IP for favorite devices even when offline
                 };
                 
                 saveDevice(offlineDevice);
-                updatedDevices.push(offlineDevice);
+                allDevices.push(offlineDevice);
             }
         }
         
-        deviceCache.devices = updatedDevices;
+        // Keep discovered devices that weren't found in current scan as offline (but don't save to DB)
+        for (const cachedDevice of existingCachedDevices) {
+            if (!cachedDevice.isFavorite && !scannedByMac.has(cachedDevice.mac)) {
+                // Check if we already added this device to allDevices
+                const alreadyAdded = allDevices.some(d => d.mac === cachedDevice.mac);
+                if (!alreadyAdded) {
+                    const offlineDiscoveredDevice = {
+                        ...cachedDevice,
+                        status: 'offline',
+                        lastScanned: now,
+                        // Keep the IP they had before
+                    };
+                    
+                    // Don't save to DB, just keep in cache
+                    allDevices.push(offlineDiscoveredDevice);
+                }
+            }
+        }
+        
+        // Final deduplication step to ensure no duplicate MAC addresses
+        const devicesByMac = new Map();
+        for (const device of allDevices) {
+            devicesByMac.set(device.mac, device);
+        }
+        const deduplicatedDevices = Array.from(devicesByMac.values());
+        
+        deviceCache.devices = deduplicatedDevices;
         deviceCache.lastScan = Date.now();
         deviceCache.scanInProgress = false;
         
-        const onlineCount = updatedDevices.filter(d => d.status === 'online').length;
-        const savedCount = updatedDevices.filter(d => d.isSaved).length;
+        const onlineCount = deduplicatedDevices.filter(d => d.status === 'online').length;
+        const favoriteCount = deduplicatedDevices.filter(d => d.isFavorite).length;
         
-        console.log(`Scan completed: ${updatedDevices.length} total devices (${onlineCount} online, ${savedCount} saved)`);
-        return updatedDevices;
+        console.log(`Scan completed: ${deduplicatedDevices.length} total devices (${onlineCount} online, ${favoriteCount} favorites)`);
+        return deduplicatedDevices;
         
     } catch (error) {
         console.error('Scan error:', error);
@@ -568,8 +606,32 @@ const getDevices = async (forceScan = false) => {
         // Perform scan and update cache
         deviceCache.devices = await scanAndUpdateDevices();
     } else {
-        // Use cached data but refresh from database to get any manual changes
-        deviceCache.devices = getAllDevices();
+        // Use cached data but refresh favorites from database 
+        const favoriteDevices = getAllDevices();
+        const cachedDevices = deviceCache.devices;
+        
+        // Merge cached discovered devices with current favorites from DB
+        const favoritesByMac = new Map(favoriteDevices.map(d => [d.mac, d]));
+        const mergedDevices = [];
+        
+        // Add all cached devices, updating favorites with DB data
+        for (const cachedDevice of cachedDevices) {
+            const favoriteDevice = favoritesByMac.get(cachedDevice.mac);
+            if (favoriteDevice) {
+                mergedDevices.push(favoriteDevice);
+                favoritesByMac.delete(cachedDevice.mac);
+            } else if (!cachedDevice.isFavorite) {
+                // Keep non-favorite cached devices
+                mergedDevices.push(cachedDevice);
+            }
+        }
+        
+        // Add any new favorites from DB that weren't in cache
+        for (const favoriteDevice of favoritesByMac.values()) {
+            mergedDevices.push(favoriteDevice);
+        }
+        
+        deviceCache.devices = mergedDevices;
     }
     
     return {
@@ -600,8 +662,8 @@ app.use(cors({
 
 // Rate limiting for login attempts
 const loginLimiter = rateLimit({
-    windowMs: 60 * 1000, // 1 minute
-    max: process.env.NODE_ENV === 'production' ? 1 : 60, // Stricter in production
+    windowMs: 1000, // 1 second
+    max: process.env.NODE_ENV === 'production' ? 1 : 1, // Stricter in production
     message: { error: 'Too many login attempts, please try again later' },
     standardHeaders: true,
     legacyHeaders: false,
@@ -814,21 +876,21 @@ app.get('/api/health', (req, res) => {
 // SIMPLIFIED DEVICE ENDPOINTS
 // =============================================================================
 
-// GET /devices - Get all devices from database
+// GET /devices - Get all devices from cache and database
 app.get('/api/devices', requireAuth('admin'), async (req, res) => {
     try {
         const deviceData = await getDevices();
         const devices = deviceData.devices;
         
         // Calculate stats for compatibility
-        const savedCount = devices.filter(d => d.isSaved).length;
-        const discoveredCount = devices.filter(d => !d.isSaved).length;
+        const favoriteCount = devices.filter(d => d.isFavorite).length;
+        const discoveredCount = devices.filter(d => !d.isFavorite).length;
         const onlineCount = devices.filter(d => d.status === 'online').length;
         
         res.json({
             devices: devices,
             totalDevices: devices.length,
-            savedDevicesCount: savedCount,
+            favoriteDevicesCount: favoriteCount,
             discoveredDevicesCount: discoveredCount,
             onlineDevices: onlineCount,
             lastScan: deviceCache.lastScan ? new Date(deviceCache.lastScan).toISOString() : null,
@@ -846,15 +908,15 @@ app.post('/api/devices/scan', requireAuth('admin'), async (req, res) => {
         const devices = await scanAndUpdateDevices();
         
         // Calculate stats
-        const savedCount = devices.filter(d => d.isSaved).length;
-        const discoveredCount = devices.filter(d => !d.isSaved).length;
+        const favoriteCount = devices.filter(d => d.isFavorite).length;
+        const discoveredCount = devices.filter(d => !d.isFavorite).length;
         const onlineCount = devices.filter(d => d.status === 'online').length;
         
         res.json({
             message: 'Device scan completed',
             devices: devices,
             totalDevices: devices.length,
-            savedDevicesCount: savedCount,
+            favoriteDevicesCount: favoriteCount,
             discoveredDevicesCount: discoveredCount,
             onlineDevices: onlineCount,
             timestamp: new Date().toISOString()
@@ -868,10 +930,10 @@ app.post('/api/devices/scan', requireAuth('admin'), async (req, res) => {
 // POST /devices/clear-cache - Clear non-saved devices and perform fresh scan
 app.post('/api/devices/clear-cache', requireAuth('admin'), async (req, res) => {
     try {
-        console.log('Clearing non-saved devices from database...');
+        console.log('Clearing non-favorite devices from database and cache...');
         
-        // Clear non-saved devices from database
-        const deletedCount = clearNonSavedDevices();
+        // Clear non-favorite devices from database (if any were accidentally saved)
+        const deletedCount = clearNonFavoriteDevices();
         
         // Clear the device cache to force fresh scan
         deviceCache.devices = [];
@@ -881,17 +943,17 @@ app.post('/api/devices/clear-cache', requireAuth('admin'), async (req, res) => {
         const devices = await scanAndUpdateDevices();
         
         // Calculate stats
-        const savedCount = devices.filter(d => d.isSaved).length;
-        const discoveredCount = devices.filter(d => !d.isSaved).length;
+        const favoriteCount = devices.filter(d => d.isFavorite).length;
+        const discoveredCount = devices.filter(d => !d.isFavorite).length;
         const onlineCount = devices.filter(d => d.status === 'online').length;
         
-        console.log(`Cleared ${deletedCount} non-saved devices and completed fresh scan: ${devices.length} total devices, ${discoveredCount} discovered`);
+        console.log(`Cleared ${deletedCount} non-favorite devices and completed fresh scan: ${devices.length} total devices, ${discoveredCount} discovered`);
         
         res.json({
-            message: `Cleared ${deletedCount} non-saved devices and completed fresh scan`,
+            message: `Cleared cache and completed fresh scan`,
             devices: devices,
             totalDevices: devices.length,
-            savedDevicesCount: savedCount,
+            favoriteDevicesCount: favoriteCount,
             discoveredDevicesCount: discoveredCount,
             onlineDevices: onlineCount,
             deletedCount: deletedCount,
@@ -904,10 +966,10 @@ app.post('/api/devices/clear-cache', requireAuth('admin'), async (req, res) => {
     }
 });
 
-// POST /devices - Add new device with proper validation
+// POST /devices - Add new favorite device with proper validation
 app.post('/api/devices', requireAuth('admin'), async (req, res) => {
     try {
-        const { name, mac, description, isSaved } = req.body;
+        const { name, mac, description } = req.body;
         
         if (!name || !mac) {
             return res.status(400).json({ error: 'Name and MAC address are required' });
@@ -933,12 +995,12 @@ app.post('/api/devices', requireAuth('admin'), async (req, res) => {
             });
         }
 
-        // Create new device
+        // Create new favorite device (only favorites are saved to DB)
         const newDevice = {
             name: name.trim(),
             mac: macFormatted,
             description: description?.trim() || '',
-            isSaved: isSaved !== undefined ? isSaved : true,
+            isFavorite: true,
             status: 'offline',
             ip: null,
             vendor: 'Unknown',
@@ -953,9 +1015,9 @@ app.post('/api/devices', requireAuth('admin'), async (req, res) => {
         deviceCache.devices = [];
         deviceCache.lastScan = null;
         
-        console.log(`New device created: ${newDevice.name} (${newDevice.mac})`);
+        console.log(`New favorite device created: ${newDevice.name} (${newDevice.mac})`);
         res.status(201).json({ 
-            message: 'Device created successfully', 
+            message: 'Favorite device created successfully', 
             device: newDevice 
         });
     } catch (error) {
@@ -964,11 +1026,11 @@ app.post('/api/devices', requireAuth('admin'), async (req, res) => {
     }
 });
 
-// PUT /devices/:mac - Update existing device with proper validation
+// PUT /devices/:mac - Update existing favorite device with proper validation
 app.put('/api/devices/:mac', requireAuth('admin'), async (req, res) => {
     try {
         const { mac: paramMac } = req.params;
-        const { name, mac, description, isSaved } = req.body;
+        const { name, mac, description } = req.body;
         
         if (!name || !mac) {
             return res.status(400).json({ error: 'Name and MAC address are required' });
@@ -990,6 +1052,11 @@ app.put('/api/devices/:mac', requireAuth('admin'), async (req, res) => {
             return res.status(404).json({ error: 'Device not found' });
         }
 
+        // Only allow editing favorite devices
+        if (!existingDevice.isFavorite) {
+            return res.status(403).json({ error: 'Only favorite devices can be edited' });
+        }
+
         // Check if MAC address is being changed to one that already exists
         if (paramMacFormatted !== bodyMacFormatted) {
             const deviceWithSameMac = findDeviceByMac(bodyMacFormatted);
@@ -1007,13 +1074,13 @@ app.put('/api/devices/:mac', requireAuth('admin'), async (req, res) => {
             deleteDevice(paramMacFormatted);
         }
 
-        // Update device
+        // Update device (keep as favorite)
         const updatedDevice = {
             ...existingDevice,
             name: name.trim(),
             mac: bodyMacFormatted,
             description: description?.trim() || '',
-            isSaved: isSaved !== undefined ? isSaved : true
+            isFavorite: true // Always keep as favorite
         };
 
         saveDevice(updatedDevice);
@@ -1033,8 +1100,8 @@ app.put('/api/devices/:mac', requireAuth('admin'), async (req, res) => {
     }
 });
 
-// DELETE /devices/:mac - Delete device
-app.delete('/api/devices/:mac', requireAuth('admin'), async (req, res) => {
+// POST /devices/:mac/favorite - Toggle favorite status
+app.post('/api/devices/:mac/favorite', requireAuth('admin'), async (req, res) => {
     try {
         const { mac } = req.params;
         
@@ -1046,21 +1113,58 @@ app.delete('/api/devices/:mac', requireAuth('admin'), async (req, res) => {
             return res.status(400).json({ error: error.message });
         }
         
-        const result = deleteDevice(macFormatted);
+        // Find device in cache (could be favorite or discovered)
+        const deviceData = await getDevices();
+        const targetDevice = deviceData.devices.find(d => d.mac === macFormatted);
         
-        if (result === 0) {
+        if (!targetDevice) {
             return res.status(404).json({ error: 'Device not found' });
         }
-
+        
+        // Toggle favorite status
+        const isFavorite = !targetDevice.isFavorite;
+        
+        if (isFavorite) {
+            // Making it a favorite - save to database
+            const favoriteDevice = {
+                ...targetDevice,
+                isFavorite: true,
+                name: targetDevice.name || `Device ${targetDevice.vendor || 'Unknown'}`,
+                description: targetDevice.description || ''
+            };
+            
+            saveDevice(favoriteDevice);
+            console.log(`Device marked as favorite: ${favoriteDevice.name} (${favoriteDevice.mac})`);
+            
+            res.json({ 
+                message: 'Device marked as favorite', 
+                device: favoriteDevice 
+            });
+        } else {
+            // Removing from favorites - delete from database
+            deleteDevice(macFormatted);
+            console.log(`Device removed from favorites: ${targetDevice.name} (${targetDevice.mac})`);
+            
+            // Keep in cache as discovered device
+            const discoveredDevice = {
+                ...targetDevice,
+                isFavorite: false,
+                name: null // Clear custom name for discovered devices
+            };
+            
+            res.json({ 
+                message: 'Device removed from favorites', 
+                device: discoveredDevice 
+            });
+        }
+        
         // Clear cache to force refresh
         deviceCache.devices = [];
         deviceCache.lastScan = null;
-
-        console.log(`Device deleted: MAC ${macFormatted}`);
-        res.json({ message: 'Device deleted successfully' });
+        
     } catch (error) {
-        console.error('Delete device error:', error);
-        res.status(500).json({ error: `Failed to delete device: ${error.message}` });
+        console.error('Toggle favorite error:', error);
+        res.status(500).json({ error: `Failed to toggle favorite: ${error.message}` });
     }
 });
 
@@ -1088,8 +1192,8 @@ app.post('/api/wol', requireAuth('admin'), async (req, res) => {
             return res.status(404).json({ error: `Device '${device}' not found.` });
         }
 
-        if (!targetDevice.isSaved) {
-            return res.status(400).json({ error: `Device '${device}' must be saved before sending WOL packets.` });
+        if (!targetDevice.isFavorite) {
+            return res.status(400).json({ error: `Device '${device}' must be marked as favorite before sending WOL packets.` });
         }
 
         // Convert MAC format for WOL library (expects colon format)
