@@ -53,10 +53,16 @@
                 "cd homelab-api &&",
                 // Stop the service before transferring files
                 "ssh -t -p 2222 aneedham@10.10.10.10 \"sudo systemctl stop homelab-api.service\" &&",
-                // Copy the API files from your PC to RPi
-                // Source paths now explicitly point to 'homelab-api/server.js' and 'homelab-api/package.json'
+                // Copy the main API files
                 "scp -P 2222 ./server.js aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
                 "scp -P 2222 ./package.json aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                // Copy all modular directories and their files
+                "scp -r -P 2222 ./config aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                "scp -r -P 2222 ./controllers aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                "scp -r -P 2222 ./models aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                "scp -r -P 2222 ./routes aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                "scp -r -P 2222 ./middleware aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                "scp -r -P 2222 ./utils aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
                 // Include package-lock.json if you want exact dependency versions:
                 // "scp -P 2222 ./package-lock.json aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
                 // Go back to the main folder on PC before next ssh command (optional, but good practice)
@@ -88,9 +94,17 @@
                 "cd .. &&",
                 // SSH once to prepare everything and stop services
                 "ssh -t -p 2222 aneedham@10.10.10.10 \"sudo systemctl stop homelab-api.service && sudo rm -rf /srv/www/homelab-dashboard/dist && sudo mkdir -p /srv/www/homelab-dashboard && sudo chown aneedham:aneedham /srv/www/homelab-dashboard && sudo chmod 755 /srv/www/homelab-dashboard\" &&",
-                // Copy all files sequentially (works on Windows)
+                // Copy API files sequentially (works on Windows)
                 "scp -P 2222 ./homelab-api/server.js aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
                 "scp -P 2222 ./homelab-api/package.json aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                // Copy all modular API directories
+                "scp -r -P 2222 ./homelab-api/config aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                "scp -r -P 2222 ./homelab-api/controllers aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                "scp -r -P 2222 ./homelab-api/models aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                "scp -r -P 2222 ./homelab-api/routes aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                "scp -r -P 2222 ./homelab-api/middleware aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                "scp -r -P 2222 ./homelab-api/utils aneedham@10.10.10.10:/home/aneedham/homelab-api/ &&",
+                // Copy frontend dist folder
                 "scp -r -P 2222 ./homelab-dashboard/dist aneedham@10.10.10.10:/srv/www/homelab-dashboard/ &&",
                 // SSH once more to install dependencies, set permissions, and start services
                 "ssh -t -p 2222 aneedham@10.10.10.10 \"cd /home/aneedham/homelab-api && npm install && sudo chown -R http:http /srv/www/homelab-dashboard/dist/ && sudo chmod -R 755 /srv/www/homelab-dashboard/dist/ && sudo nginx -t && sudo systemctl start homelab-api.service && sudo systemctl reload nginx && sudo systemctl status homelab-api.service\""

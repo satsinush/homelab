@@ -62,6 +62,7 @@ import {
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/NotificationContext';
+import { formatDevicesForDisplay, formatMacForDisplay, normalizeMacForApi } from '../utils/formatters';
 
 // Separate memoized component for the device dialog to prevent re-renders
 const DeviceDialog = React.memo(({
@@ -174,7 +175,7 @@ const Devices = () => {
     }, []);
 
     const handleWakeOnLan = async (device) => {
-        const deviceName = device.name || device.mac;
+        const deviceName = device.name || formatMacForDisplay(device.mac);
 
         try {
             const result = await tryApiCall('/wol', {
@@ -199,7 +200,7 @@ const Devices = () => {
             });
 
             // Update device lists from scan response
-            setDevices(response.data.devices || []);
+            setDevices(formatDevicesForDisplay(response.data.devices || []));
 
             showSuccess('Device status refreshed successfully');
         } catch (err) {
@@ -229,7 +230,7 @@ const Devices = () => {
                     });
 
                     // Update device lists from scan response
-                    setDevices(response.data.devices || []);
+                    setDevices(formatDevicesForDisplay(response.data.devices || []));
 
                     showSuccess(`Cleared ${response.data.deletedCount || discoveredCount} discovered devices and completed fresh scan`);
                 } catch (err) {
@@ -265,7 +266,7 @@ const Devices = () => {
         setEditingDevice(device);
         setInitialDeviceForm({
             name: device.name || '',
-            mac: device.mac.replace(/-/g, ':') || '',
+            mac: formatMacForDisplay(device.macNormalized || device.mac) || '',
             description: device.description || ''
         });
         setDeviceDialog(true);
@@ -273,17 +274,17 @@ const Devices = () => {
 
     const handleToggleFavorite = async (device) => {
         try {
-            const response = await tryApiCall(`/devices/${encodeURIComponent(device.mac)}/favorite`, {
+            const response = await tryApiCall(`/devices/${encodeURIComponent(device.macNormalized || device.mac)}/favorite`, {
                 method: 'POST'
             });
 
-            const updatedDevice = response.data.device;
+            const updatedDevice = formatDevicesForDisplay([response.data.device])[0];
             const message = response.data.message;
 
             // Update local state immediately
             setDevices(prevDevices =>
                 prevDevices.map(d =>
-                    d.mac === device.mac ? updatedDevice : d
+                    (d.macNormalized || d.mac) === (device.macNormalized || device.mac) ? updatedDevice : d
                 )
             );
 
@@ -300,19 +301,19 @@ const Devices = () => {
         }
 
         // Normalize MAC address for comparison (convert to lowercase and handle both : and - formats)
-        const normalizedInputMac = deviceForm.mac.trim().toLowerCase().replace(/[:-]/g, '');
+        const normalizedInputMac = normalizeMacForApi(deviceForm.mac.trim());
 
         // Check for existing MAC address (only when adding new device, not editing)
         if (!editingDevice) {
             const existingDevice = devices.find(device => {
-                if (!device.mac) return false;
-                const existingMac = device.mac.toLowerCase().replace(/[:-]/g, '');
+                if (!device.mac && !device.macNormalized) return false;
+                const existingMac = normalizeMacForApi(device.macNormalized || device.mac);
                 return existingMac === normalizedInputMac;
             });
 
             if (existingDevice) {
                 const deviceName = existingDevice.name || existingDevice.vendor || 'Unknown Device';
-                showError(`A device with MAC address ${deviceForm.mac} already exists: ${deviceName}`);
+                showError(`A device with MAC address ${formatMacForDisplay(normalizedInputMac)} already exists: ${deviceName}`);
                 return;
             }
         }
@@ -320,25 +321,25 @@ const Devices = () => {
         try {
             const deviceData = {
                 name: deviceForm.name.trim(),
-                mac: deviceForm.mac.trim(),
+                mac: normalizeMacForApi(deviceForm.mac.trim()),
                 description: deviceForm.description.trim()
             };
 
             if (editingDevice) {
                 // Update existing device - use MAC as identifier
-                const originalMac = editingDevice.mac.replace(/:/g, '-');
+                const originalMac = editingDevice.macNormalized || normalizeMacForApi(editingDevice.mac);
                 const response = await tryApiCall(`/devices/${encodeURIComponent(originalMac)}`, {
                     method: 'PUT',
                     data: deviceData
                 });
 
                 // Get the updated device from server response
-                const updatedDevice = response.data.device;
+                const updatedDevice = formatDevicesForDisplay([response.data.device])[0];
 
                 // Update local state immediately with server response data
                 setDevices(prevDevices =>
                     prevDevices.map(d =>
-                        d.mac === originalMac
+                        (d.macNormalized || normalizeMacForApi(d.mac)) === originalMac
                             ? { ...d, ...updatedDevice }
                             : d
                     )
@@ -352,7 +353,7 @@ const Devices = () => {
                     data: deviceData
                 });
 
-                const newDevice = response.data.device;
+                const newDevice = formatDevicesForDisplay([response.data.device])[0];
 
                 // Add to devices list
                 setDevices(prevDevices => [...prevDevices, newDevice]);
@@ -374,7 +375,7 @@ const Devices = () => {
             // Fetch all device data using simplified endpoint
             const response = await tryApiCall('/devices');
 
-            setDevices(response.data.devices || []);
+            setDevices(formatDevicesForDisplay(response.data.devices || []));
             setLoading(false);
         } catch (err) {
             console.error('All API endpoints failed:', err);
@@ -417,14 +418,14 @@ const Devices = () => {
     const getFilteredDevices = useCallback((deviceList) => {
         const filtered = deviceList.filter(device => {
             const deviceName = (device.name || device.vendor || 'Unknown').toLowerCase();
-            const deviceMac = (device.mac || '').toLowerCase();
+            const deviceMac = normalizeMacForApi(device.macNormalized || device.mac || '');
             const deviceIp = (device.ip || '').toLowerCase();
             const deviceVendor = (device.vendor || '').toLowerCase();
             const deviceStatus = (device.status || '').toLowerCase();
 
             // Apply all filters
             if (nameFilter && !deviceName.includes(nameFilter.toLowerCase())) return false;
-            if (macFilter && !deviceMac.replace(':', '').replace('-', '').includes(macFilter.replace(':', '').replace('-', '').toLowerCase())) return false;
+            if (macFilter && !deviceMac.includes(normalizeMacForApi(macFilter))) return false;
             if (ipFilter && !deviceIp.replace('.', '').includes(ipFilter.replace('.', '').toLowerCase())) return false;
             if (vendorFilter && !deviceVendor.includes(vendorFilter.toLowerCase())) return false;
             if (statusFilter && !deviceStatus.includes(statusFilter.toLowerCase())) return false;
@@ -506,7 +507,7 @@ const Devices = () => {
             {filteredAllDevices.length > 0 ? (
                 <Grid container spacing={3}>
                     {filteredAllDevices.map(device => (
-                        <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={device.mac}>
+                        <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={device.macNormalized || device.mac}>
                             <Card sx={{
                                 height: '100%',
                                 display: 'flex',
@@ -654,7 +655,7 @@ const Devices = () => {
                 <TableBody>
                     {filteredAllDevices.length > 0 ? (
                         filteredAllDevices.map(device => (
-                            <TableRow key={device.mac} hover>
+                            <TableRow key={device.macNormalized || device.mac} hover>
                                 <TableCell>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         {getDeviceTypeIcon(device.name || device.vendor)}
