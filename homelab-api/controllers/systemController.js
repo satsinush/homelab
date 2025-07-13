@@ -336,7 +336,7 @@ class SystemController {
 
     getPackageSyncTime() {
         return new Promise((resolve) => {
-            exec('stat -c %Y /var/lib/pacman/sync/core.db', { timeout: 10000 }, (error, stdout, stderr) => {
+            exec('stat -c %Z /var/lib/pacman/sync/core.db', { timeout: 10000 }, (error, stdout, stderr) => {
                 if (error) {
                     console.error('Package sync time error:', error.message);
                     resolve(null);

@@ -94,6 +94,13 @@ const PackageManager = () => {
         }
 
         return matchesPackageSearch && matchesVersionSearch && matchesFilter;
+    }).sort((a, b) => {
+        // Sort by update status first (updates available at top)
+        if (a.hasUpdate && !b.hasUpdate) return -1;
+        if (!a.hasUpdate && b.hasUpdate) return 1;
+
+        // Then sort alphabetically by package name
+        return a.name.localeCompare(b.name);
     });
 
     const getUpdateStatusChip = (pkg) => {
