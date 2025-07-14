@@ -30,7 +30,8 @@ import {
     Menu as MenuIcon,
     Person as PersonIcon,
     ExitToApp as LogoutIcon,
-    AccountCircle as AccountIcon
+    AccountCircle as AccountIcon,
+    Chat as ChatIcon
 } from '@mui/icons-material';
 import { useThemeMode } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -46,6 +47,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }) => {
         { id: 'home', label: 'Home', icon: <HomeIcon />, path: '/home' },
         { id: 'system', label: 'System', icon: <DashboardIcon />, path: '/system' },
         { id: 'devices', label: 'Devices', icon: <DevicesIcon />, path: '/devices' },
+        { id: 'chat', label: 'AI Chat', icon: <ChatIcon />, path: '/chat' },
         { id: 'packages', label: 'Packages', icon: <PackagesIcon />, path: '/packages' },
         { id: 'settings', label: 'Settings', icon: <SettingsIcon />, path: '/settings' }
     ];

@@ -20,7 +20,19 @@ import {
     ListItemText,
     ListItemIcon,
     Tabs,
-    Tab
+    Tab,
+    Button,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow
 } from '@mui/material';
 import {
     Memory as MemoryIcon,
@@ -32,7 +44,10 @@ import {
     Computer as ComputerIcon,
     CheckCircle as CheckIcon,
     Error as ErrorIcon,
-    Settings as ServiceIcon
+    Settings as ServiceIcon,
+    Add as AddIcon,
+    Edit as EditIcon,
+    Delete as DeleteIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { useThemeMode } from '../contexts/ThemeContext';
@@ -52,6 +67,13 @@ const System = () => {
     const [refreshing, setRefreshing] = useState(false);
     const [tabValue, setTabValue] = useState(0);
     const { showError } = useNotification();
+
+    // Service management state
+    const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
+    const [newService, setNewService] = useState({ name: '', displayName: '' });
+    const [editingService, setEditingService] = useState(null);
+    const [editingServiceIndex, setEditingServiceIndex] = useState(-1);
+    const [serviceActionLoading, setServiceActionLoading] = useState(false);
 
     const fetchSystemData = async () => {
         try {
@@ -139,6 +161,99 @@ const System = () => {
         if (percentage < 50) return 'success';
         if (percentage < 80) return 'warning';
         return 'error';
+    };
+
+    // Service management handlers
+    const handleAddService = () => {
+        setNewService({ name: '', displayName: '' });
+        setEditingService(null);
+        setEditingServiceIndex(-1);
+        setServiceDialogOpen(true);
+    };
+
+    const handleEditService = (index) => {
+        const service = services[index];
+        setEditingService({ ...service });
+        setEditingServiceIndex(index);
+        setNewService({ name: '', displayName: '' });
+        setServiceDialogOpen(true);
+    };
+
+    const handleSaveService = async () => {
+        setServiceActionLoading(true);
+        try {
+            if (editingService && editingServiceIndex >= 0) {
+                // Update existing service
+                const response = await tryApiCall(`/services/${editingServiceIndex}`, {
+                    method: 'PUT',
+                    data: editingService
+                });
+                if (response.success) {
+                    await fetchSystemData(); // Refresh data
+                    setServiceDialogOpen(false);
+                    setEditingService(null);
+                    setEditingServiceIndex(-1);
+                }
+            } else {
+                // Add new service
+                const response = await tryApiCall('/services', {
+                    method: 'POST',
+                    data: newService
+                });
+                if (response.success) {
+                    await fetchSystemData(); // Refresh data
+                    setServiceDialogOpen(false);
+                    setNewService({ name: '', displayName: '' });
+                }
+            }
+        } catch (error) {
+            showError(`Failed to save service: ${error.message}`);
+        } finally {
+            setServiceActionLoading(false);
+        }
+    };
+
+    const handleDeleteService = async (index) => {
+        if (!window.confirm('Are you sure you want to delete this service?')) {
+            return;
+        }
+
+        try {
+            const response = await tryApiCall(`/services/${index}`, {
+                method: 'DELETE'
+            });
+            if (response.success) {
+                await fetchSystemData(); // Refresh data
+            }
+        } catch (error) {
+            showError(`Failed to delete service: ${error.message}`);
+        }
+    };
+
+    const handleCancelServiceDialog = () => {
+        setServiceDialogOpen(false);
+        setNewService({ name: '', displayName: '' });
+        setEditingService(null);
+        setEditingServiceIndex(-1);
+    };
+
+    // Additional missing handlers for the existing dialog
+    const handleServiceDialogClose = () => {
+        handleCancelServiceDialog();
+    };
+
+    const handleServiceFormChange = (event) => {
+        const { name, value } = event.target;
+        if (editingService) {
+            setEditingService(prev => ({ ...prev, [name]: value }));
+        } else {
+            setNewService(prev => ({ ...prev, [name]: value }));
+        }
+    };
+
+    const handleServiceSubmit = (event) => {
+        event.preventDefault();
+        handleSaveService();
     };
 
     if (loading) {
@@ -665,46 +780,114 @@ const System = () => {
                             <Grid size={12}>
                                 <Card sx={{ height: '100%' }}>
                                     <CardContent>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                            <ServiceIcon sx={{ mr: 1, color: 'primary.main' }} />
-                                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                Services Status
-                                            </Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                <ServiceIcon sx={{ mr: 1, color: 'primary.main' }} />
+                                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                                                    Services Management
+                                                </Typography>
+                                            </Box>
+                                            <Button
+                                                variant="outlined"
+                                                startIcon={<AddIcon />}
+                                                onClick={handleAddService}
+                                            >
+                                                Add Service
+                                            </Button>
                                         </Box>
+                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                            Manage and monitor system services. Add services to monitor their status and enablement state.
+                                        </Typography>
                                         {services && services.length > 0 ? (
-                                            <List
+                                            <TableContainer component={Paper} variant="outlined">
+                                                <Table size="small">
+                                                    <TableHead>
+                                                        <TableRow>
+                                                            <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>Status</TableCell>
+                                                            <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>Service Name</TableCell>
+                                                            <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }}>Display Name</TableCell>
+                                                            <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }} align="center">Enabled</TableCell>
+                                                            <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }} align="center">Active Status</TableCell>
+                                                            <TableCell sx={{ fontWeight: 600, bgcolor: 'action.hover' }} align="center">Actions</TableCell>
+                                                        </TableRow>
+                                                    </TableHead>
+                                                    <TableBody>
+                                                        {services.map((service, index) => (
+                                                            <TableRow key={service.name} hover>
+                                                                <TableCell>
+                                                                    {service.active ? (
+                                                                        <CheckIcon sx={{ color: 'success.main', fontSize: 20 }} />
+                                                                    ) : (
+                                                                        <ErrorIcon sx={{ color: 'error.main', fontSize: 20 }} />
+                                                                    )}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
+                                                                        {service.name}
+                                                                    </Typography>
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                        {service.displayName || service.name}
+                                                                    </Typography>
+                                                                </TableCell>
+                                                                <TableCell align="center">
+                                                                    <Chip
+                                                                        label={service.enabled ? 'Enabled' : 'Disabled'}
+                                                                        size="small"
+                                                                        color={service.enabled ? 'info' : 'default'}
+                                                                        variant="outlined"
+                                                                    />
+                                                                </TableCell>
+                                                                <TableCell align="center">
+                                                                    <Chip
+                                                                        label={service.status}
+                                                                        size="small"
+                                                                        color={service.active ? 'success' : 'error'}
+                                                                        variant="outlined"
+                                                                    />
+                                                                </TableCell>
+                                                                <TableCell align="center">
+                                                                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                                                                        <IconButton
+                                                                            size="small"
+                                                                            onClick={() => handleEditService(index)}
+                                                                            color="primary"
+                                                                            title="Edit service"
+                                                                        >
+                                                                            <EditIcon fontSize="small" />
+                                                                        </IconButton>
+                                                                        <IconButton
+                                                                            size="small"
+                                                                            onClick={() => handleDeleteService(index)}
+                                                                            color="error"
+                                                                            title="Delete service"
+                                                                        >
+                                                                            <DeleteIcon fontSize="small" />
+                                                                        </IconButton>
+                                                                    </Box>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </TableContainer>
+                                        ) : (
+                                            <Paper
+                                                variant="outlined"
                                                 sx={{
-                                                    py: 0,
-                                                    maxHeight: 500,
-                                                    overflowY: 'auto'
+                                                    p: 4,
+                                                    textAlign: 'center',
+                                                    bgcolor: 'action.hover'
                                                 }}
                                             >
-                                                {services.map((service, index) => (
-                                                    <ListItem key={service.name} sx={{ px: 0, py: 1 }}>
-                                                        <ListItemIcon sx={{ minWidth: 40 }}>
-                                                            {service.active ? (
-                                                                <CheckIcon sx={{ color: 'success.main', fontSize: 20 }} />
-                                                            ) : (
-                                                                <ErrorIcon sx={{ color: 'error.main', fontSize: 20 }} />
-                                                            )}
-                                                        </ListItemIcon>
-                                                        <ListItemText
-                                                            primary={service.displayName || service.name}
-                                                            secondary={service.displayName ? service.name : null}
-                                                        />
-                                                        <Box sx={{ ml: 'auto' }}>
-                                                            <Chip
-                                                                label={service.status}
-                                                                size="small"
-                                                                color={service.active ? 'success' : 'error'}
-                                                                variant="outlined"
-                                                            />
-                                                        </Box>
-                                                    </ListItem>
-                                                ))}
-                                            </List>
-                                        ) : (
-                                            <Typography color="text.secondary">No service data available</Typography>
+                                                <Typography color="text.secondary" variant="h6" sx={{ mb: 1 }}>
+                                                    No services configured
+                                                </Typography>
+                                                <Typography color="text.secondary" variant="body2">
+                                                    Click "Add Service" to start monitoring system services
+                                                </Typography>
+                                            </Paper>
                                         )}
                                     </CardContent>
                                 </Card>
@@ -810,6 +993,61 @@ const System = () => {
                     )}
                 </Box>
             </Box>
+
+            {/* Service Management Dialog */}
+            <Dialog
+                open={serviceDialogOpen}
+                onClose={handleServiceDialogClose}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>
+                    {editingService ? 'Edit Service' : 'Add Service'}
+                </DialogTitle>
+                <DialogContent>
+                    <Box component="form" onSubmit={handleServiceSubmit} sx={{ mt: 1 }}>
+                        <TextField
+                            autoFocus
+                            margin="normal"
+                            required
+                            fullWidth
+                            label="Service Name"
+                            name="name"
+                            value={editingService ? editingService.name : newService.name}
+                            onChange={handleServiceFormChange}
+                            variant="outlined"
+                            helperText="Enter the systemctl service name (e.g., nginx, sshd)"
+                        />
+                        <TextField
+                            margin="normal"
+                            required
+                            fullWidth
+                            label="Display Name"
+                            name="displayName"
+                            value={editingService ? editingService.displayName : newService.displayName}
+                            onChange={handleServiceFormChange}
+                            variant="outlined"
+                            helperText="Enter a user-friendly name for the service"
+                        />
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button
+                        onClick={handleServiceDialogClose}
+                        color="inherit"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleSaveService}
+                        variant="contained"
+                        color="primary"
+                        disabled={serviceActionLoading || (!editingService && (!newService.name || !newService.displayName)) || (editingService && (!editingService.name || !editingService.displayName))}
+                    >
+                        {serviceActionLoading ? 'Saving...' : 'Save'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Container>
     );
 };

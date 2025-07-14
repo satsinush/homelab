@@ -15,10 +15,6 @@ import {
     ListItem,
     ListItemText,
     IconButton,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
     ToggleButton,
     ToggleButtonGroup,
     Divider,
@@ -32,10 +28,6 @@ import {
     Timer as TimerIcon,
     Save as SaveIcon,
     Computer as ComputerIcon,
-    Build as ServiceIcon,
-    Add as AddIcon,
-    Delete as DeleteIcon,
-    Edit as EditIcon,
     Palette as ThemeIcon,
     LightMode as LightIcon,
     DarkMode as DarkIcon,
@@ -53,10 +45,6 @@ const Settings = () => {
     const [settings, setSettings] = useState(null);
     const [loading, setLoading] = useState(true);
     const [autoSaving, setAutoSaving] = useState(false);
-    const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
-    const [newService, setNewService] = useState({ name: '', displayName: '' });
-    const [editingService, setEditingService] = useState(null);
-    const [editingServiceIndex, setEditingServiceIndex] = useState(-1);
     const [tabValue, setTabValue] = useState(0);
     const { themeMode, setThemeMode, actualMode } = useThemeMode();
     const { showSuccess, showError } = useNotification();    // Auto-save debounced function
@@ -130,59 +118,6 @@ const Settings = () => {
         setSettings(newSettings);
 
         // Auto-save after change
-        debouncedSave(newSettings);
-    };
-
-    const handleAddService = () => {
-        if (!newService.name || !newService.displayName) return;
-
-        const newSettings = {
-            ...settings,
-            services: [...settings.services, { ...newService }]
-        };
-        setSettings(newSettings);
-        debouncedSave(newSettings);
-
-        setNewService({ name: '', displayName: '' });
-        setServiceDialogOpen(false);
-    };
-
-    const handleEditService = (index) => {
-        setEditingService({ ...settings.services[index] });
-        setEditingServiceIndex(index);
-        setServiceDialogOpen(true);
-    };
-
-    const handleSaveEditedService = () => {
-        if (!editingService.name || !editingService.displayName) return;
-
-        const newSettings = {
-            ...settings,
-            services: settings.services.map((service, index) =>
-                index === editingServiceIndex ? { ...editingService } : service
-            )
-        };
-        setSettings(newSettings);
-        debouncedSave(newSettings);
-
-        setEditingService(null);
-        setEditingServiceIndex(-1);
-        setServiceDialogOpen(false);
-    };
-
-    const handleCancelServiceDialog = () => {
-        setNewService({ name: '', displayName: '' });
-        setEditingService(null);
-        setEditingServiceIndex(-1);
-        setServiceDialogOpen(false);
-    };
-
-    const handleRemoveService = (serviceIndex) => {
-        const newSettings = {
-            ...settings,
-            services: settings.services.filter((_, index) => index !== serviceIndex)
-        };
-        setSettings(newSettings);
         debouncedSave(newSettings);
     };
 
@@ -347,63 +282,35 @@ const Settings = () => {
                                     </Card>
                                 </Grid>
 
-                                {/* Service Management */}
+                                {/* Network Settings */}
                                 <Grid size={12}>
                                     <Card>
                                         <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                    <ServiceIcon sx={{ mr: 1 }} />
-                                                    <Typography variant="h6">Service Monitoring</Typography>
-                                                </Box>
-                                                <Button
-                                                    variant="outlined"
-                                                    startIcon={<AddIcon />}
-                                                    onClick={() => setServiceDialogOpen(true)}
-                                                >
-                                                    Add Service
-                                                </Button>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                                <NetworkIcon sx={{ mr: 1 }} />
+                                                <Typography variant="h6">Network Settings</Typography>
                                             </Box>
                                             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                                Configure which services to monitor for status checking. All services in this list will be monitored.
+                                                Configure network monitoring and scanning settings.
                                             </Typography>
-                                            <List>
-                                                {settings.services?.map((service, index) => (
-                                                    <ListItem
-                                                        key={service.name}
-                                                        divider
-                                                        secondaryAction={
-                                                            <Box>
-                                                                <IconButton
-                                                                    edge="end"
-                                                                    aria-label="edit"
-                                                                    onClick={() => handleEditService(index)}
-                                                                    sx={{ mr: 1 }}
-                                                                >
-                                                                    <EditIcon />
-                                                                </IconButton>
-                                                                <IconButton
-                                                                    edge="end"
-                                                                    aria-label="delete"
-                                                                    onClick={() => handleRemoveService(index)}
-                                                                >
-                                                                    <DeleteIcon />
-                                                                </IconButton>
-                                                            </Box>
-                                                        }
-                                                    >
-                                                        <ListItemText
-                                                            primary={service.displayName}
-                                                            secondary={`Service: ${service.name}`}
-                                                        />
-                                                    </ListItem>
-                                                ))}
-                                            </List>
-                                            {settings.services?.length === 0 && (
-                                                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                                                    No services configured. Add services to monitor their status.
-                                                </Typography>
-                                            )}
+                                            <Stack spacing={3}>
+                                                <TextField
+                                                    label="Cache Timeout (ms)"
+                                                    value={settings?.cacheTimeout || ''}
+                                                    onChange={(e) => handleSettingChange('cacheTimeout', parseInt(e.target.value) || 300000)}
+                                                    type="number"
+                                                    helperText="How long to cache system data before refreshing"
+                                                    fullWidth
+                                                />
+                                                <TextField
+                                                    label="Scan Timeout (ms)"
+                                                    value={settings?.scanTimeout || ''}
+                                                    onChange={(e) => handleSettingChange('scanTimeout', parseInt(e.target.value) || 30000)}
+                                                    type="number"
+                                                    helperText="Timeout for network scanning operations"
+                                                    fullWidth
+                                                />
+                                            </Stack>
                                         </CardContent>
                                     </Card>
                                 </Grid>
@@ -494,55 +401,6 @@ const Settings = () => {
                     </Box>
                 </Box>
             )}
-
-            {/* Add/Edit Service Dialog */}
-            <Dialog open={serviceDialogOpen} onClose={handleCancelServiceDialog} maxWidth="sm" fullWidth>
-                <DialogTitle>{editingService ? 'Edit Service' : 'Add Service'}</DialogTitle>
-                <DialogContent>
-                    <Stack spacing={2} sx={{ mt: 1 }}>
-                        <TextField
-                            label="Service Name"
-                            value={editingService ? editingService.name : newService.name}
-                            onChange={(e) => {
-                                if (editingService) {
-                                    setEditingService(prev => ({ ...prev, name: e.target.value }));
-                                } else {
-                                    setNewService(prev => ({ ...prev, name: e.target.value }));
-                                }
-                            }}
-                            fullWidth
-                            helperText="System service name (e.g., nginx, sshd)"
-                        />
-                        <TextField
-                            label="Display Name"
-                            value={editingService ? editingService.displayName : newService.displayName}
-                            onChange={(e) => {
-                                if (editingService) {
-                                    setEditingService(prev => ({ ...prev, displayName: e.target.value }));
-                                } else {
-                                    setNewService(prev => ({ ...prev, displayName: e.target.value }));
-                                }
-                            }}
-                            fullWidth
-                            helperText="Friendly name to display in the dashboard"
-                        />
-                    </Stack>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCancelServiceDialog}>Cancel</Button>
-                    <Button
-                        onClick={editingService ? handleSaveEditedService : handleAddService}
-                        variant="contained"
-                        disabled={
-                            editingService
-                                ? !editingService.name || !editingService.displayName
-                                : !newService.name || !newService.displayName
-                        }
-                    >
-                        {editingService ? 'Save Changes' : 'Add Service'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
         </Container>
     );
 };

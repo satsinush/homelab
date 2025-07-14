@@ -10,6 +10,7 @@ import Navigation from './components/Navigation';
 import Home from './components/Home';
 import System from './components/System';
 import Devices from './components/Devices';
+import Chat from './components/Chat';
 import PackageManager from './components/PackageManager';
 import Settings from './components/Settings';
 import Profile from './components/Profile';
@@ -27,6 +28,7 @@ function AppContent() {
     if (path === '/home') return 'home';
     if (path === '/system') return 'system';
     if (path === '/devices') return 'devices';
+    if (path === '/chat') return 'chat';
     if (path === '/packages') return 'packages';
     if (path === '/settings') return 'settings';
     if (path === '/profile') return 'profile';
@@ -61,6 +63,7 @@ function AppContent() {
                 <Route path="/home" element={<Home />} />
                 <Route path="/system" element={<System />} />
                 <Route path="/devices" element={<Devices />} />
+                <Route path="/chat" element={<Chat />} />
                 <Route path="/packages" element={<PackageManager />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />

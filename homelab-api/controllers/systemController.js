@@ -172,20 +172,143 @@ class SystemController {
         
         const serviceStatuses = await Promise.all(services.map(service => {
             return new Promise((serviceResolve) => {
-                exec(`systemctl is-active ${service.name}`, (error, stdout) => {
-                    const status = stdout.trim();
-                    const active = status === 'active';
+                // Check both active status and enabled status
+                const activeCheck = new Promise((resolve) => {
+                    exec(`systemctl is-active ${service.name}`, (error, stdout) => {
+                        const status = stdout.trim();
+                        const active = status === 'active';
+                        resolve({ status, active });
+                    });
+                });
+
+                const enabledCheck = new Promise((resolve) => {
+                    exec(`systemctl is-enabled ${service.name}`, (error, stdout) => {
+                        const enabled = stdout.trim() === 'enabled';
+                        resolve(enabled);
+                    });
+                });
+
+                Promise.all([activeCheck, enabledCheck]).then(([activeResult, enabled]) => {
                     serviceResolve({
                         name: service.name,
                         displayName: service.displayName || service.name,
-                        status: status,
-                        active: active
+                        status: activeResult.status,
+                        active: activeResult.active,
+                        enabled: enabled
                     });
                 });
             });
         }));
         
         return { services: serviceStatuses };
+    }
+
+    // Add a new service
+    async addService(req, res) {
+        try {
+            const { name, displayName } = req.body;
+            
+            if (!name || !displayName) {
+                return res.status(400).json({ error: 'Service name and display name are required' });
+            }
+
+            const currentSettings = this.settingsModel.get();
+            const existingService = currentSettings.services.find(s => s.name === name);
+            
+            if (existingService) {
+                return res.status(409).json({ error: 'Service already exists' });
+            }
+
+            const updatedSettings = {
+                ...currentSettings,
+                services: [...currentSettings.services, { name: name.trim(), displayName: displayName.trim() }]
+            };
+
+            this.settingsModel.update(updatedSettings);
+            
+            res.json({ 
+                message: 'Service added successfully',
+                service: { name: name.trim(), displayName: displayName.trim() }
+            });
+        } catch (error) {
+            console.error('Add service error:', error);
+            res.status(500).json({ error: `Failed to add service: ${error.message}` });
+        }
+    }
+
+    // Update an existing service
+    async updateService(req, res) {
+        try {
+            const { serviceIndex } = req.params;
+            const { name, displayName } = req.body;
+            
+            if (!name || !displayName) {
+                return res.status(400).json({ error: 'Service name and display name are required' });
+            }
+
+            const currentSettings = this.settingsModel.get();
+            const index = parseInt(serviceIndex);
+            
+            if (index < 0 || index >= currentSettings.services.length) {
+                return res.status(404).json({ error: 'Service not found' });
+            }
+
+            // Check if name conflicts with another service (excluding current one)
+            const existingService = currentSettings.services.find((s, i) => s.name === name && i !== index);
+            if (existingService) {
+                return res.status(409).json({ error: 'Service name already exists' });
+            }
+
+            const updatedServices = [...currentSettings.services];
+            updatedServices[index] = { name: name.trim(), displayName: displayName.trim() };
+
+            const updatedSettings = {
+                ...currentSettings,
+                services: updatedServices
+            };
+
+            this.settingsModel.update(updatedSettings);
+            
+            res.json({ 
+                message: 'Service updated successfully',
+                service: { name: name.trim(), displayName: displayName.trim() }
+            });
+        } catch (error) {
+            console.error('Update service error:', error);
+            res.status(500).json({ error: `Failed to update service: ${error.message}` });
+        }
+    }
+
+    // Delete a service
+    async deleteService(req, res) {
+        try {
+            const { serviceIndex } = req.params;
+            
+            const currentSettings = this.settingsModel.get();
+            const index = parseInt(serviceIndex);
+            
+            if (index < 0 || index >= currentSettings.services.length) {
+                return res.status(404).json({ error: 'Service not found' });
+            }
+
+            const serviceToDelete = currentSettings.services[index];
+            const updatedServices = currentSettings.services.filter((_, i) => i !== index);
+
+            const updatedSettings = {
+                ...currentSettings,
+                services: updatedServices
+            };
+
+            this.settingsModel.update(updatedSettings);
+            
+            res.json({ 
+                message: 'Service deleted successfully',
+                deletedService: serviceToDelete
+            });
+        } catch (error) {
+            console.error('Delete service error:', error);
+            res.status(500).json({ error: `Failed to delete service: ${error.message}` });
+        }
     }
 
     // Get network statistics from Netdata

@@ -10,6 +10,7 @@ const config = require('./config');
 const userRoutes = require('./routes/userRoutes');
 const deviceRoutes = require('./routes/deviceRoutes');
 const systemRoutes = require('./routes/systemRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
 
 // Import services for initialization
@@ -60,6 +61,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', userRoutes);
 app.use('/api', deviceRoutes);
 app.use('/api', systemRoutes);
+app.use('/api', chatRoutes);
 
 // Error handling middleware (must be last)
 app.use(notFound);
