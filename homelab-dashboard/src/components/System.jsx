@@ -85,7 +85,7 @@ const System = () => {
             // Set all state from the combined response
             setSystemInfo(data.system);
             setResources(data.resources);
-            setServices(data.services?.services || data.services);
+            setServices(data.services);
             setTemperature(data.temperature || { cpu: 'N/A', gpu: 'N/A' });
 
             setLoading(false);
@@ -110,12 +110,12 @@ const System = () => {
                         // Update all state from combined response
                         if (systemData.resources) setResources(systemData.resources);
                         if (systemData.temperature) setTemperature(systemData.temperature);
-                        if (systemData.services) setServices(systemData.services?.services || systemData.services);
+                        if (systemData.services) setServices(systemData.services);
                     }
                 } catch (err) {
                     // Don't show error for refresh failures
                 }
-            }, 5000);
+            }, 2000);
         }
 
         return () => {
@@ -142,7 +142,8 @@ const System = () => {
         if (bytes === 0 || !bytes || bytes === null || bytes === undefined || isNaN(bytes)) return '0 B';
         const k = 1024;
         const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        let i = Math.floor(Math.log(bytes) / Math.log(k));
+        i = Math.max(0, Math.min(i, sizes.length - 1)); // Ensure i is an int between 0 and sizes.length - 1
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     };
 
@@ -324,7 +325,7 @@ const System = () => {
                                             color="primary"
                                         />
                                     }
-                                    label="Auto-refresh (5s)"
+                                    label="Auto-refresh (2s)"
                                     sx={{ m: 0 }}
                                 />
                                 <IconButton
@@ -841,7 +842,7 @@ const System = () => {
                                                                 </TableCell>
                                                                 <TableCell align="center">
                                                                     <Chip
-                                                                        label={service.status}
+                                                                        label={service.active ? 'Active' : 'Inactive'}
                                                                         size="small"
                                                                         color={service.active ? 'success' : 'error'}
                                                                         variant="outlined"
@@ -906,7 +907,7 @@ const System = () => {
                     {tabValue === 3 && (
                         <Grid container spacing={3}>
                             {/* Network Interfaces */}
-                            {resources?.network?.detailedInterfaces && resources.network.detailedInterfaces.length > 0 ? (
+                            {resources?.network?.interfaces && resources.network.interfaces.length > 0 ? (
                                 <Grid size={12}>
                                     <Card>
                                         <CardContent>
@@ -925,7 +926,7 @@ const System = () => {
                                                 )}
                                             </Box>
                                             <Grid container spacing={2}>
-                                                {resources.network.detailedInterfaces.map((iface, index) => (
+                                                {resources.network.interfaces.map((iface, index) => (
                                                     <Grid size={{ xs: 12, md: 6, lg: 4 }} key={index}>
                                                         <Paper sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
                                                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -943,8 +944,8 @@ const System = () => {
                                                                     Download:
                                                                 </Typography>
                                                                 <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
-                                                                    {iface.received !== undefined && iface.received !== null
-                                                                        ? `${formatBytes(iface.received)}/s`
+                                                                    {iface.downloadSpeed !== undefined && iface.downloadSpeed !== null
+                                                                        ? `${formatBytes(iface.downloadSpeed)}/s`
                                                                         : 'N/A'
                                                                     }
                                                                 </Typography>
@@ -954,8 +955,8 @@ const System = () => {
                                                                     Upload:
                                                                 </Typography>
                                                                 <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
-                                                                    {iface.sent !== undefined && iface.sent !== null
-                                                                        ? `${formatBytes(iface.sent)}/s`
+                                                                    {iface.uploadSpeed !== undefined && iface.uploadSpeed !== null
+                                                                        ? `${formatBytes(iface.uploadSpeed)}/s`
                                                                         : 'N/A'
                                                                     }
                                                                 </Typography>
@@ -964,11 +965,6 @@ const System = () => {
                                                     </Grid>
                                                 ))}
                                             </Grid>
-                                            {resources.network.timestamp && (
-                                                <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
-                                                    Last updated: {new Date(resources.network.timestamp).toLocaleTimeString()}
-                                                </Typography>
-                                            )}
                                         </CardContent>
                                     </Card>
                                 </Grid>
@@ -983,7 +979,7 @@ const System = () => {
                                                 </Typography>
                                             </Box>
                                             <Typography color="text.secondary" sx={{ mb: 2 }}>
-                                                No network interface data available.
+                                                Network interface data unavailable.
                                             </Typography>
                                         </CardContent>
                                     </Card>

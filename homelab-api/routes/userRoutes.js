@@ -14,6 +14,12 @@ const loginLimiter = rateLimit({
     message: { error: 'Too many login attempts, please try again later' },
     standardHeaders: true,
     legacyHeaders: false,
+    // Skip successful requests to avoid penalizing users unnecessarily
+    skipSuccessfulRequests: true,
+    // Use a more specific key generator that includes user agent for better tracking
+    keyGenerator: (req) => {
+        return req.ip + ':' + (req.get('User-Agent') || 'unknown').substring(0, 50);
+    }
 });
 
 // Login endpoint

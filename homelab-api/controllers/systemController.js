@@ -1,6 +1,5 @@
 const { exec } = require('child_process');
 const os = require('os');
-const axios = require('axios');
 const Settings = require('../models/Settings');
 const config = require('../config');
 
@@ -200,7 +199,7 @@ class SystemController {
             });
         }));
         
-        return { services: serviceStatuses };
+        return serviceStatuses;
     }
 
     // Add a new service
@@ -314,12 +313,97 @@ class SystemController {
     // Get network statistics from Netdata
     async getNetworkStats() {
         try {
-            // This would be implemented based on the existing Netdata integration
-            // For now, return null to maintain compatibility
-            return null;
+            // Only use netdata for network statistics
+            const netdataStats = await this.getNetdataNetworkStats();
+            if (netdataStats) {
+                return netdataStats;
+            } else {
+                // Return empty result if Netdata is not available
+                console.log('Netdata network statistics not available');
+                return {
+                    interfaces: {},
+                    source: 'unavailable',
+                    timestamp: new Date().toISOString(),
+                    message: 'Netdata service not available for network statistics'
+                };
+            }
         } catch (error) {
             console.error('Network stats error:', error);
-            return null;
+            return {
+                interfaces: {},
+                source: 'error',
+                timestamp: new Date().toISOString(),
+                error: error.message
+            };
+        }
+    }
+
+    // Get network statistics from Netdata API
+    async getNetdataNetworkStats() {
+        // Get network interface charts and query each for real-time speed
+        try {
+            const netdataUrl = config.netdata.url;
+            // Get list of available charts to find network interfaces
+            const chartsResponse = await fetch(`${netdataUrl}/api/v1/charts`, {
+                timeout: 5000
+            });
+            if (!chartsResponse.ok) {
+                throw new Error(`Charts API responded with ${chartsResponse.status}`);
+            }
+            const chartsData = await chartsResponse.json();
+            const interfaces = {};
+            // Look for network interface charts (e.g., net.end0, net.eth0, net.wlan0)
+            for (const chartId in chartsData.charts) {
+                if (chartId.startsWith('net.') && !chartId.includes('packets')) {
+                    const interfaceName = chartId.replace('net.', '');
+                    // Skip virtual interfaces
+                    if (interfaceName.includes('lo') || interfaceName.includes('docker')) {
+                        continue;
+                    }
+                    try {
+                        const url = `${netdataUrl}/api/v1/data?chart=${chartId}&format=json&points=1&after=-1`;
+                        const dataResponse = await fetch(
+                            url,
+                            {
+                                timeout: 3000
+                            }
+                        );
+
+                        if (dataResponse.ok) {
+                            const interfaceData = await dataResponse.json();
+                            if (interfaceData.data && interfaceData.data.length > 0) {
+                                // Netdata returns data in reverse chronological order by default when 'after' is used
+                                // The latest data point will be the first one in the array
+                                const latestData = interfaceData.data[0];
+                                // Netdata returns [timestamp, received, sent]
+                                const received = Math.abs(latestData[1]) || 0;
+                                const sent = Math.abs(latestData[2]) || 0;
+                                interfaces[interfaceName] = {
+                                    name: interfaceName,
+                                    downloadSpeed: received,
+                                    uploadSpeed: sent,
+                                    active: true
+                                };
+                            }
+                        }
+                    } catch (interfaceError) {
+                        console.log(`Error getting data for interface ${interfaceName}:`, interfaceError.message);
+                    }
+                }
+            }
+            return {
+                interfaces: interfaces,
+                source: 'netdata',
+                timestamp: new Date().toISOString()
+            };
+        } catch (error) {
+            console.log('Netdata network stats error:', error.message);
+            return {
+                interfaces: {},
+                source: 'error',
+                timestamp: new Date().toISOString(),
+                error: error.message
+            };
         }
     }
 
@@ -340,8 +424,27 @@ class SystemController {
             const systemInfo = systemInfoResult.status === 'fulfilled' ? systemInfoResult.value : null;
             const resources = resourcesResult.status === 'fulfilled' ? resourcesResult.value : null;
             const temperature = temperatureResult.status === 'fulfilled' ? temperatureResult.value : { cpu: 'N/A', gpu: 'N/A' };
-            const services = servicesResult.status === 'fulfilled' ? servicesResult.value : { services: [] };
+            const services = servicesResult.status === 'fulfilled' ? servicesResult.value : [];
             const network = networkResult.status === 'fulfilled' ? networkResult.value : null;
+            
+            // Transform network data for frontend compatibility
+            let transformedNetwork = null;
+            if (network && network.interfaces) {
+                // Filter out 'total' interface for the interfaces display
+                const filteredInterfaces = Object.values(network.interfaces)
+                    .filter(iface => iface.name !== 'total' && iface.name !== 'Total Network')
+                    .map(iface => ({
+                        name: iface.name,
+                        downloadSpeed: iface.downloadSpeed || 0,  // Download speed in bytes/sec
+                        uploadSpeed: iface.uploadSpeed || 0,      // Upload speed in bytes/sec
+                        active: iface.active || false
+                    }));
+                
+                transformedNetwork = {
+                    ...network,
+                    interfaces: filteredInterfaces
+                };
+            }
             
             const endTime = Date.now();
             const responseTime = endTime - startTime;
@@ -350,11 +453,11 @@ class SystemController {
                 system: systemInfo,
                 resources: {
                     ...resources,
-                    network: network
+                    network: transformedNetwork
                 },
                 temperature: temperature,
                 services: services,
-                network: network,
+                network: transformedNetwork,
                 metadata: {
                     timestamp: new Date().toISOString(),
                     responseTime: `${responseTime}ms`,

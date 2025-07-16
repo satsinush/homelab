@@ -21,7 +21,8 @@ const DeviceController = require('./controllers/deviceController');
 const app = express();
 
 // Trust proxy for accurate client IP detection (needed for rate limiting behind nginx)
-app.set('trust proxy', true);
+// Only trust the first proxy (nginx) rather than all proxies for security
+app.set('trust proxy', 1);
 
 // =============================================================================
 // MIDDLEWARE CONFIGURATION

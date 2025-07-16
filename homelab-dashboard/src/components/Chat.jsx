@@ -1,5 +1,6 @@
 // src/components/Chat.jsx
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import {
     Box,
     Card,
@@ -18,9 +19,7 @@ import {
     FormControl,
     InputLabel,
     Alert,
-    Tooltip,
-    FormControlLabel,
-    Switch
+    Tooltip
 } from '@mui/material';
 import {
     Send as SendIcon,
@@ -30,44 +29,27 @@ import {
     Refresh as RefreshIcon,
     Clear as ClearIcon
 } from '@mui/icons-material';
-import { tryApiCall } from '../utils/api';
+import { tryApiCall, tryStreamingApiCall } from '../utils/api';
 import { useNotification } from '../contexts/NotificationContext';
 
 const Chat = () => {
     const [messages, setMessages] = useState([]);
     const [inputMessage, setInputMessage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [conversationId, setConversationId] = useState(null);
     const [availableModels, setAvailableModels] = useState([]);
     const [currentModel, setCurrentModel] = useState('');
     const [ollamaStatus, setOllamaStatus] = useState(null);
-    const [showSettings, setShowSettings] = useState(false);
-    const [streamingEnabled, setStreamingEnabled] = useState(() => {
-        // Load streaming preference from localStorage, default to true
-        const saved = localStorage.getItem('chat_streaming_enabled');
-        return saved !== null ? JSON.parse(saved) : true;
-    });
 
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
-    const { showError, showSuccess } = useNotification();
+    const { showError, showSuccess, showConfirmDialog } = useNotification();
 
     useEffect(() => {
         checkOllamaStatus();
         fetchModels();
-        // Add welcome message
-        setMessages([{
-            id: 1,
-            type: 'assistant',
-            content: 'Hello! I\'m HomeBot, your personal AI assistant. How can I help you today?',
-            timestamp: new Date().toISOString()
-        }]);
+        // Load existing conversation history for the user
+        fetchConversationHistory();
     }, []);
-
-    // Save streaming preference to localStorage when it changes
-    useEffect(() => {
-        localStorage.setItem('chat_streaming_enabled', JSON.stringify(streamingEnabled));
-    }, [streamingEnabled]);
 
     useEffect(() => {
         scrollToBottom();
@@ -81,9 +63,6 @@ const Chat = () => {
         try {
             const response = await tryApiCall('/chat/status');
             setOllamaStatus(response.data);
-            if (response.data.currentModel) {
-                setCurrentModel(response.data.currentModel);
-            }
         } catch (error) {
             console.error('Failed to check Ollama status:', error);
             setOllamaStatus({ status: 'offline', error: 'Failed to connect' });
@@ -119,13 +98,16 @@ const Chat = () => {
             timestamp: new Date().toISOString()
         };
 
+        // Always add user message immediately for immediate feedback
         setMessages(prev => [...prev, userMessage]);
         setInputMessage('');
         setIsLoading(true);
 
-        if (streamingEnabled) {
+        // Try streaming first, fall back to regular response if streaming fails
+        try {
             await handleStreamingMessage(userMessage);
-        } else {
+        } catch (streamingError) {
+            console.warn('Streaming failed, falling back to regular response:', streamingError);
             await handleNonStreamingMessage(userMessage);
         }
     };
@@ -146,22 +128,12 @@ const Chat = () => {
         setMessages(prev => [...prev, assistantMessage]);
 
         try {
-            const response = await fetch(`https://admin.rpi5-server.home.arpa/api/chat/message`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-                },
-                body: JSON.stringify({
+            const { response } = await tryStreamingApiCall('/chat/message', {
+                data: {
                     message: userMessage.content,
-                    conversationId: conversationId,
                     stream: true
-                })
+                }
             });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -187,6 +159,10 @@ const Chat = () => {
 
                             if (data.type === 'start') {
                                 console.log('Stream started:', data.message);
+                                // Update conversation history but keep the streaming assistant message
+                                if (data.conversationHistory) {
+                                    updateConversationHistory(data.conversationHistory, true);
+                                }
                                 // Keep thinking state until first chunk
                             } else if (data.type === 'chunk') {
                                 // Switch from thinking to streaming content
@@ -200,6 +176,7 @@ const Chat = () => {
                                         : msg
                                 ));
                             } else if (data.type === 'complete') {
+                                // Mark the streaming message as complete first
                                 setMessages(prev => prev.map(msg =>
                                     msg.id === assistantMessageId
                                         ? {
@@ -212,9 +189,11 @@ const Chat = () => {
                                         : msg
                                 ));
 
-                                if (data.conversationId && !conversationId) {
-                                    setConversationId(data.conversationId);
-                                }
+                                // After streaming is complete, get the authoritative conversation history
+                                // This replaces everything with the server's version for consistency
+                                setTimeout(() => {
+                                    fetchConversationHistory();
+                                }, 100); // Small delay to ensure the streaming state update completes first
                             } else if (data.type === 'error') {
                                 throw new Error(data.error);
                             }
@@ -226,10 +205,12 @@ const Chat = () => {
             }
         } catch (error) {
             console.error('Streaming error:', error);
-            showError('Failed to send message: ' + error.message);
 
             // Remove the failed message
             setMessages(prev => prev.filter(msg => msg.id !== assistantMessageId));
+
+            // Re-throw the error so handleSendMessage can catch it and fall back
+            throw error;
         } finally {
             setIsLoading(false);
         }
@@ -242,24 +223,25 @@ const Chat = () => {
                 timeout: 150000, // 2.5 minutes for chat responses
                 data: {
                     message: userMessage.content,
-                    conversationId: conversationId,
                     stream: false
                 }
             });
 
-            const assistantMessage = {
-                id: Date.now() + 1,
-                type: 'assistant',
-                content: response.data.message,
-                timestamp: response.data.timestamp,
-                responseTime: response.data.responseTime,
-                model: response.data.model
-            };
+            // Update conversation history from server response
+            if (response.data.conversationHistory) {
+                updateConversationHistory(response.data.conversationHistory);
+            } else {
+                // Fallback: add the assistant message manually if no history provided
+                const assistantMessage = {
+                    id: Date.now() + 1,
+                    type: 'assistant',
+                    content: response.data.message,
+                    timestamp: response.data.timestamp,
+                    responseTime: response.data.responseTime,
+                    model: response.data.model
+                };
 
-            setMessages(prev => [...prev, assistantMessage]);
-
-            if (response.data.conversationId && !conversationId) {
-                setConversationId(response.data.conversationId);
+                setMessages(prev => [...prev, assistantMessage]);
             }
 
         } catch (error) {
@@ -298,14 +280,23 @@ const Chat = () => {
         }
     };
 
-    const clearConversation = () => {
-        setMessages([{
-            id: 1,
-            type: 'assistant',
-            content: 'Hello! I\'m HomeBot, your AI assistant. How can I help you today?',
-            timestamp: new Date().toISOString()
-        }]);
-        setConversationId(null);
+    const handleClearConversation = async () => {
+        showConfirmDialog({
+            title: 'Clear Conversation',
+            message: 'Are you sure you want to clear your entire conversation history? This action cannot be undone.',
+            confirmText: 'Clear',
+            confirmColor: 'error',
+            onConfirm: async () => {
+                try {
+                    await tryApiCall('/chat/conversation', { method: 'DELETE' });
+                    setMessages([]);
+                    showSuccess('Conversation cleared');
+                } catch (error) {
+                    console.error('Failed to clear conversation:', error);
+                    showError('Failed to clear conversation');
+                }
+            }
+        });
     };
 
     const formatTimestamp = (timestamp) => {
@@ -320,6 +311,50 @@ const Chat = () => {
             case 'online': return 'success';
             case 'offline': return 'error';
             default: return 'warning';
+        }
+    };
+
+    // Convert Ollama messages to frontend format
+    const convertOllamaMessagesToFrontend = (ollamaMessages) => {
+        return ollamaMessages.map((msg, index) => ({
+            id: Date.now() + index,
+            type: msg.role === 'user' ? 'user' : 'assistant',
+            content: msg.content,
+            timestamp: new Date().toISOString()
+        }));
+    };
+
+    // Update conversation history from server response
+    const updateConversationHistory = (conversationHistory, keepStreamingMessage = false) => {
+        if (conversationHistory && conversationHistory.length > 0) {
+            const frontendMessages = convertOllamaMessagesToFrontend(conversationHistory);
+
+            if (keepStreamingMessage) {
+                // During streaming, find any existing streaming message and preserve it
+                setMessages(prev => {
+                    const streamingMessage = prev.find(msg => msg.streaming || msg.thinking);
+                    if (streamingMessage) {
+                        return [...frontendMessages, streamingMessage];
+                    }
+                    return frontendMessages;
+                });
+            } else {
+                // Replace all messages with server history (after streaming completes)
+                setMessages(frontendMessages);
+            }
+        }
+    };
+
+    // Fetch conversation history from server (for streaming completion)
+    const fetchConversationHistory = async () => {
+        try {
+            const response = await tryApiCall('/chat/conversation');
+            if (response.data.conversationHistory) {
+                updateConversationHistory(response.data.conversationHistory);
+            }
+        } catch (error) {
+            console.error('Failed to fetch conversation history:', error);
+            // Don't show error to user as this is a background operation
         }
     };
 
@@ -340,82 +375,34 @@ const Chat = () => {
                                 size="small"
                             />
                         )}
-                        {currentModel && (
-                            <Chip
-                                label={`Model: ${currentModel}`}
-                                variant="outlined"
-                                size="small"
-                            />
-                        )}
+                        <FormControl size="small" sx={{ minWidth: 200 }}>
+                            <InputLabel>Model</InputLabel>
+                            <Select
+                                value={currentModel}
+                                label="Model"
+                                onChange={(e) => handleModelChange(e.target.value)}
+                                disabled={availableModels.length === 0}
+                            >
+                                {availableModels.map((model) => (
+                                    <MenuItem key={model.name} value={model.name}>
+                                        {model.name} ({model.size})
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <Tooltip title="Refresh Status">
+                            <IconButton onClick={checkOllamaStatus} color="primary">
+                                <RefreshIcon />
+                            </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Clear Conversation">
+                            <IconButton onClick={handleClearConversation} color="secondary">
+                                <ClearIcon />
+                            </IconButton>
+                        </Tooltip>
                     </Box>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Tooltip title="Refresh Status">
-                        <IconButton onClick={checkOllamaStatus} color="primary">
-                            <RefreshIcon />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Clear Conversation">
-                        <IconButton onClick={clearConversation} color="secondary">
-                            <ClearIcon />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Settings">
-                        <IconButton
-                            onClick={() => setShowSettings(!showSettings)}
-                            color={showSettings ? 'primary' : 'default'}
-                        >
-                            <SettingsIcon />
-                        </IconButton>
-                    </Tooltip>
-                </Box>
             </Box>
-
-            {/* Settings Panel */}
-            {showSettings && (
-                <Card sx={{ mb: 3 }}>
-                    <CardContent>
-                        <Typography variant="h6" gutterBottom>
-                            Chat Settings
-                        </Typography>
-                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                            <FormControl size="small" sx={{ minWidth: 200 }}>
-                                <InputLabel>Model</InputLabel>
-                                <Select
-                                    value={currentModel}
-                                    label="Model"
-                                    onChange={(e) => handleModelChange(e.target.value)}
-                                    disabled={availableModels.length === 0}
-                                >
-                                    {availableModels.map((model) => (
-                                        <MenuItem key={model.name} value={model.name}>
-                                            {model.name} ({model.size})
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                            <Button
-                                variant="outlined"
-                                size="small"
-                                onClick={fetchModels}
-                                startIcon={<RefreshIcon />}
-                            >
-                                Refresh Models
-                            </Button>
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={streamingEnabled}
-                                        onChange={(e) => setStreamingEnabled(e.target.checked)}
-                                        color="primary"
-                                    />
-                                }
-                                label="Real-time streaming"
-                            />
-                        </Box>
-                    </CardContent>
-                </Card>
-            )}
 
             {/* Status Alert */}
             {ollamaStatus && ollamaStatus.status === 'offline' && (
@@ -492,9 +479,101 @@ const Chat = () => {
                                             </Typography>
                                         </Box>
                                     ) : (
-                                        <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                                            {message.content}
-                                        </Typography>
+                                        // Render markdown for assistant messages, plain text for others
+                                        message.type === 'assistant' ? (
+                                            <ReactMarkdown
+                                                components={{
+                                                    // Customize markdown components to use Material-UI styling
+                                                    p: ({ children }) => (
+                                                        <Typography variant="body1" sx={{ mb: 1, '&:last-child': { mb: 0 } }}>
+                                                            {children}
+                                                        </Typography>
+                                                    ),
+                                                    h1: ({ children }) => (
+                                                        <Typography variant="h4" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
+                                                            {children}
+                                                        </Typography>
+                                                    ),
+                                                    h2: ({ children }) => (
+                                                        <Typography variant="h5" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
+                                                            {children}
+                                                        </Typography>
+                                                    ),
+                                                    h3: ({ children }) => (
+                                                        <Typography variant="h6" sx={{ mt: 1.5, mb: 1, fontWeight: 'bold' }}>
+                                                            {children}
+                                                        </Typography>
+                                                    ),
+                                                    code: ({ inline, children }) => (
+                                                        inline ? (
+                                                            <Box
+                                                                component="code"
+                                                                sx={{
+                                                                    backgroundColor: 'grey.100',
+                                                                    padding: '2px 4px',
+                                                                    borderRadius: '4px',
+                                                                    fontFamily: 'monospace',
+                                                                    fontSize: '0.875em'
+                                                                }}
+                                                            >
+                                                                {children}
+                                                            </Box>
+                                                        ) : (
+                                                            <Box
+                                                                component="pre"
+                                                                sx={{
+                                                                    backgroundColor: 'grey.100',
+                                                                    padding: 2,
+                                                                    borderRadius: 1,
+                                                                    overflow: 'auto',
+                                                                    fontFamily: 'monospace',
+                                                                    fontSize: '0.875em',
+                                                                    my: 1
+                                                                }}
+                                                            >
+                                                                <code>{children}</code>
+                                                            </Box>
+                                                        )
+                                                    ),
+                                                    ul: ({ children }) => (
+                                                        <Box component="ul" sx={{ pl: 2, my: 1 }}>
+                                                            {children}
+                                                        </Box>
+                                                    ),
+                                                    ol: ({ children }) => (
+                                                        <Box component="ol" sx={{ pl: 2, my: 1 }}>
+                                                            {children}
+                                                        </Box>
+                                                    ),
+                                                    li: ({ children }) => (
+                                                        <Typography component="li" variant="body1" sx={{ mb: 0.5 }}>
+                                                            {children}
+                                                        </Typography>
+                                                    ),
+                                                    blockquote: ({ children }) => (
+                                                        <Box
+                                                            sx={{
+                                                                borderLeft: '4px solid',
+                                                                borderColor: 'primary.main',
+                                                                pl: 2,
+                                                                py: 1,
+                                                                backgroundColor: 'grey.50',
+                                                                fontStyle: 'italic',
+                                                                my: 1
+                                                            }}
+                                                        >
+                                                            {children}
+                                                        </Box>
+                                                    )
+                                                }}
+                                            >
+                                                {message.content}
+                                            </ReactMarkdown>
+                                        ) : (
+                                            <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                                                {message.content}
+                                            </Typography>
+                                        )
                                     )}
                                     {/* <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
                                         <Typography variant="caption" sx={{

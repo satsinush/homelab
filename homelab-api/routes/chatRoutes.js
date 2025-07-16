@@ -10,6 +10,8 @@ router.post('/chat/message', requireAuth('admin'), (req, res) => chatController.
 router.get('/chat/models', requireAuth('admin'), (req, res) => chatController.getModels(req, res));
 router.post('/chat/model', requireAuth('admin'), (req, res) => chatController.setModel(req, res));
 router.get('/chat/status', requireAuth('admin'), (req, res) => chatController.getStatus(req, res));
+router.get('/chat/conversation', requireAuth('admin'), (req, res) => chatController.getConversationHistoryEndpoint(req, res));
+router.delete('/chat/conversation', requireAuth('admin'), (req, res) => chatController.clearConversationEndpoint(req, res));
 
 // Conversation management endpoints
 router.get('/chat/conversations/stats', requireAuth('admin'), (req, res) => chatController.getConversationStats(req, res));

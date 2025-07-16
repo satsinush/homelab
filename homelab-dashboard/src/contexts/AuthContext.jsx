@@ -1,6 +1,5 @@
 // src/contexts/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
 import { tryApiCall } from '../utils/api';
 
 const AuthContext = createContext();
@@ -17,15 +16,6 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(localStorage.getItem('auth_token'));
     const [loading, setLoading] = useState(true);
-
-    // Configure axios default headers
-    useEffect(() => {
-        if (token) {
-            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        } else {
-            delete axios.defaults.headers.common['Authorization'];
-        }
-    }, [token]);
 
     // Check if user is authenticated on app load
     useEffect(() => {
@@ -68,7 +58,7 @@ export const AuthProvider = ({ children }) => {
             console.error('Login failed:', error);
             return {
                 success: false,
-                error: error.response?.data?.error || 'Login failed'
+                error: error.message || 'Login failed'
             };
         }
     };
@@ -87,7 +77,6 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem('auth_token');
             setToken(null);
             setUser(null);
-            delete axios.defaults.headers.common['Authorization'];
         }
     };
 
