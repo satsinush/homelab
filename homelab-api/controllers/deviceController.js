@@ -610,6 +610,19 @@ class DeviceController {
             res.status(500).json({ error: error.message });
         }
     }
+
+    // Simple function for device prompt info (for use in chat system prompt)
+    getDevicePromptInfo() {
+        const devices = this.deviceModel.getAll();
+        const info = devices.map(device => ({
+            name: device.name,
+            mac: device.mac,
+            ip: device.ip,
+            vendor: device.vendor,
+            status: device.status
+        }));
+        return JSON.stringify(info);
+    }
 }
 
 module.exports = DeviceController;

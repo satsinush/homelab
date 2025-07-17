@@ -110,6 +110,7 @@ const Chat = () => {
             console.warn('Streaming failed, falling back to regular response:', streamingError);
             await handleNonStreamingMessage(userMessage);
         }
+        await fetchConversationHistory(); // Ensure we always fetch latest conversation after sending
     };
 
     const handleStreamingMessage = async (userMessage) => {
@@ -188,16 +189,12 @@ const Chat = () => {
                                         }
                                         : msg
                                 ));
-
-                                // After streaming is complete, get the authoritative conversation history
-                                // This replaces everything with the server's version for consistency
-                                setTimeout(() => {
-                                    fetchConversationHistory();
-                                }, 100); // Small delay to ensure the streaming state update completes first
                             } else if (data.type === 'error') {
                                 throw new Error(data.error);
                             }
                         } catch (parseError) {
+                            // Remove the failed message if a parse error occurs
+                            setMessages(prev => prev.filter(msg => msg.id !== assistantMessageId));
                             console.warn('Parse error:', parseError);
                         }
                     }
@@ -509,7 +506,8 @@ const Chat = () => {
                                                             <Box
                                                                 component="code"
                                                                 sx={{
-                                                                    backgroundColor: 'grey.100',
+                                                                    backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
+                                                                    color: (theme) => theme.palette.mode === 'dark' ? 'primary.light' : 'primary.dark',
                                                                     padding: '2px 4px',
                                                                     borderRadius: '4px',
                                                                     fontFamily: 'monospace',
@@ -522,7 +520,8 @@ const Chat = () => {
                                                             <Box
                                                                 component="pre"
                                                                 sx={{
-                                                                    backgroundColor: 'grey.100',
+                                                                    backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
+                                                                    color: (theme) => theme.palette.mode === 'dark' ? 'primary.light' : 'primary.dark',
                                                                     padding: 2,
                                                                     borderRadius: 1,
                                                                     overflow: 'auto',

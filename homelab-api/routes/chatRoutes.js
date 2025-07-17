@@ -14,8 +14,7 @@ router.get('/chat/conversation', requireAuth('admin'), (req, res) => chatControl
 router.delete('/chat/conversation', requireAuth('admin'), (req, res) => chatController.clearConversationEndpoint(req, res));
 
 // Conversation management endpoints
-router.get('/chat/conversations/stats', requireAuth('admin'), (req, res) => chatController.getConversationStats(req, res));
 router.post('/chat/conversations/cleanup', requireAuth('admin'), (req, res) => chatController.cleanupConversations(req, res));
-router.delete('/chat/conversations/clear', requireAuth('admin'), (req, res) => chatController.clearAllConversationsEndpoint(req, res));
+router.delete('/chat/conversations/clear', requireAuth('admin'), (req, res) => chatController.clearAllConversations(req, res));
 
 module.exports = router;

@@ -67,10 +67,6 @@ function AppContent() {
                 <Route path="/packages" element={<PackageManager />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
-                {/* Backward compatibility routes */}
-                <Route path="/dashboard" element={<Navigate to="/system" replace />} />
-                <Route path="/resources" element={<Navigate to="/system" replace />} />
-                <Route path="/wol" element={<Navigate to="/devices" replace />} />
               </Routes>
             </Box>
           </Box>

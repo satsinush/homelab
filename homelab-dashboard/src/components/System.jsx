@@ -115,7 +115,7 @@ const System = () => {
                 } catch (err) {
                     // Don't show error for refresh failures
                 }
-            }, 2000);
+            }, 10000);
         }
 
         return () => {
@@ -325,7 +325,7 @@ const System = () => {
                                             color="primary"
                                         />
                                     }
-                                    label="Auto-refresh (2s)"
+                                    label="Auto-refresh (10s)"
                                     sx={{ m: 0 }}
                                 />
                                 <IconButton

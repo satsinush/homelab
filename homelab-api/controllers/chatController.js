@@ -1,12 +1,27 @@
 const DatabaseModel = require('../models/Database');
+const Chat = require('../models/Chat');
+const SystemController = require('../controllers/systemController');
+const DeviceController = require('../controllers/deviceController');
+
+const systemController = new SystemController();
+const deviceController = new DeviceController();
+
+const BASE_SYSTEM_PROMPT = 
+`You are HomeBot. You are a homelab dashboard AI. Be concise, accurate, and practical.
+If the user asks a general question that is not an action, provide a concise answer based on the provided prompt.
+If a user requests an action, include the exact JSON payload at the end of your response. You might need to use the provided information to fill in action parameters.
+
+--- Available actions ---
+- Wake-on-LAN (Turn a device on with a WOL packet): { "action": "wol", "mac": "<DEVICE_MAC_ADDRESS>" }
+`;
 
 class ChatController {
     constructor() {
         this.modelName = null; // Will be set dynamically
-        this.timeout = 120000; // 2 minutes
+        this.timeout = 600000; // 10 minutes
         this.ollamaBaseUrl = 'http://localhost:11434'; // Default Ollama API URL
-        this.systemPrompt = `You are HomeBot, a helpful AI assistant for a homelab management dashboard. You help users with technical questions, troubleshooting, system administration, and general computing topics. Be concise, accurate, and practical in your responses. If you're unsure about something, acknowledge it rather than guessing.`;
         this.db = DatabaseModel.getDatabase(); // Database instance
+        this.chatModel = new Chat(); // Chat model instance
         this.maxTokens = 2048; // Maximum tokens for context (conservative estimate for most models)
         this.conversationTTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
         this.maxExchangesPerConversation = 100; // Maximum exchanges per conversation
@@ -14,6 +29,20 @@ class ChatController {
         
         // Start cleanup interval (every 30 minutes)
         this.startCleanupInterval();
+    }
+
+    async getSystemPrompt() {
+        const systemInfo = JSON.stringify(await systemController.getSystemPromptInfo());
+        const deviceInfo = JSON.stringify(await deviceController.getDevicePromptInfo());
+
+        const fullSystemPrompt = 
+            BASE_SYSTEM_PROMPT +
+            `\n\n--- Information Provided for Context ---` + // Add a clear separator
+            `\nSystem Information: ${systemInfo}` +
+            `\nSaved devices: ${deviceInfo}`;
+        
+        console.log('Full system prompt:', fullSystemPrompt);
+        return fullSystemPrompt;
     }
 
     // Initialize with the first available model
@@ -52,20 +81,13 @@ class ChatController {
         return Math.ceil(text.length / 4);
     }
 
-    // Estimate token count for a single message
-    estimateMessageTokens(message) {
-        // Account for message structure overhead (role, content fields, etc.)
-        const overhead = 10; // Approximate overhead per message
-        const contentTokens = this.estimateTokens(message.content);
-        return contentTokens + overhead;
-    }
-
     // Build messages array for Ollama API (simplified - uses Ollama message structure)
-    buildMessagesArray(userId) {
+    async buildMessagesArray(userId) {
+        const systemPrompt = await this.getSystemPrompt();
         const messages = [
             {
                 role: 'system',
-                content: this.systemPrompt
+                content: systemPrompt
             }
         ];
 
@@ -76,7 +98,7 @@ class ChatController {
             const historyMessages = conversationMessages.slice(1);
             
             // Estimate tokens and include as many messages as possible (newest first approach)
-            let totalTokens = this.estimateTokens(this.systemPrompt) + 10; // system message + overhead
+            let totalTokens = this.estimateTokens(systemPrompt) + 10; // system message + overhead
             const maxHistoryTokens = Math.floor(this.maxTokens * 0.8); // Use 80% for history
             
             const messagesToInclude = [];
@@ -93,74 +115,30 @@ class ChatController {
             }
             
             messages.push(...messagesToInclude);
-            console.log(`Including ${messagesToInclude.length} messages from conversation for user ${userId}`);
+            console.log(`Including ${messagesToInclude.length} messages from conversation for user ${userId}, total tokens: ${totalTokens}`);
         }
 
         return messages;
     }
 
-    // Helper method to convert exchange to string format (for backward compatibility)
-    exchangeToString(exchange) {
-        return `\nUser: ${exchange.user}\nAssistant: ${exchange.assistant}`;
-    }
-
-    // Calculate total token count for conversation history
-    getConversationTokenCount(history) {
-        let total = 0;
-        for (const exchange of history) {
-            const userTokens = this.estimateTokens(exchange.user) + 10; // +10 for message overhead
-            const assistantTokens = this.estimateTokens(exchange.assistant) + 10; // +10 for message overhead
-            total += userTokens + assistantTokens;
-        }
-        return total;
-    }
-
-    // Legacy method for character count (kept for compatibility)
-    getConversationCharacterCount(history) {
-        return history.reduce((total, exchange) => {
-            return total + this.exchangeToString(exchange).length;
-        }, 0);
-    }
-
     // Get conversation from database
     getConversationFromDatabase(userId) {
         try {
-            const stmt = this.db.prepare('SELECT messages FROM chat_conversations WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1');
-            const result = stmt.get(userId);
-            
-            if (result) {
-                return JSON.parse(result.messages);
+            const conversation = this.chatModel.getConversation(userId);
+            if (!conversation || conversation.length === 0) {
+                console.log('No conversation found for user:', userId);
+                return [{ role: 'system', content: BASE_SYSTEM_PROMPT }];
             }
-            
-            // Return initial conversation with system message
-            return [{ role: 'system', content: this.systemPrompt }];
+            return conversation;
         } catch (error) {
             console.error('Error getting conversation from database:', error);
-            return [{ role: 'system', content: this.systemPrompt }];
+            return [{ role: 'system', content: BASE_SYSTEM_PROMPT }];
         }
     }
 
     // Save conversation to database
     saveConversationToDatabase(userId, messages) {
-        try {
-            const messagesJson = JSON.stringify(messages);
-            
-            // Check if conversation exists
-            const existsStmt = this.db.prepare('SELECT id FROM chat_conversations WHERE user_id = ?');
-            const existing = existsStmt.get(userId);
-            
-            if (existing) {
-                // Update existing conversation
-                const updateStmt = this.db.prepare('UPDATE chat_conversations SET messages = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?');
-                updateStmt.run(messagesJson, userId);
-            } else {
-                // Insert new conversation
-                const insertStmt = this.db.prepare('INSERT INTO chat_conversations (user_id, messages) VALUES (?, ?)');
-                insertStmt.run(userId, messagesJson);
-            }
-        } catch (error) {
-            console.error('Error saving conversation to database:', error);
-        }
+        this.chatModel.saveConversation(userId, messages);
     }
 
     // Add exchange to conversation history
@@ -288,6 +266,7 @@ class ChatController {
 
                 const startTime = Date.now();
                 let fullResponse = '';
+                let checkActionFromIndex = 0;
 
                 try {
                     console.log('Starting streaming response...');
@@ -298,7 +277,12 @@ class ChatController {
                             content: chunk,
                             timestamp: new Date().toISOString()
                         })}\n\n`);
-                        
+                        const actionJSON = this.getActions(fullResponse, checkActionFromIndex);
+                        if (actionJSON.length > 0) {
+                            actionJSON.forEach(action => this.performAction(action));
+                            checkActionFromIndex = fullResponse.length;
+                        }
+
                         // Force flush the response immediately
                         if (res.flush) {
                             res.flush();
@@ -328,6 +312,12 @@ class ChatController {
 
                 } catch (error) {
                     console.error('Streaming error:', error);
+                    if (userId) {
+                        this.addToConversationHistory(userId, {
+                            role: 'assistant',
+                            content: "Error"
+                        });
+                    }
                     res.write(`data: ${JSON.stringify({
                         type: 'error',
                         error: error.message,
@@ -340,6 +330,11 @@ class ChatController {
                 const startTime = Date.now();
                 const response = await this.generateOllamaResponse(userId, message);
                 const responseTime = Date.now() - startTime;
+
+                const actionJSON = this.getActions(response, 0);
+                if (actionJSON.length > 0) {
+                    actionJSON.forEach(action => this.performAction(action));
+                }
 
                 console.log(`Chat response time: ${responseTime}ms`);
 
@@ -363,8 +358,18 @@ class ChatController {
 
         } catch (error) {
             console.error('Chat error:', error);
-            
+
+            const userId = req.user?.userId;
+            let assistantMessage = '';
+
             if (error.message.includes('ECONNREFUSED')) {
+                assistantMessage = 'Message failed: Ollama service is not running.';
+                if (userId) {
+                    this.addToConversationHistory(userId, {
+                        role: 'assistant',
+                        content: assistantMessage
+                    });
+                }
                 return res.status(503).json({ 
                     error: 'Ollama service is not running',
                     details: 'Please ensure Ollama is installed and running on localhost:11434'
@@ -372,6 +377,13 @@ class ChatController {
             }
 
             if (error.message.includes('timeout') || error.message.includes('timed out')) {
+                assistantMessage = 'Message timed out: The AI model took too long to respond.';
+                if (userId) {
+                    this.addToConversationHistory(userId, {
+                        role: 'assistant',
+                        content: assistantMessage
+                    });
+                }
                 return res.status(504).json({ 
                     error: 'Request timeout',
                     details: 'The AI model took too long to respond. Try a shorter message or check if the model is working properly.'
@@ -379,12 +391,26 @@ class ChatController {
             }
 
             if (error.message.includes('model not found')) {
+                assistantMessage = `Message failed: The model "${this.modelName}" is not available.`;
+                if (userId) {
+                    this.addToConversationHistory(userId, {
+                        role: 'assistant',
+                        content: assistantMessage
+                    });
+                }
                 return res.status(404).json({ 
                     error: 'Model not found',
                     details: `The model "${this.modelName}" is not available. Please check available models.`
                 });
             }
 
+            assistantMessage = `Message failed!`;
+            if (userId) {
+                this.addToConversationHistory(userId, {
+                    role: 'assistant',
+                    content: assistantMessage
+                });
+            }
             res.status(500).json({ 
                 error: 'Failed to process chat message',
                 details: error.message 
@@ -395,7 +421,7 @@ class ChatController {
     // Stream Ollama response in real-time using messages format and fetch
     async streamOllamaResponse(userId, message, onChunk) {
         const url = new URL('/api/chat', this.ollamaBaseUrl);
-        const messages = this.buildMessagesArray(userId);
+        const messages = await this.buildMessagesArray(userId);
         // Add current user message
         messages.push({ role: 'user', content: message });
         
@@ -490,7 +516,7 @@ class ChatController {
         try {
             console.log('Sending Ollama API request...');
             
-            const messages = this.buildMessagesArray(userId);
+            const messages = await this.buildMessagesArray(userId);
             // Add current user message
             messages.push({ role: 'user', content: message });
             
@@ -637,32 +663,8 @@ class ChatController {
 
     // Clean up old conversations
     cleanupOldConversations() {
-        try {
-            const cutoffTime = new Date(Date.now() - this.conversationTTL).toISOString();
-            
-            // Delete conversations older than TTL
-            const deleteStmt = this.db.prepare('DELETE FROM chat_conversations WHERE updated_at < ?');
-            const result = deleteStmt.run(cutoffTime);
-            
-            if (result.changes > 0) {
-                console.log(`Cleaned up ${result.changes} old conversations older than ${new Date(cutoffTime).toLocaleString()}`);
-            }
-        } catch (error) {
-            console.error('Error during conversation cleanup:', error);
-        }
-    }
-
-    // Manual cleanup method
-    clearAllConversations() {
-        try {
-            const deleteStmt = this.db.prepare('DELETE FROM chat_conversations');
-            const result = deleteStmt.run();
-            console.log(`Manually cleared ${result.changes} conversations`);
-            return result.changes;
-        } catch (error) {
-            console.error('Error clearing all conversations:', error);
-            return 0;
-        }
+        const cutoffTime = Date.now() - this.conversationTTL;
+        this.chatModel.cleanupOldConversations(cutoffTime);
     }
 
     // Cleanup method for graceful shutdown
@@ -675,84 +677,17 @@ class ChatController {
         this.cleanupOldConversations(); // Final cleanup
     }
 
-    // Get conversation statistics
-    async getConversationStats(req, res) {
-        try {
-            const stats = {
-                maxTokens: this.maxTokens,
-                conversationTTL: this.conversationTTL,
-                tokenEstimationMethod: 'character-based (4 chars/token)',
-                conversations: []
-            };
-
-            // Get all conversations from database
-            try {
-                const stmt = this.db.prepare('SELECT user_id, messages, created_at, updated_at FROM chat_conversations ORDER BY updated_at DESC');
-                const conversations = stmt.all();
-                
-                stats.totalConversations = conversations.length;
-                
-                const now = Date.now();
-                
-                for (const conv of conversations) {
-                    try {
-                        const messages = JSON.parse(conv.messages);
-                        const lastActivityTime = new Date(conv.updated_at).getTime();
-                        const ageMs = now - lastActivityTime;
-                        
-                        // Calculate character and token counts
-                        let totalChars = 0;
-                        let totalTokens = 0;
-                        
-                        for (const message of messages) {
-                            if (message.content) {
-                                totalChars += message.content.length;
-                                totalTokens += this.estimateTokens(message.content) + 10; // +10 overhead
-                            }
-                        }
-
-                        stats.conversations.push({
-                            userId: conv.user_id,
-                            messageCount: messages.length,
-                            totalCharacters: totalChars,
-                            estimatedTokens: totalTokens,
-                            lastActivity: conv.updated_at,
-                            ageHours: Math.round(ageMs / (1000 * 60 * 60) * 100) / 100,
-                            isExpired: ageMs > this.conversationTTL
-                        });
-                    } catch (parseError) {
-                        console.error('Error parsing conversation messages:', parseError);
-                    }
-                }
-            } catch (dbError) {
-                console.error('Error fetching conversation stats from database:', dbError);
-                stats.totalConversations = 0;
-                stats.error = 'Failed to fetch conversations from database';
-            }
-
-            res.json(stats);
-
-        } catch (error) {
-            console.error('Get conversation stats error:', error);
-            res.status(500).json({ 
-                error: 'Failed to get conversation statistics',
-                details: error.message 
-            });
-        }
-    }
-
     // Manual cleanup endpoint
     async cleanupConversations(req, res) {
         try {
             // Get count before cleanup
-            const beforeStmt = this.db.prepare('SELECT COUNT(*) as count FROM chat_conversations');
-            const before = beforeStmt.get().count;
+            const before = this.chatModel.getConversationCount();
             
             // Run cleanup
             this.cleanupOldConversations();
             
             // Get count after cleanup
-            const after = beforeStmt.get().count;
+            const after = this.chatModel.getConversationCount();
             const removed = before - after;
 
             res.json({
@@ -772,9 +707,9 @@ class ChatController {
     }
 
     // Clear all conversations endpoint
-    async clearAllConversationsEndpoint(req, res) {
+    async clearAllConversations(req, res) {
         try {
-            const count = this.clearAllConversations();
+            const count = this.chatModel.clearAllConversations();
 
             res.json({
                 message: 'All conversations cleared',
@@ -840,14 +775,7 @@ class ChatController {
                 });
             }
 
-            // Clear the user's conversation from database
-            try {
-                const deleteStmt = this.db.prepare('DELETE FROM chat_conversations WHERE user_id = ?');
-                deleteStmt.run(userId);
-            } catch (dbError) {
-                console.error('Failed to delete conversation from database:', dbError);
-                throw new Error('Failed to clear conversation from database');
-            }
+            this.chatModel.deleteConversation(userId);
             
             res.json({
                 message: 'Conversation cleared successfully',
@@ -860,6 +788,41 @@ class ChatController {
                 error: 'Failed to clear conversation',
                 details: error.message 
             });
+        }
+    }
+
+    getActions(content, startIndex = 0) {
+        content = content.slice(startIndex).trim();
+        if (content.length === 0) {
+            return []; // No content to check
+        }
+        // Match any JSON object containing "action": "<string>"
+        const actionRegex = /{[^}]*"action"\s*:\s*"[^"]+"[^}]*}/g;
+        const matches = content.match(actionRegex);
+        if (!matches || matches.length === 0) {
+            return [];
+        }
+        const actions = [];
+        for (const match of matches) {
+            try {
+                const actionObj = JSON.parse(match);
+                if (actionObj.action && typeof actionObj.action === 'string') {
+                    actions.push(actionObj);
+                }
+            } catch (e) {
+                // Ignore parse errors
+            }
+        }
+        return actions;
+    }
+
+    async performAction(actionPayload) {
+        switch (actionPayload.action) {
+            case 'wol':
+                console.log(`Performing Wake-on-LAN for MAC: ${actionPayload.mac}`);
+                break;
+            default:
+                console.warn(`Unknown action: ${actionPayload.action}`);
         }
     }
 }

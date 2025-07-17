@@ -612,6 +612,67 @@ class SystemController {
             });
         });
     }
+
+    // Simple function for system prompt info (for use in chat system prompt)
+    async getSystemPromptInfo() {
+        // Gather info
+        const system = await this.getBasicSystemInfo();
+        const resources = await this.getResourceUsage();
+        const networkStats = await this.getNetworkStats();
+        const temperature = await this.getTemperature();
+
+        // Format bytes helper
+        const formatBytes = (bytes) => {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        };
+
+        // Format %
+        const formatPercent = (value) => `${value}%`;
+
+        // Compose result
+        const info = {
+            system: {
+                hostname: system.hostname,
+                platform: system.platform,
+                arch: system.arch,
+                uptime: `${system.uptime}s`
+            },
+            resources: {
+                cpu: {
+                    cores: resources.cpu.cores,
+                    usage: formatPercent(resources.cpu.usage)
+                },
+                memory: {
+                    total: formatBytes(resources.memory.total),
+                    used: formatBytes(resources.memory.used),
+                    free: formatBytes(resources.memory.free),
+                    usage: formatPercent(resources.memory.percentage)
+                },
+                disk: {
+                    total: formatBytes(resources.disk.total),
+                    used: formatBytes(resources.disk.used),
+                    free: formatBytes(resources.disk.free),
+                    usage: formatPercent(resources.disk.percentage)
+                }
+            },
+            temperature: {
+                cpu: temperature.cpu,
+                gpu: temperature.gpu
+            },
+            network: Object.values(networkStats.interfaces || {}).map(iface => ({
+                name: iface.name,
+                downloadSpeed: formatBytes(iface.downloadSpeed || 0) + '/s',
+                uploadSpeed: formatBytes(iface.uploadSpeed || 0) + '/s',
+                active: iface.active
+            }))
+        };
+
+        return JSON.stringify(info);
+    }
 }
 
 module.exports = SystemController;
