@@ -564,19 +564,26 @@ class DeviceController {
     async sendWakeOnLan(req, res) {
         try {
             const { device } = req.body;
-            
+
             if (!device) {
                 return res.status(400).json({ error: 'Device identifier is required' });
             }
-            
+
+            // Normalize device identifier if it's a MAC address
+            let normalizedMac;
+            try {
+                normalizedMac = ValidationUtils.validateAndNormalizeMac(device);
+            } catch {
+                normalizedMac = null;
+            }
+
             // Get all devices from database
             const allDevices = this.deviceModel.getAll();
-            
-            // Find device by friendly name OR mac address
-            const targetDevice = allDevices.find(d => 
+
+            // Find device by friendly name OR normalized mac address
+            const targetDevice = allDevices.find(d =>
                 (d.name === device) ||
-                (d.mac === device) ||
-                (ValidationUtils.validateAndNormalizeMac(device) === d.mac)
+                (normalizedMac && d.mac === normalizedMac)
             );
 
             if (!targetDevice) {
@@ -587,14 +594,37 @@ class DeviceController {
                 return res.status(400).json({ error: `Device '${device}' must be marked as favorite before sending WOL packets` });
             }
 
-            // Convert MAC format for WOL library (expects colon format)
-            // targetDevice.mac is in normalized format (00d86178e934), convert to 00:d8:61:78:e9:34
-            const macForWol = targetDevice.mac.match(/.{2}/g).join(':');
+            // Use helper to send WOL packet
+            await this.wakeDeviceByMac(targetDevice.mac);
 
-            const message = await new Promise((resolve, reject) => {
+            const message = `WoL packet sent to ${targetDevice.name || targetDevice.mac} (${targetDevice.mac})`;
+            res.json({ message: message });
+        } catch (error) {
+            console.error('WOL error:', error);
+            res.status(500).json({ error: error.message });
+        }
+    }
+
+    async wakeDeviceByMac(mac) {
+        try {
+            const normalizedMac = ValidationUtils.validateAndNormalizeMac(mac);
+            const allDevices = this.deviceModel.getAll();
+            // Find device by normalized mac address
+            const targetDevice = allDevices.find(d =>
+                d.mac === normalizedMac
+            );
+
+            if (!targetDevice) {
+                throw new Error(`Device with MAC ${mac} not found`);
+            }
+
+            // Convert MAC format for WOL library
+            const macForWol = normalizedMac.match(/.{2}/g).join(':');
+
+            await new Promise((resolve, reject) => {
                 wol.wake(macForWol, (error) => {
                     if (error) {
-                        console.error(`WoL error for ${device}:`, error);
+                        console.error(`WoL error for ${mac}:`, error);
                         reject(new Error(`Failed to send WoL packet: ${error.message}`));
                     } else {
                         const message = `WoL packet sent to ${targetDevice.name || targetDevice.mac} (${targetDevice.mac})`;
@@ -603,11 +633,9 @@ class DeviceController {
                     }
                 });
             });
-            
-            res.json({ message: message });
         } catch (error) {
             console.error('WOL error:', error);
-            res.status(500).json({ error: error.message });
+            throw error;
         }
     }
 

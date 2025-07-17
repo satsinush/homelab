@@ -820,6 +820,7 @@ class ChatController {
         switch (actionPayload.action) {
             case 'wol':
                 console.log(`Performing Wake-on-LAN for MAC: ${actionPayload.mac}`);
+                deviceController.wakeDeviceByMac(actionPayload.mac);
                 break;
             default:
                 console.warn(`Unknown action: ${actionPayload.action}`);
