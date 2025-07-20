@@ -530,7 +530,7 @@ class SystemController {
     // Helper methods for package management
     getInstalledPackages() {
         return new Promise((resolve, reject) => {
-            exec('pacman -Qe', { timeout: 30000 }, (error, stdout, stderr) => {
+            exec('pacman -Q', { timeout: 30000 }, (error, stdout, stderr) => {
                 if (error) {
                     console.error('Package list error:', error.message);
                     reject(error);

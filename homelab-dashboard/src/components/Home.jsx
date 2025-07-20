@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { getSubdomainUrl } from '../utils/url';
 
 const Home = () => {
     const navigate = useNavigate();
@@ -69,9 +70,16 @@ const Home = () => {
         {
             title: 'Pi-hole Admin',
             description: 'Network-wide ad blocking and DNS management',
-            url: 'http://pihole.rpi5-server.home.arpa/admin',
+            url: getSubdomainUrl('pihole') + '/admin',
             icon: <SecurityIcon />,
             color: 'error'
+        },
+        {
+            title: 'Netdata',
+            description: 'Real-time performance monitoring and visualization',
+            url: getSubdomainUrl('netdata'),
+            icon: <SpeedIcon />,
+            color: 'info'
         }
     ];
 

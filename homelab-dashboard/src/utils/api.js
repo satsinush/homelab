@@ -1,12 +1,6 @@
 // src/utils/api.js
 
-// API endpoints in order of preference
-export const API_ENDPOINTS = [
-    //'http://localhost:5000/api',                 // Development first
-    'https://admin.rpi5-server.home.arpa/api',  // Primary HTTPS
-    //'http://admin.rpi5-server.home.arpa/api',   // HTTP fallback
-    //'http://10.10.10.10:5000/api',              // Direct IP fallback
-];
+import { getApiUrl } from './url';
 
 // Handle 401 errors by clearing auth token
 const handle401Error = () => {
@@ -49,41 +43,29 @@ export const tryApiCall = async (path, options = {}) => {
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     fetchOptions.signal = controller.signal;
 
-    for (const baseUrl of API_ENDPOINTS) {
-        try {
-            const response = await fetch(`${baseUrl}${path}`, fetchOptions);
-            clearTimeout(timeoutId);
+    const response = await fetch(getApiUrl(path), fetchOptions);
+    clearTimeout(timeoutId);
 
-            // Handle 401 errors
-            if (response.status === 401) {
-                handle401Error();
-                throw new Error('Unauthorized');
-            }
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            // Parse response data
-            const contentType = response.headers.get('content-type');
-            let data;
-            if (contentType && contentType.includes('application/json')) {
-                data = await response.json();
-            } else {
-                data = await response.text();
-            }
-
-            return { data, response, baseUrl };
-        } catch (err) {
-            clearTimeout(timeoutId);
-            // Continue to next endpoint unless it's an abort (timeout)
-            if (err.name === 'AbortError') {
-                continue;
-            }
-            continue;
-        }
+    // Handle 401 errors
+    if (response.status === 401) {
+        handle401Error();
+        throw new Error('Unauthorized');
     }
-    throw new Error('All API endpoints failed');
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    // Parse response data
+    const contentType = response.headers.get('content-type');
+    let data;
+    if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+    } else {
+        data = await response.text();
+    }
+
+    return { data, response };
 };
 
 /**
@@ -116,26 +98,19 @@ export const tryStreamingApiCall = async (path, options = {}) => {
         delete fetchOptions.data;
     }
 
-    for (const baseUrl of API_ENDPOINTS) {
-        try {
-            const response = await fetch(`${baseUrl}${path}`, fetchOptions);
+    const response = await fetch(getApiUrl(path), fetchOptions);
 
-            // Handle 401 errors
-            if (response.status === 401) {
-                handle401Error();
-                throw new Error('Unauthorized');
-            }
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            return { response, baseUrl };
-        } catch (err) {
-            continue;
-        }
+    // Handle 401 errors
+    if (response.status === 401) {
+        handle401Error();
+        throw new Error('Unauthorized');
     }
-    throw new Error('All API endpoints failed for streaming');
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    return { response };
 };
 
 
