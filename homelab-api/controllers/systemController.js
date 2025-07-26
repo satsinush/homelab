@@ -167,147 +167,42 @@ class SystemController {
 
     // Get service statuses
     async getServices() {
-        const services = this.settingsModel.getServices();
-        
-        const serviceStatuses = await Promise.all(services.map(service => {
-            return new Promise((serviceResolve) => {
-                // Check both active status and enabled status
-                const activeCheck = new Promise((resolve) => {
-                    exec(`systemctl is-active ${service.name}`, (error, stdout) => {
-                        const status = stdout.trim();
-                        const active = status === 'active';
-                        resolve({ status, active });
-                    });
-                });
-
-                const enabledCheck = new Promise((resolve) => {
-                    exec(`systemctl is-enabled ${service.name}`, (error, stdout) => {
-                        const enabled = stdout.trim() === 'enabled';
-                        resolve(enabled);
-                    });
-                });
-
-                Promise.all([activeCheck, enabledCheck]).then(([activeResult, enabled]) => {
-                    serviceResolve({
-                        name: service.name,
-                        displayName: service.displayName || service.name,
-                        status: activeResult.status,
-                        active: activeResult.active,
-                        enabled: enabled
-                    });
-                });
+        // Use systemctl to list all services with state and preset, and check if active
+        return new Promise((resolve) => {
+            exec('systemctl list-unit-files --type=service --no-legend', async (error, stdout) => {
+                if (error) {
+                    console.error('Failed to list services:', error);
+                    resolve([]);
+                    return;
+                }
+                const lines = stdout.trim().split('\n');
+                // Each line: UNIT FILE [STATE] [PRESET]
+                const services = await Promise.all(
+                    lines
+                        .map(line => {
+                            // Split by whitespace, but allow spaces in UNIT FILE
+                            // The last two columns are STATE and PRESET, rest is UNIT FILE
+                            const parts = line.trim().split(/\s+/);
+                            if (parts.length < 2) return null;
+                            const preset = parts.length > 2 ? parts.pop() : '';
+                            const state = parts.pop();
+                            const name = parts.join(' ');
+                            return { name, state, preset };
+                        })
+                        .filter(Boolean)
+                        .map(async service => {
+                            // Check if the service is active
+                            return new Promise(resolveActive => {
+                                exec(`systemctl is-active ${service.name}`, (err, activeStdout) => {
+                                    service.active = !err && activeStdout.trim() === 'active';
+                                    resolveActive(service);
+                                });
+                            });
+                        })
+                );
+                resolve(services);
             });
-        }));
-        
-        return serviceStatuses;
-    }
-
-    // Add a new service
-    async addService(req, res) {
-        try {
-            const { name, displayName } = req.body;
-            
-            if (!name || !displayName) {
-                return res.status(400).json({ error: 'Service name and display name are required' });
-            }
-
-            const currentSettings = this.settingsModel.get();
-            const existingService = currentSettings.services.find(s => s.name === name);
-            
-            if (existingService) {
-                return res.status(409).json({ error: 'Service already exists' });
-            }
-
-            const updatedSettings = {
-                ...currentSettings,
-                services: [...currentSettings.services, { name: name.trim(), displayName: displayName.trim() }]
-            };
-
-            this.settingsModel.update(updatedSettings);
-            
-            res.json({ 
-                message: 'Service added successfully',
-                service: { name: name.trim(), displayName: displayName.trim() }
-            });
-        } catch (error) {
-            console.error('Add service error:', error);
-            res.status(500).json({ error: `Failed to add service: ${error.message}` });
-        }
-    }
-
-    // Update an existing service
-    async updateService(req, res) {
-        try {
-            const { serviceIndex } = req.params;
-            const { name, displayName } = req.body;
-            
-            if (!name || !displayName) {
-                return res.status(400).json({ error: 'Service name and display name are required' });
-            }
-
-            const currentSettings = this.settingsModel.get();
-            const index = parseInt(serviceIndex);
-            
-            if (index < 0 || index >= currentSettings.services.length) {
-                return res.status(404).json({ error: 'Service not found' });
-            }
-
-            // Check if name conflicts with another service (excluding current one)
-            const existingService = currentSettings.services.find((s, i) => s.name === name && i !== index);
-            if (existingService) {
-                return res.status(409).json({ error: 'Service name already exists' });
-            }
-
-            const updatedServices = [...currentSettings.services];
-            updatedServices[index] = { name: name.trim(), displayName: displayName.trim() };
-
-            const updatedSettings = {
-                ...currentSettings,
-                services: updatedServices
-            };
-
-            this.settingsModel.update(updatedSettings);
-            
-            res.json({ 
-                message: 'Service updated successfully',
-                service: { name: name.trim(), displayName: displayName.trim() }
-            });
-        } catch (error) {
-            console.error('Update service error:', error);
-            res.status(500).json({ error: `Failed to update service: ${error.message}` });
-        }
-    }
-
-    // Delete a service
-    async deleteService(req, res) {
-        try {
-            const { serviceIndex } = req.params;
-            
-            const currentSettings = this.settingsModel.get();
-            const index = parseInt(serviceIndex);
-            
-            if (index < 0 || index >= currentSettings.services.length) {
-                return res.status(404).json({ error: 'Service not found' });
-            }
-
-            const serviceToDelete = currentSettings.services[index];
-            const updatedServices = currentSettings.services.filter((_, i) => i !== index);
-
-            const updatedSettings = {
-                ...currentSettings,
-                services: updatedServices
-            };
-
-            this.settingsModel.update(updatedSettings);
-            
-            res.json({ 
-                message: 'Service deleted successfully',
-                deletedService: serviceToDelete
-            });
-        } catch (error) {
-            console.error('Delete service error:', error);
-            res.status(500).json({ error: `Failed to delete service: ${error.message}` });
-        }
+        });
     }
 
     // Get network statistics from Netdata

@@ -594,10 +594,11 @@ class DeviceController {
                 return res.status(400).json({ error: `Device '${device}' must be marked as favorite before sending WOL packets` });
             }
 
+            const message = `Sending WoL packet to ${targetDevice.name || targetDevice.mac} (${targetDevice.mac})`;
+
             // Use helper to send WOL packet
             await this.wakeDeviceByMac(targetDevice.mac);
 
-            const message = `WoL packet sent to ${targetDevice.name || targetDevice.mac} (${targetDevice.mac})`;
             res.json({ message: message });
         } catch (error) {
             console.error('WOL error:', error);
@@ -615,27 +616,29 @@ class DeviceController {
             );
 
             if (!targetDevice) {
-                throw new Error(`Device with MAC ${mac} not found`);
+                console.error(`Device with MAC ${mac} not found`);
+                return false;
             }
 
             // Convert MAC format for WOL library
             const macForWol = normalizedMac.match(/.{2}/g).join(':');
 
-            await new Promise((resolve, reject) => {
+            const result = await new Promise((resolve) => {
                 wol.wake(macForWol, (error) => {
                     if (error) {
                         console.error(`WoL error for ${mac}:`, error);
-                        reject(new Error(`Failed to send WoL packet: ${error.message}`));
+                        resolve(false);
                     } else {
                         const message = `WoL packet sent to ${targetDevice.name || targetDevice.mac} (${targetDevice.mac})`;
                         console.log(message);
-                        resolve(message);
+                        resolve(true);
                     }
                 });
             });
+            return result;
         } catch (error) {
             console.error('WOL error:', error);
-            throw error;
+            return false;
         }
     }
 

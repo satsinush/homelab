@@ -167,8 +167,8 @@ const Devices = () => {
     const [statusFilter, setStatusFilter] = useState('');
 
     // Sorting states
-    const [sortBy, setSortBy] = useState('name');
-    const [sortOrder, setSortOrder] = useState('asc'); // 'asc' or 'desc'
+    const [sortBy, setSortBy] = useState('status');
+    const [sortOrder, setSortOrder] = useState('desc'); // 'asc' or 'desc'
 
     useEffect(() => {
         fetchDevices();
@@ -183,10 +183,9 @@ const Devices = () => {
                 data: { device: deviceName },
                 timeout: 10000
             });
-            showSuccess(`Wake-on-LAN packet sent to ${deviceName} successfully!`);
+            showSuccess(`Wake-on-LAN sent to ${deviceName} successfully!`);
         } catch (err) {
-            const errorMsg = err.response?.data?.error || err.message || 'Unknown error';
-            showError(`Failed to send WoL packet to ${deviceName}: ${errorMsg}`);
+            showError(`Failed to send Wake-on-LAN to ${deviceName}`);
         }
     };
 
@@ -201,7 +200,6 @@ const Devices = () => {
 
             // Update device lists from scan response
             setDevices(formatDevicesForDisplay(response.data.devices || []));
-
             showSuccess('Device status refreshed successfully');
         } catch (err) {
             showError(`Failed to refresh device status: ${err.message}`);
@@ -211,7 +209,7 @@ const Devices = () => {
     };
 
     const handleClearCache = async () => {
-        const discoveredDevices = devices.filter(device => !device.isSaved);
+        const discoveredDevices = devices.filter(device => !device.isFavorite);
         const discoveredCount = discoveredDevices.length;
 
         showConfirmDialog({
@@ -246,7 +244,7 @@ const Devices = () => {
     const handleDialogClose = useCallback(() => {
         setDeviceDialog(false);
         setEditingDevice(null);
-        setInitialDeviceForm({ name: '', mac: '', description: '', isSaved: false });
+        setInitialDeviceForm({ name: '', mac: '', description: '', isFavorite: false });
     }, []);
 
     // Device management functions
@@ -847,10 +845,10 @@ const Devices = () => {
                     <Grid size={{ xs: 6, sm: 3 }}>
                         <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'info.light', color: 'info.contrastText' }}>
                             <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-                                {devices.filter(device => device.isSaved).length}
+                                {devices.filter(device => device.isFavorite).length}
                             </Typography>
                             <Typography variant="body2" color="inherit" sx={{ textTransform: 'uppercase', letterSpacing: 1 }}>
-                                Saved Devices
+                                Favorite Devices
                             </Typography>
                         </Paper>
                     </Grid>
@@ -867,7 +865,7 @@ const Devices = () => {
                     <Grid size={{ xs: 6, sm: 3 }}>
                         <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'warning.light', color: 'warning.contrastText' }}>
                             <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-                                {devices.filter(device => !device.isSaved).length}
+                                {devices.filter(device => !device.isFavorite).length}
                             </Typography>
                             <Typography variant="body2" color="inherit" sx={{ textTransform: 'uppercase', letterSpacing: 1 }}>
                                 Discovered

@@ -25,17 +25,18 @@ import {
     Send as SendIcon,
     Person as PersonIcon,
     SmartToy as BotIcon,
-    Settings as SettingsIcon,
+    Settings as SettingsIcon, // This icon seems unused, consider removing if not needed.
     Refresh as RefreshIcon,
     Clear as ClearIcon
 } from '@mui/icons-material';
-import { tryApiCall, tryStreamingApiCall } from '../utils/api';
+import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/NotificationContext';
+import { formatDevicesForDisplay, formatMacForDisplay, normalizeMacForApi } from '../utils/formatters';
 
 const Chat = () => {
     const [messages, setMessages] = useState([]);
     const [inputMessage, setInputMessage] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(false); // Indicates if any API call (fetch, send) is in progress
     const [availableModels, setAvailableModels] = useState([]);
     const [currentModel, setCurrentModel] = useState('');
     const [ollamaStatus, setOllamaStatus] = useState(null);
@@ -47,7 +48,6 @@ const Chat = () => {
     useEffect(() => {
         checkOllamaStatus();
         fetchModels();
-        // Load existing conversation history for the user
         fetchConversationHistory();
     }, []);
 
@@ -60,16 +60,20 @@ const Chat = () => {
     };
 
     const checkOllamaStatus = async () => {
+        setIsLoading(true); // Indicate loading for status check
         try {
             const response = await tryApiCall('/chat/status');
             setOllamaStatus(response.data);
         } catch (error) {
             console.error('Failed to check Ollama status:', error);
             setOllamaStatus({ status: 'offline', error: 'Failed to connect' });
+        } finally {
+            setIsLoading(false); // End loading after status check
         }
     };
 
     const fetchModels = async () => {
+        setIsLoading(true); // Indicate loading for model fetch
         try {
             const response = await tryApiCall('/chat/models');
             setAvailableModels(response.data.models || []);
@@ -79,11 +83,34 @@ const Chat = () => {
         } catch (error) {
             console.error('Failed to fetch models:', error);
             showError('Failed to fetch available models');
+        } finally {
+            setIsLoading(false); // End loading after model fetch
+        }
+    };
+
+    const fetchConversationHistory = async () => {
+        try {
+            const response = await tryApiCall('/chat/conversation');
+            if (response.data.conversationHistory) {
+                // Ensure unique IDs for history messages as well
+                const historyMessages = response.data.conversationHistory.map((msg, index) => ({
+                    id: `history-${Date.now() + index}`, // Unique ID for history items
+                    type: msg.role === 'user' ? 'user' : 'assistant',
+                    content: msg.content,
+                    message: msg.message || msg.content, // Use message if available, otherwise content
+                    actions: msg.actions || [],
+                    timestamp: msg.timestamp || new Date().toISOString() // Use existing timestamp or new one
+                }));
+                setMessages(historyMessages);
+            }
+        } catch (error) {
+            console.error('Failed to fetch conversation history:', error);
+            // Don't show error to user as this is a background operation, maybe a console error is enough
         }
     };
 
     const handleSendMessage = async () => {
-        if (!inputMessage.trim() || isLoading) return;
+        if (!inputMessage.trim() || isLoading || ollamaStatus?.status === 'offline') return;
 
         // Client-side character limit check
         if (inputMessage.trim().length > 1000) {
@@ -92,167 +119,84 @@ const Chat = () => {
         }
 
         const userMessage = {
-            id: Date.now(),
+            id: `user-${Date.now()}`,
             type: 'user',
             content: inputMessage.trim(),
+            message: inputMessage.trim(),
             timestamp: new Date().toISOString()
         };
 
-        // Always add user message immediately for immediate feedback
+        // Add user message immediately
         setMessages(prev => [...prev, userMessage]);
         setInputMessage('');
-        setIsLoading(true);
+        setIsLoading(true); // Start global loading indicator
 
-        // Try streaming first, fall back to regular response if streaming fails
-        try {
-            await handleStreamingMessage(userMessage);
-        } catch (streamingError) {
-            console.warn('Streaming failed, falling back to regular response:', streamingError);
-            await handleNonStreamingMessage(userMessage);
-        }
-        await fetchConversationHistory(); // Ensure we always fetch latest conversation after sending
-    };
-
-    const handleStreamingMessage = async (userMessage) => {
-        // Create assistant message placeholder with "Thinking..." content
-        const assistantMessageId = Date.now() + 1;
-        const assistantMessage = {
-            id: assistantMessageId,
+        // Add a "thinking" message placeholder immediately
+        const thinkingMessage = {
+            id: `thinking-${Date.now() + 1}`,
             type: 'assistant',
-            content: '',
-            timestamp: new Date().toISOString(),
-            streaming: true,
-            thinking: true, // Add thinking state
-            model: currentModel
+            content: '', // No content yet
+            message: '', // No content yet
+            thinking: true, // Custom flag for thinking state
+            timestamp: new Date().toISOString()
         };
+        setMessages(prev => [...prev, thinkingMessage]);
 
-        setMessages(prev => [...prev, assistantMessage]);
-
-        try {
-            const { response } = await tryStreamingApiCall('/chat/message', {
-                data: {
-                    message: userMessage.content,
-                    stream: true
-                }
-            });
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            console.log('Streaming response started...');
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) {
-                    console.log('Stream ended');
-                    break;
-                }
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || '';
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.slice(6));
-
-                            if (data.type === 'start') {
-                                console.log('Stream started:', data.message);
-                                // Update conversation history but keep the streaming assistant message
-                                if (data.conversationHistory) {
-                                    updateConversationHistory(data.conversationHistory, true);
-                                }
-                                // Keep thinking state until first chunk
-                            } else if (data.type === 'chunk') {
-                                // Switch from thinking to streaming content
-                                setMessages(prev => prev.map(msg =>
-                                    msg.id === assistantMessageId
-                                        ? {
-                                            ...msg,
-                                            content: msg.content + data.content,
-                                            thinking: false // Remove thinking state
-                                        }
-                                        : msg
-                                ));
-                            } else if (data.type === 'complete') {
-                                // Mark the streaming message as complete first
-                                setMessages(prev => prev.map(msg =>
-                                    msg.id === assistantMessageId
-                                        ? {
-                                            ...msg,
-                                            streaming: false,
-                                            thinking: false,
-                                            responseTime: data.responseTime,
-                                            timestamp: data.timestamp
-                                        }
-                                        : msg
-                                ));
-                            } else if (data.type === 'error') {
-                                throw new Error(data.error);
-                            }
-                        } catch (parseError) {
-                            // Remove the failed message if a parse error occurs
-                            setMessages(prev => prev.filter(msg => msg.id !== assistantMessageId));
-                            console.warn('Parse error:', parseError);
-                        }
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Streaming error:', error);
-
-            // Remove the failed message
-            setMessages(prev => prev.filter(msg => msg.id !== assistantMessageId));
-
-            // Re-throw the error so handleSendMessage can catch it and fall back
-            throw error;
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleNonStreamingMessage = async (userMessage) => {
+        // Send message and await full response (non-streaming)
         try {
             const response = await tryApiCall('/chat/message', {
                 method: 'POST',
-                timeout: 150000, // 2.5 minutes for chat responses
+                timeout: 300000, // 5 minutes for chat responses
                 data: {
                     message: userMessage.content,
-                    stream: false
+                    stream: false // Explicitly set to false
                 }
             });
 
-            // Update conversation history from server response
             if (response.data.conversationHistory) {
-                updateConversationHistory(response.data.conversationHistory);
-            } else {
-                // Fallback: add the assistant message manually if no history provided
-                const assistantMessage = {
-                    id: Date.now() + 1,
-                    type: 'assistant',
-                    content: response.data.message,
-                    timestamp: response.data.timestamp,
-                    responseTime: response.data.responseTime,
-                    model: response.data.model
-                };
-
-                setMessages(prev => [...prev, assistantMessage]);
+                // Replace messages with the full conversation history from the server
+                // This ensures consistency and proper ordering, especially if backend manages conversation state
+                const frontendMessages = response.data.conversationHistory.map((msg, index) => ({
+                    id: `history-${Date.now() + index}`,
+                    type: msg.role === 'user' ? 'user' : 'assistant',
+                    content: msg.content,
+                    message: msg.message || msg.content,
+                    actions: msg.actions || [],
+                    timestamp: msg.timestamp || new Date().toISOString()
+                }));
+                setMessages(frontendMessages);
             }
 
+            if (response.data.actions) {
+                // Handle any actions that were executed as a result of the message
+                response.data.actions.forEach(action => {
+                    if (action.status === 'success') {
+                        showSuccess(action.message);
+                    } else {
+                        showError(action.message);
+                    }
+                });
+            }
         } catch (error) {
             console.error('Failed to send message:', error);
-            const errorMessage = {
-                id: Date.now() + 1,
-                type: 'error',
-                content: error.message || 'Failed to get response from AI',
-                timestamp: new Date().toISOString()
-            };
-            setMessages(prev => [...prev, errorMessage]);
+            // Remove the thinking message and add an error message
+            setMessages(prevMessages => {
+                const filteredMessages = prevMessages.filter(msg => msg.id !== thinkingMessage.id);
+                const errorMessage = {
+                    id: `error-${Date.now() + 3}`,
+                    type: 'error',
+                    content: error.message || 'Failed to get response from AI',
+                    message: error.message || 'Failed to get response from AI',
+                    actions: [],
+                    timestamp: new Date().toISOString()
+                };
+                return [...filteredMessages, errorMessage];
+            });
             showError('Failed to send message');
         } finally {
-            setIsLoading(false);
+            setIsLoading(false); // End global loading indicator
+            // Ensure focus returns to input after send attempt
+            inputRef.current?.focus();
         }
     };
 
@@ -311,50 +255,6 @@ const Chat = () => {
         }
     };
 
-    // Convert Ollama messages to frontend format
-    const convertOllamaMessagesToFrontend = (ollamaMessages) => {
-        return ollamaMessages.map((msg, index) => ({
-            id: Date.now() + index,
-            type: msg.role === 'user' ? 'user' : 'assistant',
-            content: msg.content,
-            timestamp: new Date().toISOString()
-        }));
-    };
-
-    // Update conversation history from server response
-    const updateConversationHistory = (conversationHistory, keepStreamingMessage = false) => {
-        if (conversationHistory && conversationHistory.length > 0) {
-            const frontendMessages = convertOllamaMessagesToFrontend(conversationHistory);
-
-            if (keepStreamingMessage) {
-                // During streaming, find any existing streaming message and preserve it
-                setMessages(prev => {
-                    const streamingMessage = prev.find(msg => msg.streaming || msg.thinking);
-                    if (streamingMessage) {
-                        return [...frontendMessages, streamingMessage];
-                    }
-                    return frontendMessages;
-                });
-            } else {
-                // Replace all messages with server history (after streaming completes)
-                setMessages(frontendMessages);
-            }
-        }
-    };
-
-    // Fetch conversation history from server (for streaming completion)
-    const fetchConversationHistory = async () => {
-        try {
-            const response = await tryApiCall('/chat/conversation');
-            if (response.data.conversationHistory) {
-                updateConversationHistory(response.data.conversationHistory);
-            }
-        } catch (error) {
-            console.error('Failed to fetch conversation history:', error);
-            // Don't show error to user as this is a background operation
-        }
-    };
-
     return (
         <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
             {/* Header */}
@@ -378,7 +278,6 @@ const Chat = () => {
                                 value={currentModel}
                                 label="Model"
                                 onChange={(e) => handleModelChange(e.target.value)}
-                                disabled={availableModels.length === 0}
                             >
                                 {availableModels.map((model) => (
                                     <MenuItem key={model.name} value={model.name}>
@@ -388,14 +287,18 @@ const Chat = () => {
                             </Select>
                         </FormControl>
                         <Tooltip title="Refresh Status">
-                            <IconButton onClick={checkOllamaStatus} color="primary">
-                                <RefreshIcon />
-                            </IconButton>
+                            <span>
+                                <IconButton onClick={checkOllamaStatus} color="primary" disabled={isLoading}>
+                                    <RefreshIcon />
+                                </IconButton>
+                            </span>
                         </Tooltip>
                         <Tooltip title="Clear Conversation">
-                            <IconButton onClick={handleClearConversation} color="secondary">
-                                <ClearIcon />
-                            </IconButton>
+                            <span>
+                                <IconButton onClick={handleClearConversation} color="secondary" disabled={isLoading}>
+                                    <ClearIcon />
+                                </IconButton>
+                            </span>
                         </Tooltip>
                     </Box>
                 </Box>
@@ -467,8 +370,8 @@ const Chat = () => {
                                             message.type === 'error' ? 'transparent' : 'divider'
                                     }}
                                 >
-                                    {/* Show loading indicator when thinking or streaming with no content yet */}
-                                    {message.type === 'assistant' && (message.thinking || (message.streaming && !message.content)) ? (
+                                    {/* Show loading indicator when thinking */}
+                                    {message.type === 'assistant' && message.thinking ? (
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <CircularProgress size={16} />
                                             <Typography variant="body2" color="text.secondary">
@@ -478,102 +381,130 @@ const Chat = () => {
                                     ) : (
                                         // Render markdown for assistant messages, plain text for others
                                         message.type === 'assistant' ? (
-                                            <ReactMarkdown
-                                                components={{
-                                                    // Customize markdown components to use Material-UI styling
-                                                    p: ({ children }) => (
-                                                        <Typography variant="body1" sx={{ mb: 1, '&:last-child': { mb: 0 } }}>
-                                                            {children}
-                                                        </Typography>
-                                                    ),
-                                                    h1: ({ children }) => (
-                                                        <Typography variant="h4" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
-                                                            {children}
-                                                        </Typography>
-                                                    ),
-                                                    h2: ({ children }) => (
-                                                        <Typography variant="h5" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
-                                                            {children}
-                                                        </Typography>
-                                                    ),
-                                                    h3: ({ children }) => (
-                                                        <Typography variant="h6" sx={{ mt: 1.5, mb: 1, fontWeight: 'bold' }}>
-                                                            {children}
-                                                        </Typography>
-                                                    ),
-                                                    code: ({ inline, children }) => (
-                                                        inline ? (
+                                            <>
+                                                <ReactMarkdown
+                                                    components={{
+                                                        p: ({ children }) => {
+                                                            // Instead of Typography component="p", use a plain Box or Typography without "component" prop
+                                                            // to avoid strict <p> tag nesting rules, allowing <pre> as a child.
+                                                            // Typography defaults to 'p' if component prop is not passed, which is still problematic.
+                                                            // So, using a Box is the safest bet for a generic container.
+                                                            return (
+                                                                <Box sx={{ mb: 1, '&:last-child': { mb: 0 } }}>
+                                                                    {children}
+                                                                </Box>
+                                                            );
+                                                        },
+                                                        h1: ({ children }) => (
+                                                            <Typography variant="h4" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
+                                                                {children}
+                                                            </Typography>
+                                                        ),
+                                                        h2: ({ children }) => (
+                                                            <Typography variant="h5" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
+                                                                {children}
+                                                            </Typography>
+                                                        ),
+                                                        h3: ({ children }) => (
+                                                            <Typography variant="h6" sx={{ mt: 1.5, mb: 1, fontWeight: 'bold' }}>
+                                                                {children}
+                                                            </Typography>
+                                                        ),
+                                                        code: ({ inline, children }) =>
+                                                            inline ? (
+                                                                <Box
+                                                                    component="code"
+                                                                    sx={{
+                                                                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
+                                                                        color: (theme) => theme.palette.mode === 'dark' ? 'primary.light' : 'primary.dark',
+                                                                        padding: '2px 4px',
+                                                                        borderRadius: '4px',
+                                                                        fontFamily: 'monospace',
+                                                                        fontSize: '0.875em'
+                                                                    }}
+                                                                >
+                                                                    {children}
+                                                                </Box>
+                                                            ) : (
+                                                                <Box // This Box with component="pre" is fine as it's the custom component for code blocks
+                                                                    component="pre"
+                                                                    sx={{
+                                                                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
+                                                                        color: (theme) => theme.palette.mode === 'dark' ? 'primary.light' : 'primary.dark',
+                                                                        padding: 2,
+                                                                        borderRadius: 1,
+                                                                        overflow: 'auto',
+                                                                        fontFamily: 'monospace',
+                                                                        fontSize: '0.875em',
+                                                                        my: 1
+                                                                    }}
+                                                                >
+                                                                    <code>{children}</code>
+                                                                </Box>
+                                                            ),
+                                                        ul: ({ children }) => (
+                                                            <Box component="ul" sx={{ pl: 2, my: 1 }}>
+                                                                {children}
+                                                            </Box>
+                                                        ),
+                                                        ol: ({ children }) => (
+                                                            <Box component="ol" sx={{ pl: 2, my: 1 }}>
+                                                                {children}
+                                                            </Box>
+                                                        ),
+                                                        li: ({ children }) => (
+                                                            <Typography component="li" variant="body1" sx={{ mb: 0.5 }}>
+                                                                {children}
+                                                            </Typography>
+                                                        ),
+                                                        blockquote: ({ children }) => (
                                                             <Box
-                                                                component="code"
                                                                 sx={{
-                                                                    backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
-                                                                    color: (theme) => theme.palette.mode === 'dark' ? 'primary.light' : 'primary.dark',
-                                                                    padding: '2px 4px',
-                                                                    borderRadius: '4px',
-                                                                    fontFamily: 'monospace',
-                                                                    fontSize: '0.875em'
+                                                                    borderLeft: '4px solid',
+                                                                    borderColor: 'primary.main',
+                                                                    pl: 2,
+                                                                    py: 1,
+                                                                    backgroundColor: 'grey.50',
+                                                                    fontStyle: 'italic',
+                                                                    my: 1
                                                                 }}
                                                             >
                                                                 {children}
                                                             </Box>
-                                                        ) : (
-                                                            <Box
-                                                                component="pre"
-                                                                sx={{
-                                                                    backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
-                                                                    color: (theme) => theme.palette.mode === 'dark' ? 'primary.light' : 'primary.dark',
-                                                                    padding: 2,
-                                                                    borderRadius: 1,
-                                                                    overflow: 'auto',
-                                                                    fontFamily: 'monospace',
-                                                                    fontSize: '0.875em',
-                                                                    my: 1
-                                                                }}
-                                                            >
-                                                                <code>{children}</code>
-                                                            </Box>
                                                         )
-                                                    ),
-                                                    ul: ({ children }) => (
-                                                        <Box component="ul" sx={{ pl: 2, my: 1 }}>
-                                                            {children}
-                                                        </Box>
-                                                    ),
-                                                    ol: ({ children }) => (
-                                                        <Box component="ol" sx={{ pl: 2, my: 1 }}>
-                                                            {children}
-                                                        </Box>
-                                                    ),
-                                                    li: ({ children }) => (
-                                                        <Typography component="li" variant="body1" sx={{ mb: 0.5 }}>
-                                                            {children}
-                                                        </Typography>
-                                                    ),
-                                                    blockquote: ({ children }) => (
-                                                        <Box
-                                                            sx={{
-                                                                borderLeft: '4px solid',
-                                                                borderColor: 'primary.main',
-                                                                pl: 2,
-                                                                py: 1,
-                                                                backgroundColor: 'grey.50',
-                                                                fontStyle: 'italic',
-                                                                my: 1
-                                                            }}
-                                                        >
-                                                            {children}
-                                                        </Box>
-                                                    )
-                                                }}
-                                            >
-                                                {message.content}
-                                            </ReactMarkdown>
+                                                    }}
+                                                >
+                                                    {message.message}
+                                                </ReactMarkdown>
+                                            </>
                                         ) : (
                                             <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                                                {message.content}
+                                                {message.message}
                                             </Typography>
                                         )
                                     )}
+                                    {/* Render action chips for assistant messages with actions */}
+                                    {Array.isArray(message.actions) && message.actions.length > 0 && (
+                                        <>
+                                            <Box sx={{ borderTop: 1, borderColor: 'divider', my: 1 }} />
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                                                {message.actions.map((action, idx) => (
+                                                    <Chip
+                                                        key={idx}
+                                                        label={action.message || action.action}
+                                                        color={
+                                                            action.message && action.status === 'success'
+                                                                ? 'info'
+                                                                : 'error'
+                                                        }
+                                                        variant="filled"
+                                                        size="small"
+                                                    />
+                                                ))}
+                                            </Box>
+                                        </>
+                                    )}
+                                    {/* Optional: Display timestamp and response time, uncomment if needed */}
                                     {/* <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
                                         <Typography variant="caption" sx={{
                                             opacity: 0.7,

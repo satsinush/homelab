@@ -19,7 +19,6 @@ class Chat {
 
     // Get conversation from database
     getConversation(userId) {
-        console.log(`Getting conversation for user ${userId}`);
         try {
             const stmt = this.db.prepare('SELECT messages FROM chat_conversations WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1');
             const result = stmt.get(userId);

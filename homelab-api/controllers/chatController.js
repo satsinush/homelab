@@ -2,23 +2,15 @@ const DatabaseModel = require('../models/Database');
 const Chat = require('../models/Chat');
 const SystemController = require('../controllers/systemController');
 const DeviceController = require('../controllers/deviceController');
+const { formatMacForDisplay } = require('../utils/formatters'); // <-- Correct import
 
 const systemController = new SystemController();
 const deviceController = new DeviceController();
 
-const BASE_SYSTEM_PROMPT = 
-`You are HomeBot. You are a homelab dashboard AI. Be concise, accurate, and practical.
-If the user asks a general question that is not an action, provide a concise answer based on the provided prompt.
-If a user requests an action, include the exact JSON payload at the end of your response. You might need to use the provided information to fill in action parameters.
-
---- Available actions ---
-- Wake-on-LAN (Turn a device on with a WOL packet): { "action": "wol", "mac": "<DEVICE_MAC_ADDRESS>" }
-`;
-
 class ChatController {
     constructor() {
         this.modelName = null; // Will be set dynamically
-        this.timeout = 600000; // 10 minutes
+        this.timeout = 300000; // 5 minutes
         this.ollamaBaseUrl = 'http://localhost:11434'; // Default Ollama API URL
         this.db = DatabaseModel.getDatabase(); // Database instance
         this.chatModel = new Chat(); // Chat model instance
@@ -35,13 +27,48 @@ class ChatController {
         const systemInfo = JSON.stringify(await systemController.getSystemPromptInfo());
         const deviceInfo = JSON.stringify(await deviceController.getDevicePromptInfo());
 
-        const fullSystemPrompt = 
-            BASE_SYSTEM_PROMPT +
-            `\n\n--- Information Provided for Context ---` + // Add a clear separator
-            `\nSystem Information: ${systemInfo}` +
-            `\nSaved devices: ${deviceInfo}`;
+        const fullSystemPrompt =
+        `You are HomeBot, a helpful AI assistant for a homelab management dashboard.
+        Your primary role is to assist users with technical questions, troubleshooting, system administration, and general computing topics related to their homelab.
+        You also have the ability to perform certain actions on devices in the homelab specified in the list of available actions.
+        Assume responding with the correct JSON will execute the action if it is valid and the parameters are correct. There is no need to explain or instruct the user to perform the task.
+
+        --- Output Format ---
+        **You MUST always reply in the following JSON format:**
+        \`\`\`json
+        {
+          "message": "<your text response here>",
+          "actions": [ /* array of action objects, empty if no action */ ]
+        }
+        \`\`\`
         
-        console.log('Full system prompt:', fullSystemPrompt);
+        --- Instructions ---
+        1.  **Conciseness & Accuracy:** Be concise, accurate, and practical in your text responses (the "message" field).
+        2.  **Uncertainty:** If you're unsure about something or lack necessary information, state it in the "message" field.
+        3.  **Action Requests:**
+            * If a user's request clearly indicates one or more actions from the "Available actions" list:
+                * Populate the "actions" array with the specific JSON payload(s) for the requested action(s).
+                * Include a brief, relevant confirmation or explanation in the "message" field (e.g., "Okay, initiating Wake-on-LAN for that device.").
+                * You MUST extract any necessary parameters (like MAC addresses, service names, or paths) from the "System Information" and "Saved devices" provided. Do NOT guess or invent values.
+                * If a required parameter is missing or the device/service cannot be found in the provided information for an action:
+                    * Set the "message" field to explain why the action cannot be performed.
+                    * The "actions" array should be empty.
+                * If the requested action is not in the "Available actions" list:
+                    * Set the "message" field to "The requested action is not supported."
+                    * The "actions" array should be empty.
+        4.  **General Questions/Statements:**
+            * If the user asks a general question or makes a statement that is NOT an action request:
+                * Provide a concise, direct answer in the "message" field based on the provided information.
+                * The "actions" array MUST be empty (i.e., \`[]\`).
+        5.  **Domain:** Only help with homelab-related topics. If a question is outside this domain, set the "message" to "I cannot assist with that topic." and the "actions" array to empty.
+
+        --- Available actions (Use these exact "action" values for 'action' key) ---
+        - Wake-on-LAN (Send a magic packet to wake up a specified device): { "action": "wol", "mac": "<MAC_ADDRESS_OF_DEVICE>" }
+
+        --- Information for your use ---
+        System Information: ${systemInfo}
+        Saved devices: ${deviceInfo}
+        `;
         return fullSystemPrompt;
     }
 
@@ -115,7 +142,7 @@ class ChatController {
             }
             
             messages.push(...messagesToInclude);
-            console.log(`Including ${messagesToInclude.length} messages from conversation for user ${userId}, total tokens: ${totalTokens}`);
+            console.log(`Building prompt with ${messagesToInclude.length} messages, total tokens: ${totalTokens}`);
         }
 
         return messages;
@@ -127,12 +154,12 @@ class ChatController {
             const conversation = this.chatModel.getConversation(userId);
             if (!conversation || conversation.length === 0) {
                 console.log('No conversation found for user:', userId);
-                return [{ role: 'system', content: BASE_SYSTEM_PROMPT }];
+                return [{ role: 'system', content: "" }];
             }
             return conversation;
         } catch (error) {
             console.error('Error getting conversation from database:', error);
-            return [{ role: 'system', content: BASE_SYSTEM_PROMPT }];
+            return [{ role: 'system', content: "" }];
         }
     }
 
@@ -208,7 +235,7 @@ class ChatController {
                 await this.initializeModel();
             }
 
-            const { message, stream = false } = req.body;
+            const { message } = req.body;
             // Get userId from authenticated user - must be logged in
             const userId = req.user?.userId;
 
@@ -234,181 +261,55 @@ class ChatController {
                 });
             }
 
-            console.log(`Chat request from user ${userId} (${stream ? 'stream' : 'no stream'}): ${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`);
+            console.log(`Chat request from user ${userId}: ${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`);
             
             // Add user message to conversation history
             this.addToConversationHistory(userId, {
                 role: 'user',
-                content: message
+                content: message,
+                message: message,
+                actions: []
             });
             
-            if (stream) {
-                // Set up Server-Sent Events for streaming
-                res.writeHead(200, {
-                    'Content-Type': 'text/event-stream',
-                    'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive',
-                    'X-Accel-Buffering': 'no' // Disable nginx buffering
-                });
+            const startTime = Date.now();
+            const response = await this.generateOllamaResponse(userId, message);
+            const responseTime = Date.now() - startTime;
 
-                // Send conversation history along with start message
-                const conversationHistory = this.getConversationHistory(userId);
-                res.write(`data: ${JSON.stringify({
-                    type: 'start',
-                    message: 'Streaming started...',
-                    conversationHistory: conversationHistory,
-                    timestamp: new Date().toISOString()
-                })}\n\n`);
-                
-                if (res.flush) {
-                    res.flush();
-                }
+            const responseMessage = response.trim();
+            const parsedMessage = this.parseMessage(responseMessage);
+            const actionsExecuted = parsedMessage.actions ? await this.executeActions(parsedMessage.actions) : [];
 
-                const startTime = Date.now();
-                let fullResponse = '';
-                let checkActionFromIndex = 0;
+            // Add assistant response to conversation history
+            this.addToConversationHistory(userId, {
+                role: 'assistant',
+                content: responseMessage,
+                message: parsedMessage.message || 'Error',
+                actions: actionsExecuted
+            });
 
-                try {
-                    console.log('Starting streaming response...');
-                    await this.streamOllamaResponse(userId, message, (chunk) => {
-                        fullResponse += chunk;
-                        res.write(`data: ${JSON.stringify({
-                            type: 'chunk',
-                            content: chunk,
-                            timestamp: new Date().toISOString()
-                        })}\n\n`);
-                        const actionJSON = this.getActions(fullResponse, checkActionFromIndex);
-                        if (actionJSON.length > 0) {
-                            actionJSON.forEach(action => this.performAction(action));
-                            checkActionFromIndex = fullResponse.length;
-                        }
+            // Get conversation history for frontend
+            const conversationHistory = this.getConversationHistory(userId);
 
-                        // Force flush the response immediately
-                        if (res.flush) {
-                            res.flush();
-                        }
-                    });
-
-                    const responseTime = Date.now() - startTime;
-                    console.log('Streaming complete, sending final message...');
-                    
-                    // Add assistant response to conversation history
-                    this.addToConversationHistory(userId, {
-                        role: 'assistant',
-                        content: fullResponse.trim()
-                    });
-                    
-                    // Send final message
-                    res.write(`data: ${JSON.stringify({
-                        type: 'complete',
-                        message: fullResponse.trim(),
-                        timestamp: new Date().toISOString(),
-                        responseTime: responseTime,
-                        model: this.modelName
-                    })}\n\n`);
-                    
-                    res.end();
-                    console.log(`Streaming chat response time: ${responseTime}ms`);
-
-                } catch (error) {
-                    console.error('Streaming error:', error);
-                    if (userId) {
-                        this.addToConversationHistory(userId, {
-                            role: 'assistant',
-                            content: "Error"
-                        });
-                    }
-                    res.write(`data: ${JSON.stringify({
-                        type: 'error',
-                        error: error.message,
-                        timestamp: new Date().toISOString()
-                    })}\n\n`);
-                    res.end();
-                }
-            } else {
-                // Non-streaming response (original behavior)
-                const startTime = Date.now();
-                const response = await this.generateOllamaResponse(userId, message);
-                const responseTime = Date.now() - startTime;
-
-                const actionJSON = this.getActions(response, 0);
-                if (actionJSON.length > 0) {
-                    actionJSON.forEach(action => this.performAction(action));
-                }
-
-                console.log(`Chat response time: ${responseTime}ms`);
-
-                // Add assistant response to conversation history
-                this.addToConversationHistory(userId, {
-                    role: 'assistant',
-                    content: response.trim()
-                });
-
-                // Get conversation history for frontend
-                const conversationHistory = this.getConversationHistory(userId);
-
-                res.json({
-                    message: response.trim(),
-                    conversationHistory: conversationHistory,
-                    timestamp: new Date().toISOString(),
-                    responseTime: responseTime,
-                    model: this.modelName
-                });
-            }
+            res.json({
+                content: responseMessage,
+                message: parsedMessage.message || 'Error',
+                conversationHistory: conversationHistory,
+                timestamp: new Date().toISOString(),
+                responseTime: responseTime,
+                model: this.modelName,
+                actions: actionsExecuted,
+            });
 
         } catch (error) {
             console.error('Chat error:', error);
 
             const userId = req.user?.userId;
-            let assistantMessage = '';
-
-            if (error.message.includes('ECONNREFUSED')) {
-                assistantMessage = 'Message failed: Ollama service is not running.';
-                if (userId) {
-                    this.addToConversationHistory(userId, {
-                        role: 'assistant',
-                        content: assistantMessage
-                    });
-                }
-                return res.status(503).json({ 
-                    error: 'Ollama service is not running',
-                    details: 'Please ensure Ollama is installed and running on localhost:11434'
-                });
-            }
-
-            if (error.message.includes('timeout') || error.message.includes('timed out')) {
-                assistantMessage = 'Message timed out: The AI model took too long to respond.';
-                if (userId) {
-                    this.addToConversationHistory(userId, {
-                        role: 'assistant',
-                        content: assistantMessage
-                    });
-                }
-                return res.status(504).json({ 
-                    error: 'Request timeout',
-                    details: 'The AI model took too long to respond. Try a shorter message or check if the model is working properly.'
-                });
-            }
-
-            if (error.message.includes('model not found')) {
-                assistantMessage = `Message failed: The model "${this.modelName}" is not available.`;
-                if (userId) {
-                    this.addToConversationHistory(userId, {
-                        role: 'assistant',
-                        content: assistantMessage
-                    });
-                }
-                return res.status(404).json({ 
-                    error: 'Model not found',
-                    details: `The model "${this.modelName}" is not available. Please check available models.`
-                });
-            }
-
-            assistantMessage = `Message failed!`;
             if (userId) {
                 this.addToConversationHistory(userId, {
                     role: 'assistant',
-                    content: assistantMessage
+                    content: `Message failed: ${error.message}`,
+                    message: "Error",
+                    actions: []
                 });
             }
             res.status(500).json({ 
@@ -416,106 +317,11 @@ class ChatController {
                 details: error.message 
             });
         }
-    }
-
-    // Stream Ollama response in real-time using messages format and fetch
-    async streamOllamaResponse(userId, message, onChunk) {
-        const url = new URL('/api/chat', this.ollamaBaseUrl);
-        const messages = await this.buildMessagesArray(userId);
-        // Add current user message
-        messages.push({ role: 'user', content: message });
-        
-        const requestBody = JSON.stringify({
-            model: this.modelName,
-            messages: messages,
-            stream: true
-        });
-
-        const options = {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: requestBody,
-            signal: AbortSignal.timeout(this.timeout)
-        };
-
-        try {
-            const response = await fetch(url.toString(), options);
-            
-            if (!response.ok) {
-                console.error('Failed to get valid response from Ollama:', response.status);
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                
-                // Keep the last incomplete line in the buffer
-                buffer = lines.pop() || '';
-                
-                for (const line of lines) {
-                    if (line.trim()) {
-                        try {
-                            const data = JSON.parse(line);
-                            let content = '';
-                            
-                            if (data.message && data.message.content) {
-                                content = data.message.content;
-                            }
-                            
-                            if (content) {
-                                onChunk(content);
-                            }   
-                            if (data.done) {
-                                return;
-                            }
-                        } catch (parseError) {
-                            // Ignore parse errors for incomplete chunks
-                            console.warn('Parse error in stream:', parseError.message, 'Line:', line);
-                        }
-                    }
-                }
-            }
-
-            // Process any remaining data in buffer
-            if (buffer.trim()) {
-                try {
-                    const data = JSON.parse(buffer.trim());
-                    let content = '';
-                    
-                    if (data.message && data.message.content) {
-                        content = data.message.content;
-                    }
-                    
-                    if (content) {
-                        onChunk(content);
-                    }
-                } catch (parseError) {
-                    console.warn('Parse error in final buffer:', parseError.message);
-                }
-            }
-        } catch (error) {
-            if (error.name === 'TimeoutError') {
-                throw new Error('Request timeout');
-            }
-            throw error;
-        }
-    }
+    }    
 
     // Execute Ollama API request (non-streaming) using messages format
     async generateOllamaResponse(userId, message) {
-        try {
-            console.log('Sending Ollama API request...');
-            
+        try {            
             const messages = await this.buildMessagesArray(userId);
             // Add current user message
             messages.push({ role: 'user', content: message });
@@ -608,7 +414,6 @@ class ChatController {
             }
 
             this.modelName = modelName;
-            this.updateTokenLimitsForModel(modelName);
 
             res.json({
                 message: 'Model changed successfully',
@@ -747,6 +552,7 @@ class ChatController {
             }
 
             const conversationHistory = this.getConversationHistory(userId);
+            console.log(`Retrieved conversation history for user ${userId}, total messages: ${conversationHistory.length}`);
             
             res.json({
                 conversationHistory: conversationHistory,
@@ -791,40 +597,85 @@ class ChatController {
         }
     }
 
-    getActions(content, startIndex = 0) {
-        content = content.slice(startIndex).trim();
-        if (content.length === 0) {
-            return []; // No content to check
-        }
-        // Match any JSON object containing "action": "<string>"
-        const actionRegex = /{[^}]*"action"\s*:\s*"[^"]+"[^}]*}/g;
-        const matches = content.match(actionRegex);
-        if (!matches || matches.length === 0) {
-            return [];
-        }
-        const actions = [];
-        for (const match of matches) {
-            try {
-                const actionObj = JSON.parse(match);
-                if (actionObj.action && typeof actionObj.action === 'string') {
-                    actions.push(actionObj);
+    /**
+     * Extracts the actions array from a string containing a JSON object.
+     * Returns [] if not found or invalid.
+     * @param {string} message
+     * @returns {Array}
+     */
+    parseMessage(rawMessage) {
+        try {
+            // Scan for all possible balanced JSON objects and parse each
+            let results = [];
+            for (let i = 0; i < rawMessage.length; i++) {
+                if (rawMessage[i] !== '{') continue;
+                let braceCount = 0;
+                for (let j = i; j < rawMessage.length; j++) {
+                    if (rawMessage[j] === '{') braceCount++;
+                    if (rawMessage[j] === '}') braceCount--;
+                    if (braceCount === 0) {
+                        const jsonStr = rawMessage.slice(i, j + 1);
+                        try {
+                            const obj = JSON.parse(jsonStr);
+                            if (
+                                typeof obj.message === 'string' &&
+                                Array.isArray(obj.actions)
+                            ) {
+                                return { message: obj.message, actions: obj.actions };
+                            }
+                        } catch (e) {
+                            // Ignore parse errors, keep searching
+                        }
+                        break;
+                    }
                 }
-            } catch (e) {
-                // Ignore parse errors
             }
+            // If nothing found, fallback
+            console.warn('No valid JSON with message/actions found in:', rawMessage);
+            return null; // Return null if no valid JSON found
+        } catch (e) {
+            console.error('Error parsing message:', e);
+            return null;
         }
-        return actions;
     }
 
-    async performAction(actionPayload) {
-        switch (actionPayload.action) {
-            case 'wol':
-                console.log(`Performing Wake-on-LAN for MAC: ${actionPayload.mac}`);
-                deviceController.wakeDeviceByMac(actionPayload.mac);
-                break;
-            default:
-                console.warn(`Unknown action: ${actionPayload.action}`);
+    async executeActions(actions) {
+        if (!Array.isArray(actions) || actions.length === 0) {
+            return [];
         }
+        let actionsExecuted = [];
+        for (const action of actions) {
+            console.log('Executing action:', JSON.stringify(action));
+            switch (action.action) {
+                case 'wol':
+                    // Format MAC address using formatMacForDisplay from formatters.js
+                    const formattedMac = formatMacForDisplay(action.mac);
+                    const successful = await deviceController.wakeDeviceByMac(formattedMac);
+                    if (successful) {
+                        actionsExecuted.push({
+                            ...action,
+                            mac: formattedMac,
+                            message: `Wake-on-LAN sent to device with MAC ${formattedMac}`,
+                            status: 'success'
+                        });
+                    } else {
+                        actionsExecuted.push({
+                            ...action,
+                            mac: formattedMac,
+                            message: `Failed to send Wake-on-LAN to device with MAC ${formattedMac}`,
+                            status: 'error'
+                        });
+                    }
+                    break;
+                default:
+                    console.warn(`Unknown action type: ${action.action}`);
+                    actionsExecuted.push({
+                        ...action,
+                        message: `Unknown action type: ${action.action}`
+                    });
+            }
+        }
+        return actionsExecuted;
     }
 }
 

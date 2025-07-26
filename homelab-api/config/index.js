@@ -22,18 +22,7 @@ if (!SESSION_SECRET) {
 // Default server settings
 const DEFAULT_SETTINGS = {
     scanTimeout: 30000,
-    cacheTimeout: 300000, // 5 minutes
-    services: [
-        { name: 'nginx', displayName: 'NGINX Web Server' },
-        { name: 'sshd', displayName: 'SSH Daemon' },
-        { name: 'homelab-api', displayName: 'Homelab API' },
-        { name: 'ddclient', displayName: 'DDClient Dynamic DNS' },
-        { name: 'pihole-FTL', displayName: 'Pi-hole FTL' },
-        { name: 'rustdesk-server-hbbr', displayName: 'RustDesk Relay' },
-        { name: 'rustdesk-server-hbbs', displayName: 'RustDesk Rendezvous' },
-        { name: 'ufw', displayName: 'UFW Firewall' },
-        { name: 'unbound', displayName: 'Unbound DNS' }
-    ]
+    cacheTimeout: 300000
 };
 
 const config = {
