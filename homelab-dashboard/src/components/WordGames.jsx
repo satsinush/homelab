@@ -48,7 +48,7 @@ const WordGames = () => {
 
     // Letter Boxed state
     const [letterBoxedLetters, setLetterBoxedLetters] = useState('');
-    const [letterBoxedConfig, setLetterBoxedConfig] = useState(3);
+    const [letterBoxedConfig, setLetterBoxedConfig] = useState(1);
     const [customConfig, setCustomConfig] = useState({
         maxDepth: 2,
         minWordLength: 3,
@@ -731,7 +731,7 @@ const WordGames = () => {
                                 <Typography variant="body2" color="text.secondary">
                                     Letters: {formatLetters(lastGameData.letters)}
                                 </Typography>
-                                {lastGameData.config && (
+                                {lastGameData.config !== undefined && (
                                     <Typography variant="body2" color="text.secondary">
                                         Config: {lastGameData.config === 1 ? 'Default' :
                                             lastGameData.config === 2 ? 'Fast' :

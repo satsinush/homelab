@@ -71,7 +71,7 @@ class WordGamesController {
             }
 
             // Build command with all parameters
-            const command = `${this.executablePath} letterboxed ${cleanLetters} ${depth} ${wordLen} ${uniqueLetters} ${pruneRedundant} ${pruneDominated}`;
+            const command = `${this.executablePath} letterboxed ${cleanLetters} 0 ${depth} ${wordLen} ${uniqueLetters} ${pruneRedundant} ${pruneDominated}`;
             
             console.log(`Executing Letter Boxed solver: ${command}`);
 
