@@ -11,6 +11,7 @@ import Home from './components/Home';
 import System from './components/System';
 import Devices from './components/Devices';
 import Chat from './components/Chat';
+import WordGames from './components/WordGames';
 import PackageManager from './components/PackageManager';
 import Settings from './components/Settings';
 import Profile from './components/Profile';
@@ -29,6 +30,7 @@ function AppContent() {
     if (path === '/system') return 'system';
     if (path === '/devices') return 'devices';
     if (path === '/chat') return 'chat';
+    if (path === '/wordgames') return 'wordgames';
     if (path === '/packages') return 'packages';
     if (path === '/settings') return 'settings';
     if (path === '/profile') return 'profile';
@@ -64,6 +66,7 @@ function AppContent() {
                 <Route path="/system" element={<System />} />
                 <Route path="/devices" element={<Devices />} />
                 <Route path="/chat" element={<Chat />} />
+                <Route path="/wordgames" element={<WordGames />} />
                 <Route path="/packages" element={<PackageManager />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />

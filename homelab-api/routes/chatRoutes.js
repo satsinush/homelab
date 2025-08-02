@@ -6,7 +6,7 @@ const router = express.Router();
 const chatController = new ChatController();
 
 // Chat endpoints (all require authentication)
-router.post('/chat/message', requireAuth('admin'), (req, res) => chatController.sendMessage(req, res));
+router.post('/chat/message', requireAuth('admin'), (req, res) => chatController.sendChatMessage(req, res));
 router.get('/chat/models', requireAuth('admin'), (req, res) => chatController.getModels(req, res));
 router.post('/chat/model', requireAuth('admin'), (req, res) => chatController.setModel(req, res));
 router.get('/chat/status', requireAuth('admin'), (req, res) => chatController.getStatus(req, res));

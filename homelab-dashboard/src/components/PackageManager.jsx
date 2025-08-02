@@ -55,7 +55,8 @@ const PackageManager = () => {
                 console.log('Package status:', result.note);
             }
         } catch (err) {
-            showError('Unable to fetch package information - Package management not available');
+            // Use the specific error message from the API, fallback to generic message
+            showError(err.message || 'Unable to fetch package information - Package management not available');
             setPackages([]);
             setLastSynced(null);
         } finally {

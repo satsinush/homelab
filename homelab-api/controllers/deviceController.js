@@ -3,6 +3,7 @@ const Settings = require('../models/Settings');
 const ValidationUtils = require('../utils/validation');
 const { exec } = require('child_process');
 const wol = require('wake_on_lan');
+const { sendError, sendSuccess } = require('../utils/response'); // Utility for standardized responses
 
 class DeviceController {
     constructor() {
@@ -15,8 +16,6 @@ class DeviceController {
         };
         this.systemNetworkInterfaces = [];
     }
-
-
 
     // Initialize network interfaces
     async initializeNetworkInterfaces() {
@@ -305,7 +304,7 @@ class DeviceController {
             const discoveredCount = devices.filter(d => !d.isFavorite).length;
             const onlineCount = devices.filter(d => d.status === 'online').length;
             
-            res.json({
+            return sendSuccess(res, {
                 devices: devices,
                 totalDevices: devices.length,
                 favoriteDevicesCount: favoriteCount,
@@ -316,7 +315,7 @@ class DeviceController {
             });
         } catch (error) {
             console.error('Get devices error:', error);
-            res.status(500).json({ error: `Failed to get devices: ${error.message}` });
+            return sendError(res, 500, 'Failed to retrieve devices', error.message);
         }
     }
 
@@ -330,8 +329,8 @@ class DeviceController {
             const discoveredCount = devices.filter(d => !d.isFavorite).length;
             const onlineCount = devices.filter(d => d.status === 'online').length;
             
-            res.json({
-                message: 'Device scan completed',
+            return sendSuccess(res, {
+                message: 'Network scan completed successfully',
                 devices: devices,
                 totalDevices: devices.length,
                 favoriteDevicesCount: favoriteCount,
@@ -341,7 +340,12 @@ class DeviceController {
             });
         } catch (error) {
             console.error('Scan devices error:', error);
-            res.status(500).json({ error: `Failed to scan network: ${error.message}` });
+            
+            if (error.message.includes('arp-scan')) {
+                return sendError(res, 503, 'Network scanning service is not available. Please ensure arp-scan is installed.');
+            }
+            
+            return sendError(res, 500, 'Failed to scan network for devices', error.message);
         }
     }
 
@@ -359,8 +363,8 @@ class DeviceController {
             
             console.log(`Cleared ${deletedCount} non-favorite devices and completed fresh scan: ${devices.length} total devices, ${discoveredCount} discovered`);
             
-            res.json({
-                message: `Cleared cache and completed fresh scan`,
+            return sendSuccess(res, {
+                message: 'Device cache cleared and network rescanned successfully',
                 devices: devices,
                 totalDevices: devices.length,
                 favoriteDevicesCount: favoriteCount,
@@ -372,13 +376,18 @@ class DeviceController {
             });
         } catch (error) {
             console.error('Clear cache error:', error);
-            res.status(500).json({ error: `Failed to clear cache and scan: ${error.message}` });
+            return sendError(res, 500, 'Failed to clear device cache', error.message);
         }
     }
 
     // Create new favorite device
     async createDevice(req, res) {
         try {
+            // Basic request validation
+            if (!req.body || typeof req.body !== 'object') {
+                return sendError(res, 400, 'Invalid request body');
+            }
+
             const { name, mac, description } = req.body;
             
             // Validate input at controller level
@@ -389,13 +398,13 @@ class DeviceController {
                 validatedMac = ValidationUtils.validateAndNormalizeMac(mac);
                 validatedDescription = ValidationUtils.validateDeviceDescription(description);
             } catch (validationError) {
-                return res.status(400).json({ error: validationError.message });
+                return sendError(res, 400, validationError.message);
             }
 
             // Check if device with this MAC already exists
             const existingDevice = this.deviceModel.findByMac(validatedMac);
             if (existingDevice) {
-                return res.status(409).json({ error: `Device with MAC address ${validatedMac} already exists` });
+                return sendError(res, 409, `Device with MAC address already exists: ${validatedMac}`);
             }
 
             // Create new favorite device (only favorites are saved to DB)
@@ -419,21 +428,34 @@ class DeviceController {
             
             console.log(`New favorite device created: ${newDevice.name} (${newDevice.mac})`);
             
-            res.status(201).json({ 
-                message: 'Favorite device created successfully', 
+            return sendSuccess(res, {
+                message: 'Device created successfully',
                 device: newDevice
-            });
+            }, 201);
         } catch (error) {
             console.error('Add device error:', error);
-            res.status(500).json({ error: `Failed to create device: ${error.message}` });
+            return sendError(res, 500, 'Failed to create device', error.message);
         }
     }
 
     // Update existing favorite device
     async updateDevice(req, res) {
         try {
+            // Basic request validation
+            if (!req.params || typeof req.params !== 'object') {
+                return sendError(res, 400, 'Invalid request parameters');
+            }
+
+            if (!req.body || typeof req.body !== 'object') {
+                return sendError(res, 400, 'Invalid request body');
+            }
+
             const { mac: paramMac } = req.params;
             const { name, mac, description } = req.body;
+
+            if (!paramMac || typeof paramMac !== 'string' || !paramMac.trim()) {
+                return sendError(res, 400, 'MAC address parameter is required');
+            }
             
             // Validate input at controller level
             let validatedName, validatedMac, validatedParamMac, validatedDescription;
@@ -442,28 +464,28 @@ class DeviceController {
                 validatedName = ValidationUtils.validateDeviceName(name);
                 validatedMac = ValidationUtils.validateAndNormalizeMac(mac);
                 validatedDescription = ValidationUtils.validateDeviceDescription(description);
-                validatedParamMac = ValidationUtils.validateAndNormalizeMac(paramMac);
+                validatedParamMac = ValidationUtils.validateAndNormalizeMac(paramMac.trim());
             } catch (validationError) {
-                return res.status(400).json({ error: validationError.message });
+                return sendError(res, 400, validationError.message);
             }
 
             // Get existing device by MAC from URL parameter
             const existingDevice = this.deviceModel.findByMac(validatedParamMac);
             
             if (!existingDevice) {
-                return res.status(404).json({ error: 'Device not found' });
+                return sendError(res, 404, 'Device not found');
             }
 
             // Only allow editing favorite devices
             if (!existingDevice.isFavorite) {
-                return res.status(403).json({ error: 'Only favorite devices can be edited' });
+                return sendError(res, 403, 'Only favorite devices can be edited');
             }
 
             // Check if MAC address is being changed to one that already exists
             if (validatedParamMac !== validatedMac) {
                 const deviceWithSameMac = this.deviceModel.findByMac(validatedMac);
                 if (deviceWithSameMac) {
-                    return res.status(409).json({ error: `Another device with MAC address ${validatedMac} already exists` });
+                    return sendError(res, 409, `Device with MAC address ${validatedMac} already exists`);
                 }
                 
                 // If MAC is changing, we need to delete the old entry and create a new one
@@ -485,27 +507,36 @@ class DeviceController {
             this.clearCache();
             
             console.log(`Device updated: ${updatedDevice.name} (${updatedDevice.mac})`);
-            res.json({ 
+            return sendSuccess(res, { 
                 message: 'Device updated successfully', 
                 device: updatedDevice
             });
         } catch (error) {
             console.error('Update device error:', error);
-            res.status(500).json({ error: `Failed to update device: ${error.message}` });
+            return sendError(res, 500, 'Failed to update device', error.message);
         }
     }
 
     // Toggle favorite status
     async toggleFavorite(req, res) {
         try {
+            // Basic request validation
+            if (!req.params || typeof req.params !== 'object') {
+                return sendError(res, 400, 'Invalid request parameters');
+            }
+
             const { mac } = req.params;
             
+            if (!mac || typeof mac !== 'string' || !mac.trim()) {
+                return sendError(res, 400, 'MAC address is required');
+            }
+
             // Validate MAC address at controller level
             let normalizedMac;
             try {
-                normalizedMac = ValidationUtils.validateAndNormalizeMac(mac);
+                normalizedMac = ValidationUtils.validateAndNormalizeMac(mac.trim());
             } catch (validationError) {
-                return res.status(400).json({ error: validationError.message });
+                return sendError(res, 400, validationError.message);
             }
             
             // Find device in cache (could be favorite or discovered)
@@ -513,7 +544,7 @@ class DeviceController {
             const targetDevice = deviceData.devices.find(d => d.mac === normalizedMac);
             
             if (!targetDevice) {
-                return res.status(404).json({ error: 'Device not found' });
+                return sendError(res, 404, 'Device not found');
             }
             
             // Toggle favorite status
@@ -534,8 +565,10 @@ class DeviceController {
                 // Clear cache to force refresh
                 this.clearCache();
                 
-                const message = 'Device marked as favorite';
-                res.json({ message: message, device: favoriteDevice });
+                return sendSuccess(res, { 
+                    message: 'Device marked as favorite',
+                    device: favoriteDevice 
+                });
             } else {
                 // Removing from favorites - delete from database
                 this.deviceModel.deleteByMac(normalizedMac);
@@ -551,28 +584,35 @@ class DeviceController {
                 // Clear cache to force refresh
                 this.clearCache();
                 
-                const message = 'Device removed from favorites';
-                res.json({ message: message, device: discoveredDevice });
+                return sendSuccess(res, { 
+                    message: 'Device removed from favorites',
+                    device: discoveredDevice 
+                });
             }
         } catch (error) {
             console.error('Toggle favorite error:', error);
-            res.status(500).json({ error: `Failed to toggle favorite: ${error.message}` });
+            return sendError(res, 500, 'Failed to toggle favorite status', error.message);
         }
     }
 
     // Send WOL packet
     async sendWakeOnLan(req, res) {
         try {
+            // Basic request validation
+            if (!req.body || typeof req.body !== 'object') {
+                return sendError(res, 400, 'Invalid request body');
+            }
+
             const { device } = req.body;
 
-            if (!device) {
-                return res.status(400).json({ error: 'Device identifier is required' });
+            if (!device || typeof device !== 'string' || !device.trim()) {
+                return sendError(res, 400, 'Device identifier is required');
             }
 
             // Normalize device identifier if it's a MAC address
             let normalizedMac;
             try {
-                normalizedMac = ValidationUtils.validateAndNormalizeMac(device);
+                normalizedMac = ValidationUtils.validateAndNormalizeMac(device.trim());
             } catch {
                 normalizedMac = null;
             }
@@ -582,27 +622,31 @@ class DeviceController {
 
             // Find device by friendly name OR normalized mac address
             const targetDevice = allDevices.find(d =>
-                (d.name === device) ||
+                (d.name === device.trim()) ||
                 (normalizedMac && d.mac === normalizedMac)
             );
 
             if (!targetDevice) {
-                return res.status(404).json({ error: `Device '${device}' not found` });
+                return sendError(res, 404, `Device '${device}' not found`);
             }
 
             if (!targetDevice.isFavorite) {
-                return res.status(400).json({ error: `Device '${device}' must be marked as favorite before sending WOL packets` });
+                return sendError(res, 400, `Device '${device}' must be marked as favorite before sending Wake-on-LAN packets`);
             }
 
-            const message = `Sending WoL packet to ${targetDevice.name || targetDevice.mac} (${targetDevice.mac})`;
+            const message = `Sending Wake-on-LAN packet to ${targetDevice.name || targetDevice.mac} (${targetDevice.mac})`;
 
             // Use helper to send WOL packet
-            await this.wakeDeviceByMac(targetDevice.mac);
-
-            res.json({ message: message });
+            const success = await this.wakeDeviceByMac(targetDevice.mac);
+            
+            if (success) {
+                return sendSuccess(res, { message: `Wake-on-LAN packet sent to ${targetDevice.name || targetDevice.mac}` });
+            } else {
+                return sendError(res, 503, 'Failed to send Wake-on-LAN packet');
+            }
         } catch (error) {
             console.error('WOL error:', error);
-            res.status(500).json({ error: error.message });
+            return sendError(res, 500, 'Failed to send Wake-on-LAN packet', error.message);
         }
     }
 

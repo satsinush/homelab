@@ -81,7 +81,8 @@ const System = () => {
 
             setLoading(false);
         } catch (err) {
-            showError('Unable to connect to API server');
+            // Use the specific error message from the API
+            showError(err.message || 'Unable to connect to API server');
             setLoading(false);
         }
     };

@@ -3,6 +3,7 @@ const Chat = require('../models/Chat');
 const SystemController = require('../controllers/systemController');
 const DeviceController = require('../controllers/deviceController');
 const { formatMacForDisplay } = require('../utils/formatters'); // <-- Correct import
+const { sendError, sendSuccess } = require('../utils/response'); // Utility for standardized responses
 
 const systemController = new SystemController();
 const deviceController = new DeviceController();
@@ -228,11 +229,19 @@ class ChatController {
     }
 
     // Send a message to Ollama and get response (with streaming support)
-    async sendMessage(req, res) {
+    async sendChatMessage(req, res) {
         try {
+            // Basic request validation
+            if (!req.body || typeof req.body !== 'object') {
+                return sendError(res, 400, 'Invalid request body');
+            }
+
             // Ensure model is initialized
             if (!this.modelName) {
                 await this.initializeModel();
+                if (!this.modelName) {
+                    return sendError(res, 503, 'Chat service is not available. No AI models found.');
+                }
             }
 
             const { message } = req.body;
@@ -241,24 +250,16 @@ class ChatController {
 
             if (!userId) {
                 console.log('Authentication failed - no userId in req.user');
-                return res.status(401).json({ 
-                    error: 'Authentication required',
-                    details: 'You must be logged in to use the chat feature'
-                });
+                return sendError(res, 401, 'Authentication required to use chat');
             }
 
             if (!message || typeof message !== 'string' || message.trim().length === 0) {
-                return res.status(400).json({ 
-                    error: 'Message is required and cannot be empty' 
-                });
+                return sendError(res, 400, 'Message is required and cannot be empty');
             }
 
             // Check character limit
             if (message.trim().length > 1000) {
-                return res.status(400).json({ 
-                    error: 'Message too long',
-                    details: 'Message must be 1000 characters or less'
-                });
+                return sendError(res, 400, 'Message must be 1000 characters or less');
             }
 
             console.log(`Chat request from user ${userId}: ${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`);
@@ -277,22 +278,22 @@ class ChatController {
 
             const responseMessage = response.trim();
             const parsedMessage = this.parseMessage(responseMessage);
-            const actionsExecuted = parsedMessage.actions ? await this.executeActions(parsedMessage.actions) : [];
+            const actionsExecuted = parsedMessage?.actions ? await this.executeActions(parsedMessage.actions) : [];
 
             // Add assistant response to conversation history
             this.addToConversationHistory(userId, {
                 role: 'assistant',
                 content: responseMessage,
-                message: parsedMessage.message || 'Error',
+                message: parsedMessage?.message || 'Error processing response',
                 actions: actionsExecuted
             });
 
             // Get conversation history for frontend
             const conversationHistory = this.getConversationHistory(userId);
 
-            res.json({
+            return sendSuccess(res, {
                 content: responseMessage,
-                message: parsedMessage.message || 'Error',
+                message: parsedMessage?.message || 'Error processing response',
                 conversationHistory: conversationHistory,
                 timestamp: new Date().toISOString(),
                 responseTime: responseTime,
@@ -308,14 +309,20 @@ class ChatController {
                 this.addToConversationHistory(userId, {
                     role: 'assistant',
                     content: `Message failed: ${error.message}`,
-                    message: "Error",
+                    message: "Error processing your request",
                     actions: []
                 });
             }
-            res.status(500).json({ 
-                error: 'Failed to process chat message',
-                details: error.message 
-            });
+
+            if (error.message.includes('ECONNREFUSED')) {
+                return sendError(res, 503, 'AI service is currently unavailable. Please try again later.');
+            }
+
+            if (error.message.includes('timeout')) {
+                return sendError(res, 408, 'Request timeout. Please try a shorter message or try again later.');
+            }
+
+            return sendError(res, 500, 'Failed to process chat message', error.message);
         }
     }    
 
@@ -355,7 +362,7 @@ class ChatController {
                 await this.initializeModel();
             }
 
-            res.json({
+            return sendSuccess(res, {
                 models: models.map(model => ({
                     name: model.name,
                     size: this.formatBytes(model.size || 0),
@@ -369,16 +376,10 @@ class ChatController {
             console.error('Get models error:', error);
             
             if (error.message.includes('ECONNREFUSED')) {
-                return res.status(503).json({ 
-                    error: 'Ollama service is not running',
-                    details: 'Please ensure Ollama is installed and running on localhost:11434'
-                });
+                return sendError(res, 503, 'AI service is not running. Please ensure Ollama is installed and running.');
             }
 
-            res.status(500).json({ 
-                error: 'Failed to get available models',
-                details: error.message 
-            });
+            return sendError(res, 500, 'Failed to retrieve available AI models', error.message);
         }
     }
 
@@ -394,29 +395,29 @@ class ChatController {
     // Change the current model
     async setModel(req, res) {
         try {
+            // Basic request validation
+            if (!req.body || typeof req.body !== 'object') {
+                return sendError(res, 400, 'Invalid request body');
+            }
+
             const { modelName } = req.body;
 
-            if (!modelName || typeof modelName !== 'string') {
-                return res.status(400).json({ 
-                    error: 'Model name is required' 
-                });
+            if (!modelName || typeof modelName !== 'string' || !modelName.trim()) {
+                return sendError(res, 400, 'Model name is required');
             }
 
             // Validate model exists
             const response = await this.makeOllamaRequest('/api/tags', 'GET');
             const availableModels = response.models?.map(model => model.name) || [];
 
-            if (!availableModels.includes(modelName)) {
-                return res.status(404).json({ 
-                    error: 'Model not found',
-                    availableModels: availableModels
-                });
+            if (!availableModels.includes(modelName.trim())) {
+                return sendError(res, 404, `Model '${modelName}' not found. Available models: ${availableModels.join(', ')}`);
             }
 
-            this.modelName = modelName;
+            this.modelName = modelName.trim();
 
-            res.json({
-                message: 'Model changed successfully',
+            return sendSuccess(res, {
+                message: 'AI model changed successfully',
                 currentModel: this.modelName,
                 maxTokens: this.maxTokens,
                 timestamp: new Date().toISOString()
@@ -424,10 +425,12 @@ class ChatController {
 
         } catch (error) {
             console.error('Set model error:', error);
-            res.status(500).json({ 
-                error: 'Failed to change model',
-                details: error.message 
-            });
+            
+            if (error.message.includes('ECONNREFUSED')) {
+                return sendError(res, 503, 'AI service is not running. Cannot change model.');
+            }
+
+            return sendError(res, 500, 'Failed to change AI model', error.message);
         }
     }
 
@@ -437,7 +440,7 @@ class ChatController {
             // Try to get version info from API
             const response = await this.makeOllamaRequest('/api/version', 'GET');
             
-            res.json({
+            return sendSuccess(res, {
                 status: 'online',
                 version: response.version || 'Unknown',
                 currentModel: this.modelName,
@@ -448,9 +451,9 @@ class ChatController {
         } catch (error) {
             console.error('Ollama status error:', error);
             
-            res.json({
+            return sendSuccess(res, {
                 status: 'offline',
-                error: error.message.includes('ECONNREFUSED') ? 'Ollama service not running' : 'Ollama not responding',
+                error: error.message.includes('ECONNREFUSED') ? 'AI service not running' : 'AI service not responding',
                 apiUrl: this.ollamaBaseUrl,
                 timestamp: new Date().toISOString()
             });
@@ -495,8 +498,8 @@ class ChatController {
             const after = this.chatModel.getConversationCount();
             const removed = before - after;
 
-            res.json({
-                message: 'Cleanup completed',
+            return sendSuccess(res, {
+                message: 'Conversation cleanup completed successfully',
                 conversationsRemoved: removed,
                 conversationsRemaining: after,
                 timestamp: new Date().toISOString()
@@ -504,10 +507,7 @@ class ChatController {
 
         } catch (error) {
             console.error('Manual cleanup error:', error);
-            res.status(500).json({ 
-                error: 'Failed to cleanup conversations',
-                details: error.message 
-            });
+            return sendError(res, 500, 'Failed to cleanup conversations', error.message);
         }
     }
 
@@ -516,18 +516,15 @@ class ChatController {
         try {
             const count = this.chatModel.clearAllConversations();
 
-            res.json({
-                message: 'All conversations cleared',
+            return sendSuccess(res, {
+                message: 'All conversations cleared successfully',
                 conversationsRemoved: count,
                 timestamp: new Date().toISOString()
             });
 
         } catch (error) {
             console.error('Clear all conversations error:', error);
-            res.status(500).json({ 
-                error: 'Failed to clear conversations',
-                details: error.message 
-            });
+            return sendError(res, 500, 'Failed to clear conversations', error.message);
         }
     }
 
@@ -545,26 +542,20 @@ class ChatController {
 
             if (!userId) {
                 console.log('Get conversation history - Authentication failed - no userId in req.user');
-                return res.status(401).json({ 
-                    error: 'Authentication required',
-                    details: 'You must be logged in to view conversation history'
-                });
+                return sendError(res, 401, 'Authentication required to view conversation history');
             }
 
             const conversationHistory = this.getConversationHistory(userId);
             console.log(`Retrieved conversation history for user ${userId}, total messages: ${conversationHistory.length}`);
             
-            res.json({
+            return sendSuccess(res, {
                 conversationHistory: conversationHistory,
                 timestamp: new Date().toISOString()
             });
 
         } catch (error) {
             console.error('Failed to get conversation history:', error);
-            res.status(500).json({ 
-                error: 'Failed to retrieve conversation history',
-                details: error.message 
-            });
+            return sendError(res, 500, 'Failed to retrieve conversation history', error.message);
         }
     }
 
@@ -575,25 +566,19 @@ class ChatController {
 
             if (!userId) {
                 console.log('Clear conversation - Authentication failed - no userId in req.user');
-                return res.status(401).json({ 
-                    error: 'Authentication required',
-                    details: 'You must be logged in to clear conversation'
-                });
+                return sendError(res, 401, 'Authentication required to clear conversation');
             }
 
             this.chatModel.deleteConversation(userId);
             
-            res.json({
+            return sendSuccess(res, {
                 message: 'Conversation cleared successfully',
                 timestamp: new Date().toISOString()
             });
 
         } catch (error) {
             console.error('Failed to clear conversation:', error);
-            res.status(500).json({ 
-                error: 'Failed to clear conversation',
-                details: error.message 
-            });
+            return sendError(res, 500, 'Failed to clear conversation', error.message);
         }
     }
 

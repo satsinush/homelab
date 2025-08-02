@@ -185,7 +185,8 @@ const Devices = () => {
             });
             showSuccess(`Wake-on-LAN sent to ${deviceName} successfully!`);
         } catch (err) {
-            showError(`Failed to send Wake-on-LAN to ${deviceName}`);
+            // Use the specific error message from the API
+            showError(err.message || `Failed to send Wake-on-LAN to ${deviceName}`);
         }
     };
 

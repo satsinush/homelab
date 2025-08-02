@@ -101,7 +101,8 @@ const Profile = () => {
 
         } catch (error) {
             console.error('Profile update failed:', error);
-            const errorMessage = error.response?.data?.error || 'Profile update failed';
+            // Use the error message from the standardized API response
+            const errorMessage = error.message || 'Profile update failed';
             setError(errorMessage);
             showError(errorMessage);
         } finally {

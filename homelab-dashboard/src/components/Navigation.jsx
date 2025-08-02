@@ -31,7 +31,8 @@ import {
     Person as PersonIcon,
     ExitToApp as LogoutIcon,
     AccountCircle as AccountIcon,
-    Chat as ChatIcon
+    Chat as ChatIcon,
+    Games as GamesIcon
 } from '@mui/icons-material';
 import { useThemeMode } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -48,6 +49,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }) => {
         { id: 'system', label: 'System', icon: <DashboardIcon />, path: '/system' },
         { id: 'devices', label: 'Devices', icon: <DevicesIcon />, path: '/devices' },
         { id: 'chat', label: 'AI Chat', icon: <ChatIcon />, path: '/chat' },
+        { id: 'wordgames', label: 'Word Games', icon: <GamesIcon />, path: '/wordgames' },
         { id: 'packages', label: 'Packages', icon: <PackagesIcon />, path: '/packages' },
         { id: 'settings', label: 'Settings', icon: <SettingsIcon />, path: '/settings' }
     ];

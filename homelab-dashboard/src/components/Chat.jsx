@@ -82,7 +82,8 @@ const Chat = () => {
             }
         } catch (error) {
             console.error('Failed to fetch models:', error);
-            showError('Failed to fetch available models');
+            // Use the specific error message from the API
+            showError(error.message || 'Failed to fetch available models');
         } finally {
             setIsLoading(false); // End loading after model fetch
         }
@@ -192,7 +193,8 @@ const Chat = () => {
                 };
                 return [...filteredMessages, errorMessage];
             });
-            showError('Failed to send message');
+            // Use the specific error message from the API
+            showError(error.message || 'Failed to send message');
         } finally {
             setIsLoading(false); // End global loading indicator
             // Ensure focus returns to input after send attempt
@@ -217,7 +219,8 @@ const Chat = () => {
             showSuccess(`Switched to model: ${newModel}`);
         } catch (error) {
             console.error('Failed to change model:', error);
-            showError('Failed to change model');
+            // Use the specific error message from the API
+            showError(error.message || 'Failed to change model');
         }
     };
 
@@ -234,7 +237,8 @@ const Chat = () => {
                     showSuccess('Conversation cleared');
                 } catch (error) {
                     console.error('Failed to clear conversation:', error);
-                    showError('Failed to clear conversation');
+                    // Use the specific error message from the API
+                    showError(error.message || 'Failed to clear conversation');
                 }
             }
         });

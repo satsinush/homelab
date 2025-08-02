@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const ValidationUtils = require('../utils/validation');
+const { sendError, sendSuccess } = require('../utils/response'); // Utility for standardized responses
 
 class UserController {
     constructor() {
@@ -11,31 +12,36 @@ class UserController {
         try {
             const { username, password } = req.body;
             
+            // Basic request validation
+            if (!req.body || typeof req.body !== 'object') {
+                return sendError(res, 400, 'Invalid request body');
+            }
+            
             // Validate input at controller level
             let validatedCredentials;
             try {
                 validatedCredentials = ValidationUtils.validateLoginCredentials(username, password);
             } catch (validationError) {
-                return res.status(400).json({ error: validationError.message });
+                return sendError(res, 400, validationError.message);
             }
             
             const user = await this.userModel.authenticate(validatedCredentials.username, validatedCredentials.password);
             
             if (!user) {
-                return res.status(401).json({ error: 'Invalid credentials' });
+                return sendError(res, 401, 'Invalid username or password');
             }
             
             const tokenData = this.userModel.createToken(user.id);
             
             if (!tokenData) {
-                return res.status(500).json({ error: 'Failed to create token' });
+                return sendError(res, 500, 'Failed to create authentication token');
             }
             
             // Store token in session
             req.session.token = tokenData.token;
             req.session.userId = user.id;
             
-            res.json({
+            return sendSuccess(res, {
                 message: 'Login successful',
                 user: {
                     id: user.id,
@@ -47,7 +53,7 @@ class UserController {
             });
         } catch (error) {
             console.error('Login error:', error);
-            res.status(500).json({ error: 'Internal server error' });
+            return sendError(res, 500, 'An unexpected error occurred during login', error.message);
         }
     }
 
@@ -57,20 +63,20 @@ class UserController {
             req.session.destroy((err) => {
                 if (err) {
                     console.error('Session destruction error:', err);
-                    return res.status(500).json({ error: 'Failed to logout' });
+                    return sendError(res, 500, 'Failed to logout properly');
                 }
-                res.json({ message: 'Logout successful' });
+                sendSuccess(res, { message: 'Logout successful' });
             });
         } catch (error) {
             console.error('Logout error:', error);
-            res.status(500).json({ error: 'Internal server error' });
+            return sendError(res, 500, 'An unexpected error occurred during logout', error.message);
         }
     }
 
     // Get current user info
     async getMe(req, res) {
         try {
-            res.json({
+            return sendSuccess(res, {
                 user: {
                     id: req.user.userId,
                     username: req.user.username,
@@ -79,7 +85,7 @@ class UserController {
             });
         } catch (error) {
             console.error('Get user error:', error);
-            res.status(500).json({ error: 'Internal server error' });
+            return sendError(res, 500, 'Failed to retrieve user information', error.message);
         }
     }
 
@@ -89,16 +95,16 @@ class UserController {
             const token = req.headers.authorization?.replace('Bearer ', '') || req.session.token;
             
             if (!token) {
-                return res.status(401).json({ error: 'No token provided' });
+                return sendError(res, 401, 'Authentication token is required');
             }
             
             const user = this.userModel.verifyToken(token);
             
             if (!user) {
-                return res.status(401).json({ error: 'Invalid or expired token' });
+                return sendError(res, 401, 'Invalid or expired authentication token');
             }
             
-            res.json({
+            return sendSuccess(res, {
                 valid: true,
                 user: {
                     id: user.userId,
@@ -108,7 +114,7 @@ class UserController {
             });
         } catch (error) {
             console.error('Token verification error:', error);
-            res.status(500).json({ error: 'Internal server error' });
+            return sendError(res, 500, 'Token verification failed', error.message);
         }
     }
 
@@ -117,6 +123,11 @@ class UserController {
         try {
             const { username, currentPassword, newPassword } = req.body;
             const userId = req.user.userId;
+            
+            // Basic request validation
+            if (!req.body || typeof req.body !== 'object') {
+                return sendError(res, 400, 'Invalid request body');
+            }
             
             // Validate input at controller level
             let validatedUsername, validatedNewPassword;
@@ -134,12 +145,12 @@ class UserController {
                 }
                 
             } catch (validationError) {
-                return res.status(400).json({ error: validationError.message });
+                return sendError(res, 400, validationError.message);
             }
             
             const updatedUser = await this.userModel.updateProfile(userId, validatedUsername, currentPassword, validatedNewPassword);
             
-            res.json({
+            return sendSuccess(res, {
                 message: 'Profile updated successfully',
                 user: updatedUser
             });
@@ -148,15 +159,18 @@ class UserController {
             
             // Business logic errors
             if (error.message === 'User not found') {
-                return res.status(404).json({ error: error.message });
+                return sendError(res, 404, 'User account not found');
             }
             
-            if (error.message.includes('Current password is incorrect') ||
-                error.message.includes('Username is already taken')) {
-                return res.status(400).json({ error: error.message });
+            if (error.message.includes('Current password is incorrect')) {
+                return sendError(res, 400, 'Current password is incorrect');
             }
             
-            res.status(500).json({ error: 'Internal server error' });
+            if (error.message.includes('Username is already taken')) {
+                return sendError(res, 400, 'Username is already taken');
+            }
+            
+            return sendError(res, 500, 'Failed to update profile', error.message);
         }
     }
 }

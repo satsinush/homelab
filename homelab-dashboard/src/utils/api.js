@@ -9,6 +9,18 @@ const handle401Error = () => {
 };
 
 /**
+ * API Error class for better error handling
+ */
+export class ApiError extends Error {
+    constructor(message, status, response = null) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+        this.response = response;
+    }
+}
+
+/**
  * Try API endpoints until one works using fetch
  * @param {string} path - The API path to call (e.g., '/devices', '/system-info')
  * @param {Object} options - Additional fetch options (method, headers, body, etc.)
@@ -38,32 +50,51 @@ export const tryApiCall = async (path, options = {}) => {
     }
 
     // Handle timeout
-    const timeout = options.timeout || 5000;
+    const timeout = options.timeout || 10000; // Increased default timeout to 10 seconds
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
     fetchOptions.signal = controller.signal;
 
-    const response = await fetch(getApiUrl(path), fetchOptions);
-    clearTimeout(timeoutId);
+    try {
+        const response = await fetch(getApiUrl(path), fetchOptions);
+        clearTimeout(timeoutId);
 
-    // Handle 401 errors
-    if (response.status === 401) {
-        handle401Error();
-        throw new Error('Unauthorized');
+        // Handle 401 errors
+        if (response.status === 401) {
+            handle401Error();
+            throw new ApiError('Authentication required', 401, response);
+        }
+
+        // Parse response data first to get error details
+        const contentType = response.headers.get('content-type');
+        let data;
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            data = await response.text();
+        }
+
+        // Handle non-ok responses with detailed error messages
+        if (!response.ok) {
+            const errorMessage = data?.error || data?.message || `HTTP ${response.status}`;
+            throw new ApiError(errorMessage, response.status, response);
+        }
+
+        return { data, response };
+
+    } catch (error) {
+        clearTimeout(timeoutId);
+        
+        // Handle network/timeout errors
+        if (error.name === 'AbortError') {
+            throw new ApiError('Request timeout - please try again', 408);
+        }
+        
+        if (error instanceof ApiError) {
+            throw error;
+        }
+        
+        // Network or other errors
+        throw new ApiError(`Network error: ${error.message}`, 0);
     }
-
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-    }
-
-    // Parse response data
-    const contentType = response.headers.get('content-type');
-    let data;
-    if (contentType && contentType.includes('application/json')) {
-        data = await response.json();
-    } else {
-        data = await response.text();
-    }
-
-    return { data, response };
 };

@@ -2,6 +2,7 @@ const { exec } = require('child_process');
 const os = require('os');
 const Settings = require('../models/Settings');
 const config = require('../config');
+const { sendError, sendSuccess } = require('../utils/response'); // Utility for standardized responses
 
 class SystemController {
     constructor() {
@@ -11,7 +12,7 @@ class SystemController {
     // Health check (no auth required)
     async healthCheck(req, res) {
         try {
-            res.json({ 
+            return sendSuccess(res, { 
                 status: 'OK', 
                 timestamp: new Date().toISOString(),
                 platform: os.platform(),
@@ -20,7 +21,7 @@ class SystemController {
             });
         } catch (error) {
             console.error('Health check error:', error);
-            res.status(500).json({ error: 'Internal server error' });
+            return sendError(res, 500, 'Health check failed', error.message);
         }
     }
 
@@ -28,21 +29,29 @@ class SystemController {
     async getSettings(req, res) {
         try {
             const settings = this.settingsModel.get();
-            res.json({ settings: settings });
+            return sendSuccess(res, { settings: settings });
         } catch (error) {
             console.error('Get settings error:', error);
-            res.status(500).json({ error: 'Failed to get settings' });
+            return sendError(res, 500, 'Failed to retrieve settings', error.message);
         }
     }
 
     // Update server settings
     async updateSettings(req, res) {
         try {
+            // Basic request validation
+            if (!req.body || typeof req.body !== 'object') {
+                return sendError(res, 400, 'Invalid request body');
+            }
+
             const updatedSettings = this.settingsModel.update(req.body);
-            res.json({ message: 'Settings updated successfully', settings: updatedSettings });
+            return sendSuccess(res, { 
+                message: 'Settings updated successfully', 
+                settings: updatedSettings 
+            });
         } catch (error) {
             console.error('Update settings error:', error);
-            res.status(500).json({ error: `Failed to update settings: ${error.message}` });
+            return sendError(res, 500, 'Failed to update settings', error.message);
         }
     }
 
@@ -50,13 +59,10 @@ class SystemController {
     async getSystemInfo(req, res) {
         try {
             const systemInfo = await this.getCombinedSystemInfo();
-            res.json(systemInfo);
+            return sendSuccess(res, systemInfo);
         } catch (error) {
             console.error('Get system info error:', error);
-            res.status(500).json({ 
-                error: 'Failed to get system information',
-                details: error.message 
-            });
+            return sendError(res, 500, 'Failed to retrieve system information', error.message);
         }
     }
 
@@ -64,13 +70,10 @@ class SystemController {
     async getPackages(req, res) {
         try {
             const packageInfo = await this.getPackageInfo();
-            res.json(packageInfo);
+            return sendSuccess(res, packageInfo);
         } catch (error) {
             console.error('Get packages error:', error);
-            res.status(500).json({ 
-                error: 'Failed to fetch package information',
-                details: error.message 
-            });
+            return sendError(res, 500, 'Failed to retrieve package information', error.message);
         }
     }
 
