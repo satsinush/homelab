@@ -4,6 +4,7 @@ const SystemController = require('../controllers/systemController');
 const DeviceController = require('../controllers/deviceController');
 const { formatMacForDisplay } = require('../utils/formatters'); // <-- Correct import
 const { sendError, sendSuccess } = require('../utils/response'); // Utility for standardized responses
+const config = require('../config');
 
 const systemController = new SystemController();
 const deviceController = new DeviceController();
@@ -12,7 +13,7 @@ class ChatController {
     constructor() {
         this.modelName = null; // Will be set dynamically
         this.timeout = 300000; // 5 minutes
-        this.ollamaBaseUrl = 'http://localhost:11434'; // Default Ollama API URL
+        this.ollamaBaseUrl = config.ollama.url; // Default Ollama API URL
         this.db = DatabaseModel.getDatabase(); // Database instance
         this.chatModel = new Chat(); // Chat model instance
         this.maxTokens = 2048; // Maximum tokens for context (conservative estimate for most models)

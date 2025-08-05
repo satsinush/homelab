@@ -55,6 +55,9 @@ const config = {
     netdata: {
         url: process.env.NETDATA_URL || 'http://localhost:19999'
     },
+    ollama:{
+        url: process.env.OLLAMA_URL || 'http://localhost:11434'
+    },
     defaultSettings: DEFAULT_SETTINGS
 };
 

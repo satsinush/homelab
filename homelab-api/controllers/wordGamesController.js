@@ -13,7 +13,16 @@ class WordGamesController {
     // Solve Letter Boxed puzzle
     async solveLetterBoxed(req, res) {
         try {
-            const { letters, maxDepth, minWordLength, minUniqueLetters, pruneRedundantPaths, pruneDominatedClasses } = req.body;
+            const {
+                letters,
+                maxDepth,
+                minWordLength,
+                minUniqueLetters,
+                pruneRedundantPaths,
+                pruneDominatedClasses,
+                start = 0,
+                end = 100
+            } = req.body;
 
             // Basic request validation
             if (!req.body || typeof req.body !== 'object') {
@@ -70,16 +79,33 @@ class WordGamesController {
                 return sendError(res, 400, 'Prune dominated classes must be 0 or 1');
             }
 
-            // Build command with all parameters
-            const command = `${this.executablePath} letterboxed ${cleanLetters} 0 ${depth} ${wordLen} ${uniqueLetters} ${pruneRedundant} ${pruneDominated}`;
-            
-            console.log(`Executing Letter Boxed solver: ${command}`);
+            // Build command with flags
+            const flags = [
+                `--mode letterboxed`,
+                `--letters ${cleanLetters}`,
+                `--maxDepth ${depth}`,
+                `--minWordLength ${wordLen}`,
+                `--minUniqueLetters ${uniqueLetters}`,
+                `--pruneRedundantPaths ${pruneRedundant}`,
+                `--pruneDominatedClasses ${pruneDominated}`
+            ].join(' ');
 
-            const result = await this.executeCommand(command);
-            
+            // First, get the total number of results
+            const countCommand = `${this.executablePath} ${flags}`;
+            console.log(`Executing Letter Boxed solver for count: ${countCommand}`);
+            const countResult = await this.executeCommand(countCommand);
+            const totalFound = parseInt(countResult.stdout.trim());
+            if (isNaN(totalFound)) {
+                return sendError(res, 500, 'Failed to parse result count from solver');
+            }
+
+            // Now, read the results for the requested page
+            const readCommand = `${this.executablePath} --mode read --start ${start} --end ${end}`;
+            console.log(`Reading Letter Boxed results: ${readCommand}`);
+            const readResult = await this.executeCommand(readCommand);
+
             // Parse the output into solutions
-            const allSolutions = this.parseWordGameOutput(result.stdout);
-            const totalFound = result.stdout.split('\n').filter(line => line.trim().length > 0 && /^[a-zA-Z\s\-,]+$/.test(line.trim())).length;
+            const allSolutions = this.parseWordGameOutput(readResult.stdout);
 
             return sendSuccess(res, {
                 success: true,
@@ -93,8 +119,10 @@ class WordGamesController {
                 solutions: allSolutions,
                 totalSolutions: allSolutions.length,
                 actualTotalFound: totalFound,
-                isLimited: totalFound > 100,
-                executionTime: result.executionTime
+                isLimited: totalFound > end,
+                executionTime: readResult.executionTime,
+                start,
+                end
             });
 
         } catch (error) {
@@ -115,7 +143,7 @@ class WordGamesController {
     // Solve Spelling Bee puzzle
     async solveSpellingBee(req, res) {
         try {
-            const { letters } = req.body;
+            const { letters, start = 0, end = 100 } = req.body;
 
             // Basic request validation
             if (!req.body || typeof req.body !== 'object') {
@@ -144,15 +172,28 @@ class WordGamesController {
                 return sendError(res, 400, 'All letters must be different for Spelling Bee');
             }
 
-            const command = `${this.executablePath} spellingbee ${cleanLetters}`;
-            
-            console.log(`Executing Spelling Bee solver: ${command}`);
+            // Build command with flags
+            const flags = [
+                `--mode spellingbee`,
+                `--letters ${cleanLetters}`
+            ].join(' ');
 
-            const result = await this.executeCommand(command);
-            
+            // First, get the total number of results
+            const countCommand = `${this.executablePath} ${flags}`;
+            console.log(`Executing Spelling Bee solver for count: ${countCommand}`);
+            const countResult = await this.executeCommand(countCommand);
+            const totalFound = parseInt(countResult.stdout.trim());
+            if (isNaN(totalFound)) {
+                return sendError(res, 500, 'Failed to parse result count from solver');
+            }
+
+            // Now, read the results for the requested page
+            const readCommand = `${this.executablePath} --mode read --start ${start} --end ${end}`;
+            console.log(`Reading Spelling Bee results: ${readCommand}`);
+            const readResult = await this.executeCommand(readCommand);
+
             // Parse the output into solutions
-            const allSolutions = this.parseWordGameOutput(result.stdout);
-            const totalFound = result.stdout.split('\n').filter(line => line.trim().length > 0 && /^[a-zA-Z\s\-,]+$/.test(line.trim())).length;
+            const allSolutions = this.parseWordGameOutput(readResult.stdout);
 
             return sendSuccess(res, {
                 success: true,
@@ -161,8 +202,10 @@ class WordGamesController {
                 solutions: allSolutions,
                 totalSolutions: allSolutions.length,
                 actualTotalFound: totalFound,
-                isLimited: totalFound > 100,
-                executionTime: result.executionTime
+                isLimited: totalFound > end,
+                executionTime: readResult.executionTime,
+                start,
+                end
             });
 
         } catch (error) {
@@ -207,6 +250,36 @@ class WordGamesController {
         } catch (error) {
             console.error('Word games status check error:', error);
             return sendError(res, 500, 'Failed to check word games status', error.message);
+        }
+    }
+
+    // Read a section of results from the temp file
+    async readResults(req, res) {
+        try {
+            const { start = 0, end = 100 } = req.body;
+
+            // Validate input
+            if (isNaN(start) || isNaN(end) || start < 0 || end <= start) {
+                return sendError(res, 400, 'Invalid start/end parameters');
+            }
+
+            // Build read command
+            const readCommand = `${this.executablePath} --mode read --start ${start} --end ${end}`;
+            console.log(`Reading results: ${readCommand}`);
+            const readResult = await this.executeCommand(readCommand);
+
+            // Parse the output into solutions
+            const solutions = this.parseWordGameOutput(readResult.stdout);
+
+            return sendSuccess(res, {
+                solutions,
+                start,
+                end,
+                executionTime: readResult.executionTime
+            });
+        } catch (error) {
+            console.error('Read results error:', error);
+            return sendError(res, 500, 'Failed to read results', error.message);
         }
     }
 

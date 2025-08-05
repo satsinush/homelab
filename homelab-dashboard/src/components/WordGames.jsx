@@ -107,7 +107,10 @@ const WordGames = () => {
         }
     };
 
-    const solveLetterBoxed = async () => {
+    const [startIdx, setStartIdx] = useState(0);
+    const [endIdx, setEndIdx] = useState(100);
+
+    const solveLetterBoxed = async (start = 0, end = 100) => {
         // Minimal client-side validation - just check if letters are provided
         if (!letterBoxedLetters.trim()) {
             showError('Please enter letters for Letter Boxed');
@@ -116,18 +119,22 @@ const WordGames = () => {
 
         setIsLoading(true);
         setSolutions([]);
+        setStartIdx(start);
+        setEndIdx(end);
 
         try {
             const config = getCurrentConfig();
             const response = await tryApiCall('/wordgames/letterboxed', {
                 method: 'POST',
                 data: {
-                    letters: letterBoxedLetters.trim(), // Let server handle cleaning and validation
+                    letters: letterBoxedLetters.trim(),
                     maxDepth: config.maxDepth,
                     minWordLength: config.minWordLength,
                     minUniqueLetters: config.minUniqueLetters,
                     pruneRedundantPaths: config.pruneRedundantPaths,
-                    pruneDominatedClasses: config.pruneDominatedClasses
+                    pruneDominatedClasses: config.pruneDominatedClasses,
+                    start,
+                    end
                 }
             });
 
@@ -140,7 +147,9 @@ const WordGames = () => {
                 actualTotalFound: response.data.actualTotalFound,
                 isLimited: response.data.isLimited,
                 executionTime: response.data.executionTime,
-                configDetails: config
+                configDetails: config,
+                start: response.data.start,
+                end: response.data.end
             });
 
             const message = response.data.isLimited
@@ -156,7 +165,7 @@ const WordGames = () => {
         }
     };
 
-    const solveSpellingBee = async () => {
+    const solveSpellingBee = async (start = 0, end = 100) => {
         // Minimal client-side validation - just check if letters are provided
         if (!spellingBeeLetters.trim()) {
             showError('Please enter letters for Spelling Bee');
@@ -165,12 +174,16 @@ const WordGames = () => {
 
         setIsLoading(true);
         setSolutions([]);
+        setStartIdx(start);
+        setEndIdx(end);
 
         try {
             const response = await tryApiCall('/wordgames/spellingbee', {
                 method: 'POST',
                 data: {
-                    letters: spellingBeeLetters.trim() // Let server handle cleaning and validation
+                    letters: spellingBeeLetters.trim(),
+                    start,
+                    end
                 }
             });
 
@@ -181,7 +194,9 @@ const WordGames = () => {
                 totalSolutions: response.data.totalSolutions,
                 actualTotalFound: response.data.actualTotalFound,
                 isLimited: response.data.isLimited,
-                executionTime: response.data.executionTime
+                executionTime: response.data.executionTime,
+                start: response.data.start,
+                end: response.data.end
             });
 
             const message = response.data.isLimited
@@ -390,6 +405,33 @@ const WordGames = () => {
         setSolutions([]);
         setLastGameType(null);
         setLastGameData(null);
+    };
+
+    const readMoreResults = async (start, end, gameType) => {
+        setIsLoading(true);
+        try {
+            const response = await tryApiCall('/wordgames/read', {
+                method: 'POST',
+                data: { start, end }
+            });
+            setSolutions(prev => [...prev, ...response.data.solutions]);
+            setLastGameData(prev => ({
+                ...prev,
+                end: end
+            }));
+        } catch (error) {
+            showError(error.message || 'Failed to load more results');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleLoadMore = async () => {
+        const newStart = lastGameData?.end || 0;
+        const newEnd = newStart + 100;
+        if (lastGameType === 'letterboxed' || lastGameType === 'spellingbee') {
+            await readMoreResults(newStart, newEnd, lastGameType);
+        }
     };
 
     return (
@@ -601,9 +643,10 @@ const WordGames = () => {
                                                 </FormControl>
                                             </Grid>
                                         </Grid>
-                                    </Box>                                    <Button
+                                    </Box>
+                                    <Button
                                         variant="contained"
-                                        onClick={solveLetterBoxed}
+                                        onClick={() => solveLetterBoxed()}
                                         disabled={isLoading || gameStatus?.status !== 'available' || !letterBoxedLetters.trim() || !isConfigValid()}
                                         startIcon={isLoading && activeTab === 0 ? <CircularProgress size={20} /> : <PlayIcon />}
                                         fullWidth
@@ -677,7 +720,7 @@ const WordGames = () => {
                                 <Stack spacing={2}>
                                     <Button
                                         variant="contained"
-                                        onClick={solveSpellingBee}
+                                        onClick={() => solveSpellingBee()}
                                         disabled={isLoading || gameStatus?.status !== 'available' || !spellingBeeLetters.trim()}
                                         startIcon={isLoading && activeTab === 1 ? <CircularProgress size={20} /> : <PlayIcon />}
                                         fullWidth
@@ -744,45 +787,53 @@ const WordGames = () => {
                                         `${lastGameData.actualTotalFound} solutions (showing first 100)` :
                                         `${lastGameData.totalSolutions} solutions`} in {lastGameData.executionTime}ms
                                 </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    Showing {lastGameData.start}-{Math.min(lastGameData.end, lastGameData.actualTotalFound)} of {lastGameData.actualTotalFound} solutions
+                                </Typography>
                             </Box>
                         )}
 
-                        {lastGameData && lastGameData.isLimited && (
-                            <Alert severity="info" sx={{ mb: 2 }}>
-                                Results limited to 100 solutions for better performance.
-                                Total found: {lastGameData.actualTotalFound}
-                            </Alert>
-                        )}
-
                         {solutions.length > 0 ? (
-                            <Paper
-                                variant="outlined"
-                                sx={{
-                                    maxHeight: 400,
-                                    overflowY: 'auto',
-                                    bgcolor: 'background.default'
-                                }}
-                            >
-                                <List dense>
-                                    {solutions.map((solution, index) => (
-                                        <React.Fragment key={index}>
-                                            <ListItem
-                                                onClick={() => copyToClipboard(solution)}
-                                                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
-                                            >
-                                                <ListItemText
-                                                    primary={solution}
-                                                    primaryTypographyProps={{
-                                                        fontFamily: 'monospace',
-                                                        fontSize: '0.875rem'
-                                                    }}
-                                                />
-                                            </ListItem>
-                                            {index < solutions.length - 1 && <Divider />}
-                                        </React.Fragment>
-                                    ))}
-                                </List>
-                            </Paper>
+                            <>
+                                <Paper
+                                    variant="outlined"
+                                    sx={{
+                                        maxHeight: 400,
+                                        overflowY: 'auto',
+                                        bgcolor: 'background.default'
+                                    }}
+                                >
+                                    <List dense>
+                                        {solutions.map((solution, index) => (
+                                            <React.Fragment key={index}>
+                                                <ListItem
+                                                    onClick={() => copyToClipboard(solution)}
+                                                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
+                                                >
+                                                    <ListItemText
+                                                        primary={solution}
+                                                        primaryTypographyProps={{
+                                                            fontFamily: 'monospace',
+                                                            fontSize: '0.875rem'
+                                                        }}
+                                                    />
+                                                </ListItem>
+                                                {index < solutions.length - 1 && <Divider />}
+                                            </React.Fragment>
+                                        ))}
+                                    </List>
+                                </Paper>
+                                {lastGameData && lastGameData.end < lastGameData.actualTotalFound && (
+                                    <Button
+                                        variant="contained"
+                                        onClick={handleLoadMore}
+                                        disabled={isLoading}
+                                        sx={{ mt: 2 }}
+                                    >
+                                        Load More
+                                    </Button>
+                                )}
+                            </>
                         ) : (
                             <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                                 No solutions found yet. Try solving a puzzle above.
