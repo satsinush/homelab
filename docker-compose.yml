@@ -18,7 +18,6 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./ssl:/etc/ssl/private
       - ./ssl/nginx-all-sites.crt:/etc/ssl/certs/nginx-all-sites.crt:ro
       - ./ssl/nginx-all-sites.key:/etc/ssl/private/nginx-all-sites.key:ro
     networks:
