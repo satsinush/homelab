@@ -41,27 +41,15 @@ services:
       - "8080:80/tcp"
     environment:
       - TZ=America/Chicago
-      # --- Pi-hole FTL Configuration (FTLCONF_ format) ---
-      # Set upstream DNS servers
       - FTLCONF_dns_upstreams=unbound#53
-      
-      # Set the local DNS domain
       - FTLCONF_dns_domain=${DNS_DOMAIN}
-      
-      # Set PTR record mode
       - FTLCONF_dns_piholePTR=HOSTNAMEFQDN
-      
-      # Set webserver domain
       - FTLCONF_webserver_domain=${PIHOLE_WEB_HOSTNAME}
-      
-      # Set interface listening mode to ALL for container networking
       - FTLCONF_dns_listeningMode=ALL
-      
-      # Disable Pi-hole's built-in HTTPS since nginx handles SSL termination
       - FTLCONF_webserver_port=80
-
-      # Fix logging issues
       - DNSMASQ_LISTENING=all
+      - FTLCONF_webserver_api_password=password
+      - FTLCONF_dns_hosts=${HOMELAB_IP_ADDRESS} ${HOMELAB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PIHOLE_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${NETDATA_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${DASHBOARD_WEB_HOSTNAME}
     volumes:
       #- ./pihole/pihole.toml:/etc/pihole/pihole.toml
       - pihole_data:/etc/pihole/
