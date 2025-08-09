@@ -555,13 +555,14 @@ class DeviceController {
             if (!req.body || typeof req.body !== 'object') {
                 return sendError(res, 400, 'Invalid request body');
             }
+            console.log('Received WOL request:', req.body);
 
-            const { device, name, mac } = req.body;
+            const { device } = req.body;
 
             // Normalize device identifier if it's a MAC address
             let normalizedMac;
             try {
-                normalizedMac = ValidationUtils.validateAndNormalizeMac(mac);
+                normalizedMac = ValidationUtils.validateAndNormalizeMac(device.mac);
             } catch {
                 normalizedMac = null;
             }
@@ -571,26 +572,19 @@ class DeviceController {
 
             // Find device by friendly name OR normalized mac address
             const targetDevice = allDevices.find(d =>
-                (d.name === name) ||
+                (d.name === device.name) ||
                 (normalizedMac && d.mac === normalizedMac)
             );
 
-            if (!targetDevice) {
-                console.log(`Device '${name}' not found`);
-                return sendError(res, 404, `Device '${name}' not found`);
+            if (!targetDevice && !normalizedMac) {
+                console.log(`Device '${device.name}' not found`);
+                return sendError(res, 404, `Device '${device.name}' not found`);
             }
-
-            if (!targetDevice.isFavorite) {
-                return sendError(res, 400, `Device '${name}' must be marked as favorite before sending Wake-on-LAN packets`);
-            }
-
-            const message = `Sending Wake-on-LAN packet to ${targetDevice.name || targetDevice.mac} (${targetDevice.mac})`;
-
             // Use helper to send WOL packet
-            const success = await this.wakeDeviceByMac(targetDevice.mac);
-            
+            const success = await this.wakeDeviceByMac(targetDevice?.mac || normalizedMac);
+
             if (success) {
-                return sendSuccess(res, { message: `Wake-on-LAN packet sent to ${targetDevice.name || targetDevice.mac}` });
+                return sendSuccess(res, { message: `Wake-on-LAN packet sent to ${targetDevice?.name || normalizedMac}` });
             } else {
                 return sendError(res, 503, 'Failed to send Wake-on-LAN packet');
             }
@@ -603,19 +597,6 @@ class DeviceController {
     async wakeDeviceByMac(mac) {
         try {
             const normalizedMac = ValidationUtils.validateAndNormalizeMac(mac);
-            const allDevices = this.deviceModel.getAll();
-            // Find device by normalized mac address
-            const targetDevice = allDevices.find(d =>
-                d.mac === normalizedMac
-            );
-
-            if (!targetDevice) {
-                console.error(`Device with MAC ${mac} not found`);
-                targetDevice = {
-                    name: null,
-                    mac: normalizedMac
-                }
-            }
 
             // Convert MAC format for WOL (colon-separated)
             const macForWol = normalizedMac.match(/.{2}/g).join(':');
@@ -624,8 +605,6 @@ class DeviceController {
             const result = await this.hostApi.sendWakeOnLan(macForWol);
             
             if (result.success) {
-                const message = `WoL packet sent to ${targetDevice.name || targetDevice.mac} (${targetDevice.mac})`;
-                console.log(message);
                 return true;
             } else {
                 console.error(`WoL error for ${mac}:`, result.error || 'Unknown error');

@@ -178,13 +178,13 @@ const Devices = () => {
         try {
             const result = await tryApiCall('/wol', {
                 method: 'POST',
-                data: { device: device, name: device.name, mac: device.mac },
+                data: { device: device },
                 timeout: 10000
             });
-            showSuccess(`Wake-on-LAN sent to ${device.name} successfully!`);
+            showSuccess(`Wake-on-LAN sent successfully!`);
         } catch (err) {
             // Use the specific error message from the API
-            showError(err.message || `Failed to send Wake-on-LAN to ${device.name}`);
+            showError(err.message || 'Failed to send Wake-on-LAN!');
         }
     };
 
