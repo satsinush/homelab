@@ -74,9 +74,13 @@ services:
 
   # Unbound as a recursive DNS resolver
   unbound:
-    build: ./unbound
+    # Use the pre-built image directly
+    image: klutchell/unbound:latest
     container_name: unbound
     restart: unless-stopped
+    volumes:
+      - ./unbound/unbound.conf:/etc/unbound/custom.conf.d/unbound.conf:ro
+      - ./unbound/root.hints:/opt/unbound/etc/unbound/root.hints:ro
     networks:
       - homelab-net
 
