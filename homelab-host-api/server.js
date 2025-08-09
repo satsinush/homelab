@@ -174,6 +174,7 @@ app.post('/network/scan', (req, res) => {
     
     exec(cmd, { timeout }, (error, stdout, stderr) => {
         if (error) {
+            console.error('Error executing network scan:', error);
             return res.status(500).json({ 
                 success: false,
                 error: error.message, 
@@ -184,7 +185,8 @@ app.post('/network/scan', (req, res) => {
         
         // Parse the output into structured data
         const devices = parseNetworkScanResults(stdout, os.platform());
-        
+        console.log(devices);
+
         res.json({ 
             success: true,
             data: {

@@ -1,6 +1,6 @@
 *node_modules/
 *package-lock.json
-*.env
+.env
 docker-compose.override.yml
 # Ignore the SSL certificate directory
 ssl/
