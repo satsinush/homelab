@@ -121,7 +121,7 @@ function parsePackageResults(stdout, platform) {
 function getPlatformCommand(operation) {
     const commands = {
         networkScan: {
-            linux: `arp-scan --localnet --numeric --quiet`,
+            linux: `arp-scan --localnet --numeric`,
             windows: 'arp -a',
             darwin: 'arp -a',
             fallback: 'echo "Network scan not available on this platform"'
@@ -186,8 +186,9 @@ app.post('/network/scan', (req, res) => {
         }
         
         // Parse the output into structured data
+        console.log('Network scan output:', stdout);
         const devices = parseNetworkScanResults(stdout, os.platform());
-        console.log(devices);
+        console.log('Parsed devices:', devices);
 
         res.json({ 
             success: true,
