@@ -113,11 +113,11 @@ class NetdataService {
 
             if (data && data.data && data.data.length > 0) {
                 const memData = data.data[0];
-                // Netdata memory data: [timestamp, used, cached, buffers, free]
-                const used = (memData[1] || 0) * 1024 * 1024; // Convert MB to bytes
-                const cached = (memData[2] || 0) * 1024 * 1024;
-                const buffers = (memData[3] || 0) * 1024 * 1024;
-                const free = (memData[4] || 0) * 1024 * 1024;
+                // Netdata memory data: [timestamp,free, used, cached, buffers]
+                const free = (memData[1] || 0) * 1024 * 1024; // Convert MB to bytes
+                const used = (memData[2] || 0) * 1024 * 1024;
+                const cached = (memData[3] || 0) * 1024 * 1024;
+                const buffers = (memData[4] || 0) * 1024 * 1024;
                 const total = used + cached + buffers + free;
                 
                 return {
