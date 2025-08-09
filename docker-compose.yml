@@ -139,6 +139,8 @@ services:
       - "5000:5000"
     networks:
       - homelab-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - HOMELAB_API_JWT_SECRET=${HOMELAB_API_JWT_SECRET}
       - HOMELAB_API_SESSION_SECRET=${HOMELAB_API_SESSION_SECRET}
