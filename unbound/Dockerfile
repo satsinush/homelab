@@ -1,6 +1,6 @@
 # Use the mvance/unbound image as our starting point.
 # We now know this is Alpine-based for both ARM and x86-64 architectures.
-FROM mvance/unbound:latest
+FROM --platform=${BUILDPLATFORM} mvance/unbound:latest
 
 # --- Install tools and Download root.hints ---
 # Always use Alpine's 'apk' package manager.
