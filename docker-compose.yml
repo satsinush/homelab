@@ -1,0 +1,189 @@
+# docker-compose.yml
+networks:
+  homelab-net:
+    driver: bridge
+
+services:
+  # Nginx will act as a reverse proxy for your services
+  nginx:
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile
+      args:
+        - VITE_PIHOLE_WEB_HOSTNAME=${VITE_PIHOLE_WEB_HOSTNAME}
+        - VITE_NETDATA_WEB_HOSTNAME=${VITE_NETDATA_WEB_HOSTNAME}
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./ssl:/etc/ssl/private
+      - ./ssl/nginx-all-sites.crt:/etc/ssl/certs/nginx-all-sites.crt:ro
+      - ./ssl/nginx-all-sites.key:/etc/ssl/private/nginx-all-sites.key:ro
+    networks:
+      - homelab-net
+    depends_on:
+      - homelab-api
+    environment:
+      - HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
+      - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
+      - PIHOLE_WEB_HOSTNAME=${PIHOLE_WEB_HOSTNAME}
+      - NETDATA_WEB_HOSTNAME=${NETDATA_WEB_HOSTNAME}
+
+  # Pi-hole for network-wide ad blocking
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: unless-stopped
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "8080:80/tcp"
+    environment:
+      - TZ=America/Chicago
+      # --- Pi-hole FTL Configuration (FTLCONF_ format) ---
+      # Set upstream DNS servers
+      - FTLCONF_dns_upstreams=unbound#53
+      
+      # Set the local DNS domain
+      - FTLCONF_dns_domain=${DNS_DOMAIN}
+      
+      # Set PTR record mode
+      - FTLCONF_dns_piholePTR=HOSTNAMEFQDN
+      
+      # Set webserver domain
+      - FTLCONF_webserver_domain=${PIHOLE_WEB_HOSTNAME}
+      
+      # Set interface listening mode to ALL for container networking
+      - FTLCONF_dns_listeningMode=ALL
+      
+      # Disable Pi-hole's built-in HTTPS since nginx handles SSL termination
+      - FTLCONF_webserver_port=80
+
+      # Fix logging issues
+      - DNSMASQ_LISTENING=all
+    volumes:
+      #- ./pihole/pihole.toml:/etc/pihole/pihole.toml
+      - pihole_data:/etc/pihole/
+      - pihole_logs:/run/log/pihole/
+    networks:
+      - homelab-net
+    depends_on:
+      - unbound
+
+  # Unbound as a recursive DNS resolver
+  unbound:
+    build: ./unbound
+    container_name: unbound
+    restart: unless-stopped
+    networks:
+      - homelab-net
+
+  # RustDesk ID Server (hbbs)
+  rustdesk-id-server:
+    image: rustdesk/rustdesk-server:latest
+    container_name: rustdesk-id-server
+    # This command tells the container to run the ID server (hbbs)
+    # The -r option points it to your relay server using its service name
+    command: hbbs -r rustdesk-relay-server:21119
+    volumes:
+      - rustdesk-data:/root
+    networks:
+      - homelab-net
+    ports:
+      - "21115:21115"
+      - "21116:21116"
+      - "21116:21116/udp"
+      - "21117:21117"
+    restart: unless-stopped
+    depends_on:
+      - rustdesk-relay-server
+
+  # RustDesk Relay Server (hbbr)
+  rustdesk-relay-server:
+    image: rustdesk/rustdesk-server:latest
+    container_name: rustdesk-relay-server
+    # This command tells the container to run the Relay server (hbbr)
+    command: hbbr
+    volumes:
+      - rustdesk-data:/root
+    networks:
+      - homelab-net
+    ports:
+      - "21118:21118"
+      - "21119:21119"
+    restart: unless-stopped
+      
+  # Netdata for real-time system monitoring
+  netdata:
+    image: netdata/netdata:latest
+    container_name: netdata
+    hostname: ${HOMELAB_HOSTNAME}
+    restart: unless-stopped
+    ports:
+      - "19999:19999"
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+    networks:
+      - homelab-net
+
+  # Your custom Homelab Dashboard API
+  homelab-api:
+    container_name: homelab-api
+    restart: unless-stopped
+    build:
+      context: . # Use the project root as the build context
+      dockerfile: homelab-api/Dockerfile # Specify the path to the Dockerfile
+    volumes:
+      - api-data:/app/data
+      - word-games-data:/app/word_games/data
+    ports:
+      - "5000:5000"
+    networks:
+      - homelab-net
+    environment:
+      - HOMELAB_API_JWT_SECRET=${HOMELAB_API_JWT_SECRET}
+      - HOMELAB_API_SESSION_SECRET=${HOMELAB_API_SESSION_SECRET}
+      - ENVIRONMENT=${ENVIRONMENT}
+
+  # ddclient for dynamic DNS updates
+  ddclient:
+    image: linuxserver/ddclient:latest
+    container_name: ddclient
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ='America/Chicago'
+    volumes:
+      - ./ddclient:/config
+    networks:
+      - homelab-net
+
+  # ollama for running large language models
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - homelab-net
+
+# Docker will manage these volumes for persistent data storage
+volumes:
+  rustdesk-data:
+  api-data:
+  word-games-data:
+  ollama-data:
+  pihole_data:
+  pihole_logs:

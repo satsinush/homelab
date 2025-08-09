@@ -1,24 +1,46 @@
-const { exec } = require('child_process');
-const os = require('os');
 const Settings = require('../models/Settings');
 const config = require('../config');
+const HostApiService = require('../services/hostApiService');
+const NetdataService = require('../services/netdataService');
 const { sendError, sendSuccess } = require('../utils/response'); // Utility for standardized responses
 
 class SystemController {
     constructor() {
         this.settingsModel = new Settings();
+        this.hostApi = new HostApiService();
+        this.netdata = new NetdataService();
     }
 
     // Health check (no auth required)
     async healthCheck(req, res) {
         try {
-            return sendSuccess(res, { 
-                status: 'OK', 
+            // Get basic system info from Netdata instead of host API
+            let systemInfo = {
+                status: 'OK',
                 timestamp: new Date().toISOString(),
-                platform: os.platform(),
-                hostname: os.hostname(),
+                platform: 'unknown',
+                hostname: 'unknown',
                 version: '1.0.0'
-            });
+            };
+
+            try {
+                // Check if Netdata is available
+                const netdataAvailable = await this.netdata.isAvailable();
+                if (netdataAvailable) {
+                    const infoResult = await this.netdata.getSystemInfo();
+                    systemInfo.platform = infoResult.platform || 'unknown';
+                    systemInfo.hostname = infoResult.hostname || 'unknown';
+                    systemInfo.netdata = 'available';
+                } else {
+                    systemInfo.netdata = 'unavailable';
+                    console.warn('Netdata is not available for health check');
+                }
+            } catch (error) {
+                console.warn('Could not fetch system info from Netdata for health check:', error.message);
+                systemInfo.netdata = 'error';
+            }
+
+            return sendSuccess(res, systemInfo);
         } catch (error) {
             console.error('Health check error:', error);
             return sendError(res, 500, 'Health check failed', error.message);
@@ -79,157 +101,115 @@ class SystemController {
 
     // Internal methods (moved from SystemService)
 
-    // Get basic system information
+    // Get basic system information from Netdata
     async getBasicSystemInfo() {
-        return {
-            hostname: os.hostname(),
-            platform: os.platform(),
-            arch: os.arch(),
-            uptime: Math.floor(os.uptime()),
-            loadavg: os.loadavg(),
-            totalmem: os.totalmem(),
-            freemem: os.freemem(),
-            cpus: os.cpus(),
-            memory: {
-                total: os.totalmem(),
-                used: os.totalmem() - os.freemem(),
-                free: os.freemem()
-            }
-        };
-    }
-
-    // Get resource usage
-    async getResourceUsage() {
-        return new Promise((resolve) => {
-            const totalMem = os.totalmem();
-            const freeMem = os.freemem();
-            const usedMem = totalMem - freeMem;
-            const cpus = os.cpus();
-            const loadAvg = os.loadavg();
+        try {
+            // Get system info from Netdata instead of host API
+            const systemInfo = await this.netdata.getSystemInfo();
+            return systemInfo;
+        } catch (error) {
+            console.error('Netdata system info fetch error:', error);
             
-            // Get disk usage
-            exec('df /', (error, stdout) => {
-                let diskInfo = { total: 0, used: 0, free: 0, percentage: 0 };
-                
-                if (!error && stdout) {
-                    const lines = stdout.trim().split('\n');
-                    if (lines.length > 1) {
-                        const diskLine = lines[1].split(/\s+/);
-                        if (diskLine.length >= 4) {
-                            const total = parseInt(diskLine[1]) * 1024; // Convert from KB to bytes
-                            const used = parseInt(diskLine[2]) * 1024;
-                            const available = parseInt(diskLine[3]) * 1024;
-                            const percentage = Math.round((used / total) * 100);
-                            
-                            diskInfo = {
-                                total: total,
-                                used: used,
-                                free: available,
-                                percentage: percentage
-                            };
-                        }
-                    }
-                }
-                
-                const resources = {
-                    cpu: {
-                        usage: Math.round(loadAvg[0] * 100 / cpus.length),
-                        cores: cpus.length,
-                        loadAvg: loadAvg
-                    },
-                    memory: {
-                        total: totalMem,
-                        used: usedMem,
-                        free: freeMem,
-                        percentage: Math.round((usedMem / totalMem) * 100)
-                    },
-                    disk: diskInfo
-                };
-                
-                resolve(resources);
-            });
-        });
+            // Fallback data if Netdata fails
+            return {
+                hostname: 'unknown',
+                platform: 'unknown',
+                uptime: 0,
+                memory: {
+                    total: 0,
+                    used: 0,
+                    free: 0
+                },
+                cpu: {
+                    cores: 1,
+                    model: 'Unknown'
+                },
+                source: 'fallback'
+            };
+        }
     }
 
-    // Get temperature information
+    // Get resource usage from Netdata
+    async getResourceUsage() {
+        try {
+            // Get all resource data from Netdata
+            const [cpuUsage, memoryUsage, diskUsage, loadAvg] = await Promise.allSettled([
+                this.netdata.getCpuUsage(),
+                this.netdata.getMemoryUsage(),
+                this.netdata.getDiskUsage(),
+                this.netdata.getLoadAverage()
+            ]);
+
+            return {
+                cpu: {
+                    usage: cpuUsage.status === 'fulfilled' ? cpuUsage.value.usage : 0,
+                },
+                memory: memoryUsage.status === 'fulfilled' ? memoryUsage.value : {
+                    total: 0,
+                    used: 0,
+                    free: 0,
+                    percentage: 0
+                },
+                disk: diskUsage.status === 'fulfilled' ? diskUsage.value : {
+                    total: 0,
+                    used: 0,
+                    available: 0,
+                    percentage: 0
+                },
+                source: 'netdata'
+            };
+        } catch (error) {
+            console.error('Netdata resource usage fetch error:', error);
+            
+            // Fallback to basic values if Netdata fails
+            return {
+                cpu: {
+                    usage: 0,
+                },
+                memory: {
+                    total: 0,
+                    used: 0,
+                    free: 0,
+                    percentage: 0
+                },
+                disk: {
+                    total: 0,
+                    used: 0,
+                    available: 0,
+                    percentage: 0
+                },
+                source: 'fallback'
+            };
+        }
+    }
+
+    // Get temperature information from Netdata
     async getTemperature() {
-        return new Promise((resolve) => {
-            exec('vcgencmd measure_temp', (error, stdout) => {
-                if (error) {
-                    resolve({ cpu: 'N/A', gpu: 'N/A' });
-                } else {
-                    const temp = stdout.match(/temp=([0-9.]+)/);
-                    resolve({
-                        cpu: temp ? parseFloat(temp[1]) : 'N/A',
-                        gpu: 'N/A'
-                    });
-                }
-            });
-        });
-    }
-
-    // Get service statuses
-    async getServices() {
-        // Use systemctl to list all services with state and preset, and check if active
-        return new Promise((resolve) => {
-            exec('systemctl list-unit-files --type=service --no-legend', async (error, stdout) => {
-                if (error) {
-                    console.error('Failed to list services:', error);
-                    resolve([]);
-                    return;
-                }
-                const lines = stdout.trim().split('\n');
-                // Each line: UNIT FILE [STATE] [PRESET]
-                const services = await Promise.all(
-                    lines
-                        .map(line => {
-                            // Split by whitespace, but allow spaces in UNIT FILE
-                            // The last two columns are STATE and PRESET, rest is UNIT FILE
-                            const parts = line.trim().split(/\s+/);
-                            if (parts.length < 2) return null;
-                            const preset = parts.length > 2 ? parts.pop() : '';
-                            const state = parts.pop();
-                            const name = parts.join(' ');
-                            return { name, state, preset };
-                        })
-                        .filter(Boolean)
-                        .map(async service => {
-                            // Check if the service is active
-                            return new Promise(resolveActive => {
-                                exec(`systemctl is-active ${service.name}`, (err, activeStdout) => {
-                                    service.active = !err && activeStdout.trim() === 'active';
-                                    resolveActive(service);
-                                });
-                            });
-                        })
-                );
-                resolve(services);
-            });
-        });
+        try {
+            // Get temperature from Netdata
+            const tempResult = await this.netdata.getTemperature();
+            return tempResult;
+        } catch (error) {
+            console.error('Netdata temperature fetch error:', error);
+            
+            return {
+                cpu: { main: null, cores: [], max: null },
+                system: { source: 'fallback', message: 'Temperature monitoring unavailable' }
+            };
+        }
     }
 
     // Get network statistics from Netdata
     async getNetworkStats() {
         try {
-            // Only use netdata for network statistics
-            const netdataStats = await this.getNetdataNetworkStats();
-            if (netdataStats) {
-                return netdataStats;
-            } else {
-                // Return empty result if Netdata is not available
-                console.log('Netdata network statistics not available');
-                return {
-                    interfaces: {},
-                    source: 'unavailable',
-                    timestamp: new Date().toISOString(),
-                    message: 'Netdata service not available for network statistics'
-                };
-            }
+            // Get network statistics from Netdata
+            const networkStats = await this.netdata.getNetworkStats();
+            return networkStats;
         } catch (error) {
-            console.error('Network stats error:', error);
+            console.error('Netdata network stats error:', error);
             return {
                 interfaces: {},
-                source: 'error',
+                source: 'fallback',
                 timestamp: new Date().toISOString(),
                 error: error.message
             };
@@ -255,7 +235,7 @@ class SystemController {
                 if (chartId.startsWith('net.') && !chartId.includes('packets')) {
                     const interfaceName = chartId.replace('net.', '');
                     // Skip virtual interfaces
-                    if (interfaceName.includes('lo') || interfaceName.includes('docker')) {
+                    if (interfaceName.includes('lo') || interfaceName.includes('docker') || interfaceName.includes('veth')) {
                         continue;
                     }
                     try {
@@ -305,66 +285,162 @@ class SystemController {
         }
     }
 
-    // Get combined system information
+    // Get combined system information from Netdata
     async getCombinedSystemInfo() {
         const startTime = Date.now();
         
         try {
-            const [systemInfoResult, resourcesResult, temperatureResult, servicesResult, networkResult] = await Promise.allSettled([
+            // Get all system data from Netdata
+            const [systemInfoResult, resourcesResult, temperatureResult, networkResult] = await Promise.allSettled([
                 this.getBasicSystemInfo(),
                 this.getResourceUsage(),
                 this.getTemperature(),
-                this.getServices(),
-                this.getNetworkStats()
+                this.getNetworkStats(),
             ]);
             
-            // Extract results from Promise.allSettled
-            const systemInfo = systemInfoResult.status === 'fulfilled' ? systemInfoResult.value : null;
-            const resources = resourcesResult.status === 'fulfilled' ? resourcesResult.value : null;
-            const temperature = temperatureResult.status === 'fulfilled' ? temperatureResult.value : { cpu: 'N/A', gpu: 'N/A' };
-            const services = servicesResult.status === 'fulfilled' ? servicesResult.value : [];
-            const network = networkResult.status === 'fulfilled' ? networkResult.value : null;
+            // Extract results from Promise.allSettled with better error handling
+            const systemInfo = systemInfoResult.status === 'fulfilled' ? systemInfoResult.value : {
+                hostname: 'unknown',
+                platform: 'unknown',
+                uptime: 0,
+                memory: { total: 0, used: 0, free: 0 },
+                cpu: { cores: 1, model: 'Unknown' },
+                source: 'fallback'
+            };
+            
+            const resources = resourcesResult.status === 'fulfilled' ? resourcesResult.value : {
+                cpu: { usage: 0 },
+                memory: { total: 0, used: 0, free: 0, percentage: 0 },
+                disk: { total: 0, used: 0, available: 0, percentage: 0 },
+                source: 'fallback'
+            };
+            
+            const temperature = temperatureResult.status === 'fulfilled' ? temperatureResult.value : {
+                cpu: { main: null, cores: [], max: null },
+                system: { source: 'fallback', message: 'Temperature monitoring unavailable' }
+            };
+            
+            const network = networkResult.status === 'fulfilled' ? networkResult.value : {
+                interfaces: {},
+                source: 'fallback',
+                error: 'Network monitoring unavailable'
+            };
+            
+            // Log any failed promises for debugging
+            if (systemInfoResult.status === 'rejected') {
+                console.error('System info failed:', systemInfoResult.reason);
+            }
+            if (resourcesResult.status === 'rejected') {
+                console.error('Resources failed:', resourcesResult.reason);
+            }
+            if (temperatureResult.status === 'rejected') {
+                console.error('Temperature failed:', temperatureResult.reason);
+            }
+            if (networkResult.status === 'rejected') {
+                console.error('Network failed:', networkResult.reason);
+            }
             
             // Transform network data for frontend compatibility
             let transformedNetwork = null;
             if (network && network.interfaces) {
-                // Filter out 'total' interface for the interfaces display
                 const filteredInterfaces = Object.values(network.interfaces)
-                    .filter(iface => iface.name !== 'total' && iface.name !== 'Total Network')
+                    .filter(iface => 
+                        iface.name !== 'total' && 
+                        iface.name !== 'Total Network' && 
+                        !iface.name.includes('veth') &&
+                        iface.name !== 'docker0'
+                    )
                     .map(iface => ({
                         name: iface.name,
-                        downloadSpeed: iface.downloadSpeed || 0,  // Download speed in bytes/sec
-                        uploadSpeed: iface.uploadSpeed || 0,      // Upload speed in bytes/sec
+                        downloadSpeed: iface.downloadSpeed || 0,
+                        uploadSpeed: iface.uploadSpeed || 0,
                         active: iface.active || false
                     }));
                 
                 transformedNetwork = {
-                    ...network,
-                    interfaces: filteredInterfaces
+                    interfaces: filteredInterfaces,
+                    source: network.source || 'netdata',
+                    timestamp: network.timestamp || new Date().toISOString()
+                };
+            } else {
+                transformedNetwork = {
+                    interfaces: [],
+                    source: 'unavailable',
+                    timestamp: new Date().toISOString()
                 };
             }
+
+            const executionTime = Date.now() - startTime;
             
-            const endTime = Date.now();
-            const responseTime = endTime - startTime;
-            
-            return {
-                system: systemInfo,
+            // Return combined system information optimized for Netdata
+            const combinedSystemInfo = {
+                system: {
+                    hostname: systemInfo.hostname,
+                    platform: systemInfo.platform,
+                    uptime: systemInfo.uptime,
+                    source: systemInfo.source || 'netdata'
+                },
                 resources: {
-                    ...resources,
-                    network: transformedNetwork
+                    cpu: {
+                        usage: resources.cpu.usage,
+                        cores: systemInfo.cpu.cores,
+                        model: systemInfo.cpu.model
+                    },
+                    memory: {
+                        total: resources.memory.total,
+                        used: resources.memory.used,
+                        free: resources.memory.free,
+                        percentage: resources.memory.percentage,
+                        cached: resources.memory.cached || 0,
+                        buffers: resources.memory.buffers || 0
+                    },
+                    disk: {
+                        total: resources.disk.total,
+                        used: resources.disk.used,
+                        available: resources.disk.available,
+                        percentage: resources.disk.percentage,
+                        filesystem: resources.disk.filesystem || '/',
+                        mountPoint: resources.disk.mountPoint || '/'
+                    }
                 },
                 temperature: temperature,
-                services: services,
                 network: transformedNetwork,
-                metadata: {
-                    timestamp: new Date().toISOString(),
-                    responseTime: `${responseTime}ms`,
-                    endpoint: 'combined'
-                }
+                executionTime: executionTime,
+                timestamp: new Date().toISOString(),
+                dataSource: 'netdata'
             };
+            return combinedSystemInfo;
         } catch (error) {
-            console.error('Combined system endpoint error:', error);
-            throw error;
+            console.error('Combined system info error:', error);
+            const executionTime = Date.now() - startTime;
+
+            const combinedSystemInfo = {
+                system: {
+                    hostname: 'unknown',
+                    platform: 'unknown',
+                    uptime: 0,
+                    source: 'error'
+                },
+                resources: {
+                    cpu: { usage: 0, cores: 1, model: 'Unknown' },
+                    memory: { total: 0, used: 0, free: 0, percentage: 0, cached: 0, buffers: 0 },
+                    disk: { total: 0, used: 0, available: 0, percentage: 0, filesystem: '/', mountPoint: '/' }
+                },
+                temperature: {
+                    cpu: { main: null, cores: [], max: null },
+                    system: { source: 'error', message: 'System monitoring unavailable' }
+                },
+                network: {
+                    interfaces: [],
+                    source: 'error',
+                    timestamp: new Date().toISOString()
+                },
+                executionTime: executionTime,
+                timestamp: new Date().toISOString(),
+                dataSource: 'error',
+                error: error.message
+            };
+            return combinedSystemInfo;
         }
     }
 
@@ -426,76 +502,85 @@ class SystemController {
     }
 
     // Helper methods for package management
-    getInstalledPackages() {
-        return new Promise((resolve, reject) => {
-            exec('pacman -Q', { timeout: 30000 }, (error, stdout, stderr) => {
-                if (error) {
-                    console.error('Package list error:', error.message);
-                    reject(error);
-                    return;
-                }
+    async getInstalledPackages() {
+        try {
+            // Get installed packages from host API (now returns structured JSON)
+            const packagesResult = await this.hostApi.getInstalledPackages();
+            if (!packagesResult.success || !packagesResult.data || !packagesResult.data.packages) {
+                console.error('Package list error from host API');
+                return new Map();
+            }
 
-                const packages = new Map();
-                const lines = stdout.split('\n').filter(line => line.trim());
-                
-                for (const line of lines) {
-                    // pacman -Qe output format: "package-name version"
-                    const match = line.match(/^(.+?)\s+(.+?)$/);
-                    if (match) {
-                        const [, name, version] = match;
-                        packages.set(name.trim(), {
-                            name: name.trim(),
-                            currentVersion: version.trim(),
-                            newVersion: null,
-                            hasUpdate: false,
-                            status: 'installed'
-                        });
-                    }
-                }
-                
-                resolve(packages);
-            });
-        });
+            const packages = new Map();
+            const packageList = packagesResult.data.packages;
+            
+            for (const pkg of packageList) {
+                packages.set(pkg.name, {
+                    name: pkg.name,
+                    currentVersion: pkg.version,
+                    newVersion: null,
+                    hasUpdate: false,
+                    status: 'installed'
+                });
+            }
+            
+            return packages;
+        } catch (error) {
+            console.error('Package list error:', error.message);
+            return new Map();
+        }
     }
 
-    getPackageSyncTime() {
-        return new Promise((resolve) => {
-            exec('stat -c %Z /var/lib/pacman/sync/core.db', { timeout: 10000 }, (error, stdout, stderr) => {
-                if (error) {
-                    console.error('Package sync time error:', error.message);
-                    resolve(null);
-                    return;
-                }
-                
-                const timestamp = parseInt(stdout.trim());
+    async getPackageSyncTime() {
+        try {
+            // Get package sync time from host API (now returns structured JSON)
+            const syncResult = await this.hostApi.getPackageSyncTime();
+            if (!syncResult.success || !syncResult.data) {
+                console.error('Package sync time error from host API');
+                return null;
+            }
+            
+            const syncTime = syncResult.data.syncTime;
+            if (syncTime && syncTime !== 'Unknown') {
+                const timestamp = parseInt(syncTime);
                 if (!isNaN(timestamp)) {
-                    resolve(new Date(timestamp * 1000));
-                } else {
-                    resolve(null);
+                    return new Date(timestamp * 1000);
                 }
-            });
-        });
+                // Try to parse as date string
+                const parsedDate = new Date(syncTime);
+                if (!isNaN(parsedDate.getTime())) {
+                    return parsedDate;
+                }
+            }
+            return null;
+        } catch (error) {
+            console.error('Package sync time error:', error.message);
+            return null;
+        }
     }
 
-    getAvailableUpdates() {
-        return new Promise((resolve) => {
-            exec('pacman -Qu', { timeout: 30000 }, (error, stdout, stderr) => {
-                if (error) {
-                    // If error is just "no upgrades", that's okay
-                    if (error.code === 1 && !stdout.trim()) {
-                        resolve(new Map());
-                        return;
-                    }
-                    console.error('Package update check error:', error.message);
-                    resolve(new Map());
-                    return;
+    async getAvailableUpdates() {
+        try {
+            // Get available updates from host API (now returns structured JSON)
+            const updatesResult = await this.hostApi.getAvailableUpdates();
+            if (!updatesResult.success) {
+                // If it's just "no updates", that's okay
+                if (updatesResult.code === 1) {
+                    return new Map();
                 }
+                console.error('Package update check error from host API');
+                return new Map();
+            }
 
-                const updates = new Map();
-                const lines = stdout.split('\n').filter(line => line.trim());
+            const updates = new Map();
+            const updatesData = updatesResult.data?.updates;
+            
+            if (updatesData && updatesData !== 'No updates available') {
+                // Parse the updates string if it contains package info
+                const lines = updatesData.split('\n').filter(line => line.trim());
                 
                 for (const line of lines) {
-                    // pacman -Qu output format: "package-name old-version -> new-version"
+                    // Try to parse package update format: "package-name old-version -> new-version"
                     const match = line.match(/^(.+?)\s+(.+?)\s+->\s+(.+?)$/);
                     if (match) {
                         const [, name, currentVersion, newVersion] = match;
@@ -505,10 +590,13 @@ class SystemController {
                         });
                     }
                 }
-                
-                resolve(updates);
-            });
-        });
+            }
+            
+            return updates;
+        } catch (error) {
+            console.error('Package update check error:', error.message);
+            return new Map();
+        }
     }
 
     // Simple function for system prompt info (for use in chat system prompt)

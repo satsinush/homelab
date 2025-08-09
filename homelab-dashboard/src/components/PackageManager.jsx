@@ -46,7 +46,7 @@ const PackageManager = () => {
     const fetchPackages = async () => {
         setLoading(true);
         try {
-            const result = await tryApiCall('/packages');
+            const result = await tryApiCall('/packages', { 'timeout': 30000 });
             setPackages(result.data.packages || []);
             setLastSynced(result.data.lastSynced);
 

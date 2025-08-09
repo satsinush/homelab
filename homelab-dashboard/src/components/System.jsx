@@ -50,8 +50,8 @@ import { useNotification } from '../contexts/NotificationContext';
 const System = () => {
     const [systemInfo, setSystemInfo] = useState(null);
     const [resources, setResources] = useState(null);
-    const [services, setServices] = useState(null);
     const [temperature, setTemperature] = useState(null);
+    const [network, setNetwork] = useState(null);
     const [loading, setLoading] = useState(true);
     const [autoRefresh, setAutoRefresh] = useState(() => {
         // Load auto-refresh setting from localStorage, default to true
@@ -60,10 +60,6 @@ const System = () => {
     });
     const [refreshing, setRefreshing] = useState(false);
     const [tabValue, setTabValue] = useState(0);
-    const [serviceSearchTerm, setServiceSearchTerm] = useState('');
-    const [serviceStateFilter, setServiceStateFilter] = useState('all');
-    const [servicePresetFilter, setServicePresetFilter] = useState('all');
-    const [serviceActiveFilter, setServiceActiveFilter] = useState('all');
     const { showError } = useNotification();
 
     const fetchSystemData = async () => {
@@ -76,8 +72,8 @@ const System = () => {
             // Set all state from the combined response
             setSystemInfo(data.system);
             setResources(data.resources);
-            setServices(data.services);
-            setTemperature(data.temperature || { cpu: 'N/A', gpu: 'N/A' });
+            setTemperature(data.temperature);
+            setNetwork(data.network);
 
             setLoading(false);
         } catch (err) {
@@ -102,7 +98,6 @@ const System = () => {
                         // Update all state from combined response
                         if (systemData.resources) setResources(systemData.resources);
                         if (systemData.temperature) setTemperature(systemData.temperature);
-                        if (systemData.services) setServices(systemData.services);
                     }
                 } catch (err) {
                     // Don't show error for refresh failures
@@ -155,66 +150,6 @@ const System = () => {
         if (percentage < 80) return 'warning';
         return 'error';
     };
-
-    // Service filter logic
-    const filteredServices = React.useMemo(() => {
-        if (!services) return [];
-        // Sort: active desc, enabled asc, preset asc
-        const sorted = [...services].sort((a, b) => {
-            // 1. Active: true ("active") before false ("inactive")
-            if (a.active !== b.active) return b.active - a.active;
-
-            // 2. Enabled: "enabled" before "disabled" (and others after)
-            const enabledOrder = (val) => {
-                if (!val) return 2;
-                const v = val.toLowerCase();
-                if (v === "enabled" || v === "enabled-runtime" || v === "active") return 0;
-                if (v === "disabled") return 1;
-                return 2;
-            };
-            const aEnabled = enabledOrder(a.state);
-            const bEnabled = enabledOrder(b.state);
-            if (aEnabled !== bEnabled) return aEnabled - bEnabled;
-
-            // 3. Preset: "enabled" before "disabled" (and others after)
-            const presetOrder = (val) => {
-                if (!val) return 2;
-                const v = val.toLowerCase();
-                if (v === "enabled" || v === "enabled-runtime" || v === "active") return 0;
-                if (v === "disabled") return 1;
-                return 2;
-            };
-            const aPreset = presetOrder(a.preset);
-            const bPreset = presetOrder(b.preset);
-            if (aPreset !== bPreset) return aPreset - bPreset;
-
-            // 4. Alphabetical by name as fallback
-            return (a.name || '').localeCompare(b.name || '');
-        });
-        return sorted.filter(service => {
-            const matchesName = service.name?.toLowerCase().includes(serviceSearchTerm.toLowerCase());
-            const matchesState = serviceStateFilter === 'all' || service.state === serviceStateFilter;
-            const matchesPreset = servicePresetFilter === 'all' || (service.preset || '-') === servicePresetFilter;
-            const matchesActive = serviceActiveFilter === 'all' || (service.active ? 'active' : 'inactive') === serviceActiveFilter;
-            const hiddenState = service.state === 'static' || service.state === 'alias' || service.state === 'indirect' || service.state === 'generated';
-            return matchesName && matchesState && matchesPreset && matchesActive && !hiddenState;
-        });
-    }, [services, serviceSearchTerm, serviceStateFilter, servicePresetFilter, serviceActiveFilter]);
-
-    const uniqueServiceStates = React.useMemo(() => {
-        if (!filteredServices) return [];
-        return Array.from(new Set(filteredServices.map(s => s.state))).sort();
-    }, [filteredServices]);
-
-    const uniqueServicePresets = React.useMemo(() => {
-        if (!filteredServices) return [];
-        return Array.from(new Set(filteredServices.map(s => s.preset || '-'))).sort();
-    }, [filteredServices]);
-
-    const uniqueServiceActive = React.useMemo(() => {
-        if (!filteredServices) return [];
-        return Array.from(new Set(filteredServices.map(s => s.active ? 'active' : 'inactive')));
-    }, [filteredServices]);
 
     if (loading) {
         return (
@@ -371,19 +306,6 @@ const System = () => {
                             }}
                         />
                         <Tab
-                            icon={<ServiceIcon />}
-                            iconPosition="start"
-                            label="Services"
-                            id="system-tab-2"
-                            aria-controls="system-tabpanel-2"
-                            sx={{
-                                minWidth: { xs: 'auto', sm: 120 },
-                                '& .MuiTab-iconWrapper': {
-                                    display: { xs: 'none', sm: 'block' }
-                                }
-                            }}
-                        />
-                        <Tab
                             icon={<NetworkIcon />}
                             iconPosition="start"
                             label="Network"
@@ -476,8 +398,8 @@ const System = () => {
                                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                         <Typography variant="body2" color="text.secondary">CPU:</Typography>
                                                         <Chip
-                                                            label={`${temperature.cpu || 'N/A'}°C`}
-                                                            color={temperature.cpu > 75 ? 'error' : temperature.cpu > 60 ? 'warning' : 'success'}
+                                                            label={`${temperature.cpu?.main || 'N/A'}${temperature.cpu?.main && temperature.cpu?.main !== 'N/A' ? "°C" : ""}`}
+                                                            color={temperature.cpu?.main > 75 ? 'error' : temperature.cpu?.main > 60 ? 'warning' : 'success'}
                                                             variant="outlined"
                                                         />
                                                     </Box>
@@ -487,8 +409,8 @@ const System = () => {
                                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                             <Typography variant="body2" color="text.secondary">GPU:</Typography>
                                                             <Chip
-                                                                label={`${temperature.gpu}°C`}
-                                                                color={temperature.gpu > 75 ? 'error' : temperature.gpu > 60 ? 'warning' : 'success'}
+                                                                label={`${temperature.gpu?.main || 'N/A'}${temperature.gpu?.main && temperature.gpu?.main !== 'N/A' ? "°C" : ""}`}
+                                                                color={temperature.gpu?.main > 75 ? 'error' : temperature.gpu?.main > 60 ? 'warning' : 'success'}
                                                                 variant="outlined"
                                                             />
                                                         </Box>
@@ -529,7 +451,7 @@ const System = () => {
                                         {resources?.cpu ? (
                                             <Box>
                                                 <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1, color: 'primary.main' }}>
-                                                    {resources.cpu.usage ?? 'N/A'}%
+                                                    {Math.round(resources.cpu.usage ?? 0)}%
                                                 </Typography>
                                                 <LinearProgress
                                                     variant="determinate"
@@ -646,7 +568,7 @@ const System = () => {
                                                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                                         <Typography variant="body2" color="text.secondary">Free:</Typography>
                                                         <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                            {formatBytes(resources.disk.free ?? 0)}
+                                                            {formatBytes(resources.disk.available ?? 0)}
                                                         </Typography>
                                                     </Box>
                                                 </Box>
@@ -728,7 +650,7 @@ const System = () => {
                     )}
                 </Box>
 
-                {/* Services Tab */}
+                {/* Network Tab */}
                 <Box
                     role="tabpanel"
                     hidden={tabValue !== 2}
@@ -737,205 +659,8 @@ const System = () => {
                 >
                     {tabValue === 2 && (
                         <Grid container spacing={3}>
-                            <Grid size={12}>
-                                <Card sx={{ height: '100%' }}>
-                                    <CardContent>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                <ServiceIcon sx={{ mr: 1, color: 'primary.main' }} />
-                                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                    System Services
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                            List of all systemd services and their states.
-                                        </Typography>
-                                        {filteredServices ? (
-                                            <TableContainer component={Paper} sx={{ maxHeight: 600, overflow: 'auto' }}>
-                                                <Table size="small" stickyHeader>
-                                                    <TableHead>
-                                                        <TableRow>
-                                                            <TableCell
-                                                                sx={{
-                                                                    fontWeight: 600,
-                                                                    bgcolor: 'background.paper',
-                                                                    pb: 1,
-                                                                    width: '30%',
-                                                                }}
-                                                            >
-                                                                Service Name
-                                                                <TextField
-                                                                    placeholder="Search services..."
-                                                                    value={serviceSearchTerm}
-                                                                    onChange={e => setServiceSearchTerm(e.target.value)}
-                                                                    size="small"
-                                                                    InputProps={{
-                                                                        startAdornment: (
-                                                                            <SearchIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
-                                                                        ),
-                                                                    }}
-                                                                    sx={{ mt: 1, width: '100%' }}
-                                                                />
-                                                            </TableCell>
-                                                            <TableCell
-                                                                sx={{
-                                                                    fontWeight: 600,
-                                                                    bgcolor: 'background.paper',
-                                                                    pb: 1,
-                                                                    width: '10%',
-                                                                }}
-                                                            >
-                                                                Active
-                                                                <FormControl size="small" sx={{ mt: 1, width: '100%' }}>
-                                                                    <Select
-                                                                        value={serviceActiveFilter}
-                                                                        onChange={e => setServiceActiveFilter(e.target.value)}
-                                                                        displayEmpty
-                                                                    >
-                                                                        <MenuItem value="all">All</MenuItem>
-                                                                        {uniqueServiceActive.map(val => (
-                                                                            <MenuItem key={val} value={val}>
-                                                                                {val.charAt(0).toUpperCase() + val.slice(1)}
-                                                                            </MenuItem>
-                                                                        ))}
-                                                                    </Select>
-                                                                </FormControl>
-                                                            </TableCell>
-                                                            <TableCell
-                                                                sx={{
-                                                                    fontWeight: 600,
-                                                                    bgcolor: 'background.paper',
-                                                                    pb: 1,
-                                                                    width: '10%',
-                                                                }}
-                                                            >
-                                                                Enabled
-                                                                <FormControl size="small" sx={{ mt: 1, width: '100%' }}>
-                                                                    <Select
-                                                                        value={serviceStateFilter}
-                                                                        onChange={e => setServiceStateFilter(e.target.value)}
-                                                                        displayEmpty
-                                                                    >
-                                                                        <MenuItem value="all">All</MenuItem>
-                                                                        {uniqueServiceStates.map(state => (
-                                                                            <MenuItem key={state} value={state}>
-                                                                                {state.charAt(0).toUpperCase() + state.slice(1)}
-                                                                            </MenuItem>
-                                                                        ))}
-                                                                    </Select>
-                                                                </FormControl>
-                                                            </TableCell>
-                                                            <TableCell
-                                                                sx={{
-                                                                    fontWeight: 600,
-                                                                    bgcolor: 'background.paper',
-                                                                    pb: 1,
-                                                                    width: '15%',
-                                                                }}
-                                                            >
-                                                                Preset
-                                                                <FormControl size="small" sx={{ mt: 1, width: '100%' }}>
-                                                                    <Select
-                                                                        value={servicePresetFilter}
-                                                                        onChange={e => setServicePresetFilter(e.target.value)}
-                                                                        displayEmpty
-                                                                    >
-                                                                        <MenuItem value="all">All</MenuItem>
-                                                                        {uniqueServicePresets.map(preset => (
-                                                                            <MenuItem key={preset} value={preset}>
-                                                                                {preset.charAt(0).toUpperCase() + preset.slice(1)}
-                                                                            </MenuItem>
-                                                                        ))}
-                                                                    </Select>
-                                                                </FormControl>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    </TableHead>
-                                                    <TableBody>
-                                                        {filteredServices.map((service, index) => (
-                                                            <TableRow key={service.name} hover>
-                                                                <TableCell>
-                                                                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
-                                                                        {service.name}
-                                                                    </Typography>
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <Chip
-                                                                        label={service.active ? 'Active' : 'Inactive'}
-                                                                        size="small"
-                                                                        color={service.active ? 'success' : 'default'}
-                                                                        variant="outlined"
-                                                                    />
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <Chip
-                                                                        label={service.state ? service.state.charAt(0).toUpperCase() + service.state.slice(1) : ''}
-                                                                        size="small"
-                                                                        color={
-                                                                            service.state === 'enabled' || service.state === 'enabled-runtime' || service.state === 'active'
-                                                                                ? 'info'
-                                                                                : service.state === 'disabled'
-                                                                                    ? 'default'
-                                                                                    : 'warning'
-                                                                        }
-                                                                        variant="outlined"
-                                                                    />
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <Chip
-                                                                        label={service.preset ? service.preset.charAt(0).toUpperCase() + service.preset.slice(1) : ''}
-                                                                        size="small"
-                                                                        color={
-                                                                            service.preset === 'enabled' || service.preset === 'enabled-runtime' || service.preset === 'active'
-                                                                                ? 'info'
-                                                                                : service.preset === 'disabled'
-                                                                                    ? 'default'
-                                                                                    : 'warning'
-                                                                        }
-                                                                        variant="outlined"
-                                                                    />
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </TableContainer>
-                                        ) : (
-                                            <Paper
-                                                variant="outlined"
-                                                sx={{
-                                                    p: 4,
-                                                    textAlign: 'center',
-                                                    bgcolor: 'action.hover'
-                                                }}
-                                            >
-                                                <Typography color="text.secondary" variant="h6" sx={{ mb: 1 }}>
-                                                    No services found
-                                                </Typography>
-                                                <Typography color="text.secondary" variant="body2">
-                                                    No systemd services detected on this system.
-                                                </Typography>
-                                            </Paper>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-                        </Grid>
-                    )}
-                </Box>
-
-                {/* Network Tab */}
-                <Box
-                    role="tabpanel"
-                    hidden={tabValue !== 3}
-                    id="system-tabpanel-3"
-                    aria-labelledby="system-tab-3"
-                >
-                    {tabValue === 3 && (
-                        <Grid container spacing={3}>
                             {/* Network Interfaces */}
-                            {resources?.network?.interfaces && resources.network.interfaces.length > 0 ? (
+                            {network?.interfaces && network.interfaces.length > 0 ? (
                                 <Grid size={12}>
                                     <Card>
                                         <CardContent>
@@ -944,9 +669,9 @@ const System = () => {
                                                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                                                     Network Interfaces
                                                 </Typography>
-                                                {resources.network?.source && (
+                                                {network?.source && (
                                                     <Chip
-                                                        label={`Source: ${resources.network.source}`}
+                                                        label={`Source: ${network.source}`}
                                                         size="small"
                                                         variant="outlined"
                                                         sx={{ ml: 'auto' }}
@@ -954,7 +679,7 @@ const System = () => {
                                                 )}
                                             </Box>
                                             <Grid container spacing={2}>
-                                                {resources.network.interfaces.map((iface, index) => (
+                                                {network.interfaces.map((iface, index) => (
                                                     <Grid size={{ xs: 12, md: 6, lg: 4 }} key={index}>
                                                         <Paper sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
                                                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>

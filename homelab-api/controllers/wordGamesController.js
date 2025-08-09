@@ -5,8 +5,9 @@ const { sendError, sendSuccess } = require('../utils/response'); // Utility for 
 
 class WordGamesController {
     constructor() {
-        // Path to the word_games executable (relative to word-games directory)
-        this.executablePath = './word_games';
+        // Path to the word_games executable
+        this.executableFile = 'word_games';
+        this.executableDir = path.join('/app/word_games');
         this.timeout = 30000; // 30 seconds timeout
     }
 
@@ -91,7 +92,7 @@ class WordGamesController {
             ].join(' ');
 
             // First, get the total number of results
-            const countCommand = `${this.executablePath} ${flags}`;
+            const countCommand = `${flags}`;
             console.log(`Executing Letter Boxed solver for count: ${countCommand}`);
             const countResult = await this.executeCommand(countCommand);
             const totalFound = parseInt(countResult.stdout.trim());
@@ -100,7 +101,7 @@ class WordGamesController {
             }
 
             // Now, read the results for the requested page
-            const readCommand = `${this.executablePath} --mode read --start ${start} --end ${end}`;
+            const readCommand = `--mode read --start ${start} --end ${end}`;
             console.log(`Reading Letter Boxed results: ${readCommand}`);
             const readResult = await this.executeCommand(readCommand);
 
@@ -179,7 +180,7 @@ class WordGamesController {
             ].join(' ');
 
             // First, get the total number of results
-            const countCommand = `${this.executablePath} ${flags}`;
+            const countCommand = `${flags}`;
             console.log(`Executing Spelling Bee solver for count: ${countCommand}`);
             const countResult = await this.executeCommand(countCommand);
             const totalFound = parseInt(countResult.stdout.trim());
@@ -188,7 +189,7 @@ class WordGamesController {
             }
 
             // Now, read the results for the requested page
-            const readCommand = `${this.executablePath} --mode read --start ${start} --end ${end}`;
+            const readCommand = `--mode read --start ${start} --end ${end}`;
             console.log(`Reading Spelling Bee results: ${readCommand}`);
             const readResult = await this.executeCommand(readCommand);
 
@@ -227,20 +228,20 @@ class WordGamesController {
     async getStatus(req, res) {
         try {
             // Test if the executable exists and responds
-            const command = `${this.executablePath} --help`;
+            const command = `--help`;
             
             try {
-                await this.executeCommand(command, 5000); // 5 second timeout for status check
+                await this.executeCommand(command, 10000); // 10 second timeout for status check
                 return sendSuccess(res, {
                     status: 'available',
-                    executable: this.executablePath,
+                    executable: this.executableFile,
                     platform: os.platform(),
                     message: 'Word games executable is available and responding'
                 });
             } catch (error) {
                 return sendSuccess(res, {
                     status: 'unavailable',
-                    executable: this.executablePath,
+                    executable: this.executableFile,
                     platform: os.platform(),
                     message: 'Word games executable is not available or not responding',
                     error: error.message
@@ -264,7 +265,7 @@ class WordGamesController {
             }
 
             // Build read command
-            const readCommand = `${this.executablePath} --mode read --start ${start} --end ${end}`;
+            const readCommand = `--mode read --start ${start} --end ${end}`;
             console.log(`Reading results: ${readCommand}`);
             const readResult = await this.executeCommand(readCommand);
 
@@ -287,17 +288,18 @@ class WordGamesController {
     executeCommand(command, timeoutMs = this.timeout) {
         return new Promise((resolve, reject) => {
             const startTime = Date.now();
-            
-            exec(command, { 
+
+            const fullCommand = `./${this.executableFile} ${command}`;
+            exec(fullCommand, { 
                 timeout: timeoutMs,
                 maxBuffer: 1024 * 1024, // 1MB buffer for large outputs
-                cwd: path.join(os.homedir(), 'word-games') // Execute from ~/word-games directory
+                cwd: this.executableDir // Execute from ~/word_games directory
             }, (error, stdout, stderr) => {
                 const executionTime = Date.now() - startTime;
                 
                 if (error) {
-                    // Include both error and stderr in the rejection
                     const errorMessage = stderr || error.message || 'Unknown error';
+                    console.error(`Command execution error: ${errorMessage}`);
                     reject(new Error(`Command failed: ${errorMessage}`));
                     return;
                 }

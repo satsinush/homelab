@@ -1,0 +1,15 @@
+# Ignore Node.js dependency folders
+node_modules
+*/node_modules
+
+# Ignore build artifacts
+build
+dist
+*/build
+*/dist
+
+# Ignore system files
+.DS_Store
+
+# Ignore Git directory
+.git

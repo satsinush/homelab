@@ -84,10 +84,7 @@ const initializeServer = async () => {
         
         // Create default admin user
         await userModel.createDefaultUser();
-        
-        // Initialize device controller network interfaces
-        await deviceController.initializeNetworkInterfaces();
-        
+                
         // Start server
         app.listen(config.port, '0.0.0.0', async () => {
             console.log(`Homelab API Server running on http://0.0.0.0:${config.port}`);

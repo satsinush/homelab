@@ -1,0 +1,120 @@
+# --- Default Server Block ---
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name ${HOMELAB_HOSTNAME};
+    # Redirect HTTP to the admin page
+    return 301 https://${DASHBOARD_WEB_HOSTNAME}$request_uri;
+}
+
+server {
+    listen 443 ssl default_server; # Listen for HTTPS and make this the default SSL server
+    listen [::]:443 ssl default_server;
+    server_name ${HOMELAB_HOSTNAME};
+
+    # --- Certificate Paths (same as above for shared certificate) ---
+    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
+    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+
+    # Redirect HTTPS to the admin page
+    return 301 https://${DASHBOARD_WEB_HOSTNAME}$request_uri;
+}
+
+
+# --- Pi-hole Server Block (HTTPS) ---
+server {
+    listen 80;
+    server_name ${PIHOLE_WEB_HOSTNAME};
+    return 301 https://$host$request_uri; # Redirect HTTP to HTTPS
+}
+
+server {
+    listen 443 ssl; # Listen for HTTPS traffic
+    server_name ${PIHOLE_WEB_HOSTNAME};
+
+    # --- Certificate Paths ---
+    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;    # <--- NEW CERTIFICATE PATH
+    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key; # <--- NEW KEY PATH
+
+    # --- Proxy Configuration for Pi-hole ---
+    location / {
+        proxy_pass http://pihole:80; 
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_hide_header X-Frame-Options;
+        add_header X-Frame-Options "SAMEORIGIN";
+    }
+}
+
+
+# Homelab Dashboard conf
+server {
+    listen 80;
+    server_name ${DASHBOARD_WEB_HOSTNAME};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${DASHBOARD_WEB_HOSTNAME};
+
+    # --- Certificate Paths ---
+    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;    # <--- NEW CERTIFICATE PATH
+    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key; # <--- NEW KEY PATH
+
+    root /usr/share/nginx/html; # <<< CHANGED FROM 'build' TO 'dist'
+    index index.html;
+
+    # Serve React app files
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Proxy API requests to your Node.js backend
+    location /api/ {
+        proxy_pass http://homelab-api:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_connect_timeout 3600s;  # Increase connection timeout
+        proxy_send_timeout 3600s;     # Increase send timeout
+        proxy_read_timeout 3600s;     # Increase read timeout (most important for 504)
+    }
+}
+
+# --- Netdata Server Block (HTTPS) ---
+server {
+    listen 80;
+    server_name ${NETDATA_WEB_HOSTNAME};
+    return 301 https://$host$request_uri; # Redirect HTTP to HTTPS
+}
+
+server {
+    listen 443 ssl; # Listen for HTTPS traffic
+    server_name ${NETDATA_WEB_HOSTNAME};
+
+    # --- Certificate Paths ---
+    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
+    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+
+    # --- Proxy Configuration for Netdata ---
+    location / {
+        proxy_pass http://netdata:19999;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Netdata specific headers for proper functioning
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 3600s; # Netdata can have long-lived connections
+        proxy_send_timeout 3600s;
+    }
+}

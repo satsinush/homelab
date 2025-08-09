@@ -1,63 +1,19 @@
 const Device = require('../models/Device');
 const Settings = require('../models/Settings');
 const ValidationUtils = require('../utils/validation');
-const { exec } = require('child_process');
-const wol = require('wake_on_lan');
+const HostApiService = require('../services/hostApiService');
 const { sendError, sendSuccess } = require('../utils/response'); // Utility for standardized responses
-
 class DeviceController {
     constructor() {
         this.deviceModel = new Device();
         this.settingsModel = new Settings();
+        this.hostApi = new HostApiService();
         this.deviceCache = {
             devices: [], // All devices from database and cache
             lastScan: null,
             scanInProgress: false
         };
         this.systemNetworkInterfaces = [];
-    }
-
-    // Initialize network interfaces
-    async initializeNetworkInterfaces() {
-        await this.discoverNetworkInterfaces();
-    }
-
-    // Discover network interfaces at startup
-    async discoverNetworkInterfaces() {
-        return new Promise((resolve) => {
-            exec('ip a', (error, stdout) => {
-                if (error) {
-                    console.error('Failed to get network interfaces:', error.message);
-                    this.systemNetworkInterfaces = [];
-                    resolve(this.systemNetworkInterfaces);
-                    return;
-                }
-
-                const interfaces = [];
-                const lines = stdout.split('\n');
-                
-                for (const line of lines) {
-                    // Match interface lines like "2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP>"
-                    const match = line.match(/^\d+:\s+([^:@]+)[@:]?\s*<.*>/);
-                    if (match) {
-                        const interfaceName = match[1].trim();
-                        // Filter out loopback and other virtual interfaces
-                        if (!interfaceName.includes('lo') && 
-                            !interfaceName.includes('docker') && 
-                            !interfaceName.includes('br-') &&
-                            !interfaceName.includes('veth') &&
-                            !interfaceName.includes('virbr')) {
-                            interfaces.push(interfaceName);
-                        }
-                    }
-                }
-                
-                this.systemNetworkInterfaces = interfaces.length > 0 ? interfaces : ['eth0']; // Fallback to eth0 if none found
-                
-                console.log(`Discovered network interfaces: ${this.systemNetworkInterfaces.join(', ')}`);
-                resolve(this.systemNetworkInterfaces);
-            });
-        });
     }
 
     // Scan and update devices
@@ -71,40 +27,7 @@ class DeviceController {
         console.log('Starting device scan...');
         
         try {
-            // Run arp-scan to discover devices
-            const scannedDevices = await new Promise((resolve) => {
-                const cmd = 'arp-scan -l';
-                exec(cmd, { timeout: this.settingsModel.getScanTimeout() }, (error, stdout, stderr) => {
-                    if (error) {
-                        console.error('ARP scan error:', error.message);
-                        resolve([]);
-                        return;
-                    }
-
-                    const discoveredDevices = [];
-                    const lines = stdout.split('\n');
-                    
-                    for (const line of lines) {
-                        const match = line.match(/^(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F:]{17})\s+(.+)$/);
-                        if (match) {
-                            const [, ip, mac, vendor] = match;
-                            // Normalize MAC address for storage (lowercase, no separators)
-                            const normalizedMac = ValidationUtils.validateAndNormalizeMac(mac);
-                            
-                            discoveredDevices.push({
-                                ip: ip,
-                                mac: normalizedMac,
-                                vendor: vendor.trim(),
-                                status: 'online',
-                                lastSeen: new Date().toISOString(),
-                                scanMethod: 'arp-scan'
-                            });
-                        }
-                    }
-                    
-                    resolve(discoveredDevices);
-                });
-            });
+            const scannedDevices = await this.performNetworkScan();
 
             // Get current favorite devices from database (only favorites are persisted)
             const favoriteDevices = this.deviceModel.getAll();
@@ -220,6 +143,40 @@ class DeviceController {
             console.error('Scan error:', error);
             this.deviceCache.scanInProgress = false;
             return this.deviceCache.devices;
+        }
+    }
+
+    // Perform network scan using host API
+    async performNetworkScan() {
+        try {
+            // Scan network using host API (now returns structured JSON)
+            const scanResult = await this.hostApi.scanNetwork(this.settingsModel.getScanTimeout());
+            if (!scanResult.success || !scanResult.data || !scanResult.data.devices) {
+                console.error('Network scan failed from host API');
+                return [];
+            }
+
+            const discoveredDevices = [];
+            const devices = scanResult.data.devices;
+            
+            for (const device of devices) {
+                // Normalize MAC address for storage (lowercase, no separators)
+                const normalizedMac = ValidationUtils.validateAndNormalizeMac(device.mac);
+                
+                discoveredDevices.push({
+                    ip: device.ip,
+                    mac: normalizedMac,
+                    vendor: device.vendor || 'Unknown',
+                    status: 'online',
+                    lastSeen: new Date().toISOString(),
+                    scanMethod: 'network-scan'
+                });
+            }
+            
+            return discoveredDevices;
+        } catch (error) {
+            console.error('Network scan error:', error.message);
+            return [];
         }
     }
 
@@ -340,10 +297,6 @@ class DeviceController {
             });
         } catch (error) {
             console.error('Scan devices error:', error);
-            
-            if (error.message.includes('arp-scan')) {
-                return sendError(res, 503, 'Network scanning service is not available. Please ensure arp-scan is installed.');
-            }
             
             return sendError(res, 500, 'Failed to scan network for devices', error.message);
         }
@@ -661,25 +614,26 @@ class DeviceController {
 
             if (!targetDevice) {
                 console.error(`Device with MAC ${mac} not found`);
-                return false;
+                targetDevice = {
+                    name: null,
+                    mac: normalizedMac
+                }
             }
 
-            // Convert MAC format for WOL library
+            // Convert MAC format for WOL (colon-separated)
             const macForWol = normalizedMac.match(/.{2}/g).join(':');
 
-            const result = await new Promise((resolve) => {
-                wol.wake(macForWol, (error) => {
-                    if (error) {
-                        console.error(`WoL error for ${mac}:`, error);
-                        resolve(false);
-                    } else {
-                        const message = `WoL packet sent to ${targetDevice.name || targetDevice.mac} (${targetDevice.mac})`;
-                        console.log(message);
-                        resolve(true);
-                    }
-                });
-            });
-            return result;
+            // Send wake on lan via host API
+            const result = await this.hostApi.sendWakeOnLan(macForWol);
+            
+            if (result.success) {
+                const message = `WoL packet sent to ${targetDevice.name || targetDevice.mac} (${targetDevice.mac})`;
+                console.log(message);
+                return true;
+            } else {
+                console.error(`WoL error for ${mac}:`, result.error || 'Unknown error');
+                return false;
+            }
         } catch (error) {
             console.error('WOL error:', error);
             return false;

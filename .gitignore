@@ -1,3 +1,9 @@
 *node_modules/
 *package-lock.json
 *.env
+docker-compose.override.yml
+# Ignore the SSL certificate directory
+ssl/
+
+# Ignore Pi-hole's runtime data and databases
+pihole/data/

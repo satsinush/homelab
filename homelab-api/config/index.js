@@ -4,8 +4,8 @@ require('dotenv').config();
 const path = require('path');
 
 // Validate required environment variables
-const JWT_SECRET = process.env.JWT_SECRET;
-const SESSION_SECRET = process.env.SESSION_SECRET;
+const JWT_SECRET = process.env.HOMELAB_API_JWT_SECRET;
+const SESSION_SECRET = process.env.HOMELAB_API_SESSION_SECRET;
 
 if (!JWT_SECRET) {
     console.error('ERROR: JWT_SECRET environment variable is required!');
@@ -26,7 +26,7 @@ const DEFAULT_SETTINGS = {
 };
 
 const config = {
-    port: process.env.PORT || 5000,
+    port: 5000,
     jwtSecret: JWT_SECRET,
     sessionSecret: SESSION_SECRET,
     database: {
@@ -36,27 +36,27 @@ const config = {
     cors: {
         origins: [
             'http://localhost:5173',  // Vite dev server
-            'http://localhost:3000',  // React dev server
-            'https://admin.rpi5-server.home.arpa',  // Production domain
-            'http://admin.rpi5-server.home.arpa',   // HTTP version
-            'http://10.10.10.10',    // Direct IP access
-            'https://10.10.10.10'    // HTTPS IP access
+            `https://${process.env.DASHBOARD_WEB_HOSTNAME}`,  // Production domain
+            `http://${process.env.DASHBOARD_WEB_HOSTNAME}`,   // HTTP version
         ]
     },
     rateLimit: {
         windowMs: 1000, // 1 second
-        max: process.env.NODE_ENV === 'development' ? 1 : 1
+        max: process.env.ENVIRONMENT === 'development' ? 1 : 1
     },
     session: {
-        secure: process.env.NODE_ENV === 'development' ? false : true, // Set to true in production with HTTPS
+        secure: process.env.ENVIRONMENT === 'development' ? false : true, // Set to true in production with HTTPS
         httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     },
     netdata: {
-        url: process.env.NETDATA_URL || 'http://localhost:19999'
+        url: `http://netdata:19999`
     },
-    ollama:{
-        url: process.env.OLLAMA_URL || 'http://localhost:11434'
+    ollama: {
+        url: `http://ollama:11434`
+    },
+    hostApi: {
+        url: `http://host.docker.internal:5001`
     },
     defaultSettings: DEFAULT_SETTINGS
 };
