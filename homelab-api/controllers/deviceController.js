@@ -556,16 +556,12 @@ class DeviceController {
                 return sendError(res, 400, 'Invalid request body');
             }
 
-            const { device } = req.body;
-
-            if (!device || typeof device !== 'string' || !device.trim()) {
-                return sendError(res, 400, 'Device identifier is required');
-            }
+            const { device, name, mac } = req.body;
 
             // Normalize device identifier if it's a MAC address
             let normalizedMac;
             try {
-                normalizedMac = ValidationUtils.validateAndNormalizeMac(device.trim());
+                normalizedMac = ValidationUtils.validateAndNormalizeMac(mac);
             } catch {
                 normalizedMac = null;
             }
@@ -575,16 +571,17 @@ class DeviceController {
 
             // Find device by friendly name OR normalized mac address
             const targetDevice = allDevices.find(d =>
-                (d.name === device.trim()) ||
+                (d.name === name) ||
                 (normalizedMac && d.mac === normalizedMac)
             );
 
             if (!targetDevice) {
-                return sendError(res, 404, `Device '${device}' not found`);
+                console.log(`Device '${name}' not found`);
+                return sendError(res, 404, `Device '${name}' not found`);
             }
 
             if (!targetDevice.isFavorite) {
-                return sendError(res, 400, `Device '${device}' must be marked as favorite before sending Wake-on-LAN packets`);
+                return sendError(res, 400, `Device '${name}' must be marked as favorite before sending Wake-on-LAN packets`);
             }
 
             const message = `Sending Wake-on-LAN packet to ${targetDevice.name || targetDevice.mac} (${targetDevice.mac})`;
