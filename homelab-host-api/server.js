@@ -168,6 +168,7 @@ app.get('/health', (req, res) => {
 
 // Network scan endpoint
 app.post('/network/scan', (req, res) => {
+    console.log("Received network scan request");
     const { timeout = 30000 } = req.body;
     
     const cmd = getPlatformCommand('networkScan');
@@ -201,6 +202,7 @@ app.post('/network/scan', (req, res) => {
 
 // Package management endpoints
 app.get('/packages/installed', (req, res) => {
+    console.log("Received request for installed packages");
     const cmd = getPlatformCommand('installedPackages');
     exec(cmd, { timeout: 30000 }, (error, stdout, stderr) => {
         if (error) {
@@ -227,6 +229,7 @@ app.get('/packages/installed', (req, res) => {
 });
 
 app.get('/packages/updates', (req, res) => {
+    console.log("Received request for package updates");
     const cmd = getPlatformCommand('packageUpdates');
     
     exec(cmd, { timeout: 30000 }, (error, stdout, stderr) => {
@@ -244,6 +247,7 @@ app.get('/packages/updates', (req, res) => {
 });
 
 app.get('/packages/sync-time', (req, res) => {
+    console.log("Received request for package sync time");
     const cmd = getPlatformCommand('packageSyncTime');
     
     exec(cmd, { timeout: 10000 }, (error, stdout, stderr) => {
@@ -262,6 +266,7 @@ app.get('/packages/sync-time', (req, res) => {
 
 // Wake on LAN endpoint
 app.post('/network/wake-on-lan', (req, res) => {
+    console.log("Received Wake-on-LAN request");
     const { mac } = req.body;
     
     if (!mac) {
