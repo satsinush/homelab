@@ -5,7 +5,13 @@ FROM mvance/unbound:latest
 # --- Install tools and Download root.hints ---
 # Always use Alpine's 'apk' package manager.
 # '--no-cache' is an efficient way to install without leaving cache files behind.
-RUN apk add --no-cache curl gettext && \
+RUN if [ -x /usr/bin/apt-get ]; then \
+        apt-get update && apt-get install -y --no-install-recommends curl gettext; \
+    elif [ -x /sbin/apk ]; then \
+        apk add --no-cache curl gettext; \
+    else \
+        echo "Unsupported package manager" && exit 1; \
+    fi && \
     curl -o /opt/unbound/etc/unbound/root.hints https://www.internic.net/domain/named.root
 
 # --- Setup Entrypoint for Templating ---

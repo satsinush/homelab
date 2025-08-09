@@ -74,6 +74,7 @@ services:
 
   # Unbound as a recursive DNS resolver
   unbound:
+    platform: ${HOST_PLATFORM}  # Or linux/amd64
     build: ./unbound
     container_name: unbound
     restart: unless-stopped
