@@ -157,6 +157,7 @@ function getPlatformCommand(operation) {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
+    console.log("Received health check request");
     res.json({ 
         status: 'OK', 
         timestamp: new Date().toISOString(),
