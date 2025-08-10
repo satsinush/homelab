@@ -1,0 +1,27 @@
+[Unit]
+Description=Homelab Host API Node.js Server
+After=network.target
+
+[Service]
+# User and group under which the service will run.
+User=aneedham
+Group=aneedham
+
+# The working directory for the service
+WorkingDirectory=/home/aneedham/homelab/homelab-host-api
+
+# The command to execute to start the service
+# Replace 'node' with the full path if necessary (e.g., /usr/bin/node)
+# This assumes 'node' is in your PATH.
+ExecStart=/usr/bin/node server.js
+
+# Restart the service if it crashes
+Restart=always
+
+# Configure logging (optional, but good for debugging)
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=homelab-api
+
+[Install]
+WantedBy=multi-user.target
