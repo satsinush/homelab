@@ -276,19 +276,56 @@ class NetdataService {
 
     // Get temperature data from Netdata
     async getTemperature() {
-        // Based on debug data, no temperature sensors are available in this Netdata instance
-        return {
-            cpu: {
-                main: null,
-                cores: [],
-                max: null
-            },
-            system: {
-                platform: 'linux',
-                source: 'netdata',
-                message: 'Temperature sensors not available on this system'
+        try {
+            const chart = 'sensors.temperature_cpu_thermal-virtual-0_temp1_input';
+            const data = await this.getMetric(chart, 'input');
+            if (
+                data &&
+                Array.isArray(data.data) &&
+                data.data.length > 0 &&
+                Array.isArray(data.data[0])
+            ) {
+                // Netdata returns: [timestamp, value]
+                const tempC = data.data[0][1];
+                return {
+                    cpu: {
+                        main: tempC,
+                        cores: [tempC],
+                        max: tempC
+                    },
+                    system: {
+                        platform: 'linux',
+                        source: 'netdata'
+                    }
+                };
             }
-        };
+            return {
+                cpu: {
+                    main: null,
+                    cores: [],
+                    max: null
+                },
+                system: {
+                    platform: 'linux',
+                    source: 'netdata',
+                    message: 'Temperature data not available'
+                }
+            };
+        } catch (error) {
+            console.error('Netdata temperature error:', error);
+            return {
+                cpu: {
+                    main: null,
+                    cores: [],
+                    max: null
+                },
+                system: {
+                    platform: 'linux',
+                    source: 'netdata',
+                    message: 'Temperature fetch failed'
+                }
+            };
+        }
     }
 
     // Get system load average from Netdata
