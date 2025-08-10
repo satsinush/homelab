@@ -46,3 +46,8 @@ SyslogIdentifier=homelab-api
 
 [Install]
 WantedBy=multi-user.target
+
+
+
+sudo pacman -S lm_sensors
+sudo sensors-detect

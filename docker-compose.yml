@@ -122,6 +122,7 @@ services:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /etc/os-release:/host/etc/os-release:ro
+      - ./netdata/sensors.conf:/etc/netdata/go.d/sensors.conf:ro
     networks:
       - homelab-net
 
