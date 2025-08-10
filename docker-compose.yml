@@ -84,7 +84,7 @@ services:
       - "21115:21115"
       - "21116:21116"
       - "21116:21116/udp"
-      - "21117:21117"
+      - "21118:21118"
     restart: unless-stopped
     depends_on:
       - rustdesk-relay-server
@@ -100,7 +100,7 @@ services:
     networks:
       - homelab-net
     ports:
-      - "21118:21118"
+      - "21117:21117"
       - "21119:21119"
     restart: unless-stopped
       
