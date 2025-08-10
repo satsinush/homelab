@@ -84,3 +84,7 @@ Start docker services
 docker-compose up --build
 
 Get RustDesk public key for clients from ./rustdesk/data/id_ed25519.pub
+
+set up password for Portainer
+
+set up account for Vaultwarden, then turn off sign up allowed in .env
