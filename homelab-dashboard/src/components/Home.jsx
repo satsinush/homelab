@@ -32,6 +32,7 @@ import { useAuth } from '../contexts/AuthContext';
 import NetdataLogo from '../assets/netdata_logo.png';
 import PiHoleLogo from '../assets/pi_hole_logo.png';
 import PortainerLogo from '../assets/portainer_logo.png';
+import VaultwardenLogo from '../assets/vaultwarden_logo.png';
 
 const Home = () => {
     const navigate = useNavigate();
@@ -111,6 +112,23 @@ const Home = () => {
                 <Avatar
                     src={PortainerLogo}
                     alt="Portainer"
+                    sx={{
+                        width: 32,
+                        height: 32,
+                        bgcolor: 'transparent',
+                    }}
+                />
+            ),
+            color: 'white'
+        },
+        {
+            title: 'Vaultwarden',
+            description: 'Self-hosted password management solution',
+            url: `https://${import.meta.env.VITE_VAULTWARDEN_WEB_HOSTNAME}`,
+            icon: (
+                <Avatar
+                    src={VaultwardenLogo}
+                    alt="Vaultwarden"
                     sx={{
                         width: 32,
                         height: 32,

@@ -1,6 +1,8 @@
 services:
   homelab-api:
     command: npm run dev
+    ports:
+      - "5000:5000"
     volumes:
       - ./homelab-api/src:/app/src
       - ./homelab-api/controllers:/app/controllers
@@ -15,7 +17,7 @@ services:
       - /app/node_modules
 
   dashboard-dev:
-    build: ./homelab-dashboard 
+    build: ./homelab-dashboard
     # Use the correct script from your dashboard's package.json
     command: npm run dev
     ports:
@@ -29,3 +31,24 @@ services:
       - VITE_PIHOLE_WEB_HOSTNAME=${VITE_PIHOLE_WEB_HOSTNAME}
       - VITE_NETDATA_WEB_HOSTNAME=${VITE_NETDATA_WEB_HOSTNAME}
       - VITE_PORTAINER_WEB_HOSTNAME=${VITE_PORTAINER_WEB_HOSTNAME}
+      - VITE_VAULTWARDEN_WEB_HOSTNAME=${VITE_VAULTWARDEN_WEB_HOSTNAME}
+  
+  pihole:
+    ports:
+      - "8080:80/tcp"
+
+  netdata:
+    ports:
+      - "19999:19999"
+
+  ollama:
+    ports:
+      - "11434:11434"
+
+  portainer:
+    ports:
+      - "9000:9000"
+
+  vaultwarden:
+    ports:
+      - "8000:80"

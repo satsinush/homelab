@@ -70,6 +70,8 @@ update working directory
 sudo systemctl start homelab-host-api
 sudo systemctl enable homelab-host-api
 
+install arp-scan
+
 set up pacman sync job (if using pacman on host)
 /etc/systemd/system/pacman-sync.service -> ./systemd/pacman-sync.service
 /etc/systemd/system/pacman-sync.timer -> ./systemd/pacman-sync.timer

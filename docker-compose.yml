@@ -13,6 +13,7 @@ services:
         - VITE_PIHOLE_WEB_HOSTNAME=${VITE_PIHOLE_WEB_HOSTNAME}
         - VITE_NETDATA_WEB_HOSTNAME=${VITE_NETDATA_WEB_HOSTNAME}
         - VITE_PORTAINER_WEB_HOSTNAME=${VITE_PORTAINER_WEB_HOSTNAME}
+        - VITE_VAULTWARDEN_WEB_HOSTNAME=${VITE_VAULTWARDEN_WEB_HOSTNAME}
     container_name: nginx
     restart: unless-stopped
     ports:
@@ -29,6 +30,7 @@ services:
       - PIHOLE_WEB_HOSTNAME=${PIHOLE_WEB_HOSTNAME}
       - NETDATA_WEB_HOSTNAME=${NETDATA_WEB_HOSTNAME}
       - PORTAINER_WEB_HOSTNAME=${PORTAINER_WEB_HOSTNAME}
+      - VAULTWARDEN_WEB_HOSTNAME=${VAULTWARDEN_WEB_HOSTNAME}
 
   # Pi-hole for network-wide ad blocking
   pihole:
@@ -38,7 +40,6 @@ services:
     ports:
       - "53:53/tcp"
       - "53:53/udp"
-      - "8080:80/tcp"
     environment:
       - TZ=America/Chicago
       - FTLCONF_dns_upstreams=unbound#53
@@ -68,6 +69,18 @@ services:
     volumes:
       - ./unbound/unbound.conf:/etc/unbound/custom.conf.d/unbound.conf:ro
       - ./unbound/root.hints:/opt/unbound/etc/unbound/root.hints:ro
+      - ./unbound/cachedb.conf:/etc/unbound/custom.conf.d/cachedb.conf:ro
+    networks:
+      - homelab-net
+    depends_on:
+      - unbound-redis
+
+  unbound-redis:
+    image: redis:7-alpine
+    container_name: unbound-redis
+    restart: unless-stopped
+    volumes:
+      - unbound-redis-data:/data
     networks:
       - homelab-net
 
@@ -112,8 +125,6 @@ services:
     container_name: netdata
     hostname: ${HOMELAB_HOSTNAME}
     restart: unless-stopped
-    ports:
-      - "19999:19999"
     cap_add:
       - SYS_PTRACE
     security_opt:
@@ -135,8 +146,6 @@ services:
     volumes:
       - api-data:/app/data
       - word-games-data:/app/word_games/data
-    ports:
-      - "5000:5000"
     networks:
       - homelab-net
     extra_hosts:
@@ -155,8 +164,6 @@ services:
     container_name: ddclient
     restart: unless-stopped
     environment:
-      #- PUID=1000
-      #- PGID=1000
       - TZ='America/Chicago'
     volumes:
       - ./ddclient:/config
@@ -168,8 +175,6 @@ services:
     image: ollama/ollama:latest
     container_name: ollama
     restart: unless-stopped
-    ports:
-      - "11434:11434"
     volumes:
       - ollama-data:/root/.ollama
     networks:
@@ -180,13 +185,24 @@ services:
     image: portainer/portainer-ce:latest
     container_name: portainer
     restart: unless-stopped
-    ports:
-      - "9000:9000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer-data:/data
     networks:
       - homelab-net
+  
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    volumes:
+      - vaultwarden-data:/data
+    networks:
+      - homelab-net
+    environment:
+      - WEBSOCKET_ENABLED=true
+      - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
+      - SIGNUPS_ALLOWED=${VAULTWARDEN_SIGNUPS_ALLOWED}
 
 # Docker will manage these volumes for persistent data storage
 volumes:
@@ -196,3 +212,5 @@ volumes:
   pihole_data:
   pihole_logs:
   portainer-data:
+  unbound-redis-data:
+  vaultwarden-data:

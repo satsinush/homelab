@@ -143,3 +143,35 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
+
+# --- Vaultwarden Server Block (HTTPS) ---
+server {
+    listen 80;
+    server_name ${VAULTWARDEN_WEB_HOSTNAME};
+    return 301 https://$host$request_uri; # Redirect HTTP to HTTPS
+}
+
+server {
+    listen 443 ssl; # Listen for HTTPS traffic
+    server_name ${VAULTWARDEN_WEB_HOSTNAME};
+
+    # --- Certificate Paths ---
+    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
+    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+
+    # --- Proxy Configuration for Portainer ---
+    location / {
+        proxy_pass http://vaultwarden:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # This location is required for WebSocket support, which is crucial for syncing.
+    location /notifications/hub {
+        proxy_pass http://vaultwarden:80;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
