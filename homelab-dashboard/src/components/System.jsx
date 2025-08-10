@@ -98,6 +98,8 @@ const System = () => {
                         // Update all state from combined response
                         if (systemData.resources) setResources(systemData.resources);
                         if (systemData.temperature) setTemperature(systemData.temperature);
+                        if (systemData.network) setNetwork(systemData.network);
+                        if (systemData.system) setSystemInfo(systemData.system);
                     }
                 } catch (err) {
                     // Don't show error for refresh failures
@@ -398,8 +400,8 @@ const System = () => {
                                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                         <Typography variant="body2" color="text.secondary">CPU:</Typography>
                                                         <Chip
-                                                            label={`${temperature.cpu?.main || 'N/A'}${temperature.cpu?.main && temperature.cpu?.main !== 'N/A' ? "°C" : ""}`}
-                                                            color={temperature.cpu?.main > 75 ? 'error' : temperature.cpu?.main > 60 ? 'warning' : 'success'}
+                                                            label={`${temperature.cpu || 'N/A'}${temperature.cpu && temperature.cpu !== 'N/A' ? "°C" : ""}`}
+                                                            color={temperature.cpu > 75 ? 'error' : temperature.cpu > 60 ? 'warning' : 'success'}
                                                             variant="outlined"
                                                         />
                                                     </Box>
@@ -409,8 +411,8 @@ const System = () => {
                                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                             <Typography variant="body2" color="text.secondary">GPU:</Typography>
                                                             <Chip
-                                                                label={`${temperature.gpu?.main || 'N/A'}${temperature.gpu?.main && temperature.gpu?.main !== 'N/A' ? "°C" : ""}`}
-                                                                color={temperature.gpu?.main > 75 ? 'error' : temperature.gpu?.main > 60 ? 'warning' : 'success'}
+                                                                label={`${temperature.gpu || 'N/A'}${temperature.gpu && temperature.gpu !== 'N/A' ? "°C" : ""}`}
+                                                                color={temperature.gpu > 75 ? 'error' : temperature.gpu > 60 ? 'warning' : 'success'}
                                                                 variant="outlined"
                                                             />
                                                         </Box>

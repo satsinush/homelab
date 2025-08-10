@@ -192,8 +192,7 @@ class SystemController {
             console.error('Netdata temperature fetch error:', error);
             
             return {
-                cpu: { main: null, cores: [], max: null },
-                system: { source: 'fallback', message: 'Temperature monitoring unavailable' }
+                cpu: null 
             };
         }
     }
@@ -315,8 +314,7 @@ class SystemController {
             };
             
             const temperature = temperatureResult.status === 'fulfilled' ? temperatureResult.value : {
-                cpu: { main: null, cores: [], max: null },
-                system: { source: 'fallback', message: 'Temperature monitoring unavailable' }
+                cpu: null
             };
             
             const network = networkResult.status === 'fulfilled' ? networkResult.value : {
@@ -645,8 +643,7 @@ class SystemController {
                 }
             },
             temperature: {
-                cpu: temperature.cpu,
-                gpu: temperature.gpu
+                cpu: `${temperature.cpu ? temperature.cpu + "'C" : 'N/A'}`,
             },
             network: Object.values(networkStats.interfaces || {}).map(iface => ({
                 name: iface.name,

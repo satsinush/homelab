@@ -288,44 +288,12 @@ class NetdataService {
             ) {
                 // Netdata returns: [timestamp, value]
                 const tempC = data.data[0][1];
-                return {
-                    cpu: {
-                        main: tempC,
-                        cores: [tempC],
-                        max: tempC
-                    },
-                    system: {
-                        platform: 'linux',
-                        source: 'netdata'
-                    }
-                };
+                return {cpu: tempC};
             }
-            return {
-                cpu: {
-                    main: null,
-                    cores: [],
-                    max: null
-                },
-                system: {
-                    platform: 'linux',
-                    source: 'netdata',
-                    message: 'Temperature data not available'
-                }
-            };
+            return {cpu: null};
         } catch (error) {
             console.error('Netdata temperature error:', error);
-            return {
-                cpu: {
-                    main: null,
-                    cores: [],
-                    max: null
-                },
-                system: {
-                    platform: 'linux',
-                    source: 'netdata',
-                    message: 'Temperature fetch failed'
-                }
-            };
+            return {cpu: null};
         }
     }
 
