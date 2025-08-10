@@ -60,7 +60,8 @@ run generate_keys.sh
 
 update ./unbound/root.hints from curl -o unbound/root.hints https://www.internic.net/domain/named.root
 
-set up ./ddclient/ddclient.conf
+set up ./ddclient/config/ddclient.conf
+use ./ddclient/example.ddclient.conf as an example
 
 install lm_sensors for netdata
 
