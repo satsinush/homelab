@@ -40,13 +40,13 @@ Router port forward port 51820
 ## Set up DNS
 
 /etc/dhcpcd.conf -> ./dns/dhcpcd.conf
-make sure nohook resolv.conf
+make sure nohook resolv.conf, disables dhcp service from setting dns resolvers
 
 /etc/resolv.conf -> ./dns/resolv.conf
-make sure first first is lo and others are public like 1.1.1.1, 8.8.8.8
+make sure first first is lo (127.0.0.1) and others are public like 1.1.1.1, 8.8.8.8
 
 /etc/systemd/resolved.conf -> ./resolved.conf
-make sure DNSStubListener=no
+make sure DNSStubListener=no, disables host from listening on port 53 for DNS requests
 
 ## Set up .env
 copy example.env and save as .env
@@ -56,10 +56,9 @@ fill in values as needed
 Clone repo
 init and clone submodules
 
-chmod generate_keys.sh
-run sudo generate_keys.sh
+run generate_keys.sh
 
-update ./unbound/root.hints
+update ./unbound/root.hints from curl -o unbound/root.hints https://www.internic.net/domain/named.root
 
 set up ./ddclient/ddclient.conf
 
@@ -73,7 +72,7 @@ sudo systemctl enable homelab-host-api
 
 set up pacman sync job (if using pacman on host)
 /etc/systemd/system/pacman-sync.service -> ./systemd/pacman-sync.service
-/etc/systemd/system/pacman-sync.service -> ./systemd/pacman-sync.timers
+/etc/systemd/system/pacman-sync.timer -> ./systemd/pacman-sync.timer
 
 sudo systemctl start pacman-sync.timer
 sudo systemctl enable pacman-sync.timer

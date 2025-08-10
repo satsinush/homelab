@@ -1,3 +1,5 @@
+# /etc/systemd/system/homelab-host-api.service
+
 [Unit]
 Description=Homelab Host API Node.js Server
 After=network.target

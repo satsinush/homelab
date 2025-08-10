@@ -1,3 +1,5 @@
+# /etc/systemd/system/pacman-sync.service
+
 [Unit]
 Description=Synchronize Pacman package databases
 After=network-online.target  # Ensure network is up before running

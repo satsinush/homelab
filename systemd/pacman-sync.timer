@@ -1,3 +1,5 @@
+# /etc/systemd/system/pacman-sync.timer
+
 [Unit]
 Description=Run pacman-sync daily
 Requires=pacman-sync.service
