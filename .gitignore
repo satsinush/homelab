@@ -5,6 +5,11 @@ docker-compose.override.yml
 # Ignore the SSL certificate directory
 ssl/
 
-# Ignore Pi-hole's runtime data and databases
-pihole/data/
-rustdesk-keys
+ddclient.conf
+
+rustdesk/data/
+
+id_ed25519
+id_ed25519.pub
+*.crt
+*.key

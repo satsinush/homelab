@@ -22,8 +22,6 @@ services:
       - ./ssl/nginx-all-sites.key:/etc/ssl/private/nginx-all-sites.key:ro
     networks:
       - homelab-net
-    depends_on:
-      - homelab-api
     environment:
       - HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
       - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
@@ -77,9 +75,9 @@ services:
     container_name: rustdesk-id-server
     # This command tells the container to run the ID server (hbbs)
     # The -r option points it to your relay server using its service name
-    command: hbbs -r rustdesk-relay-server:21119
+    command: hbbs -r rustdesk-relay-server:21119 -k _
     volumes:
-      - rustdesk-data:/root
+      - ./rustdesk/data:/root
     networks:
       - homelab-net
     ports:
@@ -96,9 +94,9 @@ services:
     image: rustdesk/rustdesk-server:latest
     container_name: rustdesk-relay-server
     # This command tells the container to run the Relay server (hbbr)
-    command: hbbr
+    command: hbbr -k _
     volumes:
-      - rustdesk-data:/root
+      - ./rustdesk/data:/root
     networks:
       - homelab-net
     ports:
@@ -145,6 +143,9 @@ services:
       - HOMELAB_API_JWT_SECRET=${HOMELAB_API_JWT_SECRET}
       - HOMELAB_API_SESSION_SECRET=${HOMELAB_API_SESSION_SECRET}
       - ENVIRONMENT=${ENVIRONMENT}
+    depends_on:
+      - netdata
+      - ollama
 
   # ddclient for dynamic DNS updates
   ddclient:
@@ -174,7 +175,6 @@ services:
 
 # Docker will manage these volumes for persistent data storage
 volumes:
-  rustdesk-data:
   api-data:
   word-games-data:
   ollama-data:

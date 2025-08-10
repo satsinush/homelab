@@ -61,6 +61,8 @@ run sudo generate_keys.sh
 
 update ./unbound/root.hints
 
+set up ./ddclient/ddclient.conf
+
 install lm_sensors for netdata
 
 run host actions api for host level commands
@@ -78,3 +80,5 @@ sudo systemctl enable pacman-sync.timer
 
 Start docker services
 docker-compose up --build
+
+Get RustDesk public key for clients from ./rustdesk/data/id_ed25519.pub
