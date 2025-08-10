@@ -9,10 +9,12 @@ WORKDIR /app
 # Declare the build arguments we expect to receive
 ARG VITE_PIHOLE_WEB_HOSTNAME
 ARG VITE_NETDATA_WEB_HOSTNAME
+ARG VITE_PORTAINER_WEB_HOSTNAME
 
 # Set them as environment variables FOR THIS STAGE, so the 'npm run build' process can see them
 ENV VITE_PIHOLE_WEB_HOSTNAME=${VITE_PIHOLE_WEB_HOSTNAME}
 ENV VITE_NETDATA_WEB_HOSTNAME=${VITE_NETDATA_WEB_HOSTNAME}
+ENV VITE_PORTAINER_WEB_HOSTNAME=${VITE_PORTAINER_WEB_HOSTNAME}
 
 # Copy the package.json and package-lock.json from your dashboard folder
 # This step is separated to take advantage of Docker's layer caching.

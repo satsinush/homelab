@@ -118,3 +118,28 @@ server {
         proxy_send_timeout 3600s;
     }
 }
+
+# --- Portainer Server Block (HTTPS) ---
+server {
+    listen 80;
+    server_name ${PORTAINER_WEB_HOSTNAME};
+    return 301 https://$host$request_uri; # Redirect HTTP to HTTPS
+}
+
+server {
+    listen 443 ssl; # Listen for HTTPS traffic
+    server_name ${PORTAINER_WEB_HOSTNAME};
+
+    # --- Certificate Paths ---
+    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
+    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+
+    # --- Proxy Configuration for Portainer ---
+    location / {
+        proxy_pass http://portainer:9000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

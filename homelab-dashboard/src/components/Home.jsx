@@ -31,6 +31,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import NetdataLogo from '../assets/netdata_logo.png';
 import PiHoleLogo from '../assets/pi_hole_logo.png';
+import PortainerLogo from '../assets/portainer_logo.png';
 
 const Home = () => {
     const navigate = useNavigate();
@@ -83,6 +84,7 @@ const Home = () => {
                     }}
                 />
             ),
+            color: 'white'
         },
         {
             title: 'Netdata',
@@ -99,6 +101,24 @@ const Home = () => {
                     }}
                 />
             ),
+            color: 'white'
+        },
+        {
+            title: 'Portainer',
+            description: 'Docker container management and monitoring',
+            url: `https://${import.meta.env.VITE_PORTAINER_WEB_HOSTNAME}`,
+            icon: (
+                <Avatar
+                    src={PortainerLogo}
+                    alt="Portainer"
+                    sx={{
+                        width: 32,
+                        height: 32,
+                        bgcolor: 'transparent',
+                    }}
+                />
+            ),
+            color: 'white'
         }
     ];
 
@@ -223,7 +243,8 @@ const Home = () => {
                                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                                         <Avatar
                                             sx={{
-                                                bgcolor: `${service.color}.main`,
+                                                bgcolor: `transparent`,
+                                                boxShadow: 5,
                                                 mr: 2
                                             }}
                                         >
