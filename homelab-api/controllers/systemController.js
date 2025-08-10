@@ -133,11 +133,10 @@ class SystemController {
     async getResourceUsage() {
         try {
             // Get all resource data from Netdata
-            const [cpuUsage, memoryUsage, diskUsage, loadAvg] = await Promise.allSettled([
+            const [cpuUsage, memoryUsage, diskUsage] = await Promise.allSettled([
                 this.netdata.getCpuUsage(),
                 this.netdata.getMemoryUsage(),
-                this.netdata.getDiskUsage(),
-                this.netdata.getLoadAverage()
+                this.netdata.getDiskUsage()
             ]);
 
             return {

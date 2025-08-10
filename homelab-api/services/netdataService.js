@@ -279,6 +279,7 @@ class NetdataService {
         try {
             const chart = 'sensors.temperature_cpu_thermal-virtual-0_temp1_input';
             const data = await this.getMetric(chart, 'input');
+            console.log('Temperature data:', data);
             if (
                 data &&
                 Array.isArray(data.data) &&
@@ -325,46 +326,6 @@ class NetdataService {
                     message: 'Temperature fetch failed'
                 }
             };
-        }
-    }
-
-    // Get system load average from Netdata
-    async getLoadAverage() {
-        try {
-            const url = new URL(`${this.baseUrl}/api/v1/data`);
-            url.searchParams.set('chart', 'system.load');
-            url.searchParams.set('points', '1');
-            url.searchParams.set('group', 'average');
-            url.searchParams.set('format', 'json');
-            url.searchParams.set('after', '-1');
-
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json'
-                },
-                signal: AbortSignal.timeout(this.timeout)
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-
-            if (data && data.data && data.data.length > 0) {
-                const loadData = data.data[0];
-                return [
-                    loadData[1] || 0, // 1 minute
-                    loadData[2] || 0, // 5 minutes
-                    loadData[3] || 0  // 15 minutes
-                ];
-            }
-            
-            return [0, 0, 0];
-        } catch (error) {
-            console.error('Netdata load average error:', error);
-            return [0, 0, 0];
         }
     }
 
