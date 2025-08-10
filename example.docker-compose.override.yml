@@ -1,0 +1,30 @@
+services:
+  homelab-api:
+    command: npm run dev
+    volumes:
+      - ./homelab-api/src:/app/src
+      - ./homelab-api/controllers:/app/controllers
+      - ./homelab-api/routes:/app/routes
+      - ./homelab-api/models:/app/models
+      - ./homelab-api/middleware:/app/middleware
+      - ./homelab-api/config:/app/config
+      - ./homelab-api/utils:/app/utils
+      - ./homelab-api/server.js:/app/server.js
+      - ./homelab-api/testBackend.js:/app/testBackend.js
+      - ./homelab-api/services:/app/services
+      - /app/node_modules
+
+  dashboard-dev:
+    build: ./homelab-dashboard 
+    # Use the correct script from your dashboard's package.json
+    command: npm run dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./homelab-dashboard:/app
+      - /app/node_modules
+    networks:
+      - homelab-net
+    environment:
+      - VITE_PIHOLE_WEB_HOSTNAME=${VITE_PIHOLE_WEB_HOSTNAME}
+      - VITE_NETDATA_WEB_HOSTNAME=${VITE_NETDATA_WEB_HOSTNAME}
