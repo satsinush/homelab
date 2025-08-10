@@ -153,8 +153,8 @@ services:
     container_name: ddclient
     restart: unless-stopped
     environment:
-      - PUID=1000
-      - PGID=1000
+      #- PUID=1000
+      #- PGID=1000
       - TZ='America/Chicago'
     volumes:
       - ./ddclient:/config
