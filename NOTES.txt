@@ -1,7 +1,7 @@
 journalctl -u homelab-api.service -f
 
 
-run generate_ssl_key.sh as sudo before docker compose up
+run sudo generate_ssl_key.sh before docker compose up
 
 
 sudo nano /etc/systemd/resolved.conf #for DNS
