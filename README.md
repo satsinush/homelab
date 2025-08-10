@@ -1,192 +1,63 @@
-# Homelab Management System
+# Host device actions
 
-A full-stack web application for managing and monitoring homelab infrastructure. Built with React.js frontend and Node.js/Express backend, featuring device management, system monitoring, and package management.
+## Set up ssh
 
-## Features
+## Set up UFW
 
-### System Monitoring
-- Real-time system metrics (CPU, memory, disk, network)
-- System information and health monitoring
-- Performance tracking and alerts
+To                         Action      From
+--                         ------      ----
+Anywhere on wg0            ALLOW       10.10.20.0/24              # Allow VPN traffic on WireGuard interface
+2222/tcp                   ALLOW       10.10.10.0/24              # SSH from LAN
+80,443/tcp                 ALLOW       10.10.10.0/24              # Web from LAN
+53                         ALLOW       10.10.10.0/24              # DNS from LAN
+21114:21119/tcp            ALLOW       10.10.10.0/24              # RustDesk from LAN
+21116/udp                  ALLOW       10.10.10.0/24              # RustDesk from LAN
+2222/tcp                   ALLOW       10.10.20.0/24              # SSH from VPN
+80,443/tcp                 ALLOW       10.10.20.0/24              # Web from VPN
+53                         ALLOW       10.10.20.0/24              # DNS from VPN
+21114:21119/tcp            ALLOW       10.10.20.0/24              # RustDesk from VPN
+21116/udp                  ALLOW       10.10.20.0/24              # RustDesk from VPN
+51820/udp                  ALLOW       Anywhere                   # WireGuard VPN
+5000/tcp                   ALLOW       10.10.20.0/24              # Allow Node.js API from VPN
+5000/tcp                   ALLOW       10.10.10.0/24              # Allow Node.js API from LAN
+19999/tcp                  ALLOW       10.10.10.0/24              # Netdata from LAN
+19999/tcp                  ALLOW       10.10.20.0/24              # Netdata from VPN
+51820/udp (v6)             ALLOW       Anywhere (v6)              # WireGuard VPN
 
-### Device Management
-- Wake-on-LAN support for remote device control
-- Network discovery and device registry
-- Connection monitoring and status tracking
+10.10.20.0/24 on wg0       ALLOW FWD   10.10.10.0/24 on end0
+10.10.20.0/24 on wg0       ALLOW FWD   10.10.20.0/24 on wg0
+Anywhere on end0           ALLOW FWD   10.10.20.0/24 on wg0
 
-### Package Management
-- System package control and updates
-- Dependency tracking and version management
 
-### Security & User Management
-- JWT authentication with Argon2 password hashing
-- Session management and user profiles
-- Rate limiting and input validation
+/etc/ufw/before.rules -> ./ufw/before.rules
 
-### Configuration
-- System settings and theme support (light/dark)
-- Real-time notifications
-- Responsive mobile-friendly interface
+## Set up Wireguard
 
-## Architecture
+/etc/wireguard/wg0.conf -> ./wireguard/wg0.conf
 
-- **Backend**: Node.js + Express + SQLite
-- **Frontend**: React 19 + Vite + Material-UI
-- **Deployment**: Development on PC, deployed to Raspberry Pi
+Router port forward port 51820
 
-## Development Setup
+## Set up DNS
 
-### Prerequisites
-- Node.js (v16 or higher)
-- npm package manager
+/etc/dhcpcd.conf -> ./dns/dhcpcd.conf
+make sure nohook resolv.conf
 
-### Local Development
+/etc/resolv.conf -> ./dns/resolv.conf
+make sure first first is lo and others are public like 1.1.1.1, 8.8.8.8
 
-1. **Clone and install dependencies**
-   ```bash
-   git clone https://github.com/satsinush/homelab.git
-   cd homelab
-   
-   # Install API dependencies
-   cd homelab-api
-   npm install
-   
-   # Install Dashboard dependencies
-   cd ../homelab-dashboard
-   npm install
-   ```
+/etc/systemd/resolved.conf -> ./resolved.conf
+make sure DNSStubListener=no
 
-2. **Start development servers**
-   ```bash
-   # Start Frontend (in homelab-dashboard directory)
-   npm run dev  # Available at http://localhost:5173
-   ```
+## Set up .env
+copy example.env and save as .env
+fill in values as needed
 
-   **Note**: Since the API monitors system resources and controls devices on the Raspberry Pi, it's recommended to deploy the backend to the Pi for testing rather than running it locally:
-   ```bash
-   # Deploy API to Pi for development testing
-   deploy.bat --api
-   ```
+# Set up homelab
+Clone repo
+init and clone submodules
 
-### VS Code Tasks
-Use the built-in VS Code tasks for development:
-- **Start Dev Server**: Launches frontend development server
-- **Deploy Frontend**: Builds and deploys frontend to Pi
-- **Deploy API**: Deploys backend to Pi
-- **Deploy All**: Deploys both frontend and backend
+run sudo generate_ssl_key.sh
 
-Access via Command Palette (`Ctrl+Shift+P`) → "Tasks: Run Task"
+update ./unbound/root.hints
 
-## Deployment to Raspberry Pi
-
-The project is designed for development on PC with deployment to a Raspberry Pi. The deployment script handles building, uploading, and starting services.
-
-### Deployment Script Usage
-
-```bash
-# Deploy everything (default)
-deploy.bat
-
-# Deploy specific components
-deploy.bat --frontend
-deploy.bat --api
-deploy.bat --all
-
-# Specify custom target
-deploy.bat --user pi --ip 192.168.1.100 --port 22
-deploy.bat --all --user myuser --ip homelab.local
-```
-
-### Default Configuration
-- **User**: `aneedham`
-- **IP**: `10.10.10.10`
-- **Port**: `2222`
-
-### Raspberry Pi Setup Requirements
-
-#### Frontend Setup
-The frontend is served by nginx:
-```bash
-# On Raspberry Pi
-sudo mkdir -p /srv/www/homelab-dashboard
-sudo chown [user]:[user] /srv/www/homelab-dashboard
-```
-
-Configure nginx to serve from `/srv/www/homelab-dashboard/dist/`
-
-#### Backend Setup
-The API runs as a systemd service:
-```bash
-# On Raspberry Pi
-mkdir -p /home/[user]/homelab-api
-
-# Create systemd service file
-sudo nano /etc/systemd/system/homelab-api.service
-```
-
-Example service file:
-```ini
-[Unit]
-Description=Homelab API Server
-After=network.target
-
-[Service]
-Type=simple
-User=[user]
-WorkingDirectory=/home/[user]/homelab-api
-ExecStart=/usr/bin/node server.js
-Restart=always
-RestartSec=10
-Environment=NODE_ENV=production
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start the service:
-```bash
-sudo systemctl enable homelab-api.service
-sudo systemctl start homelab-api.service
-```
-
-### Environment Configuration
-
-Create `.env` file in the homelab-api directory on the Raspberry Pi:
-```env
-NODE_ENV=production
-JWT_SECRET=your-secure-jwt-secret
-SESSION_SECRET=your-secure-session-secret
-```
-
-## 🔧 API Endpoints
-
-### Authentication
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
-- `GET /api/auth/me` - Current user info
-
-### System Monitoring
-- `GET /api/health` - Health check
-- `GET /api/system/info` - System information
-- `GET /api/system/stats` - System statistics
-
-### Device Management
-- `GET /api/devices` - List devices
-- `POST /api/devices` - Add device
-- `PUT /api/devices/:id` - Update device
-- `DELETE /api/devices/:id` - Remove device
-- `POST /api/devices/:id/wake` - Wake device (WoL)
-- `GET /api/devices/scan` - Network scan
-
-## Troubleshooting
-
-### Common Deployment Issues
-1. **SSH Connection**: Verify SSH key setup and network connectivity
-2. **Port Conflicts**: Check that ports 5000 (API) and 80/443 (nginx) are available
-3. **Permissions**: Ensure proper file permissions on Raspberry Pi
-4. **Service Status**: Check systemd service logs with `journalctl -u homelab-api.service`
-
-### Development Issues
-1. **CORS Errors**: Verify API URL configuration in frontend
-2. **Build Failures**: Check Node.js version compatibility
-3. **Database Issues**: Ensure SQLite database path and permissions
+set up rustdesk keys

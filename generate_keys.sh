@@ -86,5 +86,27 @@ echo "Certificate generation complete!"
 echo "Certificate: ${CERT_OUT}"
 echo "Private Key: ${KEY_OUT}"
 
+# --- Generate SSH Keys for RustDesk ---
+SSH_KEY_DIR="./rustdesk-keys"
+SSH_PRIVATE_KEY="${SSH_KEY_DIR}/id_ed25519"
+SSH_PUBLIC_KEY="${SSH_KEY_DIR}/id_ed25519.pub"
+
+echo ""
+echo "Generating SSH ed25519 keys for RustDesk..."
+
+# Create the rustdesk-keys directory if it doesn't exist
+mkdir -p "${SSH_KEY_DIR}"
+
+# Generate ed25519 SSH key pair without passphrase
+ssh-keygen -t ed25519 -f "${SSH_PRIVATE_KEY}" -N "" -C "rustdesk@${HOMELAB_HOSTNAME}"
+
+# Set appropriate permissions for SSH keys
+chmod 600 "${SSH_PRIVATE_KEY}"
+chmod 644 "${SSH_PUBLIC_KEY}"
+
+echo "SSH key generation complete!"
+echo "Private Key: ${SSH_PRIVATE_KEY}"
+echo "Public Key: ${SSH_PUBLIC_KEY}"
+
 # --- Clean up temporary config file ---
 rm "$CONF_FILE"

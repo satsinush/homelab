@@ -80,6 +80,7 @@ services:
     command: hbbs -r rustdesk-relay-server:21119
     volumes:
       - rustdesk-data:/root
+      - ./rustdesk-keys:/root/.ssh:ro
     networks:
       - homelab-net
     ports:
@@ -99,6 +100,7 @@ services:
     command: hbbr
     volumes:
       - rustdesk-data:/root
+      - ./rustdesk-keys:/root/.ssh:ro
     networks:
       - homelab-net
     ports:

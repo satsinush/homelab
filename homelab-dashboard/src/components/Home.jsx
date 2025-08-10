@@ -29,6 +29,8 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import NetdataLogo from '../assets/netdata_logo.png';
+import PiHoleLogo from '../assets/pi_hole_logo.png';
 
 const Home = () => {
     const navigate = useNavigate();
@@ -70,15 +72,33 @@ const Home = () => {
             title: 'Pi-hole Admin',
             description: 'Network-wide ad blocking and DNS management',
             url: `https://${import.meta.env.VITE_PIHOLE_WEB_HOSTNAME}/admin`,
-            icon: <SecurityIcon />,
-            color: 'error'
+            icon: (
+                <Avatar
+                    src={PiHoleLogo}
+                    alt="Pi-hole"
+                    sx={{
+                        width: 32,
+                        height: 32,
+                        bgcolor: 'transparent',
+                    }}
+                />
+            ),
         },
         {
             title: 'Netdata',
             description: 'Real-time performance monitoring and visualization',
             url: `https://${import.meta.env.VITE_NETDATA_WEB_HOSTNAME}`,
-            icon: <SpeedIcon />,
-            color: 'info'
+            icon: (
+                <Avatar
+                    src={NetdataLogo}
+                    alt="Netdata"
+                    sx={{
+                        width: 32,
+                        height: 32,
+                        bgcolor: 'transparent',
+                    }}
+                />
+            ),
         }
     ];
 
