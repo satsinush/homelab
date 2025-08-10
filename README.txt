@@ -61,6 +61,8 @@ run sudo generate_keys.sh
 
 update ./unbound/root.hints
 
+install lm_sensors for netdata
+
 run host actions api for host level commands
 /etc/systemd/system/homelab-host-api.service -> ./systemd/homelab-host-api.service
 update working directory
