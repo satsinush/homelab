@@ -7,17 +7,9 @@ if ! [ -x "$(command -v docker-compose)" ]; then
 fi
 
 # --- Load .env file variables ---
-# --- Load .env file variables (Robust Method) ---
 if [ -f .env ]; then
-  set -a
-  source .env
-  set +a
+  export $(echo $(cat .env | sed 's/#.*//g'| xargs) | envsubst)
 fi
-
-echo "--- DEBUGGING ---"
-echo "Email Variable: [${LETSENCRYPT_EMAIL}]"
-echo "Domains Variable: [${LETSENCRYPT_DOMAINS}]"
-echo "-----------------"
 
 # --- Check for required variables ---
 if [ -z "$LETSENCRYPT_DOMAINS" ] || [ -z "$LETSENCRYPT_EMAIL" ]; then
