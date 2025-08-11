@@ -1,10 +1,23 @@
-# --- Default Server Block ---
+# --- Default Server Block (handles redirects AND Let's Encrypt challenges) ---
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-    server_name ${HOMELAB_HOSTNAME};
-    # Redirect HTTP to the admin page
-    return 301 https://${DASHBOARD_WEB_HOSTNAME}$request_uri;
+    
+    # Using `_` as the server_name makes this a true catch-all for any domain
+    # that doesn't match another server block, which is ideal for the LE challenge.
+    server_name _; 
+
+    # 1. Handle Let's Encrypt challenges
+    # This location is more specific, so it will be matched first.
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # 2. For all other requests, redirect to your dashboard's HTTPS URL
+    # This location is the general fallback.
+    location / {
+        return 301 https://${DASHBOARD_WEB_HOSTNAME}$request_uri;
+    }
 }
 
 server {
@@ -14,8 +27,8 @@ server {
     server_name ${HOMELAB_HOSTNAME};
 
     # --- Certificate Paths (same as above for shared certificate) ---
-    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
-    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+    ssl_certificate /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/privkey.pem;
 
     # Redirect HTTPS to the admin page
     return 301 https://${DASHBOARD_WEB_HOSTNAME}$request_uri;
@@ -35,8 +48,8 @@ server {
     server_name ${PIHOLE_WEB_HOSTNAME};
 
     # --- Certificate Paths ---
-    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;    # <--- NEW CERTIFICATE PATH
-    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key; # <--- NEW KEY PATH
+    ssl_certificate /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/fullchain.pem;    # <--- NEW CERTIFICATE PATH
+    ssl_certificate_key /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/privkey.pem; # <--- NEW KEY PATH
 
     # --- Proxy Configuration for Pi-hole ---
     location / {
@@ -65,8 +78,8 @@ server {
     server_name ${DASHBOARD_WEB_HOSTNAME};
 
     # --- Certificate Paths ---
-    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;    # <--- NEW CERTIFICATE PATH
-    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key; # <--- NEW KEY PATH
+    ssl_certificate /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/fullchain.pem;    # <--- NEW CERTIFICATE PATH
+    ssl_certificate_key /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/privkey.pem; # <--- NEW KEY PATH
 
     root /usr/share/nginx/html; # <<< CHANGED FROM 'build' TO 'dist'
     index index.html;
@@ -103,8 +116,8 @@ server {
     server_name ${NETDATA_WEB_HOSTNAME};
 
     # --- Certificate Paths ---
-    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
-    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+    ssl_certificate /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/privkey.pem;
 
     # --- Proxy Configuration for Netdata ---
     location / {
@@ -136,8 +149,8 @@ server {
     server_name ${PORTAINER_WEB_HOSTNAME};
 
     # --- Certificate Paths ---
-    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
-    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+    ssl_certificate /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/privkey.pem;
 
     # --- Proxy Configuration for Portainer ---
     location / {
@@ -171,8 +184,8 @@ server {
     server_name ${VAULTWARDEN_WEB_HOSTNAME};
 
     # --- Certificate Paths ---
-    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
-    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+    ssl_certificate /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/privkey.pem;
 
     # --- Proxy Configuration for Portainer ---
     location / {
@@ -204,8 +217,8 @@ server {
     server_name ${UPTIME_KUMA_WEB_HOSTNAME}; # Use your desired hostname
 
     # SSL Certs
-    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
-    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+    ssl_certificate /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/privkey.pem;
 
     location / {
         proxy_pass http://uptime-kuma:3001;
@@ -230,8 +243,8 @@ server {
     server_name ${NTFY_WEB_HOSTNAME}; # Use your desired hostname
 
     # SSL Certs
-    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
-    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+    ssl_certificate /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/privkey.pem;
 
     location / {
         proxy_pass http://ntfy:80;

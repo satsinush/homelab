@@ -24,6 +24,8 @@ services:
     volumes:
       - ./ssl/nginx-all-sites.crt:/etc/ssl/certs/nginx-all-sites.crt:ro
       - ./ssl/nginx-all-sites.key:/etc/ssl/private/nginx-all-sites.key:ro
+      - ./certbot/letsencrypt:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
     networks:
       - homelab-net
     environment:
@@ -35,6 +37,14 @@ services:
       - VAULTWARDEN_WEB_HOSTNAME=${VAULTWARDEN_WEB_HOSTNAME}
       - UPTIME_KUMA_WEB_HOSTNAME=${UPTIME_KUMA_WEB_HOSTNAME}
       - NTFY_WEB_HOSTNAME=${NTFY_WEB_HOSTNAME}
+  
+  certbot:
+    image: certbot/certbot:latest
+    container_name: certbot
+    volumes:
+      - ./certbot/letsencrypt:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    command: renew --quiet
 
   # Pi-hole for network-wide ad blocking
   pihole:
