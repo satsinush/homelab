@@ -33,6 +33,7 @@ import NetdataLogo from '../assets/netdata_logo.png';
 import PiHoleLogo from '../assets/pi_hole_logo.png';
 import PortainerLogo from '../assets/portainer_logo.png';
 import VaultwardenLogo from '../assets/vaultwarden_logo.png';
+import UptimeKumaLogo from '../assets/uptime_kuma_logo.png';
 
 const Home = () => {
     const navigate = useNavigate();
@@ -129,6 +130,23 @@ const Home = () => {
                 <Avatar
                     src={VaultwardenLogo}
                     alt="Vaultwarden"
+                    sx={{
+                        width: 32,
+                        height: 32,
+                        bgcolor: 'transparent',
+                    }}
+                />
+            ),
+            color: 'white'
+        },
+        {
+            title: 'Uptime Kuma',
+            description: 'Self-hosted status monitoring solution',
+            url: `https://${import.meta.env.VITE_UPTIME_KUMA_WEB_HOSTNAME}`,
+            icon: (
+                <Avatar
+                    src={UptimeKumaLogo}
+                    alt="Uptime Kuma"
                     sx={{
                         width: 32,
                         height: 32,

@@ -19,6 +19,10 @@ app.use(cors({
 
 app.use(express.json());
 
+app.get('/', (req, res) => {
+    res.status(200).json({ message: 'Welcome to the Homelab Host API' });
+});
+
 // Parse network scan results into structured data
 function parseNetworkScanResults(stdout, platform) {
     const lines = stdout.trim().split('\n');

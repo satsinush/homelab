@@ -12,6 +12,7 @@ const deviceRoutes = require('./routes/deviceRoutes');
 const systemRoutes = require('./routes/systemRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const wordGamesRoutes = require('./routes/wordGamesRoutes');
+const defaultRoutes = require('./routes/defaultRoutes');
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
 
 // Import services for initialization
@@ -65,6 +66,7 @@ app.use('/api', deviceRoutes);
 app.use('/api', systemRoutes);
 app.use('/api', chatRoutes);
 app.use('/api', wordGamesRoutes);
+app.use('/', defaultRoutes);
 
 // Error handling middleware (must be last)
 app.use(notFound);

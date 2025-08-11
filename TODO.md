@@ -8,6 +8,4 @@ Use stateless server design?
 
 Uptime Kuma/Gotify
 MongoDB
-Vaultwarden
-Open WebUI
 SSO/LDAP/MFA

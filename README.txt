@@ -89,3 +89,7 @@ set up password for Portainer
 
 set up account for Vaultwarden, then turn off sign up allowed in .env
 enter VAULTWARDEN_WEB_HOSTNAME as the self-hosted url for clients
+
+set up Uptime Kuma
+copy files in ./uptime-kuma/example-data to ./uptime-kuma/data
+Go to settings -> security to set username/password
