@@ -87,7 +87,7 @@ Get RustDesk public key for clients from ./rustdesk/data/id_ed25519.pub
 
 set up password for Portainer
 
-set up account for Vaultwarden, then turn off sign up allowed in .env
+set up account for Vaultwarden, then set VAULTWARDEN_SIGNUPS_ALLOWED to false in .env
 enter VAULTWARDEN_WEB_HOSTNAME as the self-hosted url for clients
 
 set up Uptime Kuma
