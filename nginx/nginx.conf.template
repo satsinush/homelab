@@ -2,256 +2,107 @@
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-    
-    # Using `_` as the server_name makes this a true catch-all for any domain
-    # that doesn't match another server block, which is ideal for the LE challenge.
     server_name _; 
 
-    # 1. Handle Let's Encrypt challenges
-    # This location is more specific, so it will be matched first.
+    # Handle Let's Encrypt challenges
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
     }
 
-    # 2. For all other requests, redirect to your dashboard's HTTPS URL
-    # This location is the general fallback.
+    # For all other requests, redirect to HTTPS
     location / {
-        return 301 https://${DASHBOARD_WEB_HOSTNAME}$request_uri;
+        return 301 https://$host$request_uri;
     }
 }
 
+# --- Main HTTPS Server Block for ALL Services ---
 server {
-    listen 443 ssl default_server; # Listen for HTTPS and make this the default SSL server
-    http2 on;
-    listen [::]:443 ssl default_server;
-    server_name ${HOMELAB_HOSTNAME};
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name ${HOMELAB_HOSTNAME}; # This will be your aneedham.dedyn.io
 
-    # --- Certificate Paths (same as above for shared certificate) ---
+    # Let's Encrypt Certificate Paths
     ssl_certificate /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/privkey.pem;
 
-    # Redirect HTTPS to the admin page
-    return 301 https://${DASHBOARD_WEB_HOSTNAME}$request_uri;
-}
-
-
-# --- Pi-hole Server Block (HTTPS) ---
-server {
-    listen 80;
-    server_name ${PIHOLE_WEB_HOSTNAME};
-    return 301 https://$host$request_uri; # Redirect HTTP to HTTPS
-}
-
-server {
-    listen 443 ssl; # Listen for HTTPS traffic
-    http2 on;
-    server_name ${PIHOLE_WEB_HOSTNAME};
-
-    # --- Certificate Paths ---
-    ssl_certificate /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/fullchain.pem;    # <--- NEW CERTIFICATE PATH
-    ssl_certificate_key /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/privkey.pem; # <--- NEW KEY PATH
-
-    # --- Proxy Configuration for Pi-hole ---
+    # --- Default/Dashboard Location ---
+    # Requests to the root (e.g., https://aneedham.dedyn.io/) go to your dashboard
     location / {
-        proxy_pass http://pihole:80; 
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        proxy_hide_header X-Frame-Options;
-        add_header X-Frame-Options "SAMEORIGIN";
-    }
-}
-
-
-# Homelab Dashboard conf
-server {
-    listen 80;
-    server_name ${DASHBOARD_WEB_HOSTNAME};
-    return 301 https://$host$request_uri;
-}
-
-server {
-    listen 443 ssl;
-    http2 on;
-    server_name ${DASHBOARD_WEB_HOSTNAME};
-
-    # --- Certificate Paths ---
-    ssl_certificate /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/fullchain.pem;    # <--- NEW CERTIFICATE PATH
-    ssl_certificate_key /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/privkey.pem; # <--- NEW KEY PATH
-
-    root /usr/share/nginx/html; # <<< CHANGED FROM 'build' TO 'dist'
-    index index.html;
-
-    # Serve React app files
-    location / {
+        root /usr/share/nginx/html;
+        index index.html;
         try_files $uri $uri/ /index.html;
     }
 
-    # Proxy API requests to your Node.js backend
+    # --- Dashboard API ---
     location /api/ {
         proxy_pass http://homelab-api:5000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-
-        proxy_connect_timeout 3600s;  # Increase connection timeout
-        proxy_send_timeout 3600s;     # Increase send timeout
-        proxy_read_timeout 3600s;     # Increase read timeout (most important for 504)
+        proxy_read_timeout 3600s;
     }
-}
 
-# --- Netdata Server Block (HTTPS) ---
-server {
-    listen 80;
-    server_name ${NETDATA_WEB_HOSTNAME};
-    return 301 https://$host$request_uri; # Redirect HTTP to HTTPS
-}
+    # --- Pi-hole ---
+    # Redirect /pihole to the correct /admin/ path
+    location = /pihole { return 301 /admin/; }
+    location /admin/ {
+        proxy_pass http://pihole:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 
-server {
-    listen 443 ssl;
-    http2 on;
-    server_name ${NETDATA_WEB_HOSTNAME};
-
-    # --- Certificate Paths ---
-    ssl_certificate /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/privkey.pem;
-
-    # --- Proxy Configuration for Netdata ---
-    location / {
+    # --- Netdata ---
+    location /netdata/ {
+        rewrite /netdata/(.*) /$1 break;
         proxy_pass http://netdata:19999;
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # Netdata specific headers for proper functioning
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_read_timeout 3600s; # Netdata can have long-lived connections
-        proxy_send_timeout 3600s;
     }
-}
 
-# --- Portainer Server Block (HTTPS) ---
-server {
-    listen 80;
-    server_name ${PORTAINER_WEB_HOSTNAME};
-    return 301 https://$host$request_uri; # Redirect HTTP to HTTPS
-}
-
-server {
-    listen 443 ssl;
-    http2 on;
-    server_name ${PORTAINER_WEB_HOSTNAME};
-
-    # --- Certificate Paths ---
-    ssl_certificate /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/privkey.pem;
-
-    # --- Proxy Configuration for Portainer ---
-    location / {
+    # --- Portainer ---
+    location /portainer/ {
+        rewrite /portainer/(.*) /$1 break;
         proxy_pass http://portainer:9000;
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
     }
-
-    # THIS BLOCK IS REQUIRED FOR THE EXEC CONSOLE AND LOGS
-    location /api/websocket/ {
+    location /portainer/api/websocket/ {
+        proxy_pass http://portainer:9000/api/websocket/;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_http_version 1.1;
-        # This is the port of the container
-        proxy_pass http://portainer:9000/api/websocket/;
     }
-}
 
-# --- Vaultwarden Server Block (HTTPS) ---
-server {
-    listen 80;
-    server_name ${VAULTWARDEN_WEB_HOSTNAME};
-    return 301 https://$host$request_uri; # Redirect HTTP to HTTPS
-}
-
-server {
-    listen 443 ssl;
-    http2 on;
-    server_name ${VAULTWARDEN_WEB_HOSTNAME};
-
-    # --- Certificate Paths ---
-    ssl_certificate /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/privkey.pem;
-
-    # --- Proxy Configuration for Portainer ---
-    location / {
+    # --- Vaultwarden ---
+    location /vaultwarden/ {
         proxy_pass http://vaultwarden:80;
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
     }
-
-    # This location is required for WebSocket support, which is crucial for syncing.
-    location /notifications/hub {
+    location /vaultwarden/notifications/hub {
         proxy_pass http://vaultwarden:80;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
     }
-}
 
-# --- Uptime Kuma Server Block (HTTPS) ---
-server {
-    listen 80;
-    server_name ${UPTIME_KUMA_WEB_HOSTNAME}; # Use your desired hostname
-    return 301 https://$host$request_uri;
-}
-
-server {
-    listen 443 ssl;
-    http2 on;
-    server_name ${UPTIME_KUMA_WEB_HOSTNAME}; # Use your desired hostname
-
-    # SSL Certs
-    ssl_certificate /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/privkey.pem;
-
-    location / {
+    # --- Uptime Kuma ---
+    location /kuma/ {
+        rewrite /kuma/(.*) /$1 break;
         proxy_pass http://uptime-kuma:3001;
         proxy_set_header Host $host;
-        # WebSocket support
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
     }
-}
 
-# --- ntfy Server Block (HTTPS) ---
-server {
-    listen 80;
-    server_name ${NTFY_WEB_HOSTNAME}; # Use your desired hostname
-    return 301 https://$host$request_uri;
-}
-
-server {
-    listen 443 ssl;
-    http2 on;
-    server_name ${NTFY_WEB_HOSTNAME}; # Use your desired hostname
-
-    # SSL Certs
-    ssl_certificate /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${HOMELAB_HOSTNAME}/privkey.pem;
-
-    location / {
+    # --- ntfy ---
+    location /ntfy/ {
+        rewrite /ntfy/(.*) /$1 break;
         proxy_pass http://ntfy:80;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        
-        # Required for instant notifications
         proxy_buffering off;
     }
 }
