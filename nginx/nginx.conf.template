@@ -216,3 +216,29 @@ server {
         proxy_set_header Connection "upgrade";
     }
 }
+
+# --- ntfy Server Block (HTTPS) ---
+server {
+    listen 80;
+    server_name ${NTFY_WEB_HOSTNAME}; # Use your desired hostname
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${NTFY_WEB_HOSTNAME}; # Use your desired hostname
+
+    # SSL Certs
+    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
+    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+
+    location / {
+        proxy_pass http://ntfy:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        
+        # Required for instant notifications
+        proxy_buffering off;
+    }
+}

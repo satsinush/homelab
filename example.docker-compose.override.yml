@@ -33,6 +33,7 @@ services:
       - VITE_PORTAINER_WEB_HOSTNAME=${VITE_PORTAINER_WEB_HOSTNAME}
       - VITE_VAULTWARDEN_WEB_HOSTNAME=${VITE_VAULTWARDEN_WEB_HOSTNAME}
       - VITE_UPTIME_KUMA_WEB_HOSTNAME=${VITE_UPTIME_KUMA_WEB_HOSTNAME}
+      - VITE_NTFY_WEB_HOSTNAME=${VITE_NTFY_WEB_HOSTNAME}
 
   pihole:
     ports:
@@ -57,3 +58,7 @@ services:
   uptime-kuma:
     ports:
       - "3001:3001"
+
+  ntfy:
+    ports:
+      - "8081:80"

@@ -93,3 +93,6 @@ enter VAULTWARDEN_WEB_HOSTNAME as the self-hosted url for clients
 set up Uptime Kuma
 copy files in ./uptime-kuma/example-data to ./uptime-kuma/data
 Go to settings -> security to set username/password
+
+Set up ntfy
+run docker exec ntfy ntfy user add <username> --password "<password>" --role admin

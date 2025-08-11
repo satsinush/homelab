@@ -25,7 +25,9 @@ import {
     Computer as ComputerIcon,
     Storage as StorageIcon,
     Speed as SpeedIcon,
-    OpenInNew as ExternalLinkIcon
+    OpenInNew as ExternalLinkIcon,
+    Games as GamesIcon,
+    Chat as ChatIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -34,6 +36,7 @@ import PiHoleLogo from '../assets/pi_hole_logo.png';
 import PortainerLogo from '../assets/portainer_logo.png';
 import VaultwardenLogo from '../assets/vaultwarden_logo.png';
 import UptimeKumaLogo from '../assets/uptime_kuma_logo.png';
+import NtfyLogo from '../assets/ntfy_logo.png';
 
 const Home = () => {
     const navigate = useNavigate();
@@ -53,6 +56,20 @@ const Home = () => {
             icon: <DevicesIcon />,
             path: '/devices',
             color: 'secondary'
+        },
+        {
+            title: 'AI Chat',
+            description: 'Ask questions and run actions with an AI chat bot',
+            icon: <ChatIcon />,
+            path: '/chat',
+            color: 'info'
+        },
+        {
+            title: 'Word Games',
+            description: 'Use solvers to word games like Letterboxed',
+            icon: <GamesIcon />,
+            path: '/wordgames',
+            color: 'warning'
         },
         {
             title: 'Package Manager',
@@ -147,6 +164,23 @@ const Home = () => {
                 <Avatar
                     src={UptimeKumaLogo}
                     alt="Uptime Kuma"
+                    sx={{
+                        width: 32,
+                        height: 32,
+                        bgcolor: 'transparent',
+                    }}
+                />
+            ),
+            color: 'white'
+        },
+        {
+            title: 'Ntfy',
+            description: 'Self-hosted push notification service',
+            url: `https://${import.meta.env.VITE_NTFY_WEB_HOSTNAME}`,
+            icon: (
+                <Avatar
+                    src={NtfyLogo}
+                    alt="Ntfy"
                     sx={{
                         width: 32,
                         height: 32,

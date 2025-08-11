@@ -15,6 +15,7 @@ services:
         - VITE_PORTAINER_WEB_HOSTNAME=${VITE_PORTAINER_WEB_HOSTNAME}
         - VITE_VAULTWARDEN_WEB_HOSTNAME=${VITE_VAULTWARDEN_WEB_HOSTNAME}
         - VITE_UPTIME_KUMA_WEB_HOSTNAME=${VITE_UPTIME_KUMA_WEB_HOSTNAME}
+        - VITE_NTFY_WEB_HOSTNAME=${VITE_NTFY_WEB_HOSTNAME}
     container_name: nginx
     restart: unless-stopped
     ports:
@@ -33,6 +34,7 @@ services:
       - PORTAINER_WEB_HOSTNAME=${PORTAINER_WEB_HOSTNAME}
       - VAULTWARDEN_WEB_HOSTNAME=${VAULTWARDEN_WEB_HOSTNAME}
       - UPTIME_KUMA_WEB_HOSTNAME=${UPTIME_KUMA_WEB_HOSTNAME}
+      - NTFY_WEB_HOSTNAME=${NTFY_WEB_HOSTNAME}
 
   # Pi-hole for network-wide ad blocking
   pihole:
@@ -52,7 +54,7 @@ services:
       - FTLCONF_webserver_port=80
       - DNSMASQ_LISTENING=all
       - FTLCONF_webserver_api_password=password
-      - FTLCONF_dns_hosts=${HOMELAB_IP_ADDRESS} ${HOMELAB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PIHOLE_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${NETDATA_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${DASHBOARD_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PORTAINER_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${VAULTWARDEN_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${UPTIME_KUMA_WEB_HOSTNAME}
+      - FTLCONF_dns_hosts=${HOMELAB_IP_ADDRESS} ${HOMELAB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PIHOLE_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${NETDATA_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${DASHBOARD_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PORTAINER_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${VAULTWARDEN_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${UPTIME_KUMA_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${NTFY_WEB_HOSTNAME}
     volumes:
       #- ./pihole/pihole.toml:/etc/pihole/pihole.toml
       - pihole_data:/etc/pihole/
@@ -217,6 +219,28 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - homelab-net
+  
+
+  # ntfy for self-hosted push notifications
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: ntfy
+    restart: unless-stopped
+    volumes:
+      - ntfy_data:/var/lib/ntfy
+    environment:
+      - NTFY_BASE_URL=https://${NTFY_WEB_HOSTNAME}
+      - NTFY_AUTH_FILE=/var/lib/ntfy/user.db
+      - NTFY_CACHE_FILE=/var/lib/ntfy/cache.db
+      - NTFY_ATTACHMENT_CACHE_DIR=/var/lib/ntfy/attachments
+      - NTFY_AUTH_DEFAULT_ACCESS=deny-all
+      - NTFY_AUTH_USERS=${NTFY_ADMIN_USER}
+      - NTFY_AUTH_TOKENS=${NTFY_ADMIN_TOKEN}
+      - NTFY_BEHIND_PROXY=true
+      - NTFY_ENABLE_LOGIN=true
+    networks:
+      - homelab-net
+    command: serve
 
 # Docker will manage these volumes for persistent data storage
 volumes:
@@ -228,3 +252,4 @@ volumes:
   portainer-data:
   unbound-redis-data:
   vaultwarden-data:
+  ntfy_data:
