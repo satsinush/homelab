@@ -8,6 +8,8 @@ ssl/
 ddclient/config
 rustdesk/data/
 uptime-kuma/data/
+certbot/letsencrypt/
+certbot/www/
 
 id_ed25519
 id_ed25519.pub
