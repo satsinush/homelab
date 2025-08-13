@@ -131,6 +131,11 @@ echo "4. Setting permissions for private key..."
 sudo chmod 600 "${KEY_OUT}"
 sudo chmod 600 "${CA_KEY_OUT}" # Also ensure CA key is secure
 
+# --- Install CA Certificate in System Trust Store ---
+echo "5. Installing CA certificate in system trust store..."
+sudo cp "${CA_CERT_OUT}" /etc/ca-certificates/trust-source/anchors/
+sudo trust extract-compat
+
 # --- Final Output ---
 echo ""
 echo "Certificate generation complete!"
