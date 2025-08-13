@@ -58,7 +58,8 @@ fill in values as needed
 Clone repo
 init and clone submodules
 
-run generate_keys.sh
+run generate_certificates.sh
+install homelab-ca.crt on any devices accessing homelab services
 
 set up ./ddclient/config/ddclient.conf
 use ./ddclient/example.ddclient.conf as an example

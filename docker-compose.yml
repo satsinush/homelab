@@ -243,8 +243,8 @@ services:
       - NTFY_CACHE_FILE=/var/lib/ntfy/cache.db
       - NTFY_ATTACHMENT_CACHE_DIR=/var/lib/ntfy/attachments
       - NTFY_AUTH_DEFAULT_ACCESS=deny-all
-      - NTFY_AUTH_USERS=${NTFY_ADMIN_USER}
-      - NTFY_AUTH_TOKENS=${NTFY_ADMIN_TOKEN}
+      - NTFY_AUTH_USERS=${NTFY_ADMIN_USERS}
+      - NTFY_AUTH_TOKENS=${NTFY_ADMIN_TOKENS}
       - NTFY_BEHIND_PROXY=true
       - NTFY_ENABLE_LOGIN=true
     networks:
