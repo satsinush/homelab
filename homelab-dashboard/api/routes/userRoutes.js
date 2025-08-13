@@ -31,8 +31,8 @@ router.post('/logout', (req, res) => userController.logout(req, res));
 // Get current user info
 router.get('/me', requireAuth(), (req, res) => userController.getMe(req, res));
 
-// Verify token endpoint
-router.post('/verify', (req, res) => userController.verifyToken(req, res));
+// Verify session endpoint
+router.post('/verify', (req, res) => userController.verifySession(req, res));
 
 // Update user profile
 router.put('/profile', requireAuth(), (req, res) => userController.updateProfile(req, res));

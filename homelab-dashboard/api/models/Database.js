@@ -19,6 +19,8 @@ class DatabaseModel {
         const dbPath = path.join(config.database.path, config.database.filename);
         this.db = new Database(dbPath);
 
+        this.db.pragma('journal_mode = WAL');
+
         // Initialize database tables
         this.createTables();
     }

@@ -1,5 +1,4 @@
 const argon2 = require('argon2');
-const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const database = require('./Database');
 const config = require('../config');
@@ -60,56 +59,6 @@ class User {
             };
         } catch (error) {
             console.error('Authentication error:', error);
-            return null;
-        }
-    }
-
-    // Create JWT token for user
-    createToken(userId) {
-        try {
-            const token = jwt.sign(
-                { 
-                    userId,
-                    iat: Math.floor(Date.now() / 1000),
-                    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
-                },
-                config.jwtSecret
-            );
-            
-            const expiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000)); // 24 hours
-            
-            return { token, expiresAt };
-        } catch (error) {
-            console.error('Token creation error:', error);
-            return null;
-        }
-    }
-
-    // Verify JWT token
-    verifyToken(token) {
-        try {
-            const decoded = jwt.verify(token, config.jwtSecret);
-            
-            // Get user data
-            const stmt = this.db.prepare(`
-                SELECT u.id, u.username, u.roles 
-                FROM users u 
-                WHERE u.id = ?
-            `);
-            
-            const user = stmt.get(decoded.userId);
-            
-            if (!user) {
-                return null;
-            }
-            
-            return {
-                userId: user.id,
-                username: user.username,
-                roles: JSON.parse(user.roles)
-            };
-        } catch (error) {
-            console.error('Token verification error:', error);
             return null;
         }
     }

@@ -4,18 +4,11 @@ require('dotenv').config();
 const path = require('path');
 
 // Validate required environment variables
-const JWT_SECRET = process.env.HOMELAB_API_JWT_SECRET;
 const SESSION_SECRET = process.env.HOMELAB_API_SESSION_SECRET;
-
-if (!JWT_SECRET) {
-    console.error('ERROR: JWT_SECRET environment variable is required!');
-    console.error('Please set JWT_SECRET in your .env file or environment variables.');
-    process.exit(1);
-}
 
 if (!SESSION_SECRET) {
     console.error('ERROR: SESSION_SECRET environment variable is required!');
-    console.error('Please set SESSION_SECRET in your .env file or environment variables.');
+    console.error('Please set HOMELAB_API_SESSION_SECRET in your .env file or environment variables.');
     process.exit(1);
 }
 
@@ -27,7 +20,6 @@ const DEFAULT_SETTINGS = {
 
 const config = {
     port: 5000,
-    jwtSecret: JWT_SECRET,
     sessionSecret: SESSION_SECRET,
     database: {
         path: path.join(__dirname, '..', 'data'),
@@ -41,8 +33,9 @@ const config = {
         ]
     },
     rateLimit: {
-        windowMs: 1000, // 1 second
-        max: process.env.ENVIRONMENT === 'development' ? 1 : 1
+        // 1 login attempt per second in development, 10 attempts per 10 minutes in production
+        windowMs: process.env.ENVIRONMENT === 'development' ? 1000 : 10 * 60 * 1000,
+        max: process.env.ENVIRONMENT === 'development' ? 1 : 10
     },
     session: {
         secure: process.env.ENVIRONMENT === 'development' ? false : true, // Set to true in production with HTTPS

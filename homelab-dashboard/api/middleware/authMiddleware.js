@@ -1,21 +1,18 @@
-const User = require('../models/User');
-
-const userModel = new User();
-
 // Authentication middleware
 const requireAuth = (requiredRole = null) => {
     return (req, res, next) => {
-        const token = req.headers.authorization?.replace('Bearer ', '') || req.session.token;
+        // Debug logging
+        console.log('Session data:', req.session);
+        console.log('Session ID:', req.sessionID);
+        console.log('User ID in session:', req.session.userId);
         
-        if (!token) {
+        // Check if user is logged in via session
+        if (!req.session.userId || !req.session.user) {
+            console.log('No session data found - authentication required');
             return res.status(401).json({ error: 'Authentication required' });
         }
         
-        const user = userModel.verifyToken(token);
-        
-        if (!user) {
-            return res.status(401).json({ error: 'Invalid or expired token' });
-        }
+        const user = req.session.user;
         
         // Check role if specified
         if (requiredRole && !user.roles.includes(requiredRole)) {

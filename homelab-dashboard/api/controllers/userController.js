@@ -31,15 +31,13 @@ class UserController {
                 return sendError(res, 401, 'Invalid username or password');
             }
             
-            const tokenData = this.userModel.createToken(user.id);
-            
-            if (!tokenData) {
-                return sendError(res, 500, 'Failed to create authentication token');
-            }
-            
-            // Store token in session
-            req.session.token = tokenData.token;
+            // Store user info in session
             req.session.userId = user.id;
+            req.session.user = {
+                id: user.id,
+                username: user.username,
+                roles: user.roles
+            };
             
             return sendSuccess(res, {
                 message: 'Login successful',
@@ -47,9 +45,7 @@ class UserController {
                     id: user.id,
                     username: user.username,
                     roles: user.roles
-                },
-                token: tokenData.token,
-                expiresAt: tokenData.expiresAt
+                }
             });
         } catch (error) {
             console.error('Login error:', error);
@@ -89,32 +85,25 @@ class UserController {
         }
     }
 
-    // Verify token endpoint
-    async verifyToken(req, res) {
+    // Verify session endpoint
+    async verifySession(req, res) {
         try {
-            const token = req.headers.authorization?.replace('Bearer ', '') || req.session.token;
-            
-            if (!token) {
-                return sendError(res, 401, 'Authentication token is required');
-            }
-            
-            const user = this.userModel.verifyToken(token);
-            
-            if (!user) {
-                return sendError(res, 401, 'Invalid or expired authentication token');
+            // Check if user is logged in via session
+            if (!req.session.userId || !req.session.user) {
+                return sendError(res, 401, 'No valid session found');
             }
             
             return sendSuccess(res, {
                 valid: true,
                 user: {
-                    id: user.userId,
-                    username: user.username,
-                    roles: user.roles
+                    id: req.session.user.id,
+                    username: req.session.user.username,
+                    roles: req.session.user.roles
                 }
             });
         } catch (error) {
-            console.error('Token verification error:', error);
-            return sendError(res, 500, 'Token verification failed', error.message);
+            console.error('Session verification error:', error);
+            return sendError(res, 500, 'Session verification failed', error.message);
         }
     }
 
