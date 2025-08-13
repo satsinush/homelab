@@ -89,8 +89,7 @@ if (process.env.ENVIRONMENT === 'development') {
 } else {
     // Your production code is perfectly fine!
     app.use(express.static(frontendDistPath));
-    app.get('*', (req, res, next) => {
-        if (req.path.startsWith('/api')) return next();
+    app.get(/^(?!\/api).*/, (req, res) => {
         res.sendFile(path.join(frontendDistPath, 'index.html'));
     });
 }
