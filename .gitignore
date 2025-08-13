@@ -4,6 +4,7 @@
 docker-compose.override.yml
 # Ignore the SSL certificate directory
 ssl/
+certificates/
 
 ddclient/config
 rustdesk/data/

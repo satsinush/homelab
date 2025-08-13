@@ -22,8 +22,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./ssl/nginx-all-sites.crt:/etc/ssl/certs/nginx-all-sites.crt:ro
-      - ./ssl/nginx-all-sites.key:/etc/ssl/private/nginx-all-sites.key:ro
+      - ./certificates:/etc/ssl/homelab:ro
     networks:
       - homelab-net
     environment:
@@ -169,7 +168,6 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - HOMELAB_API_JWT_SECRET=${HOMELAB_API_JWT_SECRET}
       - HOMELAB_API_SESSION_SECRET=${HOMELAB_API_SESSION_SECRET}
       - ENVIRONMENT=${ENVIRONMENT}
 

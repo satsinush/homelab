@@ -14,8 +14,8 @@ server {
     server_name ${HOMELAB_HOSTNAME};
 
     # --- Certificate Paths (same as above for shared certificate) ---
-    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
-    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+    ssl_certificate /etc/ssl/homelab/${HOMELAB_HOSTNAME}.crt;
+    ssl_certificate_key /etc/ssl/homelab/${HOMELAB_HOSTNAME}.key;
 
     # Redirect HTTPS to the admin page
     return 301 https://${DASHBOARD_WEB_HOSTNAME}$request_uri;
@@ -35,8 +35,8 @@ server {
     server_name ${PIHOLE_WEB_HOSTNAME};
 
     # --- Certificate Paths ---
-    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;    # <--- NEW CERTIFICATE PATH
-    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key; # <--- NEW KEY PATH
+    ssl_certificate /etc/ssl/homelab/${HOMELAB_HOSTNAME}.crt;    # <--- NEW CERTIFICATE PATH
+    ssl_certificate_key /etc/ssl/homelab/${HOMELAB_HOSTNAME}.key; # <--- NEW KEY PATH
 
     # --- Proxy Configuration for Pi-hole ---
     location / {
@@ -65,8 +65,8 @@ server {
     server_name ${DASHBOARD_WEB_HOSTNAME};
 
     # --- Certificate Paths ---
-    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;    # <--- NEW CERTIFICATE PATH
-    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key; # <--- NEW KEY PATH
+    ssl_certificate /etc/ssl/homelab/${HOMELAB_HOSTNAME}.crt;    # <--- NEW CERTIFICATE PATH
+    ssl_certificate_key /etc/ssl/homelab/${HOMELAB_HOSTNAME}.key; # <--- NEW KEY PATH
 
     # Proxy API requests to your Node.js backend
     location / {
@@ -95,8 +95,8 @@ server {
     server_name ${NETDATA_WEB_HOSTNAME};
 
     # --- Certificate Paths ---
-    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
-    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+    ssl_certificate /etc/ssl/homelab/${HOMELAB_HOSTNAME}.crt;
+    ssl_certificate_key /etc/ssl/homelab/${HOMELAB_HOSTNAME}.key;
 
     # --- Proxy Configuration for Netdata ---
     location / {
@@ -128,8 +128,8 @@ server {
     server_name ${PORTAINER_WEB_HOSTNAME};
 
     # --- Certificate Paths ---
-    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
-    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+    ssl_certificate /etc/ssl/homelab/${HOMELAB_HOSTNAME}.crt;
+    ssl_certificate_key /etc/ssl/homelab/${HOMELAB_HOSTNAME}.key;
 
     # --- Proxy Configuration for Portainer ---
     location / {
@@ -163,8 +163,8 @@ server {
     server_name ${VAULTWARDEN_WEB_HOSTNAME};
 
     # --- Certificate Paths ---
-    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
-    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+    ssl_certificate /etc/ssl/homelab/${HOMELAB_HOSTNAME}.crt;
+    ssl_certificate_key /etc/ssl/homelab/${HOMELAB_HOSTNAME}.key;
 
     # --- Proxy Configuration for Portainer ---
     location / {
@@ -196,8 +196,8 @@ server {
     server_name ${UPTIME_KUMA_WEB_HOSTNAME}; # Use your desired hostname
 
     # SSL Certs
-    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
-    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+    ssl_certificate /etc/ssl/homelab/${HOMELAB_HOSTNAME}.crt;
+    ssl_certificate_key /etc/ssl/homelab/${HOMELAB_HOSTNAME}.key;
 
     location / {
         proxy_pass http://uptime-kuma:3001;
@@ -222,8 +222,8 @@ server {
     server_name ${NTFY_WEB_HOSTNAME}; # Use your desired hostname
 
     # SSL Certs
-    ssl_certificate /etc/ssl/certs/nginx-all-sites.crt;
-    ssl_certificate_key /etc/ssl/private/nginx-all-sites.key;
+    ssl_certificate /etc/ssl/homelab/${HOMELAB_HOSTNAME}.crt;
+    ssl_certificate_key /etc/ssl/homelab/${HOMELAB_HOSTNAME}.key;
 
     location / {
         proxy_pass http://ntfy:80;
