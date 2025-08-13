@@ -212,48 +212,30 @@ server {
 # --- ntfy Server Block (HTTPS) ---
 # /etc/nginx/sites-*/ntfy
 #
-# This config allows insecure HTTP POST/PUT requests against topics to allow a short curl syntax (without -L
-# and "https://" prefix). It also disables output buffering, which has worked well for the ntfy.sh server.
-#
-# This is pretty much how ntfy.sh is configured. To see the exact configuration,
-# see https://github.com/binwiederhier/ntfy-ansible/
+# This config requires the use of the -L flag in curl to redirect to HTTPS, and it keeps nginx output buffering
+# enabled. While recommended, I have had issues with that in the past.
 
 server {
-  listen 80;
-  server_name ${NTFY_WEB_HOSTNAME};
+    listen 80;
+    server_name ${NTFY_WEB_HOSTNAME};
 
-  location / {
-    # Redirect HTTP to HTTPS, but only for GET topic addresses, since we want 
-    # it to work with curl without the annoying https:// prefix
-    set $redirect_https "";
-    if ($request_method = GET) {
-      set $redirect_https "yes";
+    location / {
+        return 302 https://$http_host$request_uri$is_args$query_string;
+
+        proxy_pass http://ntfy:80;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $http_host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        proxy_connect_timeout 3m;
+        proxy_send_timeout 3m;
+        proxy_read_timeout 3m;
+
+        client_max_body_size 0; # Stream request body to backend
     }
-    if ($request_uri ~* "^/([-_a-z0-9]{0,64}$|docs/|static/)") {
-      set $redirect_https "${redirect_https}yes";
-    }
-    if ($redirect_https = "yesyes") {
-      return 302 https://$http_host$request_uri$is_args$query_string;
-    }
-
-    proxy_pass http://ntfy:80;
-    proxy_http_version 1.1;
-
-    proxy_buffering off;
-    proxy_request_buffering off;
-    proxy_redirect off;
-
-    proxy_set_header Host $http_host;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-    proxy_connect_timeout 3m;
-    proxy_send_timeout 3m;
-    proxy_read_timeout 3m;
-
-    client_max_body_size 0; # Stream request body to backend
-  }
 }
 
 server {
@@ -276,10 +258,6 @@ server {
     location / {
         proxy_pass http://ntfy:80;
         proxy_http_version 1.1;
-
-        proxy_buffering off;
-        proxy_request_buffering off;
-        proxy_redirect off;
 
         proxy_set_header Host $http_host;
         proxy_set_header Upgrade $http_upgrade;
