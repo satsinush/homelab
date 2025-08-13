@@ -10,7 +10,7 @@ User=aneedham
 Group=aneedham
 
 # The working directory for the service
-WorkingDirectory=/home/aneedham/homelab/homelab-host-api
+WorkingDirectory=/home/aneedham/homelab/homelab-dashboard/host-api
 
 # The command to execute to start the service
 # Replace 'node' with the full path if necessary (e.g., /usr/bin/node)

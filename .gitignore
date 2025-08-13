@@ -8,6 +8,7 @@ ssl/
 ddclient/config
 rustdesk/data/
 uptime-kuma/data/
+homelab-dashboard/data/
 
 id_ed25519
 id_ed25519.pub

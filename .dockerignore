@@ -1,6 +1,5 @@
 # Ignore Node.js dependency folders
-node_modules
-*/node_modules
+**/node_modules
 
 # Ignore build artifacts
 build

@@ -56,15 +56,13 @@ WORKDIR /app/api
 RUN npm install
 
 # 2. Copy API source code
-COPY ./homelab-dashboard/api/ ./api/
+COPY ./homelab-dashboard/api/ .
 
 # 3. Copy built frontend into /app/frontend
 WORKDIR /app
-RUN mkdir -p frontend
-COPY --from=react-builder /frontend/dist ./frontend/dist
+COPY --from=react-builder /frontend/dist ./frontend/dist/
 
 # 4. Copy word_games binary and word_lists into /app/word_games
-RUN mkdir -p word_games
 COPY --from=cpp-builder /build/word_games ./word_games/
 COPY ./word_games/word_lists ./word_games/word_lists/
 
