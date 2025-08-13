@@ -59,12 +59,6 @@ export const tryApiCall = async (path, options = {}) => {
         const response = await fetch(getApiUrl(path), fetchOptions);
         clearTimeout(timeoutId);
 
-        // Handle 401 errors
-        if (response.status === 401) {
-            handle401Error();
-            throw new ApiError('Authentication required', 401, response);
-        }
-
         // Parse response data first to get error details
         const contentType = response.headers.get('content-type');
         let data;
@@ -72,6 +66,11 @@ export const tryApiCall = async (path, options = {}) => {
             data = await response.json();
         } else {
             data = await response.text();
+        }
+
+        // Handle 401 errors
+        if (response.status === 401) {
+            handle401Error();
         }
 
         // Handle non-ok responses with detailed error messages

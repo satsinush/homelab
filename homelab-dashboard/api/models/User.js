@@ -34,7 +34,7 @@ class User {
     // Authenticate user
     async authenticate(username, password) {
         try {
-            const stmt = this.db.prepare('SELECT * FROM users WHERE username = ?');
+            const stmt = this.db.prepare('SELECT * FROM users WHERE LOWER(username) = LOWER(?)');
             const user = stmt.get(username);
             
             if (!user) {
@@ -85,7 +85,7 @@ class User {
             }
             
             // Check if username is already taken (by another user)
-            const existingUserStmt = this.db.prepare('SELECT id FROM users WHERE username = ? AND id != ?');
+            const existingUserStmt = this.db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?) AND id != ?');
             const existingUser = existingUserStmt.get(username, userId);
             
             if (existingUser) {
