@@ -42,26 +42,27 @@ class NetdataService {
     // Get CPU usage from Netdata
     async getCpuUsage() {
         try {
-            const url = new URL(`${this.baseUrl}/api/v1/data`);
-            url.searchParams.set('chart', 'system.cpu');
-            url.searchParams.set('points', '1');
-            url.searchParams.set('group', 'average');
-            url.searchParams.set('format', 'json');
-            url.searchParams.set('after', '-1');
+            // const url = new URL(`${this.baseUrl}/api/v1/data`);
+            // url.searchParams.set('chart', 'system.cpu');
+            // url.searchParams.set('points', '1');
+            // url.searchParams.set('group', 'average');
+            // url.searchParams.set('format', 'json');
+            // url.searchParams.set('after', '-1');
 
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json'
-                },
-                signal: AbortSignal.timeout(this.timeout)
-            });
+            // const response = await fetch(url, {
+            //     method: 'GET',
+            //     headers: {
+            //         'Accept': 'application/json'
+            //     },
+            //     signal: AbortSignal.timeout(this.timeout)
+            // });
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
+            // if (!response.ok) {
+            //     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            // }
 
-            const data = await response.json();
+            // const data = await response.json();
+            const data = await this.getMetric('system.cpu');
 
             if (data && data.data && data.data.length > 0 && Array.isArray(data.labels)) {
                 const cpuData = data.data[0];
@@ -90,26 +91,27 @@ class NetdataService {
     // Get memory usage from Netdata
     async getMemoryUsage() {
         try {
-            const url = new URL(`${this.baseUrl}/api/v1/data`);
-            url.searchParams.set('chart', 'system.ram');
-            url.searchParams.set('points', '1');
-            url.searchParams.set('group', 'average');
-            url.searchParams.set('format', 'json');
-            url.searchParams.set('after', '-1');
+            // const url = new URL(`${this.baseUrl}/api/v1/data`);
+            // url.searchParams.set('chart', 'system.ram');
+            // url.searchParams.set('points', '1');
+            // url.searchParams.set('group', 'average');
+            // url.searchParams.set('format', 'json');
+            // url.searchParams.set('after', '-1');
 
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json'
-                },
-                signal: AbortSignal.timeout(this.timeout)
-            });
+            // const response = await fetch(url, {
+            //     method: 'GET',
+            //     headers: {
+            //         'Accept': 'application/json'
+            //     },
+            //     signal: AbortSignal.timeout(this.timeout)
+            // });
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
+            // if (!response.ok) {
+            //     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            // }
 
-            const data = await response.json();
+            // const data = await response.json();
+            const data = await this.getMetric('system.ram');
 
             if (data && data.data && data.data.length > 0) {
                 const memData = data.data[0];
@@ -141,26 +143,27 @@ class NetdataService {
     async getDiskUsage() {
         try {
             // Use the correct chart name from your Netdata instance
-            const url = new URL(`${this.baseUrl}/api/v1/data`);
-            url.searchParams.set('chart', 'disk_space./');
-            url.searchParams.set('points', '1');
-            url.searchParams.set('group', 'average');
-            url.searchParams.set('format', 'json');
-            url.searchParams.set('after', '-1');
+            // const url = new URL(`${this.baseUrl}/api/v1/data`);
+            // url.searchParams.set('chart', 'disk_space./');
+            // url.searchParams.set('points', '1');
+            // url.searchParams.set('group', 'average');
+            // url.searchParams.set('format', 'json');
+            // url.searchParams.set('after', '-1');
 
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json'
-                },
-                signal: AbortSignal.timeout(this.timeout)
-            });
+            // const response = await fetch(url, {
+            //     method: 'GET',
+            //     headers: {
+            //         'Accept': 'application/json'
+            //     },
+            //     signal: AbortSignal.timeout(this.timeout)
+            // });
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
+            // if (!response.ok) {
+            //     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            // }
 
-            const data = await response.json();
+            // const data = await response.json();
+            const data = await this.getMetric('disk_space./');
 
             if (data && data.data && data.data.length > 0) {
                 const diskData = data.data[0];
@@ -217,26 +220,27 @@ class NetdataService {
             // Get data for each interface
             const interfacePromises = networkCharts.map(async (chart) => {
                 try {
-                    const url = new URL(`${this.baseUrl}/api/v1/data`);
-                    url.searchParams.set('chart', chart);
-                    url.searchParams.set('points', '1');
-                    url.searchParams.set('group', 'average');
-                    url.searchParams.set('format', 'json');
-                    url.searchParams.set('after', '-1');
+                    // const url = new URL(`${this.baseUrl}/api/v1/data`);
+                    // url.searchParams.set('chart', chart);
+                    // url.searchParams.set('points', '1');
+                    // url.searchParams.set('group', 'average');
+                    // url.searchParams.set('format', 'json');
+                    // url.searchParams.set('after', '-1');
 
-                    const response = await fetch(url, {
-                        method: 'GET',
-                        headers: {
-                            'Accept': 'application/json'
-                        },
-                        signal: AbortSignal.timeout(this.timeout)
-                    });
+                    // const response = await fetch(url, {
+                    //     method: 'GET',
+                    //     headers: {
+                    //         'Accept': 'application/json'
+                    //     },
+                    //     signal: AbortSignal.timeout(this.timeout)
+                    // });
 
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                    }
+                    // if (!response.ok) {
+                    //     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    // }
 
-                    const data = await response.json();
+                    // const data = await response.json();
+                    const data = await this.getMetric(chart);
 
                     if (data && data.data && data.data.length > 0) {
                         const interfaceData = data.data[0];
@@ -279,7 +283,6 @@ class NetdataService {
         try {
             const chart = 'sensors.temperature_cpu_thermal-virtual-0_temp1_input';
             const data = await this.getMetric(chart, 'input');
-            console.log('Temperature data:', data);
             if (
                 data &&
                 Array.isArray(data.data) &&
@@ -298,7 +301,7 @@ class NetdataService {
     }
 
     // Generic method to get a specific metric with better error handling
-    async getMetric(chart, dimension = null) {
+    async getMetric(chart) {
         try {
             const url = new URL(`${this.baseUrl}/api/v1/data`);
             url.searchParams.set('chart', chart);
@@ -306,10 +309,6 @@ class NetdataService {
             url.searchParams.set('group', 'average');
             url.searchParams.set('format', 'json');
             url.searchParams.set('after', '-1');
-            
-            if (dimension) {
-                url.searchParams.set('dimension', dimension);
-            }
 
             const response = await fetch(url, {
                 method: 'GET',

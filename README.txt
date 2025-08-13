@@ -35,6 +35,8 @@ Anywhere on end0           ALLOW FWD   10.10.20.0/24 on wg0
 
 /etc/wireguard/wg0.conf -> ./wireguard/wg0.conf
 
+enable ipv4 forwarding
+
 Router port forward port 51820
 
 ## Set up DNS
@@ -57,8 +59,6 @@ Clone repo
 init and clone submodules
 
 run generate_keys.sh
-
-update ./unbound/root.hints from curl -o unbound/root.hints https://www.internic.net/domain/named.root
 
 set up ./ddclient/config/ddclient.conf
 use ./ddclient/example.ddclient.conf as an example

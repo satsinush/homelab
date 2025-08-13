@@ -12,12 +12,12 @@ const deviceRoutes = require('./routes/deviceRoutes');
 const systemRoutes = require('./routes/systemRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const wordGamesRoutes = require('./routes/wordGamesRoutes');
-const defaultRoutes = require('./routes/defaultRoutes');
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
 
 // Import services for initialization
 const User = require('./models/User');
 const DeviceController = require('./controllers/deviceController');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 
 // Initialize Express app
 const app = express();
@@ -66,7 +66,34 @@ app.use('/api', deviceRoutes);
 app.use('/api', systemRoutes);
 app.use('/api', chatRoutes);
 app.use('/api', wordGamesRoutes);
-app.use('/', defaultRoutes);
+
+// Serve static React build for non-API routes, or proxy to Vite dev server in development
+const frontendDistPath = path.join(__dirname, '..', 'frontend', 'dist');
+
+if (process.env.ENVIRONMENT === 'development') {
+    // ✅ Create the proxy middleware ONCE and store it in a variable.
+    const viteProxy = createProxyMiddleware({
+        target: 'http://dashboard-dev:5173',
+        changeOrigin: true,
+        ws: true, // For Hot Module Replacement (HMR) WebSockets
+    });
+
+    // Use the middleware for all requests that don't go to the API.
+    app.use((req, res, next) => {
+        if (req.path.startsWith('/api')) {
+            return next();
+        }
+        // ...and REUSE the same instance here for every request.
+        viteProxy(req, res, next);
+    });
+} else {
+    // Your production code is perfectly fine!
+    app.use(express.static(frontendDistPath));
+    app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api')) return next();
+        res.sendFile(path.join(frontendDistPath, 'index.html'));
+    });
+}
 
 // Error handling middleware (must be last)
 app.use(notFound);

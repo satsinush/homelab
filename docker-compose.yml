@@ -72,7 +72,6 @@ services:
     restart: unless-stopped
     volumes:
       - ./unbound/unbound.conf:/etc/unbound/custom.conf.d/unbound.conf:ro
-      - ./unbound/root.hints:/opt/unbound/etc/unbound/root.hints:ro
       - ./unbound/cachedb.conf:/etc/unbound/custom.conf.d/cachedb.conf:ro
     networks:
       - homelab-net
@@ -128,28 +127,43 @@ services:
     image: netdata/netdata:latest
     container_name: netdata
     hostname: ${HOMELAB_HOSTNAME}
+    pid: host
     restart: unless-stopped
     cap_add:
       - SYS_PTRACE
+      - SYS_ADMIN
     security_opt:
       - apparmor:unconfined
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /etc/os-release:/host/etc/os-release:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /proc:/host/proc:ro
+      - /var/log:/host/var/log:ro
+      - /run/dbus:/run/dbus:ro
     networks:
       - homelab-net
 
-  # Your custom Homelab Dashboard API
-  homelab-api:
-    container_name: homelab-api
+  homelab-dashboard:
+    container_name: homelab-dashboard
     restart: unless-stopped
     build:
       context: . # Use the project root as the build context
-      dockerfile: homelab-api/Dockerfile # Specify the path to the Dockerfile
+      dockerfile: homelab-dashboard/Dockerfile # Specify the path to the Dockerfile
+      args:
+        - VITE_PIHOLE_WEB_HOSTNAME=${VITE_PIHOLE_WEB_HOSTNAME}
+        - VITE_NETDATA_WEB_HOSTNAME=${VITE_NETDATA_WEB_HOSTNAME}
+        - VITE_PORTAINER_WEB_HOSTNAME=${VITE_PORTAINER_WEB_HOSTNAME}
+        - VITE_VAULTWARDEN_WEB_HOSTNAME=${VITE_VAULTWARDEN_WEB_HOSTNAME}
+        - VITE_UPTIME_KUMA_WEB_HOSTNAME=${VITE_UPTIME_KUMA_WEB_HOSTNAME}
+        - VITE_NTFY_WEB_HOSTNAME=${VITE_NTFY_WEB_HOSTNAME}
     volumes:
-      - api-data:/app/data
-      - word-games-data:/app/word_games/data
+      - homelab-dashboard-api-data:/app/api/data
+      - homelab-dashboard-word-games-data:/app/word_games/data
     networks:
       - homelab-net
     extra_hosts:
@@ -158,9 +172,6 @@ services:
       - HOMELAB_API_JWT_SECRET=${HOMELAB_API_JWT_SECRET}
       - HOMELAB_API_SESSION_SECRET=${HOMELAB_API_SESSION_SECRET}
       - ENVIRONMENT=${ENVIRONMENT}
-    depends_on:
-      - netdata
-      - ollama
 
   # ddclient for dynamic DNS updates
   ddclient:
@@ -244,8 +255,8 @@ services:
 
 # Docker will manage these volumes for persistent data storage
 volumes:
-  api-data:
-  word-games-data:
+  homelab-dashboard-api-data:
+  homelab-dashboard-word-games-data:
   ollama-data:
   pihole_data:
   pihole_logs:

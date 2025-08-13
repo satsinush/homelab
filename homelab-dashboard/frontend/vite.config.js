@@ -11,8 +11,8 @@ export default defineConfig({
     proxy: {
       // Any request starting with '/api' will be forwarded
       '/api': {
-        // Forward it to the homelab-api container on its port 5000
-        target: 'http://homelab-api:5000',
+        // Forward it to the homelab-dashboard container on its port 5000
+        target: 'http://homelab-dashboard:5000',
         // Necessary for virtual hosts
         changeOrigin: true,
       }
@@ -20,5 +20,10 @@ export default defineConfig({
     watch: {
       usePolling: true,
     },
+    allowedHosts: [
+      'http://localhost:5173',
+      'homelab-dashboard',
+      'dashboard-dev'
+    ]
   }
 })

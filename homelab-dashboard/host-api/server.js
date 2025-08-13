@@ -10,9 +10,9 @@ const isWindows = os.platform() === 'win32';
 const isLinux = os.platform() === 'linux';
 const isMacOS = os.platform() === 'darwin';
 
-// CORS configuration - allow requests from homelab-api
+// CORS configuration - allow requests from homelab-dashboard
 app.use(cors({
-    origin: ['http://homelab-api:5000', 'http://localhost:5000'],
+    origin: ['http://homelab-dashboard:5000', 'http://localhost:5001'],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
