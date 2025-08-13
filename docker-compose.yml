@@ -226,7 +226,6 @@ services:
     volumes:
       - ./uptime-kuma/data:/app/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./certificates/homelab-ca.crt:/usr/local/share/ca-certificates/homelab-ca.crt:ro
     networks:
       - homelab-net
   
