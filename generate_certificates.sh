@@ -47,6 +47,8 @@ declare -a SAN_DOMAINS=(
     "${VAULTWARDEN_WEB_HOSTNAME}"
     "${UPTIME_KUMA_WEB_HOSTNAME}"
     "${NTFY_WEB_HOSTNAME}"
+    "${AUTHELIA_WEB_HOSTNAME}"
+    "${LLDAP_WEB_HOSTNAME}"
 )
 
 # --- Ensure SSL directory exists ---
