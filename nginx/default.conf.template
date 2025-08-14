@@ -272,6 +272,10 @@ server {
         proxy_set_header X-Forwarded-URI $request_uri;
         proxy_set_header Remote-User $remote_user;
 
+        # Strip conditional request headers so Authelia always returns full response
+        proxy_set_header If-None-Match "";
+        proxy_set_header If-Modified-Since "";
+
         # Disable caching entirely for auth_request
         proxy_ignore_headers Cache-Control Expires;
         add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate" always;
