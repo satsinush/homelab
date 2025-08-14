@@ -1,0 +1,249 @@
+# --- Default Server Block (No changes needed) ---
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name ${HOMELAB_HOSTNAME};
+    return 301 https://${DASHBOARD_WEB_HOSTNAME}$request_uri;
+}
+
+server {
+    server_name ${HOMELAB_HOSTNAME};
+    
+    ssl_certificate /etc/ssl/homelab/${HOMELAB_HOSTNAME}.crt;
+    ssl_certificate_key /etc/ssl/homelab/${HOMELAB_HOSTNAME}.key;
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    http2 on;
+
+    return 301 https://${DASHBOARD_WEB_HOSTNAME}$request_uri;
+}
+
+
+# --- Pi-hole Server Block (Refactored) ---
+server {
+    listen 80;
+    server_name ${PIHOLE_WEB_HOSTNAME};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    server_name ${PIHOLE_WEB_HOSTNAME};
+    include /etc/nginx/conf.d/snippets/ssl.conf;
+
+    location / {
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf;
+        include /etc/nginx/conf.d/snippets/proxy.conf;
+        
+        proxy_pass http://pihole:80;
+        proxy_hide_header X-Frame-Options;
+        add_header X-Frame-Options "SAMEORIGIN";
+    }
+}
+
+
+# --- Homelab Dashboard Block (Refactored) ---
+server {
+    listen 80;
+    server_name ${DASHBOARD_WEB_HOSTNAME};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    server_name ${DASHBOARD_WEB_HOSTNAME};
+    include /etc/nginx/conf.d/snippets/ssl.conf;
+
+    location / {
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf;
+        include /etc/nginx/conf.d/snippets/proxy.conf;
+        
+        proxy_pass http://homelab-dashboard:5000;
+        proxy_connect_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_read_timeout 3600s;
+    }
+}
+
+
+# --- Netdata Server Block (Refactored) ---
+server {
+    listen 80;
+    server_name ${NETDATA_WEB_HOSTNAME};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    server_name ${NETDATA_WEB_HOSTNAME};
+    include /etc/nginx/conf.d/snippets/ssl.conf;
+
+    location / {
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf;
+        include /etc/nginx/conf.d/snippets/proxy.conf;
+        
+        proxy_pass http://netdata:19999;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+
+
+# --- Portainer Server Block (Refactored) ---
+server {
+    listen 80;
+    server_name ${PORTAINER_WEB_HOSTNAME};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    server_name ${PORTAINER_WEB_HOSTNAME};
+    include /etc/nginx/conf.d/snippets/ssl.conf;
+
+    location / {
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf;
+        include /etc/nginx/conf.d/snippets/proxy.conf;
+        
+        proxy_pass http://portainer:9000;
+    }
+
+    location /api/websocket/ {
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf; # Protect the websocket too
+        
+        proxy_pass http://portainer:9000/api/websocket/;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_http_version 1.1;
+    }
+}
+
+
+# --- Vaultwarden Server Block (Refactored) ---
+server {
+    listen 80;
+    server_name ${VAULTWARDEN_WEB_HOSTNAME};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    server_name ${VAULTWARDEN_WEB_HOSTNAME};
+    include /etc/nginx/conf.d/snippets/ssl.conf;
+
+    location / {
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf;
+        include /etc/nginx/conf.d/snippets/proxy.conf;
+        
+        proxy_pass http://vaultwarden:80;
+    }
+
+    location /notifications/hub {
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf; # Protect the websocket too
+        
+        proxy_pass http://vaultwarden:80;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+
+
+# --- Uptime Kuma Server Block (Refactored) ---
+server {
+    listen 80;
+    server_name ${UPTIME_KUMA_WEB_HOSTNAME};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    server_name ${UPTIME_KUMA_WEB_HOSTNAME};
+    include /etc/nginx/conf.d/snippets/ssl.conf;
+
+    location / {
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf;
+        include /etc/nginx/conf.d/snippets/proxy.conf;
+
+        proxy_pass http://uptime-kuma:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+
+
+# --- ntfy Server Block (Refactored) ---
+server {
+    listen 80;
+    server_name ${NTFY_WEB_HOSTNAME};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    server_name ${NTFY_WEB_HOSTNAME};
+    # NOT using snippets/ssl.conf because ntfy has custom SSL settings
+    listen 443 ssl http2;
+    ssl_certificate /etc/ssl/homelab/${HOMELAB_HOSTNAME}.crt;
+    ssl_certificate_key /etc/ssl/homelab/${HOMELAB_HOSTNAME}.key;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:MozSSL:10m;
+    ssl_session_tickets off;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    location / {
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf;
+        include /etc/nginx/conf.d/snippets/proxy.conf;
+
+        proxy_pass http://ntfy:80;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        client_max_body_size 0;
+    }
+}
+
+
+# --- LLDAP Server Block (Refactored & UNPROTECTED) ---
+server {
+    listen 80;
+    server_name ${LLDAP_WEB_HOSTNAME};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    server_name ${LLDAP_WEB_HOSTNAME};
+    include /etc/nginx/conf.d/snippets/ssl.conf;
+
+    location / {
+        include /etc/nginx/conf.d/snippets/proxy.conf;
+        proxy_pass http://lldap:17170;
+    }
+}
+
+
+# --- Authelia Server Block (Refactored & UNPROTECTED) ---
+server {
+    listen 80;
+    server_name ${AUTHELIA_WEB_HOSTNAME};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    server_name ${AUTHELIA_WEB_HOSTNAME};
+    include /etc/nginx/conf.d/snippets/ssl.conf;
+
+    location / {
+        include /etc/nginx/conf.d/snippets/proxy.conf;
+        proxy_pass http://authelia:9091;
+    }
+
+    location /authelia {
+        internal;
+        proxy_pass http://authelia:9091/api/verify;
+        proxy_pass_request_body off;
+        proxy_http_version 1.1;
+        proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $http_host;
+        proxy_set_header X-Forwarded-URI $request_uri;
+        proxy_set_header Remote-User $remote_user;
+    }
+}

@@ -1,0 +1,6 @@
+auth_request /authelia;
+error_page 401 =302 https://${AUTHELIA_WEB_HOSTNAME}/?rd=$scheme://$http_host$request_uri;
+auth_request_set $auth_user $upstream_http_remote_user;
+auth_request_set $auth_groups $upstream_http_remote_groups;
+proxy_set_header Remote-User $auth_user;
+proxy_set_header Remote-Groups $auth_groups;

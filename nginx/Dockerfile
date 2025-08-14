@@ -4,7 +4,8 @@ FROM nginx:alpine
 RUN apk add --no-cache gettext
 
 # Copy your Nginx configuration template
-COPY nginx/nginx.conf.template /etc/nginx/templates/nginx.conf.template
+COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
+COPY nginx/snippets/ /etc/nginx/templates/snippets/
 
 # Copy your startup script
 COPY nginx/entrypoint.sh /entrypoint.sh
