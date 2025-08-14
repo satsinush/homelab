@@ -1,3 +1,5 @@
+resolver 127.0.0.11 valid=30s;
+
 # --- Default Server Block ---
 server {
     listen 80 default_server;
@@ -365,14 +367,14 @@ server {
 # --- LLDAP Server Block (HTTPS) ---
 server {
     listen 80;
-    server_name ${LDAP_WEB_HOSTNAME};
+    server_name ${LLDAP_WEB_HOSTNAME};
     return 301 https://$host$request_uri; # Redirect HTTP to HTTPS
 }
 
 server {
     listen 443 ssl;
     http2 on;
-    server_name ${LDAP_WEB_HOSTNAME};
+    server_name ${LLDAP_WEB_HOSTNAME};
 
     # --- Certificate Paths ---
     ssl_certificate /etc/ssl/homelab/${HOMELAB_HOSTNAME}.crt;
