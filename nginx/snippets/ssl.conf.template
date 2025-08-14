@@ -1,5 +1,4 @@
 ssl_certificate /etc/ssl/homelab/${HOMELAB_HOSTNAME}.crt;
 ssl_certificate_key /etc/ssl/homelab/${HOMELAB_HOSTNAME}.key;
 listen 443 ssl;
-listen [::]:443 ssl; 
 http2 on;
