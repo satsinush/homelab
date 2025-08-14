@@ -272,9 +272,10 @@ server {
         proxy_set_header X-Forwarded-URI $request_uri;
         proxy_set_header Remote-User $remote_user;
 
-        # Force no caching to avoid 304
-        proxy_set_header Cache-Control "no-cache, no-store, must-revalidate";
-        proxy_set_header Pragma "no-cache";
-        proxy_set_header Expires 0;
+        # Disable caching entirely for auth_request
+        proxy_ignore_headers Cache-Control Expires;
+        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate" always;
+        add_header Pragma "no-cache" always;
+        add_header Expires 0 always;
     }
 }
