@@ -34,7 +34,7 @@ server {
     http2 on;
 
     location / {
-        #include /etc/nginx/conf.d/snippets/authelia-auth.conf;
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf;
         include /etc/nginx/conf.d/snippets/proxy.conf;
         
         proxy_pass http://pihole:80;
@@ -85,7 +85,7 @@ server {
     http2 on;
 
     location / {
-        #include /etc/nginx/conf.d/snippets/authelia-auth.conf;
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf;
         include /etc/nginx/conf.d/snippets/proxy.conf;
         
         proxy_pass http://netdata:19999;
@@ -111,14 +111,14 @@ server {
     http2 on;
 
     location / {
-        #include /etc/nginx/conf.d/snippets/authelia-auth.conf;
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf;
         include /etc/nginx/conf.d/snippets/proxy.conf;
         
         proxy_pass http://portainer:9000;
     }
 
     location /api/websocket/ {
-        #include /etc/nginx/conf.d/snippets/authelia-auth.conf; # Protect the websocket too
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf; # Protect the websocket too
         
         proxy_pass http://portainer:9000/api/websocket/;
         proxy_set_header Upgrade $http_upgrade;
@@ -143,14 +143,14 @@ server {
     http2 on;
 
     location / {
-        #include /etc/nginx/conf.d/snippets/authelia-auth.conf;
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf;
         include /etc/nginx/conf.d/snippets/proxy.conf;
         
         proxy_pass http://vaultwarden:80;
     }
 
     location /notifications/hub {
-        #include /etc/nginx/conf.d/snippets/authelia-auth.conf; # Protect the websocket too
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf; # Protect the websocket too
         
         proxy_pass http://vaultwarden:80;
         proxy_set_header Upgrade $http_upgrade;
@@ -174,7 +174,7 @@ server {
     http2 on;
 
     location / {
-        #include /etc/nginx/conf.d/snippets/authelia-auth.conf;
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf;
         include /etc/nginx/conf.d/snippets/proxy.conf;
 
         proxy_pass http://uptime-kuma:3001;
@@ -207,7 +207,7 @@ server {
     ssl_prefer_server_ciphers off;
 
     location / {
-        #include /etc/nginx/conf.d/snippets/authelia-auth.conf;
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf;
         include /etc/nginx/conf.d/snippets/proxy.conf;
 
         proxy_pass http://ntfy:80;
