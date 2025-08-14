@@ -37,6 +37,8 @@ import PortainerLogo from '../assets/portainer_logo.png';
 import VaultwardenLogo from '../assets/vaultwarden_logo.png';
 import UptimeKumaLogo from '../assets/uptime_kuma_logo.png';
 import NtfyLogo from '../assets/ntfy_logo.png';
+import AutheliaLogo from '../assets/authelia_logo.png';
+import AuthIcon from '../assets/auth_icon.png';
 
 const Home = () => {
     const navigate = useNavigate();
@@ -181,6 +183,40 @@ const Home = () => {
                 <Avatar
                     src={NtfyLogo}
                     alt="Ntfy"
+                    sx={{
+                        width: 32,
+                        height: 32,
+                        bgcolor: 'transparent',
+                    }}
+                />
+            ),
+            color: 'white'
+        },
+        {
+            title: 'LLDAP',
+            description: 'Self-hosted LDAP service',
+            url: `https://${import.meta.env.VITE_LLDAP_WEB_HOSTNAME}`,
+            icon: (
+                <Avatar
+                    src={AuthIcon}
+                    alt="LLDAP"
+                    sx={{
+                        width: 32,
+                        height: 32,
+                        bgcolor: 'transparent',
+                    }}
+                />
+            ),
+            color: 'white'
+        },
+        {
+            title: 'Authelia',
+            description: 'Self-hosted authentication and authorization service',
+            url: `https://${import.meta.env.VITE_AUTHELIA_WEB_HOSTNAME}`,
+            icon: (
+                <Avatar
+                    src={AutheliaLogo}
+                    alt="Authelia"
                     sx={{
                         width: 32,
                         height: 32,

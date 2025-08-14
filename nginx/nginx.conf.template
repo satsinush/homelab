@@ -1,3 +1,19 @@
+# --- Authelia Internal Location ---
+# This block can be placed here at the top level.
+location /authelia {
+    internal;
+    proxy_pass http://authelia:9091/api/verify;
+    proxy_pass_request_body off;
+    proxy_http_version 1.1;
+    proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $http_host;
+    proxy_set_header X-Forwarded-URI $request_uri;
+    proxy_set_header Remote-User $remote_user;
+}
+
+
 # --- Default Server Block ---
 server {
     listen 80 default_server;
@@ -40,6 +56,15 @@ server {
 
     # --- Proxy Configuration for Pi-hole ---
     location / {
+        # --- START AUTHELIA ---
+        auth_request /authelia;
+        error_page 401 =302 https://${AUTHELIA_WEB_HOSTNAME}/?rd=$scheme://$http_host$request_uri;
+        auth_request_set $remote_user $upstream_http_remote_user;
+        auth_request_set $remote_groups $upstream_http_remote_groups;
+        proxy_set_header Remote-User $remote_user;
+        proxy_set_header Remote-Groups $remote_groups;
+        # --- END AUTHELIA ---
+
         proxy_pass http://pihole:80; 
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -70,6 +95,15 @@ server {
 
     # Proxy API requests to your Node.js backend
     location / {
+        # --- START AUTHELIA ---
+        auth_request /authelia;
+        error_page 401 =302 https://${AUTHELIA_WEB_HOSTNAME}/?rd=$scheme://$http_host$request_uri;
+        auth_request_set $remote_user $upstream_http_remote_user;
+        auth_request_set $remote_groups $upstream_http_remote_groups;
+        proxy_set_header Remote-User $remote_user;
+        proxy_set_header Remote-Groups $remote_groups;
+        # --- END AUTHELIA ---
+
         proxy_pass http://homelab-dashboard:5000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -100,6 +134,15 @@ server {
 
     # --- Proxy Configuration for Netdata ---
     location / {
+        # --- START AUTHELIA ---
+        auth_request /authelia;
+        error_page 401 =302 https://${AUTHELIA_WEB_HOSTNAME}/?rd=$scheme://$http_host$request_uri;
+        auth_request_set $remote_user $upstream_http_remote_user;
+        auth_request_set $remote_groups $upstream_http_remote_groups;
+        proxy_set_header Remote-User $remote_user;
+        proxy_set_header Remote-Groups $remote_groups;
+        # --- END AUTHELIA ---
+
         proxy_pass http://netdata:19999;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -133,6 +176,15 @@ server {
 
     # --- Proxy Configuration for Portainer ---
     location / {
+        # --- START AUTHELIA ---
+        auth_request /authelia;
+        error_page 401 =302 https://${AUTHELIA_WEB_HOSTNAME}/?rd=$scheme://$http_host$request_uri;
+        auth_request_set $remote_user $upstream_http_remote_user;
+        auth_request_set $remote_groups $upstream_http_remote_groups;
+        proxy_set_header Remote-User $remote_user;
+        proxy_set_header Remote-Groups $remote_groups;
+        # --- END AUTHELIA ---
+
         proxy_pass http://portainer:9000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -142,6 +194,15 @@ server {
 
     # THIS BLOCK IS REQUIRED FOR THE EXEC CONSOLE AND LOGS
     location /api/websocket/ {
+        # --- START AUTHELIA ---
+        auth_request /authelia;
+        error_page 401 =302 https://${AUTHELIA_WEB_HOSTNAME}/?rd=$scheme://$http_host$request_uri;
+        auth_request_set $remote_user $upstream_http_remote_user;
+        auth_request_set $remote_groups $upstream_http_remote_groups;
+        proxy_set_header Remote-User $remote_user;
+        proxy_set_header Remote-Groups $remote_groups;
+        # --- END AUTHELIA ---
+
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_http_version 1.1;
@@ -168,6 +229,15 @@ server {
 
     # --- Proxy Configuration for Portainer ---
     location / {
+        # --- START AUTHELIA ---
+        auth_request /authelia;
+        error_page 401 =302 https://${AUTHELIA_WEB_HOSTNAME}/?rd=$scheme://$http_host$request_uri;
+        auth_request_set $remote_user $upstream_http_remote_user;
+        auth_request_set $remote_groups $upstream_http_remote_groups;
+        proxy_set_header Remote-User $remote_user;
+        proxy_set_header Remote-Groups $remote_groups;
+        # --- END AUTHELIA ---
+
         proxy_pass http://vaultwarden:80;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -177,6 +247,15 @@ server {
 
     # This location is required for WebSocket support, which is crucial for syncing.
     location /notifications/hub {
+        # --- START AUTHELIA ---
+        auth_request /authelia;
+        error_page 401 =302 https://${AUTHELIA_WEB_HOSTNAME}/?rd=$scheme://$http_host$request_uri;
+        auth_request_set $remote_user $upstream_http_remote_user;
+        auth_request_set $remote_groups $upstream_http_remote_groups;
+        proxy_set_header Remote-User $remote_user;
+        proxy_set_header Remote-Groups $remote_groups;
+        # --- END AUTHELIA ---
+
         proxy_pass http://vaultwarden:80;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -200,6 +279,15 @@ server {
     ssl_certificate_key /etc/ssl/homelab/${HOMELAB_HOSTNAME}.key;
 
     location / {
+        # --- START AUTHELIA ---
+        auth_request /authelia;
+        error_page 401 =302 https://${AUTHELIA_WEB_HOSTNAME}/?rd=$scheme://$http_host$request_uri;
+        auth_request_set $remote_user $upstream_http_remote_user;
+        auth_request_set $remote_groups $upstream_http_remote_groups;
+        proxy_set_header Remote-User $remote_user;
+        proxy_set_header Remote-Groups $remote_groups;
+        # --- END AUTHELIA ---
+
         proxy_pass http://uptime-kuma:3001;
         proxy_set_header Host $host;
         # WebSocket support
@@ -220,6 +308,15 @@ server {
     server_name ${NTFY_WEB_HOSTNAME};
 
     location / {
+        # --- START AUTHELIA ---
+        auth_request /authelia;
+        error_page 401 =302 https://${AUTHELIA_WEB_HOSTNAME}/?rd=$scheme://$http_host$request_uri;
+        auth_request_set $remote_user $upstream_http_remote_user;
+        auth_request_set $remote_groups $upstream_http_remote_groups;
+        proxy_set_header Remote-User $remote_user;
+        proxy_set_header Remote-Groups $remote_groups;
+        # --- END AUTHELIA ---
+
         return 302 https://$http_host$request_uri$is_args$query_string;
 
         proxy_pass http://ntfy:80;
@@ -256,6 +353,15 @@ server {
     ssl_certificate_key /etc/ssl/homelab/${HOMELAB_HOSTNAME}.key;
 
     location / {
+        # --- START AUTHELIA ---
+        auth_request /authelia;
+        error_page 401 =302 https://${AUTHELIA_WEB_HOSTNAME}/?rd=$scheme://$http_host$request_uri;
+        auth_request_set $remote_user $upstream_http_remote_user;
+        auth_request_set $remote_groups $upstream_http_remote_groups;
+        proxy_set_header Remote-User $remote_user;
+        proxy_set_header Remote-Groups $remote_groups;
+        # --- END AUTHELIA ---
+
         proxy_pass http://ntfy:80;
         proxy_http_version 1.1;
 
@@ -269,5 +375,57 @@ server {
         proxy_read_timeout 3m;
 
         client_max_body_size 0; # Stream request body to backend
+    }
+}
+
+# --- LLDAP Server Block (HTTPS) ---
+server {
+    listen 80;
+    server_name ${LDAP_WEB_HOSTNAME};
+    return 301 https://$host$request_uri; # Redirect HTTP to HTTPS
+}
+
+server {
+    listen 443 ssl http2;
+    server_name ${LDAP_WEB_HOSTNAME};
+
+    # --- Certificate Paths ---
+    ssl_certificate /etc/ssl/homelab/${HOMELAB_HOSTNAME}.crt;
+    ssl_certificate_key /etc/ssl/homelab/${HOMELAB_HOSTNAME}.key;
+
+    # --- Proxy Configuration for LLDAP ---
+    location / {
+        # The LLDAP web interface runs on port 17170 inside its container
+        proxy_pass http://lldap:17170;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# --- Authelia Server Block (HTTPS) ---
+server {
+    listen 80;
+    server_name ${AUTHELIA_WEB_HOSTNAME};
+    return 301 https://$host$request_uri; # Redirect HTTP to HTTPS
+}
+
+server {
+    listen 443 ssl http2;
+    server_name ${AUTHELIA_WEB_HOSTNAME};
+
+    # --- Certificate Paths ---
+    ssl_certificate /etc/ssl/homelab/${HOMELAB_HOSTNAME}.crt;
+    ssl_certificate_key /etc/ssl/homelab/${HOMELAB_HOSTNAME}.key;
+
+    # --- Proxy Configuration for Authelia ---
+    location / {
+        # The Authelia service runs on port 9091 inside its container
+        proxy_pass http://authelia:9091;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }

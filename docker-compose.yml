@@ -9,13 +9,6 @@ services:
     build:
       context: .
       dockerfile: ./nginx/Dockerfile
-      args:
-        - VITE_PIHOLE_WEB_HOSTNAME=${VITE_PIHOLE_WEB_HOSTNAME}
-        - VITE_NETDATA_WEB_HOSTNAME=${VITE_NETDATA_WEB_HOSTNAME}
-        - VITE_PORTAINER_WEB_HOSTNAME=${VITE_PORTAINER_WEB_HOSTNAME}
-        - VITE_VAULTWARDEN_WEB_HOSTNAME=${VITE_VAULTWARDEN_WEB_HOSTNAME}
-        - VITE_UPTIME_KUMA_WEB_HOSTNAME=${VITE_UPTIME_KUMA_WEB_HOSTNAME}
-        - VITE_NTFY_WEB_HOSTNAME=${VITE_NTFY_WEB_HOSTNAME}
     container_name: nginx
     restart: unless-stopped
     ports:
@@ -34,6 +27,8 @@ services:
       - VAULTWARDEN_WEB_HOSTNAME=${VAULTWARDEN_WEB_HOSTNAME}
       - UPTIME_KUMA_WEB_HOSTNAME=${UPTIME_KUMA_WEB_HOSTNAME}
       - NTFY_WEB_HOSTNAME=${NTFY_WEB_HOSTNAME}
+      - LLDAP_WEB_HOSTNAME=${LLDAP_WEB_HOSTNAME}
+      - AUTHELIA_WEB_HOSTNAME=${AUTHELIA_WEB_HOSTNAME}
 
   # Pi-hole for network-wide ad blocking
   pihole:
@@ -53,7 +48,7 @@ services:
       - FTLCONF_webserver_port=80
       - DNSMASQ_LISTENING=all
       - FTLCONF_webserver_api_password=password
-      - FTLCONF_dns_hosts=${HOMELAB_IP_ADDRESS} ${HOMELAB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PIHOLE_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${NETDATA_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${DASHBOARD_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PORTAINER_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${VAULTWARDEN_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${UPTIME_KUMA_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${NTFY_WEB_HOSTNAME}
+      - FTLCONF_dns_hosts=${HOMELAB_IP_ADDRESS} ${HOMELAB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PIHOLE_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${NETDATA_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${DASHBOARD_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PORTAINER_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${VAULTWARDEN_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${UPTIME_KUMA_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${NTFY_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${LLDAP_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${AUTHELIA_WEB_HOSTNAME};
     volumes:
       #- ./pihole/pihole.toml:/etc/pihole/pihole.toml
       - pihole_data:/etc/pihole/
@@ -154,12 +149,15 @@ services:
       context: . # Use the project root as the build context
       dockerfile: homelab-dashboard/Dockerfile # Specify the path to the Dockerfile
       args:
+        - VITE_DASHBOARD_WEB_HOSTNAME=${VITE_DASHBOARD_WEB_HOSTNAME}
         - VITE_PIHOLE_WEB_HOSTNAME=${VITE_PIHOLE_WEB_HOSTNAME}
         - VITE_NETDATA_WEB_HOSTNAME=${VITE_NETDATA_WEB_HOSTNAME}
         - VITE_PORTAINER_WEB_HOSTNAME=${VITE_PORTAINER_WEB_HOSTNAME}
         - VITE_VAULTWARDEN_WEB_HOSTNAME=${VITE_VAULTWARDEN_WEB_HOSTNAME}
         - VITE_UPTIME_KUMA_WEB_HOSTNAME=${VITE_UPTIME_KUMA_WEB_HOSTNAME}
         - VITE_NTFY_WEB_HOSTNAME=${VITE_NTFY_WEB_HOSTNAME}
+        - VITE_LLDAP_WEB_HOSTNAME=${VITE_LLDAP_WEB_HOSTNAME}
+        - VITE_AUTHELIA_WEB_HOSTNAME=${VITE_AUTHELIA_WEB_HOSTNAME}
     volumes:
       - homelab-dashboard-api-data:/app/api/data
       - homelab-dashboard-word-games-data:/app/word_games/data
@@ -251,6 +249,57 @@ services:
       - homelab-net
     command: serve
 
+  # Authelia - The Single Sign-On and 2FA portal
+  authelia:
+    build:
+      context: ./authelia
+      dockerfile: Dockerfile
+      args:
+        AUTHELIA_SESSION_SECRET: ${AUTHELIA_SESSION_SECRET}
+        AUTHELIA_STORAGE_ENCRYPTION_KEY: ${AUTHELIA_STORAGE_ENCRYPTION_KEY}
+        AUTHELIA_JWT_SECRET: ${AUTHELIA_JWT_SECRET}
+        DNS_DOMAIN: ${DNS_DOMAIN}
+        LLDAP_LDAP_BASE_DN: ${LLDAP_LDAP_BASE_DN}
+        LLDAP_USER_PASSWORD: ${LLDAP_USER_PASSWORD}
+        AUTHELIA_WEB_HOSTNAME: ${AUTHELIA_WEB_HOSTNAME}
+        HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
+    container_name: authelia
+    restart: unless-stopped
+    networks:
+      - homelab-net
+    volumes:
+      - authelia-data:/var/lib/authelia
+    depends_on:
+      - lldap
+      - authelia-redis
+
+  # Redis for Authelia session storage
+  authelia-redis:
+    image: redis:7-alpine
+    container_name: authelia-redis
+    restart: unless-stopped
+    volumes:
+      - authelia-redis-data:/data
+    networks:
+      - homelab-net
+
+  # LLDAP - A lightweight LDAP server for user authentication
+  lldap:
+    image: lldap/lldap:latest
+    container_name: lldap
+    restart: unless-stopped
+    volumes:
+      - lldap-data:/data
+    networks:
+      - homelab-net
+    environment:
+      - TZ=America/Chicago
+      - LLDAP_JWT_SECRET=${LLDAP_JWT_SECRET}
+      - LLDAP_LDAP_BASE_DN=${LLDAP_LDAP_BASE_DN}
+      - LLDAP_LDAP_USER_PASS=${LLDAP_USER_PASSWORD}
+      - LLDAP_HTTP_URL=https://${LLDAP_WEB_HOSTNAME}
+  
+
 # Docker will manage these volumes for persistent data storage
 volumes:
   homelab-dashboard-api-data:
@@ -262,3 +311,6 @@ volumes:
   unbound-redis-data:
   vaultwarden-data:
   ntfy_data:
+  authelia-data: # Added for Authelia
+  authelia-redis-data: # Added for Authelia's Redis
+  lldap-data: # Added for LLDAP

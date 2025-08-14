@@ -8,10 +8,8 @@ Split system page into several components and simplify API endpoints?
 Singleton vs object instances of models?
 Use stateless server design?
 Put dashboard static files in API container, app.use(express.static(path.join(_dirname,'dist')));
-Figure out JWT/session token
 Node lan-discovery library for device scanning
 Ollama service file
 Typescript?
 
 SSO/LDAP/2FA
-SSL/CA

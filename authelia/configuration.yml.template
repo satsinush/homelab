@@ -1,0 +1,54 @@
+#################################################################
+# Authelia Configuration Template
+# Placeholders like ${VAR} are replaced at build time via envsubst
+#################################################################
+
+server:
+  address: tcp://0.0.0.0:9091
+
+log:
+  level: info
+  format: text
+  file_path: ""
+
+session:
+  name: authelia_session
+  secret: ${AUTHELIA_SESSION_SECRET}
+  expiration: 1h
+  inactivity: 5m
+  same_site: lax
+  cookies:
+    - domain: ${HOMELAB_HOSTNAME}          # e.g., homelab.home.arpa
+      authelia_url: https://${AUTHELIA_WEB_HOSTNAME}
+    - domain: 127.0.0.1
+      authelia_url: https://127.0.0.1:9091
+  redis:
+    host: authelia-redis
+    port: 6379
+    password: ""
+
+identity_validation:
+  reset_password:
+    jwt_secret: ${AUTHELIA_JWT_SECRET}
+
+storage:
+  local:
+    path: /var/lib/authelia/db.sqlite3
+  encryption_key: ${AUTHELIA_STORAGE_ENCRYPTION_KEY}
+
+authentication_backend:
+  ldap:
+    address: ldap://lldap:3890
+    base_dn: ${LLDAP_LDAP_BASE_DN}
+    user: uid=admin,ou=people,${LLDAP_LDAP_BASE_DN}    # LDAP bind user
+    password: ${LLDAP_USER_PASSWORD}
+    users_filter: '(&({username_attribute}={input})(objectClass=person))'
+    groups_filter: '(&(objectClass=groupOfNames)(member={dn}))'
+
+notifier:
+  filesystem:
+    filename: /var/lib/authelia/notification.txt
+
+access_control:
+  default_policy: one_factor
+  rules: []
