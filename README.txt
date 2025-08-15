@@ -61,6 +61,9 @@ init and clone submodules
 run generate_certificates.sh
 install homelab-ca.crt on any devices accessing homelab services
 
+create authelia/private.pem
+openssl genrsa -out ./authelia/private.pem 4096
+
 set up ./ddclient/config/ddclient.conf
 use ./ddclient/example.ddclient.conf as an example
 

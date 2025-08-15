@@ -14,8 +14,9 @@ log:
 session:
   name: authelia_session
   secret: ${AUTHELIA_SESSION_SECRET}
-  expiration: 1h
-  inactivity: 5m
+  expiration: 24h
+  inactivity: 1h
+  remember_me_duration: 1M
   same_site: lax
   cookies:
     - domain: ${HOMELAB_HOSTNAME}          # e.g., homelab.home.arpa
@@ -77,7 +78,7 @@ identity_providers:
         public: false
         authorization_policy: 'one_factor'
         redirect_uris:
-          - 'https://${VAULTWARDEN_WEB_HOSTNAME}/sso/oidc/callback'
+          - 'https://${VAULTWARDEN_WEB_HOSTNAME}/identity/connect/oidc-signin'
         scopes:
           - 'openid'
           - 'profile'
