@@ -100,3 +100,7 @@ Go to settings -> security to set username/password
 
 Set up ntfy
 run docker exec ntfy ntfy user add <username> --password "<password>" --role admin
+
+recommend updating pi-hole to only use this list
+https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt
+(won't block google shopping links)
