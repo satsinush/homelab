@@ -213,17 +213,7 @@ services:
     environment:
       - WEBSOCKET_ENABLED=true
       - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
-      # - SIGNUPS_ALLOWED=${VAULTWARDEN_SIGNUPS_ALLOWED}
-      - SIGNUPS_ALLOWED=false        # Recommended: Disable signups
-      - INVITATIONS_ALLOWED=false    # Recommended: Disable invitations
-      - SSO_ENABLED=true             # Enable SSO
-      - SSO_PROVIDER=oidc-generic    # Use the generic OIDC provider
-      - SSO_CLIENT_ID=vaultwarden    # Must match the 'id' in Authelia's config
-      - SSO_CLIENT_SECRET=${VAULTWARDEN_OIDC_SECRET} # Must match the secret from Step 1
-      - SSO_AUTHORITY=https://${AUTHELIA_WEB_HOSTNAME} # URL to your Authelia instance
-      - SSO_REDIRECT_URI=https://${VAULTWARDEN_WEB_HOSTNAME}/sso/oidc/callback # Your Vaultwarden callback URL
-      - SSO_SCOPES=openid profile email groups # Scopes to request from Authelia
-      - SSO_USERNAME_CLAIM=preferred_username # Use the 'preferred_username' from Authelia as the user's login name
+      - SIGNUPS_ALLOWED=${VAULTWARDEN_SIGNUPS_ALLOWED}
 
   uptime-kuma:
     image: louislam/uptime-kuma:1
