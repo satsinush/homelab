@@ -124,7 +124,8 @@ server {
     }
 
     location /api/websocket/ {
-        include /etc/nginx/conf.d/snippets/authelia-auth.conf; # Protect the websocket too
+        #include /etc/nginx/conf.d/snippets/authelia-auth.conf; # Protect the websocket too
+        include /etc/nginx/conf.d/snippets/proxy.conf;
         
         proxy_pass http://portainer:9000/api/websocket/;
         proxy_set_header Upgrade $http_upgrade;
@@ -155,16 +156,12 @@ server {
         include /etc/nginx/conf.d/snippets/proxy.conf;
         
         proxy_pass http://vaultwarden:80;
-    }
-
-    location /notifications/hub {
-        include /etc/nginx/conf.d/snippets/authelia-auth.conf; # Protect the websocket too
         
-        proxy_pass http://vaultwarden:80;
+        # Add WebSocket headers here to handle the connection upgrade
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
     }
-
+    
     include /etc/nginx/conf.d/snippets/authelia-location.conf;
 }
 

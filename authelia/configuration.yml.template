@@ -52,3 +52,35 @@ notifier:
 access_control:
   default_policy: one_factor
   rules: []
+
+
+identity_providers:
+  oidc:
+    # This secret signs the OIDC tokens. It should be a long, random string.
+    hmac_secret: '${AUTHELIA_HMAC_SECRET}'
+
+    # This section defines the cryptographic key used to sign ID tokens.
+    # The list (-) is directly under 'jwks'.
+    jwks:
+      - algorithm: 'RS256'
+        use: 'sig'
+        # This points to the key file you generated earlier.
+        # The path must be the location INSIDE the container.
+        key: |
+          JWKS_KEY_PLACEHOLDER
+
+    # This section defines the applications that can use Authelia for login.
+    clients:
+      - client_id: 'vaultwarden'
+        client_name: 'Vaultwarden Password Manager'
+        client_secret: '${VAULTWARDEN_OIDC_SECRET}' # Uses the variable from your .env file.
+        public: false
+        authorization_policy: 'one_factor'
+        redirect_uris:
+          - 'https://${VAULTWARDEN_WEB_HOSTNAME}/sso/oidc/callback'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+          - 'groups'
+        userinfo_signed_response_alg: 'RS256'

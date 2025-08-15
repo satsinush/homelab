@@ -1,12 +1,21 @@
 # Stage 1: Builder to generate configuration.yml
 FROM alpine:3.20 AS builder
+
+# Install necessary tools
 RUN apk add --no-cache gettext
 
+# Set working directory
 WORKDIR /config
-COPY configuration.yml.template .
 
-# Generate configuration.yml from template using env vars
-# You can pass environment variables at build time with --build-arg
+# Copy all necessary files for building the config
+COPY configuration.yml.template .
+COPY private.pem ./jwks/private.pem
+COPY build_config.sh .
+
+# Make the build script executable
+RUN chmod +x build_config.sh
+
+# Pass all build arguments to the environment so the script can use them
 ARG AUTHELIA_SESSION_SECRET
 ARG AUTHELIA_STORAGE_ENCRYPTION_KEY
 ARG AUTHELIA_JWT_SECRET
@@ -15,6 +24,9 @@ ARG LLDAP_LDAP_BASE_DN
 ARG LLDAP_USER_PASSWORD
 ARG AUTHELIA_WEB_HOSTNAME
 ARG HOMELAB_HOSTNAME
+ARG VAULTWARDEN_OIDC_SECRET
+ARG VAULTWARDEN_WEB_HOSTNAME
+ARG AUTHELIA_HMAC_SECRET
 
 ENV AUTHELIA_SESSION_SECRET=${AUTHELIA_SESSION_SECRET}
 ENV AUTHELIA_STORAGE_ENCRYPTION_KEY=${AUTHELIA_STORAGE_ENCRYPTION_KEY}
@@ -24,13 +36,15 @@ ENV LLDAP_LDAP_BASE_DN=${LLDAP_LDAP_BASE_DN}
 ENV LLDAP_USER_PASSWORD=${LLDAP_USER_PASSWORD}
 ENV AUTHELIA_WEB_HOSTNAME=${AUTHELIA_WEB_HOSTNAME}
 ENV HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
+ENV VAULTWARDEN_OIDC_SECRET=${VAULTWARDEN_OIDC_SECRET}
+ENV VAULTWARDEN_WEB_HOSTNAME=${VAULTWARDEN_WEB_HOSTNAME}
+ENV AUTHELIA_HMAC_SECRET=${AUTHELIA_HMAC_SECRET}
 
-RUN envsubst < configuration.yml.template > configuration.yml
+# Run the build script to generate the final configuration.yml
+RUN ./build_config.sh
 
 # Stage 2: Official Authelia image
 FROM authelia/authelia:latest
 
-# Copy only the generated config
+# Copy only the final, generated config from the builder stage
 COPY --from=builder /config/configuration.yml /config/configuration.yml
-
-# The container will just use the official entrypoint/cmd
