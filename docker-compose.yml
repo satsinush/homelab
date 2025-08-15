@@ -213,18 +213,18 @@ services:
     environment:
       - WEBSOCKET_ENABLED=true
       - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
-      - SIGNUPS_ALLOWED=false
+      - SIGNUPS_ALLOWED=true
 
-      - SSO_ENABLED=true
-      - SSO_ONLY=false
-      - SSO_AUTHORITY=https://${AUTHELIA_WEB_HOSTNAME}
-      - SSO_SCOPES=profile email offline_access vaultwarden
-      - SSO_PKCE=true
-      - SSO_CLIENT_ID=vaultwarden
-      - SSO_CLIENT_SECRET=${VAULTWARDEN_OIDC_SECRET}
-      - SSO_ROLES_ENABLED=true
-      - SSO_ROLES_DEFAULT_TO_USER=true
-      - SSO_ROLES_TOKEN_PATH=/vaultwarden_roles
+      # - SSO_ENABLED=true
+      # - SSO_ONLY=false
+      # - SSO_AUTHORITY=https://${AUTHELIA_WEB_HOSTNAME}
+      # - SSO_SCOPES=profile email offline_access vaultwarden
+      # - SSO_PKCE=true
+      # - SSO_CLIENT_ID=vaultwarden
+      # - SSO_CLIENT_SECRET=${VAULTWARDEN_OIDC_SECRET}
+      # - SSO_ROLES_ENABLED=true
+      # - SSO_ROLES_DEFAULT_TO_USER=true
+      # - SSO_ROLES_TOKEN_PATH=/vaultwarden_roles
 
   uptime-kuma:
     image: louislam/uptime-kuma:1
