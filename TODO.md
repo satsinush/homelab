@@ -1,5 +1,3 @@
-Ipv4 forward settings
-
 Email notifications for services going down or package updates
 Better error handling/input validation
 Figure out and implement better rate limits, timeouts, etc.

@@ -152,7 +152,7 @@ server {
     http2 on;
 
     location / {
-        #include /etc/nginx/conf.d/snippets/authelia-auth.conf;
+        include /etc/nginx/conf.d/snippets/authelia-auth.conf;
         include /etc/nginx/conf.d/snippets/proxy.conf;
         
         proxy_pass http://vaultwarden:80;

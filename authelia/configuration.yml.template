@@ -16,7 +16,7 @@ session:
   secret: ${AUTHELIA_SESSION_SECRET}
   expiration: 24h
   inactivity: 1h
-  remember_me_duration: 1M
+  remember_me: 1M
   same_site: lax
   cookies:
     - domain: ${HOMELAB_HOSTNAME}          # e.g., homelab.home.arpa
@@ -55,33 +55,50 @@ access_control:
   rules: []
 
 
+definitions:
+  user_attributes:
+    vaultwarden_roles:
+      expression: '"vaultwarden_admins" in groups ? ["admin"] : "vaultwarden_users" in groups ? ["user"] : [""]'
+
 identity_providers:
   oidc:
-    # This secret signs the OIDC tokens. It should be a long, random string.
+    claims_policies:
+      vaultwarden:
+        id_token: ['vaultwarden_roles']
+        custom_claims:
+          vaultwarden_roles: {}
+    scopes:
+      vaultwarden:
+        claims: ['vaultwarden_roles']
     hmac_secret: '${AUTHELIA_HMAC_SECRET}'
-
-    # This section defines the cryptographic key used to sign ID tokens.
-    # The list (-) is directly under 'jwks'.
     jwks:
       - algorithm: 'RS256'
-        use: 'sig'
-        # This points to the key file you generated earlier.
-        # The path must be the location INSIDE the container.
         key: |
           JWKS_KEY_PLACEHOLDER
 
     # This section defines the applications that can use Authelia for login.
     clients:
       - client_id: 'vaultwarden'
-        client_name: 'Vaultwarden Password Manager'
+        client_name: 'Vaultwarden'
         client_secret: '${VAULTWARDEN_OIDC_SECRET}' # Uses the variable from your .env file.
         public: false
         authorization_policy: 'one_factor'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        claims_policy: 'vaultwarden'
         redirect_uris:
           - 'https://${VAULTWARDEN_WEB_HOSTNAME}/identity/connect/oidc-signin'
         scopes:
           - 'openid'
+          - 'offline_access'
           - 'profile'
           - 'email'
-          - 'groups'
-        userinfo_signed_response_alg: 'RS256'
+          - 'vaultwarden'
+        response_types:
+          - 'code'
+        grant_types:
+          - 'authorization_code'
+          - 'refresh_token'
+        access_token_signed_response_alg: 'none'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'client_secret_basic'
