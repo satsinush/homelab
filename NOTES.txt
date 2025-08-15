@@ -4,50 +4,6 @@ journalctl -u homelab-api.service -f
 openssl rand -base64 <number_of_bytes>
 
 
-sudo nano /etc/systemd/resolved.conf #for DNS
-DNSStubListener=no
+https://github.com/dani-garcia/vaultwarden/wiki/Enabling-SSO-support-using-OpenId-Connect
 
-sudo nano /etc/dhcpcd.conf
-nohook resolv.conf
-
-[aneedham@rpi5-server ~]$ cat /etc/resolv.conf
-nameserver 127.0.0.1
-nameserver 8.8.8.8
-
-
-docker exec -it pihole pihole setpassword
-
-[aneedham@rpi5-server ~]$ sudo nano /etc/systemd/system/homelab-host-api.service
-
-[Unit]
-Description=Homelab Host API Node.js Server
-After=network.target
-
-[Service]
-# User and group under which the service will run.
-User=aneedham
-Group=aneedham
-
-# The working directory for the service
-WorkingDirectory=/home/aneedham/homelab-host-api
-
-# The command to execute to start the service
-# Replace 'node' with the full path if necessary (e.g., /usr/bin/node)
-# This assumes 'node' is in your PATH.
-ExecStart=/usr/bin/node server.js
-
-# Restart the service if it crashes
-Restart=always
-
-# Configure logging (optional, but good for debugging)
-StandardOutput=syslog
-StandardError=syslog
-SyslogIdentifier=homelab-api
-
-[Install]
-WantedBy=multi-user.target
-
-
-
-sudo pacman -S lm_sensors
-sudo sensors-detect
+https://github.com/authelia/authelia/blob/v4.39.6/config.template.yml

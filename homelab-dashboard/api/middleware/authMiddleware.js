@@ -1,11 +1,6 @@
 // Authentication middleware
 const requireAuth = (requiredRole = null) => {
-    return (req, res, next) => {
-        // Debug logging
-        console.log('Session data:', req.session);
-        console.log('Session ID:', req.sessionID);
-        console.log('User ID in session:', req.session.userId);
-        
+    return (req, res, next) => {        
         // Check if user is logged in via session
         if (!req.session.userId || !req.session.user) {
             console.log('No session data found - authentication required');

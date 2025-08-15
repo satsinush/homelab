@@ -247,7 +247,7 @@ class ChatController {
 
             const { message } = req.body;
             // Get userId from authenticated user - must be logged in
-            const userId = req.user?.userId;
+            const userId = req.user?.id;
 
             if (!userId) {
                 console.log('Authentication failed - no userId in req.user');
@@ -305,7 +305,7 @@ class ChatController {
         } catch (error) {
             console.error('Chat error:', error);
 
-            const userId = req.user?.userId;
+            const userId = req.user?.id;
             if (userId) {
                 this.addToConversationHistory(userId, {
                     role: 'assistant',
@@ -539,11 +539,11 @@ class ChatController {
     // API endpoint to get conversation history
     async getConversationHistoryEndpoint(req, res) {
         try {
-            const userId = req.user?.userId;
+            const userId = req.user?.id;
 
             if (!userId) {
                 console.log('Get conversation history - Authentication failed - no userId in req.user');
-                return sendError(res, 401, 'Authentication required to view conversation history');
+                return sendError(res, 401, 'No user ID found');
             }
 
             const conversationHistory = this.getConversationHistory(userId);
@@ -563,7 +563,7 @@ class ChatController {
     // API endpoint to clear user's conversation
     async clearConversationEndpoint(req, res) {
         try {
-            const userId = req.user?.userId;
+            const userId = req.user?.id;
 
             if (!userId) {
                 console.log('Clear conversation - Authentication failed - no userId in req.user');
