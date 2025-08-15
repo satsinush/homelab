@@ -110,7 +110,7 @@ const Home = () => {
         {
             title: 'Netdata',
             description: 'Real-time performance monitoring and visualization',
-            url: `https://${import.meta.env.VITE_NETDATA_WEB_HOSTNAME}`,
+            url: `https://${import.meta.env.VITE_NETDATA_WEB_HOSTNAME}/v3`,
             icon: (
                 <Avatar
                     src={NetdataLogo}
