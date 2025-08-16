@@ -102,3 +102,24 @@ identity_providers:
         access_token_signed_response_alg: 'none'
         userinfo_signed_response_alg: 'none'
         token_endpoint_auth_method: 'client_secret_basic'
+
+
+
+      - client_id: 'portainer'
+        client_name: 'Portainer'
+        client_secret: '${PORTAINER_OIDC_SECRET}' # Add this variable to your secrets/env file
+        public: false
+        authorization_policy: 'two_factor' # Or 'one_factor'
+        redirect_uris:
+          - 'https://${PORTAINER_WEB_HOSTNAME}/oauth/callback' # IMPORTANT: Use your actual Portainer URL
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+          - 'groups'
+        response_types:
+          - 'code'
+        grant_types:
+          - 'authorization_code'
+        userinfo_signed_response_alg: 'RS256'
+        token_endpoint_auth_method: 'client_secret_basic'

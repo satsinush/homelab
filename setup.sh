@@ -54,6 +54,16 @@ declare -a SAN_DOMAINS=(
 # --- Ensure SSL directory exists ---
 mkdir -p "$CERTS_DIR"
 
+# --- Ensure Authelia private key exists ---
+AUTHELIA_DIR="./authelia"
+AUTHELIA_KEY="${AUTHELIA_DIR}/private.pem"
+mkdir -p "$AUTHELIA_DIR"
+if [ ! -f "${AUTHELIA_KEY}" ]; then
+  echo "--- Generating Authelia private key: ${AUTHELIA_KEY} ---"
+  sudo openssl genrsa -out "${AUTHELIA_KEY}" 4096
+  sudo chmod 600 "${AUTHELIA_KEY}"
+fi
+
 # =============================================================================
 # STAGE 1: CREATE THE PRIVATE CERTIFICATE AUTHORITY (CA)
 # This part only runs if the CA key or certificate doesn't exist.
@@ -133,10 +143,42 @@ echo "4. Setting permissions for private key..."
 sudo chmod 600 "${KEY_OUT}"
 sudo chmod 600 "${CA_KEY_OUT}" # Also ensure CA key is secure
 
-# --- Install CA Certificate in System Trust Store ---
-echo "5. Installing CA certificate in system trust store..."
-sudo cp "${CA_CERT_OUT}" /etc/ca-certificates/trust-source/anchors/
-sudo trust extract-compat
+# --- Install CA Certificate in System Trust Store (best-effort; skip if unsupported) ---
+echo "5. Installing CA certificate in system trust store (best-effort)..."
+
+if [ ! -f "${CA_CERT_OUT}" ]; then
+    echo "CA certificate not found: ${CA_CERT_OUT}. Skipping installation."
+else
+    if [ -d /etc/ca-certificates/trust-source/anchors ] && command -v trust >/dev/null 2>&1; then
+        # Fedora / recent distro with p11-kit trust (trust extract-compat)
+        sudo cp "${CA_CERT_OUT}" /etc/ca-certificates/trust-source/anchors/ \
+            && sudo trust extract-compat \
+            || echo "Failed to install CA via /etc/ca-certificates/trust-source/anchors"
+    elif command -v update-ca-certificates >/dev/null 2>&1; then
+        # Debian/Ubuntu style - copy with stable filename and capture output for warnings
+        dest="/usr/local/share/ca-certificates/$(basename "${CA_CERT_OUT}")"
+        sudo cp "${CA_CERT_OUT}" "${dest}" || { echo "Failed to copy CA to ${dest}"; }
+        update_out=$(sudo update-ca-certificates 2>&1 || true)
+        echo "${update_out}"
+        if echo "${update_out}" | grep -qiE "rehash: warning|does not contain exactly one certificate"; then
+            echo "Warning detected: update-ca-certificates reported a rehash issue."
+            echo "This often means the .crt file contains multiple certificates or extraneous data."
+            echo "Verify ${CA_CERT_OUT} contains exactly one PEM certificate (-----BEGIN CERTIFICATE----- ...)."
+            echo "If needed, extract the single certificate and re-run the script."
+        fi
+    elif [ -d /etc/pki/ca-trust/source/anchors ] && command -v update-ca-trust >/dev/null 2>&1; then
+        # RHEL/CentOS/Alma/Oracle
+        sudo cp "${CA_CERT_OUT}" /etc/pki/ca-trust/source/anchors/ \
+            && sudo update-ca-trust extract \
+            || echo "Failed to install CA via /etc/pki/ca-trust"
+    elif [ "$(uname)" = "Darwin" ] && command -v security >/dev/null 2>&1; then
+        # macOS
+        sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "${CA_CERT_OUT}" \
+            || echo "Failed to add CA to macOS System keychain"
+    else
+        echo "No supported system trust store detected. Skipping CA installation."
+    fi
+fi
 
 # --- Final Output ---
 echo ""

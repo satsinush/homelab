@@ -193,7 +193,7 @@ services:
 
   # Portainer for Docker container management
   portainer:
-    image: portainer/portainer-ce:latest
+    build: ./portainer
     container_name: portainer
     restart: unless-stopped
     volumes:
@@ -277,6 +277,8 @@ services:
         VAULTWARDEN_OIDC_SECRET: ${VAULTWARDEN_OIDC_SECRET}
         VAULTWARDEN_WEB_HOSTNAME: ${VAULTWARDEN_WEB_HOSTNAME}
         AUTHELIA_HMAC_SECRET: ${AUTHELIA_HMAC_SECRET}
+        PORTAINER_WEB_HOSTNAME: ${PORTAINER_WEB_HOSTNAME}
+        PORTAINER_OIDC_SECRET: ${PORTAINER_OIDC_SECRET}
     container_name: authelia
     restart: unless-stopped
     networks:

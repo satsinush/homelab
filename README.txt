@@ -58,11 +58,8 @@ fill in values as needed
 Clone repo
 init and clone submodules
 
-run generate_certificates.sh
+run setup.sh
 install homelab-ca.crt on any devices accessing homelab services
-
-create authelia/private.pem
-openssl genrsa -out ./authelia/private.pem 4096
 
 set up ./ddclient/config/ddclient.conf
 use ./ddclient/example.ddclient.conf as an example
@@ -84,8 +81,17 @@ set up pacman sync job (if using pacman on host)
 sudo systemctl start pacman-sync.timer
 sudo systemctl enable pacman-sync.timer
 
+
+
 Start docker services
 docker-compose up --build
+
+
+#Post compose set up
+
+install jq on the host
+
+run ./post_compose_setup.sh
 
 Get RustDesk public key for clients from ./rustdesk/data/id_ed25519.pub
 
