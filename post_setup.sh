@@ -67,13 +67,26 @@ if [ "$STATUS_CODE" -eq 200 ]; then
   echo "✅ Settings update successful! (HTTP 200)"
   
   # --- VERIFICATION STEP ---
-  echo "🔎 Fetching final settings for verification..."
-  FINAL_SETTINGS=$(docker exec portainer curl -s -k -H "Authorization: Bearer ${TOKEN}" "http://localhost:9000/api/settings")
+  # echo "🔎 Fetching final settings for verification..."
+  # FINAL_SETTINGS=$(docker exec portainer curl -s -k -H "Authorization: Bearer ${TOKEN}" "http://localhost:9000/api/settings")
 
-  echo "--- Current Settings After Update ---"
-  echo "${FINAL_SETTINGS}" | jq
-  echo "-------------------------------------"
-  echo "✅ Configuration complete. Please review the settings above to confirm changes."
+  # echo "--- Current Settings After Update ---"
+  # echo "${FINAL_SETTINGS}" | jq
+  # echo "-------------------------------------"
+  echo "✅ Configuration complete."
+
+  # --- Print RustDesk public key if available ---
+  RUSTDESK_PUB="./rustdesk/data/id_ed25519.pub"
+  if [ -f "${RUSTDESK_PUB}" ]; then
+    echo ""
+    echo "📣 RustDesk public key (from ${RUSTDESK_PUB}):"
+    echo "-------------------------------------------"
+    cat "${RUSTDESK_PUB}"
+    echo "-------------------------------------------"
+  else
+    echo ""
+    echo "⚠️  RustDesk public key not found at ${RUSTDESK_PUB}. Skipping."
+  fi
 
 else
   echo "❌ Failed to update Portainer settings. HTTP Status Code: ${STATUS_CODE}"
