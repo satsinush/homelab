@@ -109,7 +109,7 @@ identity_providers:
         client_name: 'Portainer'
         client_secret: '${PORTAINER_OIDC_SECRET}' # Add this variable to your secrets/env file
         public: false
-        authorization_policy: 'two_factor' # Or 'one_factor'
+        authorization_policy: 'one_factor' # Or 'one_factor'
         redirect_uris:
           - 'https://${PORTAINER_WEB_HOSTNAME}/oauth/callback' # IMPORTANT: Use your actual Portainer URL
         scopes:
