@@ -93,6 +93,8 @@ install jq on the host
 
 run ./post_compose_setup.sh
 
+run docker exec authelia cat /var/lib/authelia/notification.txt to get email verification codes from authelia
+
 Get RustDesk public key for clients from ./rustdesk/data/id_ed25519.pub
 
 set up password for Portainer
