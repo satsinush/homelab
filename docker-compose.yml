@@ -199,6 +199,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer-data:/data
+      - ./certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
     networks:
       - homelab-net
   
