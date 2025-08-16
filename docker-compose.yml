@@ -237,6 +237,8 @@ services:
       - ./uptime-kuma/data:/app/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+    environment:
+      - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
     networks:
       - homelab-net
   
