@@ -50,7 +50,7 @@ RESPONSE=$(docker exec -i portainer curl -s -k -w "\n%{http_code}" -X PUT \
     "AccessTokenURI": "https://${AUTHELIA_WEB_HOSTNAME}/api/oidc/token",
     "AuthorizationURI": "https://${AUTHELIA_WEB_HOSTNAME}/api/oidc/authorization",
     "ResourceURI": "https://${AUTHELIA_WEB_HOSTNAME}/api/oidc/userinfo",
-    "RedirectURI": "https://${PORTAINER_WEB_HOSTNAME}",
+    "RedirectURI": "https://${PORTAINER_WEB_HOSTNAME}/oauth/callback",
     "LogoutURI": "https://${AUTHELIA_WEB_HOSTNAME}/logout",
     "UserIdentifier": "preferred_username",
     "Scopes": "openid profile email groups"
