@@ -111,7 +111,7 @@ identity_providers:
         public: false
         authorization_policy: 'one_factor' # Or 'one_factor'
         redirect_uris:
-          - 'https://${PORTAINER_WEB_HOSTNAME}/oauth/callback'
+          - 'https://${PORTAINER_WEB_HOSTNAME}'
         scopes:
           - 'openid'
           - 'profile'
