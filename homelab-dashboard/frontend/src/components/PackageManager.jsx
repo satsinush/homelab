@@ -25,7 +25,12 @@ import {
 } from '@mui/material';
 import {
     Inventory as PackageIcon,
-    Search as SearchIcon
+    Search as SearchIcon,
+    Schedule as PendingIcon,
+    Refresh as RefreshIcon,
+    CheckCircle as InstalledIcon,
+    FilterList as FilterIcon,
+    Notifications as NotificationIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/NotificationContext';
@@ -190,6 +195,17 @@ const PackageManager = () => {
                                 Package database last synced: {formatSyncTime(lastSynced)}
                             </Typography>
                         )}
+                    </Box>
+
+                    <Box sx={{ display: 'flex', gap: 2 }}>
+                        <Button
+                            startIcon={<RefreshIcon />}
+                            variant="outlined"
+                            onClick={fetchPackages}
+                            disabled={loading}
+                        >
+                            Refresh
+                        </Button>
                     </Box>
                 </Box>
             </Box>
