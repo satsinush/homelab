@@ -168,12 +168,11 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       - HOMELAB_API_SESSION_SECRET=${HOMELAB_API_SESSION_SECRET}
-      - ENVIRONMENT=${ENVIRONMENT}
       - AUTHELIA_WEB_HOSTNAME=${AUTHELIA_WEB_HOSTNAME}
       - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
       - DASHBOARD_OIDC_SECRET=${DASHBOARD_OIDC_SECRET}
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
-      - NTFY_ADMIN_TOKENS
+      - NTFY_ADMIN_TOKENS=${NTFY_ADMIN_TOKENS}
 
   # ddclient for dynamic DNS updates
   ddclient:

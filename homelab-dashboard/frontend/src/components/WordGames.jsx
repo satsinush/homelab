@@ -33,7 +33,8 @@ import {
     Refresh as RefreshIcon,
     ContentCopy as CopyIcon,
     Quiz as QuizIcon,
-    ViewModule as LetterBoxedIcon
+    ViewModule as LetterBoxedIcon,
+    EmojiNature as Bee
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/NotificationContext';
@@ -487,7 +488,7 @@ const WordGames = () => {
                         iconPosition="start"
                     />
                     <Tab
-                        icon={<QuizIcon />}
+                        icon={<Bee />}
                         label="Spelling Bee"
                         iconPosition="start"
                     />
@@ -518,18 +519,28 @@ const WordGames = () => {
                                     setLetterBoxedLetters(cleanValue);
                                 }}
                                 placeholder="Type letters here..."
-                                inputProps={{
-                                    maxLength: 12,
-                                    style: {
-                                        textAlign: 'center',
-                                        fontSize: '1.2rem',
-                                        fontWeight: 'bold',
-                                        letterSpacing: '2px'
+                                slotProps={{
+                                    htmlInput: {
+                                        maxLength: 12,
+                                        style: {
+                                            textAlign: 'center',
+                                            fontSize: '1.2rem',
+                                            fontWeight: 'bold',
+                                            letterSpacing: '2px',
+                                            textTransform: 'uppercase'
+                                        },
+                                        autoCorrect: 'off',
+                                        autoComplete: 'off'
                                     }
                                 }}
                                 sx={{ width: 300 }}
                                 variant="outlined"
                                 helperText={`${letterBoxedLetters.length}/12 letters`}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        solveLetterBoxed();
+                                    }
+                                }}
                             />
                         </Box>
 
@@ -570,7 +581,12 @@ const WordGames = () => {
                                                         ...prev,
                                                         maxDepth: parseInt(e.target.value) || ""
                                                     }))}
-                                                    inputProps={{ min: 1, max: 10 }}
+                                                    slotProps={{
+                                                        htmlInput: {
+                                                            min: 1,
+                                                            max: 10
+                                                        }
+                                                    }}
                                                     size="small"
                                                     disabled={letterBoxedConfig !== 0}
                                                     error={getCurrentConfig()?.maxDepth === "" || getCurrentConfig()?.maxDepth <= 0}
@@ -586,7 +602,12 @@ const WordGames = () => {
                                                         ...prev,
                                                         minWordLength: parseInt(e.target.value) || ""
                                                     }))}
-                                                    inputProps={{ min: 2, max: 8 }}
+                                                    slotProps={{
+                                                        htmlInput: {
+                                                            min: 2,
+                                                            max: 8
+                                                        }
+                                                    }}
                                                     size="small"
                                                     disabled={letterBoxedConfig !== 0}
                                                     error={getCurrentConfig()?.minWordLength === "" || getCurrentConfig()?.minWordLength <= 0}
@@ -602,7 +623,12 @@ const WordGames = () => {
                                                         ...prev,
                                                         minUniqueLetters: parseInt(e.target.value) || ""
                                                     }))}
-                                                    inputProps={{ min: 1, max: 12 }}
+                                                    slotProps={{
+                                                        htmlInput: {
+                                                            min: 1,
+                                                            max: 12
+                                                        }
+                                                    }}
                                                     size="small"
                                                     disabled={letterBoxedConfig !== 0}
                                                     error={getCurrentConfig()?.minUniqueLetters === "" || getCurrentConfig()?.minUniqueLetters <= 0}
@@ -697,18 +723,28 @@ const WordGames = () => {
                                     setSpellingBeeLetters(cleanValue);
                                 }}
                                 placeholder="Type letters here..."
-                                inputProps={{
-                                    maxLength: 7,
-                                    style: {
-                                        textAlign: 'center',
-                                        fontSize: '1.2rem',
-                                        fontWeight: 'bold',
-                                        letterSpacing: '2px'
+                                slotProps={{
+                                    htmlInput: {
+                                        maxLength: 7,
+                                        style: {
+                                            textAlign: 'center',
+                                            fontSize: '1.2rem',
+                                            fontWeight: 'bold',
+                                            letterSpacing: '2px',
+                                            textTransform: 'uppercase'
+                                        },
+                                        autoCorrect: 'off',
+                                        autoComplete: 'off'
                                     }
                                 }}
                                 sx={{ width: 300 }}
                                 variant="outlined"
                                 helperText={`${spellingBeeLetters.length}/7 letters`}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        solveSpellingBee();
+                                    }
+                                }}
                             />
                         </Box>
 
