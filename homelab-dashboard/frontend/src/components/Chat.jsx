@@ -19,7 +19,22 @@ import {
     FormControl,
     InputLabel,
     Alert,
-    Tooltip
+    Tooltip,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Divider,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    List,
+    ListItem,
+    ListItemText,
+    ListItemSecondaryAction
 } from '@mui/material';
 import {
     Send as SendIcon,
@@ -27,7 +42,10 @@ import {
     SmartToy as BotIcon,
     Settings as SettingsIcon, // This icon seems unused, consider removing if not needed.
     Refresh as RefreshIcon,
-    Clear as ClearIcon
+    Clear as ClearIcon,
+    Download as DownloadIcon,
+    Storage as StorageIcon,
+    Delete as DeleteIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/NotificationContext';
@@ -40,6 +58,11 @@ const Chat = () => {
     const [availableModels, setAvailableModels] = useState([]);
     const [currentModel, setCurrentModel] = useState('');
     const [ollamaStatus, setOllamaStatus] = useState(null);
+    const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
+    const [modelToDownload, setModelToDownload] = useState('');
+    const [downloadLoading, setDownloadLoading] = useState(false);
+    const [manageModelsOpen, setManageModelsOpen] = useState(false);
+    const [detailedModels, setDetailedModels] = useState([]);
 
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
@@ -111,11 +134,17 @@ const Chat = () => {
     };
 
     const handleSendMessage = async () => {
-        if (!inputMessage.trim() || isLoading || ollamaStatus?.status === 'offline') return;
+        if (!inputMessage.trim() || isLoading || ollamaStatus?.status === 'offline' || availableModels.length === 0) return;
 
         // Client-side character limit check
         if (inputMessage.trim().length > 1000) {
             showError('Message is too long. Please limit your message to 1000 characters.');
+            return;
+        }
+
+        // Check if we have a current model
+        if (!currentModel) {
+            showError('No model selected. Please select a model or download one first.');
             return;
         }
 
@@ -186,8 +215,8 @@ const Chat = () => {
                 const errorMessage = {
                     id: `error-${Date.now() + 3}`,
                     type: 'error',
-                    content: error.message || 'Failed to get response from AI',
-                    message: error.message || 'Failed to get response from AI',
+                    content: error.message || 'Failed to get response',
+                    message: error.message || 'Failed to get response',
                     actions: [],
                     timestamp: new Date().toISOString()
                 };
@@ -259,6 +288,93 @@ const Chat = () => {
         }
     };
 
+    const handleDownloadClick = () => {
+        setDownloadDialogOpen(true);
+        setModelToDownload('');
+    };
+
+    const handleConfirmDownload = async () => {
+        if (!modelToDownload.trim()) {
+            return;
+        }
+
+        setDownloadLoading(true);
+        try {
+            // Attempt to download the model
+            const response = await tryApiCall('/chat/download-model', {
+                method: 'POST',
+                timeout: 600000, // 10 minutes for model download
+                data: {
+                    modelName: modelToDownload.trim()
+                }
+            });
+
+            showSuccess(response.data.message || `Model "${modelToDownload}" downloaded successfully`);
+            setDownloadDialogOpen(false);
+            setModelToDownload('');
+
+            // Refresh models list
+            fetchModels();
+        } catch (error) {
+            console.error('Failed to download model:', error);
+            showError(error.message || 'Failed to download model');
+        } finally {
+            setDownloadLoading(false);
+        }
+    };
+
+    const handleCloseDownloadDialog = () => {
+        if (!downloadLoading) {
+            setDownloadDialogOpen(false);
+            setModelToDownload('');
+        }
+    };
+
+    const handleManageModelsClick = async () => {
+        setManageModelsOpen(true);
+        await fetchDetailedModels();
+    };
+
+    const fetchDetailedModels = async () => {
+        try {
+            const response = await tryApiCall('/chat/models-detailed');
+            setDetailedModels(response.data.models || []);
+        } catch (error) {
+            console.error('Failed to fetch detailed models:', error);
+            showError(error.message || 'Failed to fetch model details');
+        }
+    };
+
+    const handleDeleteModel = async (modelName) => {
+        showConfirmDialog({
+            title: 'Delete Model',
+            message: `Are you sure you want to delete the model "${modelName}"? This action cannot be undone and will free up disk space.`,
+            confirmText: 'Delete',
+            confirmColor: 'error',
+            onConfirm: async () => {
+                try {
+                    const response = await tryApiCall(`/chat/delete-model/${encodeURIComponent(modelName)}`, {
+                        method: 'DELETE'
+                    });
+
+                    showSuccess(response.data.message || `Model "${modelName}" deleted successfully`);
+
+                    // Refresh both model lists
+                    await fetchDetailedModels();
+                    await fetchModels();
+                } catch (error) {
+                    console.error('Failed to delete model:', error);
+                    showError(error.message || 'Failed to delete model');
+                }
+            }
+        });
+    };
+
+    const handleCloseManageModels = () => {
+        setManageModelsOpen(false);
+        setDetailedModels([]);
+    };
+
     return (
         <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
             {/* Header */}
@@ -276,20 +392,38 @@ const Chat = () => {
                                 size="small"
                             />
                         )}
-                        <FormControl size="small" sx={{ minWidth: 200 }}>
-                            <InputLabel>Model</InputLabel>
-                            <Select
-                                value={currentModel}
-                                label="Model"
-                                onChange={(e) => handleModelChange(e.target.value)}
-                            >
-                                {availableModels.map((model) => (
-                                    <MenuItem key={model.name} value={model.name}>
-                                        {model.name} ({model.size})
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
+                        {availableModels.length > 0 ? (
+                            <FormControl size="small" sx={{ minWidth: 200 }}>
+                                <InputLabel>Model</InputLabel>
+                                <Select
+                                    value={currentModel}
+                                    label="Model"
+                                    onChange={(e) => handleModelChange(e.target.value)}
+                                >
+                                    {availableModels.map((model) => (
+                                        <MenuItem key={model.name} value={model.name}>
+                                            {model.name} ({model.size})
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        ) : ollamaStatus?.status === 'online' && (
+                            <>
+                                <Chip
+                                    label="No models available"
+                                    color="warning"
+                                    size="small"
+                                    variant="outlined"
+                                />
+                                <Button
+                                    onClick={handleDownloadClick}
+                                    variant="contained"
+                                    startIcon={<DownloadIcon />}
+                                >
+                                    {'Download Model'}
+                                </Button>
+                            </>
+                        )}
                         <Tooltip title="Refresh Status">
                             <span>
                                 <IconButton onClick={checkOllamaStatus} color="primary" disabled={isLoading}>
@@ -301,6 +435,13 @@ const Chat = () => {
                             <span>
                                 <IconButton onClick={handleClearConversation} color="secondary" disabled={isLoading}>
                                     <ClearIcon />
+                                </IconButton>
+                            </span>
+                        </Tooltip>
+                        <Tooltip title="Manage Models">
+                            <span>
+                                <IconButton onClick={handleManageModelsClick} color="secondary" disabled={isLoading || ollamaStatus?.status === 'offline'}>
+                                    <StorageIcon />
                                 </IconButton>
                             </span>
                         </Tooltip>
@@ -508,25 +649,6 @@ const Chat = () => {
                                             </Box>
                                         </>
                                     )}
-                                    {/* Optional: Display timestamp and response time, uncomment if needed */}
-                                    {/* <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
-                                        <Typography variant="caption" sx={{
-                                            opacity: 0.7,
-                                            color: message.type === 'user' ? 'primary.contrastText' :
-                                                message.type === 'error' ? 'error.contrastText' : 'text.secondary'
-                                        }}>
-                                            {formatTimestamp(message.timestamp)}
-                                        </Typography>
-                                        {message.responseTime && (
-                                            <Typography variant="caption" sx={{
-                                                opacity: 0.7,
-                                                color: message.type === 'user' ? 'primary.contrastText' :
-                                                    message.type === 'error' ? 'error.contrastText' : 'text.secondary'
-                                            }}>
-                                                {message.responseTime}ms
-                                            </Typography>
-                                        )}
-                                    </Box> */}
                                 </Paper>
                             </Box>
                         </Box>
@@ -547,8 +669,12 @@ const Chat = () => {
                                 value={inputMessage}
                                 onChange={(e) => setInputMessage(e.target.value)}
                                 onKeyPress={handleKeyPress}
-                                placeholder="Type your message... (Shift+Enter for new line)"
-                                disabled={isLoading || ollamaStatus?.status === 'offline'}
+                                placeholder={
+                                    availableModels.length === 0
+                                        ? "Download a model first to start chatting..."
+                                        : "Type your message... (Shift+Enter for new line)"
+                                }
+                                disabled={isLoading || ollamaStatus?.status === 'offline' || availableModels.length === 0}
                                 variant="outlined"
                                 size="small"
                                 error={inputMessage.length > 1000}
@@ -570,7 +696,7 @@ const Chat = () => {
                         <Button
                             variant="contained"
                             onClick={handleSendMessage}
-                            disabled={!inputMessage.trim() || isLoading || ollamaStatus?.status === 'offline' || inputMessage.length > 1000}
+                            disabled={!inputMessage.trim() || isLoading || ollamaStatus?.status === 'offline' || availableModels.length === 0 || inputMessage.length > 1000}
                             sx={{ minWidth: 'auto', px: 2, alignSelf: 'flex-start' }}
                         >
                             <SendIcon />
@@ -578,6 +704,135 @@ const Chat = () => {
                     </Box>
                 </Box>
             </Card>
+
+            {/* Download Model Dialog */}
+            <Dialog
+                open={downloadDialogOpen}
+                onClose={handleCloseDownloadDialog}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>Download Model</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ pt: 1 }}>
+                        <TextField
+                            fullWidth
+                            label="Model Name"
+                            value={modelToDownload}
+                            onChange={(e) => setModelToDownload(e.target.value)}
+                            placeholder="e.g., llama3.1, codellama, mistral"
+                            disabled={downloadLoading}
+                            helperText="Enter the name of the model from Ollama library (e.g., llama3.1, codellama, mistral)"
+                            sx={{ mb: 2 }}
+                        />
+
+                        <Alert severity="info" sx={{ mb: 2 }}>
+                            <Typography variant="body2">
+                                Models will be downloaded from the Ollama library. Download size may be several GB and can take several minutes.
+                            </Typography>
+                        </Alert>
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDownloadDialog} disabled={downloadLoading}>
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleConfirmDownload}
+                        variant="contained"
+                        disabled={!modelToDownload.trim() || downloadLoading}
+                        startIcon={downloadLoading ? <CircularProgress size={16} /> : <DownloadIcon />}
+                    >
+                        {downloadLoading ? 'Downloading...' : 'Download Model'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Manage Models Dialog */}
+            <Dialog
+                open={manageModelsOpen}
+                onClose={handleCloseManageModels}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Manage Models</DialogTitle>
+                <DialogContent>
+                    {detailedModels.length === 0 ? (
+                        <Box sx={{ textAlign: 'center', py: 4 }}>
+                            <Typography variant="body1" color="text.secondary">
+                                No models downloaded yet.
+                            </Typography>
+                        </Box>
+                    ) : (
+                        <TableContainer>
+                            <Table>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell>Model Name</TableCell>
+                                        <TableCell align="right">Size</TableCell>
+                                        <TableCell align="right">Modified</TableCell>
+                                        <TableCell align="right">Actions</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {detailedModels.map((model) => (
+                                        <TableRow key={model.name}>
+                                            <TableCell>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <Typography variant="body1">
+                                                        {model.name}
+                                                    </Typography>
+                                                    {currentModel === model.name && (
+                                                        <Chip label="Current" size="small" color="primary" />
+                                                    )}
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <Typography variant="body2">
+                                                    {model.sizeFormatted}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <Typography variant="body2" color="text.secondary">
+                                                    {new Date(model.modified).toLocaleDateString()}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <Tooltip title={"Delete model"}>
+                                                    <span>
+                                                        <IconButton
+                                                            size="small"
+                                                            color="error"
+                                                            onClick={() => handleDeleteModel(model.name)}
+                                                        >
+                                                            <DeleteIcon />
+                                                        </IconButton>
+                                                    </span>
+                                                </Tooltip>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseManageModels}>
+                        Close
+                    </Button>
+                    <Button
+                        variant="outlined"
+                        startIcon={<DownloadIcon />}
+                        onClick={() => {
+                            handleCloseManageModels();
+                            handleDownloadClick();
+                        }}
+                    >
+                        Download New Model
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Container>
     );
 };

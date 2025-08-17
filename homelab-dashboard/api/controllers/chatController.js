@@ -2,6 +2,7 @@ const DatabaseModel = require('../models/Database');
 const Chat = require('../models/Chat');
 const SystemController = require('../controllers/systemController');
 const DeviceController = require('../controllers/deviceController');
+const OllamaService = require('../services/ollamaService');
 const { formatMacForDisplay } = require('../utils/formatters'); // <-- Correct import
 const { sendError, sendSuccess } = require('../utils/response'); // Utility for standardized responses
 const config = require('../config');
@@ -12,8 +13,7 @@ const deviceController = new DeviceController();
 class ChatController {
     constructor() {
         this.modelName = null; // Will be set dynamically
-        this.timeout = 300000; // 5 minutes
-        this.ollamaBaseUrl = config.ollama.url; // Default Ollama API URL
+        this.ollamaService = new OllamaService(); // Use the service instead of direct API calls
         this.db = DatabaseModel.getDatabase(); // Database instance
         this.chatModel = new Chat(); // Chat model instance
         this.maxTokens = 2048; // Maximum tokens for context (conservative estimate for most models)
@@ -96,18 +96,17 @@ class ChatController {
     // Helper method to get available models list
     async getAvailableModelsList() {
         try {
-            const response = await this.makeOllamaRequest('/api/tags', 'GET');
-            return response.models?.map(model => model.name) || [];
+            const modelNames = await this.ollamaService.getModelNames();
+            return modelNames;
         } catch (error) {
-            console.warn('Failed to get available models via API:', error.message);
+            console.warn('Failed to get available models via service:', error.message);
             return [];
         }
     }
 
     // Estimate token count for text using simple character-based estimation
     estimateTokens(text) {
-        // Simple estimation: roughly 4 characters per token
-        return Math.ceil(text.length / 4);
+        return this.ollamaService.estimateTokens(text);
     }
 
     // Build messages array for Ollama API (simplified - uses Ollama message structure)
@@ -192,41 +191,6 @@ class ChatController {
         this.saveConversationToDatabase(userId, conversation);
         
         console.log(`Added message to conversation for user ${userId}. Total messages: ${conversation.length}`);
-    }
-
-    // Make HTTP request to Ollama API using fetch
-    async makeOllamaRequest(endpoint, method = 'POST', data = null) {
-        const url = new URL(endpoint, this.ollamaBaseUrl);
-        
-        const options = {
-            method: method,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            signal: AbortSignal.timeout(this.timeout)
-        };
-
-        if (data) {
-            options.body = JSON.stringify(data);
-        }
-
-        try {
-            const response = await fetch(url.toString(), options);
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-
-            const responseText = await response.text();
-            return responseText ? JSON.parse(responseText) : {};
-            
-        } catch (error) {
-            if (error.name === 'TimeoutError') {
-                throw new Error('Request timeout');
-            }
-            throw error;
-        }
     }
 
     // Send a message to Ollama and get response (with streaming support)
@@ -335,17 +299,13 @@ class ChatController {
             messages.push({ role: 'user', content: message });
             
             // Try new chat API first
-            const response = await this.makeOllamaRequest('/api/chat', 'POST', {
-                model: this.modelName,
-                messages: messages,
-                stream: false
-            });
+            const response = await this.ollamaService.sendChat(messages, this.modelName);
 
-            if (!response.message || !response.message.content || response.message.content.trim().length === 0) {
+            if (!response.success || !response.response || response.response.trim().length === 0) {
                 throw new Error('Empty response from Ollama');
             }
 
-            return response.message.content;            
+            return response.response;            
         } catch (error) {
             console.error('Ollama API request failed:', error.message);
             throw error;
@@ -355,42 +315,30 @@ class ChatController {
     // Get available models
     async getModels(req, res) {
         try {
-            const response = await this.makeOllamaRequest('/api/tags', 'GET');
-            const models = response.models || [];
+            const modelsResult = await this.ollamaService.getModels();
 
             // Ensure model is initialized
-            if (!this.modelName && models.length > 0) {
+            if (!this.modelName && modelsResult.success && modelsResult.models.length > 0) {
                 await this.initializeModel();
             }
 
+            if (!modelsResult.success) {
+                if (modelsResult.error && modelsResult.error.includes('Connection refused')) {
+                    return sendError(res, 503, 'AI service is not running. Please ensure Ollama is installed and running.');
+                }
+                return sendError(res, 500, 'Failed to retrieve available AI models', modelsResult.error);
+            }
+
             return sendSuccess(res, {
-                models: models.map(model => ({
-                    name: model.name,
-                    size: this.formatBytes(model.size || 0),
-                    modified: model.modified_at || 'Unknown'
-                })),
+                models: modelsResult.models,
                 currentModel: this.modelName,
                 timestamp: new Date().toISOString()
             });
 
         } catch (error) {
             console.error('Get models error:', error);
-            
-            if (error.message.includes('ECONNREFUSED')) {
-                return sendError(res, 503, 'AI service is not running. Please ensure Ollama is installed and running.');
-            }
-
             return sendError(res, 500, 'Failed to retrieve available AI models', error.message);
         }
-    }
-
-    // Helper to format bytes
-    formatBytes(bytes) {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
     // Change the current model
@@ -408,8 +356,16 @@ class ChatController {
             }
 
             // Validate model exists
-            const response = await this.makeOllamaRequest('/api/tags', 'GET');
-            const availableModels = response.models?.map(model => model.name) || [];
+            const modelsResult = await this.ollamaService.getModels();
+            
+            if (!modelsResult.success) {
+                if (modelsResult.error && modelsResult.error.includes('Connection refused')) {
+                    return sendError(res, 503, 'AI service is not running. Cannot change model.');
+                }
+                return sendError(res, 500, 'Failed to retrieve available models', modelsResult.error);
+            }
+
+            const availableModels = modelsResult.models.map(model => model.name);
 
             if (!availableModels.includes(modelName.trim())) {
                 return sendError(res, 404, `Model '${modelName}' not found. Available models: ${availableModels.join(', ')}`);
@@ -426,11 +382,6 @@ class ChatController {
 
         } catch (error) {
             console.error('Set model error:', error);
-            
-            if (error.message.includes('ECONNREFUSED')) {
-                return sendError(res, 503, 'AI service is not running. Cannot change model.');
-            }
-
             return sendError(res, 500, 'Failed to change AI model', error.message);
         }
     }
@@ -438,15 +389,15 @@ class ChatController {
     // Check Ollama status
     async getStatus(req, res) {
         try {
-            // Try to get version info from API
-            const response = await this.makeOllamaRequest('/api/version', 'GET');
+            const statusResult = await this.ollamaService.getStatus();
             
             return sendSuccess(res, {
-                status: 'online',
-                version: response.version || 'Unknown',
+                status: statusResult.status,
+                version: statusResult.version || 'Unknown',
                 currentModel: this.modelName,
-                apiUrl: this.ollamaBaseUrl,
-                timestamp: new Date().toISOString()
+                apiUrl: statusResult.apiUrl,
+                timestamp: new Date().toISOString(),
+                error: statusResult.error || undefined
             });
 
         } catch (error) {
@@ -454,8 +405,8 @@ class ChatController {
             
             return sendSuccess(res, {
                 status: 'offline',
-                error: error.message.includes('ECONNREFUSED') ? 'AI service not running' : 'AI service not responding',
-                apiUrl: this.ollamaBaseUrl,
+                error: 'AI service not responding',
+                apiUrl: this.ollamaService.baseUrl,
                 timestamp: new Date().toISOString()
             });
         }
@@ -662,6 +613,153 @@ class ChatController {
             }
         }
         return actionsExecuted;
+    }
+
+    // Check model availability for download confirmation
+    async checkModelAvailability(req, res) {
+        try {
+            const { modelName } = req.params;
+
+            if (!modelName || typeof modelName !== 'string' || !modelName.trim()) {
+                return sendError(res, 400, 'Model name is required');
+            }
+
+            if (!this.ollamaService.isValidModelName(modelName)) {
+                return sendError(res, 400, 'Invalid model name format');
+            }
+
+            const availability = await this.ollamaService.checkModelAvailability(modelName.trim());
+
+            if (!availability.success) {
+                return sendError(res, 400, availability.error || `Model "${modelName}" is not available`);
+            }
+
+            return sendSuccess(res, {
+                name: availability.name,
+                exists: availability.exists,
+                available: availability.available || false,
+                message: availability.message,
+                details: availability.details || {},
+                timestamp: new Date().toISOString()
+            });
+
+        } catch (error) {
+            console.error('Check model availability error:', error);
+            return sendError(res, 500, 'Failed to check model availability', error.message);
+        }
+    }
+
+    // Download a model
+    async downloadModel(req, res) {
+        try {
+            const { modelName } = req.body;
+
+            if (!modelName || typeof modelName !== 'string' || !modelName.trim()) {
+                return sendError(res, 400, 'Model name is required');
+            }
+
+            if (!this.ollamaService.isValidModelName(modelName)) {
+                return sendError(res, 400, 'Invalid model name format');
+            }
+
+            const trimmedModelName = modelName.trim();
+
+            // Check if model already exists
+            const availability = await this.ollamaService.checkModelAvailability(trimmedModelName);
+            if (availability.success && availability.exists) {
+                return sendError(res, 409, `Model "${trimmedModelName}" already exists`);
+            }
+
+            // Start download
+            const downloadResult = await this.ollamaService.pullModel(trimmedModelName, false);
+
+            if (!downloadResult.success) {
+                if (downloadResult.error.includes('Connection refused')) {
+                    return sendError(res, 503, 'AI service is not running. Cannot download model.');
+                }
+                return sendError(res, 500, `Failed to download model "${trimmedModelName}"`, downloadResult.error);
+            }
+
+            // Refresh available models after successful download
+            setTimeout(() => {
+                this.initializeModel();
+            }, 1000);
+
+            return sendSuccess(res, {
+                message: `Model "${trimmedModelName}" downloaded successfully`,
+                model: trimmedModelName,
+                status: downloadResult.status,
+                timestamp: new Date().toISOString()
+            });
+
+        } catch (error) {
+            console.error('Download model error:', error);
+            return sendError(res, 500, 'Failed to download model', error.message);
+        }
+    }
+
+    // Get detailed models with size and management info
+    async getDetailedModels(req, res) {
+        try {
+            const modelsResult = await this.ollamaService.getDetailedModels();
+
+            if (!modelsResult.success) {
+                if (modelsResult.error && modelsResult.error.includes('Connection refused')) {
+                    return sendError(res, 503, 'AI service is not running. Please ensure Ollama is installed and running.');
+                }
+                return sendError(res, 500, 'Failed to retrieve detailed model information', modelsResult.error);
+            }
+
+            return sendSuccess(res, {
+                models: modelsResult.models,
+                count: modelsResult.count,
+                currentModel: this.modelName,
+                timestamp: new Date().toISOString()
+            });
+
+        } catch (error) {
+            console.error('Get detailed models error:', error);
+            return sendError(res, 500, 'Failed to retrieve detailed model information', error.message);
+        }
+    }
+
+    // Delete a model
+    async deleteModel(req, res) {
+        try {
+            const { modelName } = req.params;
+
+            if (!modelName || typeof modelName !== 'string' || !modelName.trim()) {
+                return sendError(res, 400, 'Model name is required');
+            }
+
+            const trimmedModelName = modelName.trim();
+
+            // Check if model exists
+            const availability = await this.ollamaService.checkModelAvailability(trimmedModelName);
+            if (!availability.success || !availability.exists) {
+                return sendError(res, 404, `Model "${trimmedModelName}" not found locally`);
+            }
+
+            // Delete the model
+            const deleteResult = await this.ollamaService.deleteModel(trimmedModelName);
+
+            if (!deleteResult.success) {
+                if (deleteResult.error.includes('Connection refused')) {
+                    return sendError(res, 503, 'AI service is not running. Cannot delete model.');
+                }
+                return sendError(res, 500, `Failed to delete model "${trimmedModelName}"`, deleteResult.error);
+            }
+
+            return sendSuccess(res, {
+                message: `Model "${trimmedModelName}" deleted successfully`,
+                model: trimmedModelName,
+                timestamp: new Date().toISOString()
+            });
+
+        } catch (error) {
+            console.error('Delete model error:', error);
+            return sendError(res, 500, 'Failed to delete model', error.message);
+        }
     }
 }
 

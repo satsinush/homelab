@@ -13,6 +13,12 @@ router.get('/chat/status', requireAuth('admin'), (req, res) => chatController.ge
 router.get('/chat/conversation', requireAuth('admin'), (req, res) => chatController.getConversationHistoryEndpoint(req, res));
 router.delete('/chat/conversation', requireAuth('admin'), (req, res) => chatController.clearConversationEndpoint(req, res));
 
+// Model management endpoints
+router.get('/chat/check-model/:modelName', requireAuth('admin'), (req, res) => chatController.checkModelAvailability(req, res));
+router.get('/chat/models-detailed', requireAuth('admin'), (req, res) => chatController.getDetailedModels(req, res));
+router.post('/chat/download-model', requireAuth('admin'), (req, res) => chatController.downloadModel(req, res));
+router.delete('/chat/delete-model/:modelName', requireAuth('admin'), (req, res) => chatController.deleteModel(req, res));
+
 // Conversation management endpoints
 router.post('/chat/conversations/cleanup', requireAuth('admin'), (req, res) => chatController.cleanupConversations(req, res));
 router.delete('/chat/conversations/clear', requireAuth('admin'), (req, res) => chatController.clearAllConversations(req, res));
