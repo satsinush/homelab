@@ -61,7 +61,7 @@ app.use(express.urlencoded({ extended: true }));
 // =============================================================================
 
 // API Routes
-app.use('/api/auth', userRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api', deviceRoutes);
 app.use('/api', systemRoutes);
 app.use('/api', chatRoutes);
@@ -110,8 +110,7 @@ const initializeServer = async () => {
         const userModel = new User();
         const deviceController = new DeviceController();
         
-        // Create default admin user
-        await userModel.createDefaultUser();
+        // No default user creation - first login will create the initial user
                 
         // Start server
         app.listen(config.port, '0.0.0.0', async () => {

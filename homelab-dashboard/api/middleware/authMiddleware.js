@@ -1,5 +1,5 @@
 // Authentication middleware
-const requireAuth = (requiredRole = null) => {
+const requireAuth = (requiredGroup = null) => {
     return (req, res, next) => {        
         // Check if user is logged in via session
         if (!req.session.userId || !req.session.user) {
@@ -9,8 +9,8 @@ const requireAuth = (requiredRole = null) => {
         
         const user = req.session.user;
         
-        // Check role if specified
-        if (requiredRole && !user.roles.includes(requiredRole)) {
+        // Check group if specified
+        if (requiredGroup && !user.groups.includes(requiredGroup)) {
             return res.status(403).json({ error: 'Insufficient permissions' });
         }
         

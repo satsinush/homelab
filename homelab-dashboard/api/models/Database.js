@@ -43,9 +43,12 @@ class DatabaseModel {
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT NOT NULL UNIQUE,
-                password_hash TEXT NOT NULL,
-                salt TEXT NOT NULL,
-                roles TEXT NOT NULL DEFAULT '[]',
+                password_hash TEXT,
+                salt TEXT,
+                groups TEXT NOT NULL DEFAULT '[]',
+                email TEXT,
+                is_sso_user BOOLEAN DEFAULT 0,
+                sso_id TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 last_login DATETIME

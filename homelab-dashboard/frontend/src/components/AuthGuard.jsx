@@ -2,7 +2,7 @@
 import React from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
-import Login from './Login';
+import LoginChoice from './LoginChoice';
 
 const AuthGuard = ({ children }) => {
     const { isAuthenticated, loading } = useAuth();
@@ -28,7 +28,7 @@ const AuthGuard = ({ children }) => {
     }
 
     if (!isAuthenticated) {
-        return <Login />;
+        return <LoginChoice />;
     }
 
     return children;

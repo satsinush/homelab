@@ -22,6 +22,7 @@
     "express-session": "^1.18.1",
     "http-proxy-middleware": "^3.0.5",
     "jsonwebtoken": "^9.0.2",
+    "openid-client": "^6.6.4",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

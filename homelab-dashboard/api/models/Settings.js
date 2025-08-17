@@ -16,7 +16,6 @@ class Settings {
             
             if (result) {
                 this.serverSettings = { ...config.defaultSettings, ...JSON.parse(result.data) };
-                console.log('Server settings loaded from database');
             } else {
                 // Insert default settings
                 const insertStmt = this.db.prepare('INSERT INTO settings (id, data) VALUES (?, ?)');

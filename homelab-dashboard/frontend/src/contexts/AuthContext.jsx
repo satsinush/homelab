@@ -14,31 +14,28 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(localStorage.getItem('auth_token'));
     const [loading, setLoading] = useState(true);
 
     // Check if user is authenticated on app load
     useEffect(() => {
         const checkAuth = async () => {
-            if (token) {
-                try {
-                    const result = await tryApiCall('/auth/verify', {
-                        method: 'POST'
-                    });
-                    setUser(result.data.user);
-                } catch (error) {
-                    console.error('Token verification failed:', error);
-                    logout();
-                }
+            try {
+                const result = await tryApiCall('/users/verify', {
+                    method: 'POST'
+                });
+                setUser(result.data.user);
+            } catch (error) {
+                console.error('Authentication check failed:', error);
+                setUser(null);
             }
             setLoading(false);
         };
         checkAuth();
-    }, [token]);
+    }, []);
 
-    const login = async (username, password) => {
+    const loginLocal = async (username, password) => {
         try {
-            const result = await tryApiCall('/auth/login', {
+            const result = await tryApiCall('/users/login', {
                 method: 'POST',
                 data: {
                     username,
@@ -46,16 +43,10 @@ export const AuthProvider = ({ children }) => {
                 }
             });
 
-            const { token: authToken, user: userData } = result.data;
-
-            // Store token in localStorage
-            localStorage.setItem('auth_token', authToken);
-            setToken(authToken);
-            setUser(userData);
-
-            return { success: true, user: userData };
+            setUser(result.data.user);
+            return { success: true, user: result.data.user };
         } catch (error) {
-            console.error('Login failed:', error);
+            console.error('Local login failed:', error);
             return {
                 success: false,
                 error: error.message || 'Login failed'
@@ -63,45 +54,54 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const loginSSO = () => {
+        // Redirect to SSO login endpoint in user controller
+        window.location.href = '/api/users/sso-login';
+    };
+
     const logout = async () => {
         try {
-            if (token) {
-                await tryApiCall('/auth/logout', {
-                    method: 'POST'
-                });
+            const result = await tryApiCall('/users/logout', {
+                method: 'POST'
+            });
+
+            // Check if this is an SSO logout that requires a redirect
+            if (result.data && result.data.redirect) {
+                console.log('SSO logout - redirecting to:', result.data.redirect);
+                // Redirect the browser window to Authelia logout
+                window.location.href = result.data.redirect;
+                return; // Don't clear user state yet, let the redirect handle it
+            } else {
+                console.log('Local logout successful');
             }
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
-            // Clear local storage and state
-            localStorage.removeItem('auth_token');
-            setToken(null);
+            // For local logout or if there's an error, clear user state
             setUser(null);
         }
     };
 
     // Refresh user info
     const refreshUser = async () => {
-        if (token) {
-            try {
-                const result = await tryApiCall('/auth/verify', {
-                    method: 'POST'
-                });
-                setUser(result.data.user);
-                return result.data.user;
-            } catch (error) {
-                console.error('User refresh failed:', error);
-                return null;
-            }
+        try {
+            const result = await tryApiCall('/users/verify', {
+                method: 'POST'
+            });
+            setUser(result.data.user);
+            return result.data.user;
+        } catch (error) {
+            console.error('User refresh failed:', error);
+            setUser(null);
+            return null;
         }
-        return null;
     };
 
     const value = {
         user,
-        token,
         loading,
-        login,
+        loginLocal,
+        loginSSO,
         logout,
         refreshUser,
         isAuthenticated: !!user

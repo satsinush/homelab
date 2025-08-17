@@ -58,6 +58,12 @@ const Profile = () => {
             return;
         }
 
+        if (newPassword && user?.is_sso_user) {
+            setError('SSO users cannot change passwords locally');
+            setLoading(false);
+            return;
+        }
+
         if (newPassword && newPassword.length < 6) {
             setError('New password must be at least 6 characters long');
             setLoading(false);
@@ -70,14 +76,14 @@ const Profile = () => {
             return;
         }
 
-        if (newPassword && !currentPassword) {
+        if (newPassword && !user?.is_sso_user && !currentPassword) {
             setError('Current password is required to change password');
             setLoading(false);
             return;
         }
 
         try {
-            const result = await tryApiCall('/auth/profile', {
+            const result = await tryApiCall('/users/profile', {
                 method: 'PUT',
                 data: {
                     username: username.trim(),
@@ -199,163 +205,171 @@ const Profile = () => {
                                     />
 
                                     <Box>
+                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                            <strong>Groups:</strong> {user?.groups?.join(', ') || 'N/A'}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                            <strong>Email:</strong> {user?.email || 'N/A'}
+                                        </Typography>
                                         <Typography variant="body2" color="text.secondary">
-                                            Current Role: {user?.roles?.join(', ') || 'N/A'}
+                                            <strong>Account Type:</strong> {user?.is_sso_user ? 'SSO User' : 'Local User'}
                                         </Typography>
                                     </Box>
                                 </Stack>
                             </CardContent>
                         </Card>
 
-                        {/* Password Change Card */}
-                        <Card variant="outlined">
-                            <CardHeader
-                                avatar={<LockIcon color="primary" />}
-                                title="Change Password"
-                                subheader="Leave blank if you don't want to change your password"
-                            />
-                            <CardContent>
-                                <Stack spacing={3}>
-                                    <TextField
-                                        fullWidth
-                                        label="Current Password"
-                                        type={showCurrentPassword ? 'text' : 'password'}
-                                        value={currentPassword}
-                                        onChange={(e) => setCurrentPassword(e.target.value)}
-                                        disabled={loading}
-                                        slotProps={{
-                                            input: {
-                                                startAdornment: (
-                                                    <InputAdornment position="start">
-                                                        <LockIcon color="action" />
-                                                    </InputAdornment>
-                                                ),
-                                                endAdornment: (
-                                                    <InputAdornment position="end">
-                                                        <IconButton
-                                                            onClick={() => handleTogglePassword('current')}
-                                                            edge="end"
-                                                            disabled={loading}
-                                                        >
-                                                            {showCurrentPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                                                        </IconButton>
-                                                    </InputAdornment>
-                                                ),
-                                            },
-                                        }}
-                                        helperText="Required only if changing password"
-                                        sx={(theme) => ({
-                                            '& input:-webkit-autofill': {
-                                                WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                                backgroundColor: 'transparent !important',
-                                                transition: 'background-color 5000s ease-in-out 0s',
-                                            },
-                                            '& input:-webkit-autofill:hover': {
-                                                WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                            },
-                                            '& input:-webkit-autofill:focus': {
-                                                WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                            },
-                                        })}
-                                    />
+                        {/* Password Change Card - Only show for local users */}
+                        {!user?.is_sso_user && (
+                            <Card variant="outlined">
+                                <CardHeader
+                                    avatar={<LockIcon color="primary" />}
+                                    title="Change Password"
+                                    subheader="Leave blank if you don't want to change your password"
+                                />
+                                <CardContent>
+                                    <Stack spacing={3}>
+                                        <TextField
+                                            fullWidth
+                                            label="Current Password"
+                                            type={showCurrentPassword ? 'text' : 'password'}
+                                            value={currentPassword}
+                                            onChange={(e) => setCurrentPassword(e.target.value)}
+                                            disabled={loading}
+                                            slotProps={{
+                                                input: {
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <LockIcon color="action" />
+                                                        </InputAdornment>
+                                                    ),
+                                                    endAdornment: (
+                                                        <InputAdornment position="end">
+                                                            <IconButton
+                                                                onClick={() => handleTogglePassword('current')}
+                                                                edge="end"
+                                                                disabled={loading}
+                                                            >
+                                                                {showCurrentPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                                                            </IconButton>
+                                                        </InputAdornment>
+                                                    ),
+                                                },
+                                            }}
+                                            helperText="Required only if changing password"
+                                            sx={(theme) => ({
+                                                '& input:-webkit-autofill': {
+                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
+                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
+                                                    backgroundColor: 'transparent !important',
+                                                    transition: 'background-color 5000s ease-in-out 0s',
+                                                },
+                                                '& input:-webkit-autofill:hover': {
+                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
+                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
+                                                },
+                                                '& input:-webkit-autofill:focus': {
+                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
+                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
+                                                },
+                                            })}
+                                        />
 
-                                    <TextField
-                                        fullWidth
-                                        label="New Password"
-                                        type={showNewPassword ? 'text' : 'password'}
-                                        value={newPassword}
-                                        onChange={(e) => setNewPassword(e.target.value)}
-                                        disabled={loading}
-                                        slotProps={{
-                                            input: {
-                                                startAdornment: (
-                                                    <InputAdornment position="start">
-                                                        <LockIcon color="action" />
-                                                    </InputAdornment>
-                                                ),
-                                                endAdornment: (
-                                                    <InputAdornment position="end">
-                                                        <IconButton
-                                                            onClick={() => handleTogglePassword('new')}
-                                                            edge="end"
-                                                            disabled={loading}
-                                                        >
-                                                            {showNewPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                                                        </IconButton>
-                                                    </InputAdornment>
-                                                ),
-                                            },
-                                        }}
-                                        helperText="Password must be at least 6 characters long"
-                                        sx={(theme) => ({
-                                            '& input:-webkit-autofill': {
-                                                WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                                backgroundColor: 'transparent !important',
-                                                transition: 'background-color 5000s ease-in-out 0s',
-                                            },
-                                            '& input:-webkit-autofill:hover': {
-                                                WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                            },
-                                            '& input:-webkit-autofill:focus': {
-                                                WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                            },
-                                        })}
-                                    />
+                                        <TextField
+                                            fullWidth
+                                            label="New Password"
+                                            type={showNewPassword ? 'text' : 'password'}
+                                            value={newPassword}
+                                            onChange={(e) => setNewPassword(e.target.value)}
+                                            disabled={loading}
+                                            slotProps={{
+                                                input: {
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <LockIcon color="action" />
+                                                        </InputAdornment>
+                                                    ),
+                                                    endAdornment: (
+                                                        <InputAdornment position="end">
+                                                            <IconButton
+                                                                onClick={() => handleTogglePassword('new')}
+                                                                edge="end"
+                                                                disabled={loading}
+                                                            >
+                                                                {showNewPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                                                            </IconButton>
+                                                        </InputAdornment>
+                                                    ),
+                                                },
+                                            }}
+                                            helperText="Password must be at least 6 characters long"
+                                            sx={(theme) => ({
+                                                '& input:-webkit-autofill': {
+                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
+                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
+                                                    backgroundColor: 'transparent !important',
+                                                    transition: 'background-color 5000s ease-in-out 0s',
+                                                },
+                                                '& input:-webkit-autofill:hover': {
+                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
+                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
+                                                },
+                                                '& input:-webkit-autofill:focus': {
+                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
+                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
+                                                },
+                                            })}
+                                        />
 
-                                    <TextField
-                                        fullWidth
-                                        label="Confirm New Password"
-                                        type={showConfirmPassword ? 'text' : 'password'}
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                        disabled={loading}
-                                        slotProps={{
-                                            input: {
-                                                startAdornment: (
-                                                    <InputAdornment position="start">
-                                                        <LockIcon color="action" />
-                                                    </InputAdornment>
-                                                ),
-                                                endAdornment: (
-                                                    <InputAdornment position="end">
-                                                        <IconButton
-                                                            onClick={() => handleTogglePassword('confirm')}
-                                                            edge="end"
-                                                            disabled={loading}
-                                                        >
-                                                            {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                                                        </IconButton>
-                                                    </InputAdornment>
-                                                ),
-                                            },
-                                        }}
-                                        helperText="Must match new password"
-                                        sx={(theme) => ({
-                                            '& input:-webkit-autofill': {
-                                                WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                                backgroundColor: 'transparent !important',
-                                                transition: 'background-color 5000s ease-in-out 0s',
-                                            },
-                                            '& input:-webkit-autofill:hover': {
-                                                WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                            },
-                                            '& input:-webkit-autofill:focus': {
-                                                WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                            },
-                                        })}
-                                    />
-                                </Stack>
-                            </CardContent>
-                        </Card>
+                                        <TextField
+                                            fullWidth
+                                            label="Confirm New Password"
+                                            type={showConfirmPassword ? 'text' : 'password'}
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            disabled={loading}
+                                            slotProps={{
+                                                input: {
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <LockIcon color="action" />
+                                                        </InputAdornment>
+                                                    ),
+                                                    endAdornment: (
+                                                        <InputAdornment position="end">
+                                                            <IconButton
+                                                                onClick={() => handleTogglePassword('confirm')}
+                                                                edge="end"
+                                                                disabled={loading}
+                                                            >
+                                                                {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                                                            </IconButton>
+                                                        </InputAdornment>
+                                                    ),
+                                                },
+                                            }}
+                                            helperText="Must match new password"
+                                            sx={(theme) => ({
+                                                '& input:-webkit-autofill': {
+                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
+                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
+                                                    backgroundColor: 'transparent !important',
+                                                    transition: 'background-color 5000s ease-in-out 0s',
+                                                },
+                                                '& input:-webkit-autofill:hover': {
+                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
+                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
+                                                },
+                                                '& input:-webkit-autofill:focus': {
+                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
+                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
+                                                },
+                                            })}
+                                        />
+                                    </Stack>
+                                </CardContent>
+                            </Card>
+                        )}
 
                         {/* Submit Button */}
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>

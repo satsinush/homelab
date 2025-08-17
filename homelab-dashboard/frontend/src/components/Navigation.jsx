@@ -206,7 +206,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }) => {
                             {user?.username}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                            {user?.roles?.includes('admin') ? 'Administrator' : 'User'}
+                            {user?.groups?.includes('admin') ? 'Administrator' : 'User'}
                         </Typography>
                     </Box>
                 </Box>

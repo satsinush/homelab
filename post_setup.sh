@@ -82,6 +82,7 @@ if [ "$STATUS_CODE" -eq 200 ]; then
     echo "📣 RustDesk public key (from ${RUSTDESK_PUB}):"
     echo "-------------------------------------------"
     cat "${RUSTDESK_PUB}"
+    echo ""
     echo "-------------------------------------------"
   else
     echo ""

@@ -25,8 +25,17 @@ const loginLimiter = rateLimit({
 // Login endpoint
 router.post('/login', loginLimiter, (req, res) => userController.login(req, res));
 
+// SSO Login endpoint
+router.get('/sso-login', (req, res) => userController.ssoLogin(req, res));
+
+// SSO Callback endpoint
+router.get('/sso-callback', (req, res) => userController.ssoCallback(req, res));
+
 // Logout endpoint
 router.post('/logout', (req, res) => userController.logout(req, res));
+
+// Check if this is the first user setup
+router.get('/first-user-check', (req, res) => userController.checkFirstUser(req, res));
 
 // Get current user info
 router.get('/me', requireAuth(), (req, res) => userController.getMe(req, res));

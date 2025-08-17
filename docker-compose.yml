@@ -161,6 +161,7 @@ services:
     volumes:
       - homelab-dashboard-api-data:/app/api/data
       - homelab-dashboard-word-games-data:/app/word_games/data
+      - ./certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
     networks:
       - homelab-net
     extra_hosts:
@@ -168,6 +169,10 @@ services:
     environment:
       - HOMELAB_API_SESSION_SECRET=${HOMELAB_API_SESSION_SECRET}
       - ENVIRONMENT=${ENVIRONMENT}
+      - AUTHELIA_WEB_HOSTNAME=${AUTHELIA_WEB_HOSTNAME}
+      - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
+      - DASHBOARD_OIDC_SECRET=${DASHBOARD_OIDC_SECRET}
+      - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
 
   # ddclient for dynamic DNS updates
   ddclient:
@@ -283,6 +288,8 @@ services:
         AUTHELIA_HMAC_SECRET: ${AUTHELIA_HMAC_SECRET}
         PORTAINER_WEB_HOSTNAME: ${PORTAINER_WEB_HOSTNAME}
         PORTAINER_OIDC_SECRET: ${PORTAINER_OIDC_SECRET}
+        DASHBOARD_OIDC_SECRET: ${DASHBOARD_OIDC_SECRET}
+        DASHBOARD_WEB_HOSTNAME: ${DASHBOARD_WEB_HOSTNAME}
     container_name: authelia
     restart: unless-stopped
     networks:
