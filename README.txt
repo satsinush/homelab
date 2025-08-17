@@ -113,3 +113,5 @@ run docker exec ntfy ntfy user add <username> --password "<password>" --role adm
 recommend updating pi-hole to only use this list
 https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt
 (won't block google shopping links)
+
+subscribe to homelab-dashboard topic on ntfy for package alerts

@@ -34,7 +34,6 @@ import {
     List,
     ListItem,
     ListItemText,
-    ListItemSecondaryAction
 } from '@mui/material';
 import {
     Send as SendIcon,

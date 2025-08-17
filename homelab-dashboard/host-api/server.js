@@ -48,7 +48,6 @@ function parseNetworkScanResults(stdout, platform) {
             devices.push({
                 ip: match[1],
                 mac: match[2].replace(/-/g, ':'),
-                vendor: 'Unknown'
             });
             }
         }
@@ -60,7 +59,6 @@ function parseNetworkScanResults(stdout, platform) {
                 devices.push({
                     ip: match[1],
                     mac: match[2],
-                    vendor: 'Unknown'
                 });
             }
         }

@@ -17,6 +17,7 @@ const { errorHandler, notFound } = require('./middleware/errorMiddleware');
 // Import services for initialization
 const User = require('./models/User');
 const DeviceController = require('./controllers/deviceController');
+const PackageUpdateChecker = require('./services/packageUpdateChecker');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 // Initialize Express app
@@ -109,6 +110,7 @@ const initializeServer = async () => {
         // Initialize services
         const userModel = new User();
         const deviceController = new DeviceController();
+        const packageUpdateChecker = new PackageUpdateChecker();
         
         // No default user creation - first login will create the initial user
                 
@@ -138,7 +140,25 @@ const initializeServer = async () => {
             } catch (error) {
                 console.error('Initial scan failed:', error.message);
             }
+
+            // Start package update checker
+            try {
+                packageUpdateChecker.start();
+                console.log('Package update checker started (hourly notifications) ✓');
+            } catch (error) {
+                console.error('Failed to start package update checker:', error.message);
+            }
         });
+        
+        // Handle graceful shutdown
+        const gracefulShutdown = () => {
+            console.log('Shutting down gracefully...');
+            packageUpdateChecker.stop();
+            process.exit(0);
+        };
+
+        process.on('SIGTERM', gracefulShutdown);
+        process.on('SIGINT', gracefulShutdown);
         
     } catch (error) {
         console.error('Failed to initialize server:', error);

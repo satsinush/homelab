@@ -276,7 +276,8 @@ class SystemController {
                         iface.name !== 'total' && 
                         iface.name !== 'Total Network' && 
                         !iface.name.includes('veth') &&
-                        iface.name !== 'docker0'
+                        iface.name !== 'docker0' &&
+                        !iface.name.startsWith('br-') // Exclude all bridge interfaces
                     )
                     .map(iface => ({
                         name: iface.name,

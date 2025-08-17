@@ -173,6 +173,7 @@ services:
       - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
       - DASHBOARD_OIDC_SECRET=${DASHBOARD_OIDC_SECRET}
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
+      - NTFY_ADMIN_TOKENS
 
   # ddclient for dynamic DNS updates
   ddclient:

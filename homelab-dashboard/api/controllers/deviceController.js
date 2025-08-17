@@ -55,7 +55,6 @@ class DeviceController {
                     const updatedDevice = {
                         ...favoriteDevice,
                         ip: scannedDevice.ip,
-                        vendor: scannedDevice.vendor || favoriteDevice.vendor,
                         status: 'online',
                         lastSeen: now,
                         lastScanned: now,
@@ -72,7 +71,6 @@ class DeviceController {
                         // Override with fresh scan data
                         mac: scannedDevice.mac,
                         ip: scannedDevice.ip,
-                        vendor: scannedDevice.vendor || cachedDevice?.vendor || 'Unknown',
                         status: 'online',
                         lastSeen: now,
                         lastScanned: now,
@@ -166,7 +164,6 @@ class DeviceController {
                 discoveredDevices.push({
                     ip: device.ip,
                     mac: normalizedMac,
-                    vendor: device.vendor || 'Unknown',
                     status: 'online',
                     lastSeen: new Date().toISOString(),
                     scanMethod: 'network-scan'
@@ -368,7 +365,6 @@ class DeviceController {
                 isFavorite: true,
                 status: 'offline',
                 ip: null,
-                vendor: 'Unknown',
                 lastSeen: null,
                 lastScanned: null,
                 scanMethod: 'manual'
@@ -508,7 +504,7 @@ class DeviceController {
                 const favoriteDevice = {
                     ...targetDevice,
                     isFavorite: true,
-                    name: targetDevice.name || `Device ${targetDevice.vendor || 'Unknown'}`,
+                    name: targetDevice.name,
                     description: targetDevice.description || ''
                 };
                 
@@ -623,7 +619,6 @@ class DeviceController {
             name: device.name,
             mac: device.mac,
             ip: device.ip,
-            vendor: device.vendor,
             status: device.status
         }));
         return JSON.stringify(info);

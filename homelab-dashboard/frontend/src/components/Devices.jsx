@@ -163,7 +163,6 @@ const Devices = () => {
     const [nameFilter, setNameFilter] = useState('');
     const [macFilter, setMacFilter] = useState('');
     const [ipFilter, setIpFilter] = useState('');
-    const [vendorFilter, setVendorFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
 
     // Sorting states
@@ -309,7 +308,7 @@ const Devices = () => {
             });
 
             if (existingDevice) {
-                const deviceName = existingDevice.name || existingDevice.vendor || 'Unknown Device';
+                const deviceName = existingDevice.name || 'Unknown Device';
                 showError(`A device with MAC address ${formatMacForDisplay(normalizedInputMac)} already exists: ${deviceName}`);
                 return;
             }
@@ -388,7 +387,6 @@ const Devices = () => {
         setNameFilter('');
         setMacFilter('');
         setIpFilter('');
-        setVendorFilter('');
         setStatusFilter('');
         setFilterStatus('all');
         setSearchTerm('');
@@ -414,17 +412,15 @@ const Devices = () => {
     // Memoized filter and sort function to prevent recalculation on every render
     const getFilteredDevices = useCallback((deviceList) => {
         const filtered = deviceList.filter(device => {
-            const deviceName = (device.name || device.vendor || 'Unknown').toLowerCase();
+            const deviceName = (device.name || 'Unknown').toLowerCase();
             const deviceMac = normalizeMacForApi(device.macNormalized || device.mac || '');
             const deviceIp = (device.ip || '').toLowerCase();
-            const deviceVendor = (device.vendor || '').toLowerCase();
             const deviceStatus = (device.status || '').toLowerCase();
 
             // Apply all filters
             if (nameFilter && !deviceName.includes(nameFilter.toLowerCase())) return false;
             if (macFilter && !deviceMac.includes(normalizeMacForApi(macFilter))) return false;
             if (ipFilter && !deviceIp.replace('.', '').includes(ipFilter.replace('.', '').toLowerCase())) return false;
-            if (vendorFilter && !deviceVendor.includes(vendorFilter.toLowerCase())) return false;
             if (statusFilter && !deviceStatus.includes(statusFilter.toLowerCase())) return false;
 
             return true;
@@ -442,8 +438,8 @@ const Devices = () => {
 
             switch (sortBy) {
                 case 'name':
-                    aValue = (a.name || a.vendor || 'Unknown').toLowerCase();
-                    bValue = (b.name || b.vendor || 'Unknown').toLowerCase();
+                    aValue = (a.name || 'Unknown').toLowerCase();
+                    bValue = (b.name || 'Unknown').toLowerCase();
                     break;
                 case 'mac':
                     aValue = (a.mac || '').toLowerCase();
@@ -453,22 +449,18 @@ const Devices = () => {
                     aValue = (a.ip || '').toLowerCase();
                     bValue = (b.ip || '').toLowerCase();
                     break;
-                case 'vendor':
-                    aValue = (a.vendor || '').toLowerCase();
-                    bValue = (b.vendor || '').toLowerCase();
-                    break;
                 case 'status':
                     aValue = (a.status || '').toLowerCase();
                     bValue = (b.status || '').toLowerCase();
                     break;
                 case 'isFavorite':
                     // If sorting by favorite and both have same favorite status, sort by name
-                    aValue = (a.name || a.vendor || 'Unknown').toLowerCase();
-                    bValue = (b.name || b.vendor || 'Unknown').toLowerCase();
+                    aValue = (a.name || 'Unknown').toLowerCase();
+                    bValue = (b.name || 'Unknown').toLowerCase();
                     break;
                 default:
-                    aValue = (a.name || a.vendor || 'Unknown').toLowerCase();
-                    bValue = (b.name || b.vendor || 'Unknown').toLowerCase();
+                    aValue = (a.name || 'Unknown').toLowerCase();
+                    bValue = (b.name || 'Unknown').toLowerCase();
             }
 
             if (sortOrder === 'asc') {
@@ -477,7 +469,7 @@ const Devices = () => {
                 return bValue.localeCompare(aValue);
             }
         });
-    }, [nameFilter, macFilter, ipFilter, vendorFilter, statusFilter, sortBy, sortOrder]);
+    }, [nameFilter, macFilter, ipFilter, statusFilter, sortBy, sortOrder]);
 
     // Memoized function to generate dynamic filter options
     const getUniqueValues = useCallback((devices, key) => {
@@ -496,7 +488,7 @@ const Devices = () => {
 
     const filteredAllDevices = useMemo(() => {
         return getFilteredDevices(devices);
-    }, [devices, nameFilter, macFilter, ipFilter, vendorFilter, statusFilter, sortBy, sortOrder]);
+    }, [devices, nameFilter, macFilter, ipFilter, statusFilter, sortBy, sortOrder]);
 
     const renderCards = () => (
         <>
@@ -516,7 +508,7 @@ const Devices = () => {
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
-                                                {getDeviceTypeIcon(device.name || device.vendor)}
+                                                {getDeviceTypeIcon(device.name)}
                                                 {/* {device.status === 'online' ? (
                                                     <OnlineIcon sx={{ color: 'success.main', fontSize: 16, position: 'absolute', top: -4, right: -4 }} />
                                                 ) : (
@@ -565,12 +557,6 @@ const Devices = () => {
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                                 <Typography variant="body2" color="text.secondary">MAC:</Typography>
                                                 <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{device.mac}</Typography>
-                                            </Box>
-                                        )}
-                                        {device.vendor && (
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <Typography variant="body2" color="text.secondary">Vendor:</Typography>
-                                                <Typography variant="body2">{device.vendor}</Typography>
                                             </Box>
                                         )}
                                         {device.description && (
@@ -644,7 +630,6 @@ const Devices = () => {
                         <TableCell>Name</TableCell>
                         <TableCell>MAC Address</TableCell>
                         <TableCell>IP Address</TableCell>
-                        <TableCell>Vendor</TableCell>
                         <TableCell>Status</TableCell>
                         <TableCell align="center">Actions</TableCell>
                     </TableRow>
@@ -655,9 +640,9 @@ const Devices = () => {
                             <TableRow key={device.macNormalized || device.mac} hover>
                                 <TableCell>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        {getDeviceTypeIcon(device.name || device.vendor)}
+                                        {getDeviceTypeIcon(device.name)}
                                         <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                            {device.name || device.vendor || 'Unknown Device'}
+                                            {device.name || 'Unknown Device'}
                                         </Typography>
                                         {device.isFavorite && (
                                             <StarIcon sx={{ color: 'primary.main', fontSize: 16 }} />
@@ -670,7 +655,6 @@ const Devices = () => {
                                 <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
                                     {device.ip || '-'}
                                 </TableCell>
-                                <TableCell>{device.vendor || '-'}</TableCell>
                                 <TableCell>
                                     <Chip
                                         label={device.status === 'online' ? 'Online' : 'Offline'}
@@ -968,36 +952,6 @@ const Devices = () => {
                                 }}
                             >
                                 {sortBy === 'ip' && sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />}
-                            </IconButton>
-                        </Box>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <TextField
-                                size="small"
-                                label="Vendor"
-                                placeholder="Filter by vendor..."
-                                value={vendorFilter}
-                                onChange={(e) => setVendorFilter(e.target.value)}
-                                fullWidth
-                                variant="outlined"
-                            />
-                            <IconButton
-                                size="small"
-                                onClick={() => {
-                                    if (sortBy === 'vendor') {
-                                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                                    } else {
-                                        setSortBy('vendor');
-                                        setSortOrder('asc');
-                                    }
-                                }}
-                                sx={{
-                                    color: sortBy === 'vendor' ? 'primary.main' : 'text.secondary',
-                                    bgcolor: sortBy === 'vendor' ? 'primary.50' : 'transparent'
-                                }}
-                            >
-                                {sortBy === 'vendor' && sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />}
                             </IconButton>
                         </Box>
                     </Grid>

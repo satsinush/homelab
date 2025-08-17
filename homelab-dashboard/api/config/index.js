@@ -6,6 +6,7 @@ const https = require('https');
 
 // Import openid-client following official documentation
 const client = require('openid-client');
+const { url } = require('inspector');
 
 // Validate required environment variables
 const SESSION_SECRET = process.env.HOMELAB_API_SESSION_SECRET;
@@ -26,7 +27,12 @@ if (!DASHBOARD_OIDC_SECRET) {
 // Default server settings
 const DEFAULT_SETTINGS = {
     scanTimeout: 30000,
-    cacheTimeout: 300000
+    cacheTimeout: 300000,
+    packageUpdateCheck: {
+        enabled: true,
+        intervalHours: 1,
+        notificationIntervalHours: 6
+    }
 };
 
 // OIDC Client setup using openid-client library
@@ -116,6 +122,13 @@ const config = {
     },
     hostApi: {
         url: `http://host.docker.internal:5001`
+    },
+    ntfy: {
+        url: 'http://ntfy:80',
+        adminToken: process.env.NTFY_ADMIN_TOKENS,
+        topics: {
+            dashboard: 'homelab-dashboard'
+        }
     },
     dashBoardWebHostname: process.env.DASHBOARD_WEB_HOSTNAME,
     autheliaWebHostname: process.env.AUTHELIA_WEB_HOSTNAME,

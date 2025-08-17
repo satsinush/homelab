@@ -14,18 +14,6 @@ import {
     IconButton,
     LinearProgress,
     Chip,
-    Tabs,
-    Tab,
-    TextField,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    FormControl,
-    Select,
-    MenuItem,
 } from '@mui/material';
 import {
     Memory as MemoryIcon,
@@ -36,16 +24,57 @@ import {
     Timeline as NetworkIcon,
     Computer as ComputerIcon,
     CheckCircle as CheckIcon,
-    Error as ErrorIcon,
-    Settings as ServiceIcon,
-    Add as AddIcon,
-    Edit as EditIcon,
-    Delete as DeleteIcon,
-    Search as SearchIcon
+    // Other icons...
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
-import { useThemeMode } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
+
+// --- Helper Components for better visualization (Suggestion) ---
+
+// A simple gauge component using MUI's CircularProgress
+const Gauge = ({ value, color, title }) => (
+    <Box position="relative" display="inline-flex" flexDirection="column" alignItems="center">
+        <CircularProgress
+            variant="determinate"
+            value={100}
+            size={100}
+            thickness={4}
+            sx={{ color: (theme) => theme.palette.grey[theme.palette.mode === 'light' ? 200 : 700] }}
+        />
+        <CircularProgress
+            variant="determinate"
+            value={value}
+            size={100}
+            thickness={4}
+            color={color}
+            sx={{
+                position: 'absolute',
+                left: 0,
+                animationDuration: '550ms',
+                transition: 'transform .4s ease-in-out'
+            }}
+        />
+        <Box
+            top={0}
+            left={0}
+            bottom={0}
+            right={0}
+            position="absolute"
+            display="flex"
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+        >
+            <Typography variant="h5" component="div" color="text.primary" sx={{ fontWeight: 'bold' }}>
+                {`${Math.round(value)}%`}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+                {title}
+            </Typography>
+        </Box>
+    </Box>
+);
+
 
 const System = () => {
     const [systemInfo, setSystemInfo] = useState(null);
@@ -54,65 +83,53 @@ const System = () => {
     const [network, setNetwork] = useState(null);
     const [loading, setLoading] = useState(true);
     const [autoRefresh, setAutoRefresh] = useState(() => {
-        // Load auto-refresh setting from localStorage, default to true
         const saved = localStorage.getItem('systemAutoRefresh');
         return saved !== null ? JSON.parse(saved) : true;
     });
     const [refreshing, setRefreshing] = useState(false);
-    const [tabValue, setTabValue] = useState(0);
     const { showError } = useNotification();
 
+    // ... (fetchSystemData, useEffect hooks, and helper functions remain the same) ...
     const fetchSystemData = async () => {
         try {
-            // Fetch all system data in a single request
             const systemDataResult = await tryApiCall('/system');
-
             const data = systemDataResult.data;
-
-            // Set all state from the combined response
             setSystemInfo(data.system);
             setResources(data.resources);
             setTemperature(data.temperature);
             setNetwork(data.network);
-
-            setLoading(false);
         } catch (err) {
-            // Use the specific error message from the API
             showError(err.message || 'Unable to connect to API server');
+        } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     };
 
     useEffect(() => {
         fetchSystemData();
-
         let interval;
         if (autoRefresh) {
             interval = setInterval(async () => {
                 try {
-                    // Use tryApiCall for refresh
                     const systemDataResult = await tryApiCall('/system');
                     const systemData = systemDataResult.data;
-
                     if (systemData) {
-                        // Update all state from combined response
                         if (systemData.resources) setResources(systemData.resources);
                         if (systemData.temperature) setTemperature(systemData.temperature);
                         if (systemData.network) setNetwork(systemData.network);
                         if (systemData.system) setSystemInfo(systemData.system);
                     }
                 } catch (err) {
-                    // Don't show error for refresh failures
+                    console.error("Auto-refresh failed:", err);
                 }
             }, 10000);
         }
-
         return () => {
             if (interval) clearInterval(interval);
         };
     }, [autoRefresh]);
 
-    // Save auto-refresh setting to localStorage whenever it changes
     useEffect(() => {
         localStorage.setItem('systemAutoRefresh', JSON.stringify(autoRefresh));
     }, [autoRefresh]);
@@ -124,16 +141,22 @@ const System = () => {
     const handleManualRefresh = async () => {
         setRefreshing(true);
         await fetchSystemData();
-        setRefreshing(false);
     };
 
     const formatBytes = (bytes) => {
-        if (bytes === 0 || !bytes || bytes === null || bytes === undefined || isNaN(bytes)) return '0 B';
+        // Normalize and validate input
+        if (bytes === 0) return '0 B';
+        if (bytes == null || isNaN(Number(bytes))) return '0 B';
+        const num = Number(bytes);
+        if (num <= 0) return '0 B';
+        if (num < 1) return '1 B';
+
         const k = 1024;
         const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-        let i = Math.floor(Math.log(bytes) / Math.log(k));
-        i = Math.max(0, Math.min(i, sizes.length - 1)); // Ensure i is an int between 0 and sizes.length - 1
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        const i = Math.floor(Math.log(num) / Math.log(k));
+        const idx = Math.min(Math.max(i, 0), sizes.length - 1);
+        const value = num / Math.pow(k, idx);
+        return `${parseFloat(value.toFixed(1))} ${sizes[idx]}`;
     };
 
     const formatUptime = (seconds) => {
@@ -143,607 +166,197 @@ const System = () => {
         return `${days}d ${hours}h ${minutes}m`;
     };
 
-    const handleTabChange = (event, newValue) => {
-        setTabValue(newValue);
-    };
-
     const getUsageColor = (percentage) => {
         if (percentage < 50) return 'success';
         if (percentage < 80) return 'warning';
         return 'error';
     };
 
+
     if (loading) {
         return (
-            <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
-                <Box sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minHeight: 'calc(100vh - 200px)',
-                    py: 8
-                }}>
+            <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%' }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 200px)' }}>
                     <CircularProgress size={60} sx={{ mb: 2 }} />
-                    <Typography variant="h6" color="text.secondary">
-                        Loading system information...
-                    </Typography>
+                    <Typography variant="h6" color="text.secondary">Loading system information...</Typography>
                 </Box>
             </Container>
         );
     }
 
     return (
-        <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
-            {/* Header */}
-            <Box sx={{
-                display: 'flex',
-                flexDirection: { xs: 'column', md: 'row' },
-                justifyContent: 'space-between',
-                alignItems: { xs: 'stretch', md: 'center' },
-                mb: 3,
-                gap: { xs: 2, md: 0 }
-            }}>
+        <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%' }}>
+            {/* Header remains the same */}
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, mb: 4, gap: 2 }}>
                 <Box>
-                    <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
-                        System Overview
-                    </Typography>
-                    <Chip
-                        label="System Online"
-                        color="success"
-                        icon={<CheckIcon />}
-                        sx={{ mb: 2 }}
-                    />
+                    <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600 }}>System Dashboard</Typography>
+                    <Chip label="System Online" color="success" icon={<CheckIcon />} />
                 </Box>
-                <Box sx={{
-                    display: 'flex',
-                    flexDirection: { xs: 'column', sm: 'row' },
-                    alignItems: 'center',
-                    gap: 2
-                }}>
-                    <Paper
-                        elevation={1}
-                        sx={{
-                            p: 2,
-                            bgcolor: 'background.paper',
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            borderRadius: 2
-                        }}
-                    >
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={autoRefresh}
-                                            onChange={handleAutoRefreshToggle}
-                                            color="primary"
-                                        />
-                                    }
-                                    label="Auto-refresh (10s)"
-                                    sx={{ m: 0 }}
-                                />
-                                <IconButton
-                                    onClick={handleManualRefresh}
-                                    disabled={refreshing}
-                                    color="primary"
-                                    size="small"
-                                    sx={{
-                                        bgcolor: 'primary.main',
-                                        color: 'primary.contrastText',
-                                        '&:hover': {
-                                            bgcolor: 'primary.dark'
-                                        },
-                                        '&:disabled': {
-                                            bgcolor: 'action.disabledBackground'
-                                        }
-                                    }}
-                                >
-                                    <RefreshIcon sx={{
-                                        animation: refreshing ? 'spin 1s linear infinite' : 'none',
-                                        '@keyframes spin': {
-                                            '0%': { transform: 'rotate(0deg)' },
-                                            '100%': { transform: 'rotate(360deg)' }
-                                        }
-                                    }} />
-                                </IconButton>
+                <Paper elevation={1} sx={{ p: 2, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <FormControlLabel control={<Switch checked={autoRefresh} onChange={handleAutoRefreshToggle} />} label="Auto-refresh" />
+                        <IconButton onClick={handleManualRefresh} disabled={refreshing} color="primary" sx={{ '&:disabled': { bgcolor: 'action.disabledBackground' } }}>
+                            <RefreshIcon sx={{ animation: refreshing ? 'spin 1s linear infinite' : 'none', '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } } }} />
+                        </IconButton>
+                    </Box>
+                </Paper>
+            </Box>
+
+            {/* Unified Dashboard Grid - All cards are placed here */}
+            <Grid container spacing={3}>
+                {/* --- Row 1: Key Resource Metrics --- */}
+                <Grid size={{ xs: 12, md: 4 }}>
+                    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                <CpuIcon sx={{ mr: 1, color: 'primary.main' }} />
+                                <Typography variant="h6" sx={{ fontWeight: 600 }}>CPU</Typography>
                             </Box>
-                            <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{
-                                    textAlign: 'center',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 500
-                                }}
-                            >
-                                Last updated: {new Date().toLocaleString()}
-                            </Typography>
-                        </Box>
-                    </Paper>
-                </Box>
-            </Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexGrow: 1 }}>
+                                {resources?.cpu ? (
+                                    <Gauge
+                                        value={resources.cpu.usage ?? 0}
+                                        color={getUsageColor(resources.cpu.usage ?? 0)}
+                                    // title={`${resources.cpu.cores ?? '?'} Cores`}
+                                    />
+                                ) : <Typography color="text.secondary">No CPU data</Typography>}
+                            </Box>
+                        </CardContent>
+                    </Card>
+                </Grid>
 
-            {/* Tabs */}
-            <Box sx={{ width: '100%' }}>
-                <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-                    <Tabs
-                        value={tabValue}
-                        onChange={handleTabChange}
-                        aria-label="system tabs"
-                        variant="scrollable"
-                        scrollButtons="auto"
-                        allowScrollButtonsMobile
-                        sx={{
-                            '& .MuiTabs-scrollButtons': {
-                                '&.Mui-disabled': { opacity: 0.3 }
-                            }
-                        }}
-                    >
-                        <Tab
-                            icon={<ComputerIcon />}
-                            iconPosition="start"
-                            label="Overview"
-                            id="system-tab-0"
-                            aria-controls="system-tabpanel-0"
-                            sx={{
-                                minWidth: { xs: 'auto', sm: 120 },
-                                '& .MuiTab-iconWrapper': {
-                                    display: { xs: 'none', sm: 'block' }
-                                }
-                            }}
-                        />
-                        <Tab
-                            icon={<MemoryIcon />}
-                            iconPosition="start"
-                            label="Resources"
-                            id="system-tab-1"
-                            aria-controls="system-tabpanel-1"
-                            sx={{
-                                minWidth: { xs: 'auto', sm: 120 },
-                                '& .MuiTab-iconWrapper': {
-                                    display: { xs: 'none', sm: 'block' }
-                                }
-                            }}
-                        />
-                        <Tab
-                            icon={<NetworkIcon />}
-                            iconPosition="start"
-                            label="Network"
-                            id="system-tab-3"
-                            aria-controls="system-tabpanel-3"
-                            sx={{
-                                minWidth: { xs: 'auto', sm: 120 },
-                                '& .MuiTab-iconWrapper': {
-                                    display: { xs: 'none', sm: 'block' }
-                                }
-                            }}
-                        />
-                    </Tabs>
-                </Box>
+                <Grid size={{ xs: 12, md: 4 }}>
+                    <Card sx={{ height: '100%' }}>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                <MemoryIcon sx={{ mr: 1, color: 'primary.main' }} />
+                                <Typography variant="h6" sx={{ fontWeight: 600 }}>Memory</Typography>
+                            </Box>
+                            {resources?.memory ? (
+                                <Box>
+                                    <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>{resources.memory.percentage.toFixed(1)}%</Typography>
+                                    <LinearProgress variant="determinate" value={resources.memory.percentage} color={getUsageColor(resources.memory.percentage)} sx={{ height: 8, borderRadius: 4, mb: 2 }} />
+                                    <Box display="flex" justifyContent="space-between">
+                                        <Typography variant="body2" color="text.secondary">Used</Typography>
+                                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{formatBytes(resources.memory.used)} / {formatBytes(resources.memory.total)}</Typography>
+                                    </Box>
+                                </Box>
+                            ) : <Typography color="text.secondary">No memory data</Typography>}
+                        </CardContent>
+                    </Card>
+                </Grid>
 
-                {/* Overview Tab */}
-                <Box
-                    role="tabpanel"
-                    hidden={tabValue !== 0}
-                    id="system-tabpanel-0"
-                    aria-labelledby="system-tab-0"
-                >
-                    {tabValue === 0 && (
-                        <Grid container spacing={3}>
-                            {/* System Information */}
-                            <Grid size={{ xs: 12, md: 6 }}>
-                                <Card sx={{ height: '100%' }}>
-                                    <CardContent>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                            <ComputerIcon sx={{ mr: 1, color: 'primary.main' }} />
-                                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                System Information
-                                            </Typography>
+                <Grid size={{ xs: 12, md: 4 }}>
+                    <Card sx={{ height: '100%' }}>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                <StorageIcon sx={{ mr: 1, color: 'primary.main' }} />
+                                <Typography variant="h6" sx={{ fontWeight: 600 }}>Disk</Typography>
+                            </Box>
+                            {resources?.disk ? (
+                                <Box>
+                                    <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>{resources.disk.percentage.toFixed(1)}%</Typography>
+                                    <LinearProgress variant="determinate" value={resources.disk.percentage} color={getUsageColor(resources.disk.percentage)} sx={{ height: 8, borderRadius: 4, mb: 2 }} />
+                                    <Box display="flex" justifyContent="space-between">
+                                        <Typography variant="body2" color="text.secondary">Free</Typography>
+                                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{formatBytes(resources.disk.available)} / {formatBytes(resources.disk.total)}</Typography>
+                                    </Box>
+                                </Box>
+                            ) : <Typography color="text.secondary">No disk data</Typography>}
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                {/* --- Row 2: System Info & Vitals --- */}
+                <Grid size={{ xs: 12, md: 6, lg: 4 }}>
+                    <Card sx={{ height: '100%' }}>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                <ComputerIcon sx={{ mr: 1, color: 'primary.main' }} />
+                                <Typography variant="h6" sx={{ fontWeight: 600 }}>System Info</Typography>
+                            </Box>
+                            {systemInfo ? (
+                                <Box display="flex" flexDirection="column" gap={1.5}>
+                                    <Box display="flex" justifyContent="space-between"><Typography variant="body2" color="text.secondary">Hostname:</Typography><Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{systemInfo.hostname || 'N/A'}</Typography></Box>
+                                    <Box display="flex" justifyContent="space-between"><Typography variant="body2" color="text.secondary">Platform:</Typography><Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{systemInfo.platform || 'N/A'}</Typography></Box>
+                                    <Box display="flex" justifyContent="space-between"><Typography variant="body2" color="text.secondary">Uptime:</Typography><Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{formatUptime(systemInfo.uptime)}</Typography></Box>
+                                </Box>
+                            ) : <Typography color="text.secondary">No system data</Typography>}
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 6, lg: 4 }}>
+                    <Card sx={{ height: '100%' }}>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                <TempIcon sx={{ mr: 1, color: 'primary.main' }} />
+                                <Typography variant="h6" sx={{ fontWeight: 600 }}>Temperature</Typography>
+                            </Box>
+                            {temperature ? (
+                                <Box display="flex" flexDirection="column" gap={2}>
+                                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                                        <Typography variant="body1">CPU Temp</Typography>
+                                        <Chip
+                                            label={temperature.cpu != null ? `${temperature.cpu}°C` : 'N/A'}
+                                            color={temperature.cpu > 75 ? 'error' : temperature.cpu > 60 ? 'warning' : temperature.cpu != null ? 'success' : 'default'}
+                                        />
+                                    </Box>
+                                    {temperature.gpu && (
+                                        <Box display="flex" justifyContent="space-between" alignItems="center">
+                                            <Typography variant="body1">GPU Temp</Typography>
+                                            <Chip
+                                                label={`${temperature.gpu}°C`}
+                                                color={temperature.gpu > 75 ? 'error' : temperature.gpu > 60 ? 'warning' : 'success'}
+                                            />
                                         </Box>
-                                        {systemInfo ? (
-                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <Typography variant="body2" color="text.secondary">Hostname:</Typography>
-                                                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                        {systemInfo.hostname || 'N/A'}
-                                                    </Typography>
-                                                </Box>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <Typography variant="body2" color="text.secondary">Platform:</Typography>
-                                                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                        {systemInfo.platform || 'N/A'}
-                                                    </Typography>
-                                                </Box>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <Typography variant="body2" color="text.secondary">CPU:</Typography>
-                                                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                        {systemInfo.cpus?.[0]?.model?.split(' ')[0] || 'N/A'}
-                                                    </Typography>
-                                                </Box>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <Typography variant="body2" color="text.secondary">Cores:</Typography>
-                                                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                        {systemInfo.cpus?.length || resources?.cpu?.cores || 'N/A'}
-                                                    </Typography>
-                                                </Box>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <Typography variant="body2" color="text.secondary">Uptime:</Typography>
-                                                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                        {systemInfo.uptime ? formatUptime(systemInfo.uptime) : 'N/A'}
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
-                                        ) : (
-                                            <Typography color="text.secondary">No system data available</Typography>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </Grid>
+                                    )}
+                                </Box>
+                            ) : <Typography color="text.secondary">No temp data</Typography>}
+                        </CardContent>
+                    </Card>
+                </Grid>
 
-                            {/* Temperature */}
-                            <Grid size={{ xs: 12, md: 6 }}>
-                                <Card sx={{ height: '100%' }}>
-                                    <CardContent>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                <TempIcon sx={{ mr: 1, color: 'primary.main' }} />
-                                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                    Temperature
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                        {temperature ? (
-                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                <Paper sx={{ p: 2, bgcolor: 'action.selected' }}>
-                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                        <Typography variant="body2" color="text.secondary">CPU:</Typography>
-                                                        <Chip
-                                                            label={`${temperature.cpu || 'N/A'}${temperature.cpu && temperature.cpu !== 'N/A' ? "°C" : ""}`}
-                                                            color={temperature.cpu > 75 ? 'error' : temperature.cpu > 60 ? 'warning' : 'success'}
-                                                            variant="outlined"
-                                                        />
-                                                    </Box>
-                                                </Paper>
-                                                {temperature.gpu && temperature.gpu !== 'N/A' && (
-                                                    <Paper sx={{ p: 2, bgcolor: 'action.selected' }}>
-                                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <Typography variant="body2" color="text.secondary">GPU:</Typography>
-                                                            <Chip
-                                                                label={`${temperature.gpu || 'N/A'}${temperature.gpu && temperature.gpu !== 'N/A' ? "°C" : ""}`}
-                                                                color={temperature.gpu > 75 ? 'error' : temperature.gpu > 60 ? 'warning' : 'success'}
-                                                                variant="outlined"
-                                                            />
-                                                        </Box>
-                                                    </Paper>
-                                                )}
-                                            </Box>
-                                        ) : (
-                                            <Typography color="text.secondary">No temperature data available</Typography>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-                        </Grid>
-                    )}
-                </Box>
-
-                {/* Resources Tab */}
-                <Box
-                    role="tabpanel"
-                    hidden={tabValue !== 1}
-                    id="system-tabpanel-1"
-                    aria-labelledby="system-tab-1"
-                >
-                    {tabValue === 1 && (
-                        <Grid container spacing={3}>
-                            {/* CPU Usage */}
-                            <Grid size={{ xs: 12, md: 4 }}>
-                                <Card sx={{ height: '100%' }}>
-                                    <CardContent>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                <CpuIcon sx={{ mr: 1, color: 'primary.main' }} />
-                                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                    CPU Usage
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                        {resources?.cpu ? (
-                                            <Box>
-                                                <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1, color: 'primary.main' }}>
-                                                    {Math.round(resources.cpu.usage ?? 0)}%
-                                                </Typography>
-                                                <LinearProgress
-                                                    variant="determinate"
-                                                    value={resources.cpu.usage ?? 0}
-                                                    color={getUsageColor(resources.cpu.usage ?? 0)}
-                                                    sx={{ height: 8, borderRadius: 4, mb: 2 }}
-                                                />
-                                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                        <Typography variant="body2" color="text.secondary">Cores:</Typography>
-                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                            {resources.cpu.cores ?? systemInfo?.cpus?.length ?? 'N/A'}
-                                                        </Typography>
-                                                    </Box>
-                                                </Box>
-                                            </Box>
-                                        ) : (
-                                            <Typography color="text.secondary">No CPU data available</Typography>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-
-                            {/* Memory Usage */}
-                            <Grid size={{ xs: 12, md: 4 }}>
-                                <Card sx={{ height: '100%' }}>
-                                    <CardContent>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                <MemoryIcon sx={{ mr: 1, color: 'primary.main' }} />
-                                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                    Memory
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                        {resources?.memory || systemInfo?.memory ? (
-                                            <Box>
-                                                <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1, color: 'primary.main' }}>
-                                                    {resources?.memory?.percentage ??
-                                                        (systemInfo?.memory ? ((systemInfo.memory.used / systemInfo.memory.total) * 100).toFixed(1) : 'N/A')}%
-                                                </Typography>
-                                                <LinearProgress
-                                                    variant="determinate"
-                                                    value={resources?.memory?.percentage ??
-                                                        (systemInfo?.memory ? (systemInfo.memory.used / systemInfo.memory.total) * 100 : 0)}
-                                                    color={getUsageColor(resources?.memory?.percentage ??
-                                                        (systemInfo?.memory ? (systemInfo.memory.used / systemInfo.memory.total) * 100 : 0))}
-                                                    sx={{ height: 8, borderRadius: 4, mb: 2 }}
-                                                />
-                                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                        <Typography variant="body2" color="text.secondary">Total:</Typography>
-                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                            {formatBytes(resources?.memory?.total ?? systemInfo?.memory?.total ?? 0)}
-                                                        </Typography>
-                                                    </Box>
-                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                        <Typography variant="body2" color="text.secondary">Used:</Typography>
-                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                            {formatBytes(resources?.memory?.used ?? systemInfo?.memory?.used ?? 0)}
-                                                        </Typography>
-                                                    </Box>
-                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                        <Typography variant="body2" color="text.secondary">Free:</Typography>
-                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                            {formatBytes(resources?.memory?.free ?? systemInfo?.memory?.free ?? 0)}
-                                                        </Typography>
-                                                    </Box>
-                                                </Box>
-                                            </Box>
-                                        ) : (
-                                            <Typography color="text.secondary">No memory data available</Typography>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-
-                            {/* Disk Usage */}
-                            <Grid size={{ xs: 12, md: 4 }}>
-                                <Card sx={{ height: '100%' }}>
-                                    <CardContent>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                <StorageIcon sx={{ mr: 1, color: 'primary.main' }} />
-                                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                    Disk Usage
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                        {resources?.disk ? (
-                                            <Box>
-                                                <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1, color: 'primary.main' }}>
-                                                    {resources.disk.percentage ?? 'N/A'}%
-                                                </Typography>
-                                                <LinearProgress
-                                                    variant="determinate"
-                                                    value={resources.disk.percentage ?? 0}
-                                                    color={getUsageColor(resources.disk.percentage ?? 0)}
-                                                    sx={{ height: 8, borderRadius: 4, mb: 2 }}
-                                                />
-                                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                        <Typography variant="body2" color="text.secondary">Total:</Typography>
-                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                            {formatBytes(resources.disk.total ?? 0)}
-                                                        </Typography>
-                                                    </Box>
-                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                        <Typography variant="body2" color="text.secondary">Used:</Typography>
-                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                            {formatBytes(resources.disk.used ?? 0)}
-                                                        </Typography>
-                                                    </Box>
-                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                        <Typography variant="body2" color="text.secondary">Free:</Typography>
-                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                            {formatBytes(resources.disk.available ?? 0)}
-                                                        </Typography>
-                                                    </Box>
-                                                </Box>
-                                            </Box>
-                                        ) : systemInfo?.storage && systemInfo.storage.length > 0 ? (
-                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                {systemInfo.storage.slice(0, 2).map((disk, index) => (
-                                                    <Paper key={index} sx={{ p: 2, bgcolor: 'action.selected' }}>
-                                                        <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                                                            {disk.filesystem}
-                                                        </Typography>
-                                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                                            <Typography variant="body2" color="text.secondary">Size:</Typography>
-                                                            <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                                {disk.size}
-                                                            </Typography>
-                                                        </Box>
-                                                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                            <Typography variant="body2" color="text.secondary">Used:</Typography>
-                                                            <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                                {disk.used}
-                                                            </Typography>
-                                                        </Box>
-                                                    </Paper>
-                                                ))}
-                                            </Box>
-                                        ) : (
-                                            <Typography color="text.secondary">No disk data available</Typography>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-
-                            {/* Process Information (if available) */}
-                            {resources?.processes && (
-                                <Grid size={{ xs: 12 }}>
-                                    <Card sx={{ height: '100%' }}>
-                                        <CardContent>
-                                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                                                System Processes
-                                            </Typography>
-                                            <Grid container spacing={2}>
-                                                <Grid size={4}>
-                                                    <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'action.selected' }}>
-                                                        <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                                                            {resources.processes.total ?? 0}
-                                                        </Typography>
-                                                        <Typography variant="body2" color="text.secondary">
-                                                            Total
-                                                        </Typography>
-                                                    </Paper>
-                                                </Grid>
-                                                <Grid size={4}>
-                                                    <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'success.light', color: 'success.contrastText' }}>
-                                                        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                                                            {resources.processes.running ?? 0}
-                                                        </Typography>
-                                                        <Typography variant="body2" color="inherit">
-                                                            Running
-                                                        </Typography>
-                                                    </Paper>
-                                                </Grid>
-                                                <Grid size={4}>
-                                                    <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'warning.light', color: 'warning.contrastText' }}>
-                                                        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                                                            {resources.processes.sleeping ?? 0}
-                                                        </Typography>
-                                                        <Typography variant="body2" color="inherit">
-                                                            Sleeping
-                                                        </Typography>
-                                                    </Paper>
-                                                </Grid>
-                                            </Grid>
-                                        </CardContent>
-                                    </Card>
+                {resources?.processes &&
+                    <Grid size={{ xs: 12, lg: 4 }}>
+                        <Card sx={{ height: '100%' }}>
+                            <CardContent>
+                                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Processes</Typography>
+                                <Grid container spacing={1} textAlign="center">
+                                    <Grid size={4}><Paper variant="outlined" sx={{ p: 1 }}><Typography variant="h5">{resources.processes.total}</Typography><Typography variant="caption">Total</Typography></Paper></Grid>
+                                    <Grid size={4}><Paper variant="outlined" sx={{ p: 1, borderColor: 'success.main' }}><Typography variant="h5" color="success.main">{resources.processes.running}</Typography><Typography variant="caption">Running</Typography></Paper></Grid>
+                                    <Grid size={4}><Paper variant="outlined" sx={{ p: 1, borderColor: 'warning.main' }}><Typography variant="h5" color="warning.main">{resources.processes.sleeping}</Typography><Typography variant="caption">Sleeping</Typography></Paper></Grid>
                                 </Grid>
-                            )}
-                        </Grid>
-                    )}
-                </Box>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                }
 
-                {/* Network Tab */}
-                <Box
-                    role="tabpanel"
-                    hidden={tabValue !== 2}
-                    id="system-tabpanel-2"
-                    aria-labelledby="system-tab-2"
-                >
-                    {tabValue === 2 && (
-                        <Grid container spacing={3}>
-                            {/* Network Interfaces */}
-                            {network?.interfaces && network.interfaces.length > 0 ? (
-                                <Grid size={12}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                                                <NetworkIcon sx={{ mr: 1, color: 'primary.main' }} />
-                                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                    Network Interfaces
-                                                </Typography>
-                                                {network?.source && (
-                                                    <Chip
-                                                        label={`Source: ${network.source}`}
-                                                        size="small"
-                                                        variant="outlined"
-                                                        sx={{ ml: 'auto' }}
-                                                    />
-                                                )}
-                                            </Box>
-                                            <Grid container spacing={2}>
-                                                {network.interfaces.map((iface, index) => (
-                                                    <Grid size={{ xs: 12, md: 6, lg: 4 }} key={index}>
-                                                        <Paper sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                                                <Typography variant="subtitle1" sx={{ fontWeight: 600, flexGrow: 1 }}>
-                                                                    {iface.name}
-                                                                </Typography>
-                                                                <Chip
-                                                                    label={iface.active ? 'Active' : 'Inactive'}
-                                                                    size="small"
-                                                                    color={iface.active ? 'success' : 'default'}
-                                                                />
-                                                            </Box>
-                                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                                                <Typography variant="body2" color="text.secondary">
-                                                                    Download:
-                                                                </Typography>
-                                                                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
-                                                                    {iface.downloadSpeed !== undefined && iface.downloadSpeed !== null
-                                                                        ? `${formatBytes(iface.downloadSpeed)}/s`
-                                                                        : 'N/A'
-                                                                    }
-                                                                </Typography>
-                                                            </Box>
-                                                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                                <Typography variant="body2" color="text.secondary">
-                                                                    Upload:
-                                                                </Typography>
-                                                                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 500 }}>
-                                                                    {iface.uploadSpeed !== undefined && iface.uploadSpeed !== null
-                                                                        ? `${formatBytes(iface.uploadSpeed)}/s`
-                                                                        : 'N/A'
-                                                                    }
-                                                                </Typography>
-                                                            </Box>
-                                                        </Paper>
-                                                    </Grid>
-                                                ))}
-                                            </Grid>
-                                        </CardContent>
-                                    </Card>
+                {/* --- Row 3: Network Information --- */}
+                {network?.interfaces &&
+                    <Grid size={12}>
+                        <Card>
+                            <CardContent>
+                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                    <NetworkIcon sx={{ mr: 1, color: 'primary.main' }} />
+                                    <Typography variant="h6" sx={{ fontWeight: 600 }}>Network Interfaces</Typography>
+                                </Box>
+                                <Grid container spacing={2}>
+                                    {network.interfaces.map((iface, index) => (
+                                        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
+                                            <Paper variant="outlined" sx={{ p: 2 }}>
+                                                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}><Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{iface.name}</Typography><Chip label={iface.active ? 'Active' : 'Inactive'} size="small" color={iface.active ? 'success' : 'default'} /></Box>
+                                                <Box display="flex" justifyContent="space-between"><Typography variant="body2" color="text.secondary">↓ Download</Typography><Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{formatBytes(iface.downloadSpeed)}/s</Typography></Box>
+                                                <Box display="flex" justifyContent="space-between"><Typography variant="body2" color="text.secondary">↑ Upload</Typography><Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{formatBytes(iface.uploadSpeed)}/s</Typography></Box>
+                                            </Paper>
+                                        </Grid>
+                                    ))}
                                 </Grid>
-                            ) : (
-                                <Grid size={12}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                                <NetworkIcon sx={{ mr: 1, color: 'primary.main' }} />
-                                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                    Network Interfaces
-                                                </Typography>
-                                            </Box>
-                                            <Typography color="text.secondary" sx={{ mb: 2 }}>
-                                                Network interface data unavailable.
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                            )}
-                        </Grid>
-                    )}
-                </Box>
-            </Box>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                }
+            </Grid>
         </Container>
     );
 };

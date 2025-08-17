@@ -25,11 +25,7 @@ import {
 } from '@mui/material';
 import {
     Inventory as PackageIcon,
-    Search as SearchIcon,
-    Schedule as PendingIcon,
-    Refresh as RefreshIcon,
-    CheckCircle as InstalledIcon,
-    FilterList as FilterIcon
+    Search as SearchIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/NotificationContext';
@@ -41,7 +37,7 @@ const PackageManager = () => {
     const [versionSearchTerm, setVersionSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'updates', 'uptodate'
     const [lastSynced, setLastSynced] = useState(null);
-    const { showError } = useNotification();
+    const { showError, showSuccess } = useNotification();
 
     const fetchPackages = async () => {
         setLoading(true);
@@ -66,7 +62,7 @@ const PackageManager = () => {
 
     useEffect(() => {
         fetchPackages();
-    }, [showError]);
+    }, [showError, showSuccess]);
 
     // Generate dynamic filter options
     const getUniqueStatusValues = () => {
@@ -195,15 +191,6 @@ const PackageManager = () => {
                             </Typography>
                         )}
                     </Box>
-
-                    <Button
-                        startIcon={<RefreshIcon />}
-                        variant="outlined"
-                        onClick={fetchPackages}
-                        disabled={loading}
-                    >
-                        Refresh
-                    </Button>
                 </Box>
             </Box>
 
