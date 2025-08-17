@@ -27,6 +27,8 @@ services:
       - VITE_VAULTWARDEN_WEB_HOSTNAME=${VITE_VAULTWARDEN_WEB_HOSTNAME}
       - VITE_UPTIME_KUMA_WEB_HOSTNAME=${VITE_UPTIME_KUMA_WEB_HOSTNAME}
       - VITE_NTFY_WEB_HOSTNAME=${VITE_NTFY_WEB_HOSTNAME}
+      - VITE_LLDAP_WEB_HOSTNAME=${VITE_LLDAP_WEB_HOSTNAME}
+      - VITE_AUTHELIA_WEB_HOSTNAME=${VITE_AUTHELIA_WEB_HOSTNAME}
 
   pihole:
     ports:
@@ -55,3 +57,11 @@ services:
   ntfy:
     ports:
       - "8081:80"
+
+  lldap:
+    ports:
+      - "17170:17170"
+  
+  authelia:
+    ports:
+      - "9091:9091"

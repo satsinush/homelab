@@ -10,3 +10,5 @@ https://github.com/authelia/authelia/blob/v4.39.6/config.template.yml
 
 C:\Windows\System32\drivers\etc\hosts
 ipconfig /flushdns
+
+docker system prune -a
