@@ -5,11 +5,6 @@ const os = require('os');
 const wol = require('wake_on_lan');
 const app = express();
 
-// Platform detection
-const isWindows = os.platform() === 'win32';
-const isLinux = os.platform() === 'linux';
-const isMacOS = os.platform() === 'darwin';
-
 // CORS configuration - allow requests from homelab-dashboard
 app.use(cors({
     origin: ['http://homelab-dashboard:5000', 'http://localhost:5001'],
@@ -23,138 +18,55 @@ app.get('/', (req, res) => {
     res.status(200).json({ message: 'Welcome to the Homelab Host API' });
 });
 
+// Helper function to get platform-specific command
+function getPlatformCommand(operation) {
+    const commands = {
+        networkScan: `arp-scan --localnet --numeric`,
+        installedPackages: `pacman -Q`,
+        packageUpdates: `pacman -Qu`,
+        packageSyncTime: `stat -c %Z /var/lib/pacman/sync/core.db`
+    };
+
+    return commands[operation] || null;
+}
+
 // Parse network scan results into structured data
-function parseNetworkScanResults(stdout, platform) {
+function parseNetworkScanResults(stdout) {
     const lines = stdout.trim().split('\n');
     const devices = [];
-    
-    if (platform === 'linux') {
-        // Linux arp-scan format: "192.168.1.1\taa:bb:cc:dd:ee:ff\tVendor"
-        for (const line of lines) {
-            const match = line.match(/^(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F:]{17})\s+(.+)$/);
-            if (match) {
-                devices.push({
-                    ip: match[1],
-                    mac: match[2],
-                    vendor: match[3].trim()
-                });
-            }
-        }
-    } else if (platform === 'win32') {
-        // Windows arp -a format: "  192.168.1.1           aa-bb-cc-dd-ee-ff     dynamic"
-        for (const line of lines) {
-            const match = line.match(/\s+(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F-]{17})\s+(dynamic)/i);
-            if (match) {
+
+    // Linux arp-scan format: "192.168.1.1\taa:bb:cc:dd:ee:ff\tVendor"
+    for (const line of lines) {
+        const match = line.match(/^([\d.]+)\s+([0-9a-fA-F:]{17})\s+(.+)$/);
+        if (match) {
             devices.push({
                 ip: match[1],
-                mac: match[2].replace(/-/g, ':'),
+                mac: match[2],
+                vendor: match[3].trim()
             });
-            }
-        }
-    } else if (platform === 'darwin') {
-        // macOS arp -a format: "? (192.168.1.1) at aa:bb:cc:dd:ee:ff on en0 ifscope [ethernet]"
-        for (const line of lines) {
-            const match = line.match(/\((\d+\.\d+\.\d+\.\d+)\) at ([0-9a-fA-F:]{17})/);
-            if (match) {
-                devices.push({
-                    ip: match[1],
-                    mac: match[2],
-                });
-            }
         }
     }
-    
+
     return devices;
 }
 
 // Parse package results into structured data
-function parsePackageResults(stdout, platform) {
+function parsePackageResults(stdout) {
     const packages = [];
-    
-    if (platform === 'linux') {
-        // Linux pacman format: "package-name version"
-        const lines = stdout.trim().split('\n');
-        for (const line of lines) {
-            const match = line.match(/^(.+?)\s+(.+?)$/);
-            if (match) {
-                packages.push({
-                    name: match[1].trim(),
-                    version: match[2].trim()
-                });
-            }
-        }
-    } else if (platform === 'win32') {
-        // Windows wmic product output (columns are aligned, not space-separated)
-        const lines = stdout.trim().split('\n');
-        if (lines.length < 2) return packages;
-        // Find the index where the "Version" column starts
-        const header = lines[0];
-        const versionIdx = header.indexOf('Version');
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i];
-            if (!line.trim()) continue;
-            const name = line.slice(0, versionIdx).trim();
-            const version = line.slice(versionIdx).trim();
-            if (name && version) {
-                packages.push({
-                    name,
-                    version
-                });
-            }
-        }
-    } else if (platform === 'darwin') {
-        // macOS brew format: "package version"
-        const lines = stdout.trim().split('\n');
-        for (const line of lines) {
-            const parts = line.trim().split(/\s+/);
-            if (parts.length >= 2) {
-                packages.push({
-                    name: parts[0],
-                    version: parts[1]
-                });
-            }
+    const lines = stdout.trim().split('\n');
+
+    // Linux pacman format: "package-name version"
+    for (const line of lines) {
+        const match = line.match(/^(.+?)\s+(.+?)$/);
+        if (match) {
+            packages.push({
+                name: match[1].trim(),
+                version: match[2].trim()
+            });
         }
     }
-    
+
     return packages;
-}
-
-// Helper function to get platform-specific command
-function getPlatformCommand(operation) {
-    const commands = {
-        networkScan: {
-            linux: `arp-scan --localnet --numeric`,
-            windows: 'arp -a',
-            darwin: 'arp -a',
-            fallback: 'echo "Network scan not available on this platform"'
-        },
-        installedPackages: {
-            linux: `pacman -Q`,
-            windows: 'wmic product get name,version',
-            darwin: 'brew list --versions',
-            fallback: 'echo "mock-package 1.0.0\ntest-package 2.1.0"'
-        },
-        packageUpdates: {
-            linux: `pacman -Qu`,
-            windows: 'echo "No updates available"',
-            darwin: 'brew outdated',
-            fallback: 'echo "All packages up to date"'
-        },
-        packageSyncTime: {
-            linux: `stat -c %Z /var/lib/pacman/sync/core.db`,
-            windows: `echo ${Date.now() / 1000}`,
-            darwin: `echo ${Date.now() / 1000}`,
-            fallback: `echo ${Date.now() / 1000}`
-        }
-    };
-
-    const platformCommands = commands[operation];
-    if (!platformCommands) return null;
-
-    if (isLinux) return platformCommands.linux;
-    if (isWindows) return platformCommands.windows;
-    if (isMacOS) return platformCommands.darwin;
-    return platformCommands.fallback;
 }
 
 // Health check endpoint
