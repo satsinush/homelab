@@ -78,6 +78,9 @@ set up pacman sync job (if using pacman on host)
 sudo systemctl start pacman-sync.timer
 sudo systemctl enable pacman-sync.timer
 
+make sure to change HOMELAB_IP_ADDRESS and update any urls you want to change in .env.template
+Make sure that VITE_ variables match the regular ones, everything else will be filled in automatically
+
 run setup.sh, this will set up usernames, passwords, and other configurations for needed services
 
 install homelab-ca.crt on any devices accessing homelab services
@@ -102,5 +105,5 @@ subscribe to homelab-dashboard topic on ntfy for package alerts
 subscribe to uptime-kuma topic on ntfy for service status alerts
 
 recommend updating pi-hole to only use this list
-https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt
+
 (won't block google shopping links)
