@@ -121,7 +121,7 @@ class WordGamesController {
 
             // First, get the total number of results
             const countCommand = `${flags}`;
-            console.log(`Executing Letter Boxed solver for count: ${countCommand}`);
+            console.log(`Executing Letter Boxed solver: ${countCommand}`);
             const countResult = await this.executeCommand(countCommand);
             
             // Parse output: first line is count, second line is filename
@@ -135,7 +135,6 @@ class WordGamesController {
 
             // Now, read the results for the requested page
             const readCommand = `--mode read --file ${actualResultsFile} --start ${start} --end ${end}`;
-            console.log(`Reading Letter Boxed results: ${readCommand}`);
             const readResult = await this.executeCommand(readCommand);
 
             this.scheduleFileCleanup(actualResultsFile);
@@ -143,7 +142,6 @@ class WordGamesController {
             // Parse the output into solutions
             const allSolutions = this.parseWordGameOutput(readResult.stdout);
 
-            console.log(`Results file: ${actualResultsFile}`);
             return sendSuccess(res, {
                 success: true,
                 gameType: 'letterboxed',
@@ -223,11 +221,10 @@ class WordGamesController {
 
             // First, get the total number of results
             const countCommand = `${flags}`;
-            console.log(`Executing Spelling Bee solver for count: ${countCommand}`);
+            console.log(`Executing Spelling Bee solver: ${countCommand}`);
             const countResult = await this.executeCommand(countCommand);
 
             // Parse output: first line is count, second line is filename
-            console.log(`stdout: ${countResult.stdout}`);
             const outputLines = countResult.stdout.trim().split('\n');
             const totalFound = parseInt(outputLines[0]);
             const actualResultsFile = outputLines[1];
@@ -238,7 +235,6 @@ class WordGamesController {
 
             // Now, read the results for the requested page
             const readCommand = `--mode read --file ${actualResultsFile} --start ${start} --end ${end}`;
-            console.log(`Reading Spelling Bee results: ${readCommand}`);
             const readResult = await this.executeCommand(readCommand);
 
             this.scheduleFileCleanup(actualResultsFile);

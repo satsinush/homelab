@@ -413,7 +413,6 @@ const WordGames = () => {
     const readMoreResults = async (start, end, gameType) => {
         setIsLoading(true);
         try {
-            console.log(`resultsFile: ${lastGameData?.resultsFile}`);
             const response = await tryApiCall('/wordgames/read', {
                 method: 'POST',
                 data: {
