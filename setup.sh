@@ -557,8 +557,8 @@ else
     echo "   Creating LLDAP groups..."
     
     # Create required groups - simplified to just two groups
-    create_lldap_group "homelab_admins" "Homelab Administrators" "$TOKEN"
-    create_lldap_group "homelab_users" "Homelab Users" "$TOKEN"
+    create_lldap_group "homelab_admins" "homelab_admins" "$TOKEN"
+    create_lldap_group "homelab_users" "homelab_users" "$TOKEN"
     
     echo "👤 Creating personal user account..."
     
@@ -573,7 +573,7 @@ else
     
     # Add user to admin groups (using display names since that's what we need to look up)
     add_user_to_group "$LLDAP_USERNAME" "lldap_admin" "$TOKEN"
-    add_user_to_group "$LLDAP_USERNAME" "Homelab Administrators" "$TOKEN"
+    add_user_to_group "$LLDAP_USERNAME" "homelab_admins" "$TOKEN"
     
     echo "   ✅ LLDAP setup complete"
 fi

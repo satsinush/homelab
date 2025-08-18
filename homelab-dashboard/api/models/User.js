@@ -96,33 +96,15 @@ class User {
             const username = ssoProfile.preferred_username || ssoProfile.name; // Use preferred_username first, fallback to name
             const email = ssoProfile.email || null; // Authelia provides email directly
             
-            // Get user groups from either groups claim or custom homelab_roles claim
-            let userGroups = ssoProfile.groups || [];
-            
-            // Check for custom homelab_roles claim from Authelia
-            if (ssoProfile.homelab_roles && Array.isArray(ssoProfile.homelab_roles)) {
-                // Map homelab_roles to groups for internal use
-                const homelabRoles = ssoProfile.homelab_roles;
-                if (homelabRoles.includes('admin')) {
-                    userGroups = userGroups.includes('admin') ? userGroups : [...userGroups, 'admin'];
-                } else if (homelabRoles.includes('user')) {
-                    userGroups = userGroups.includes('user') ? userGroups : [...userGroups, 'user'];
-                }
-            }
-            
-            // Fallback: check LDAP groups directly for backwards compatibility
-            if (userGroups.length === 0 && ssoProfile.groups) {
-                if (ssoProfile.groups.includes('homelab_admins')) {
+            // Use custom claims for role mapping instead of groups
+            let userGroups = [];            
+            if (ssoProfile.homelab_role) {
+                // Use the custom homelab_role claim from Authelia
+                if (ssoProfile.homelab_role === 'admin') {
                     userGroups = ['admin'];
-                } else if (ssoProfile.groups.includes('homelab_users')) {
+                } else if (ssoProfile.homelab_role === 'user') {
                     userGroups = ['user'];
                 }
-            }
-
-            // Check if this is the first user - if so, make them admin
-            const isFirst = await this.isFirstUser();
-            if (isFirst) {
-                userGroups = userGroups.includes('admin') ? userGroups : [...userGroups, 'admin'];
             }
 
             // Check if SSO user already exists by sso_id
@@ -144,9 +126,7 @@ class User {
                     WHERE id = ?
                 `);
                 updateStmt.run(username, email, JSON.stringify(userGroups), user.id);
-                
-                console.log(`Updated user groups to: ${JSON.stringify(userGroups)}`);
-                
+                                
                 return {
                     id: user.id,
                     username: username,
@@ -175,9 +155,7 @@ class User {
                         WHERE id = ?
                     `);
                     updateStmt.run(email, JSON.stringify(userGroups), ssoId, localUser.id);
-                    
-                    console.log(`Updated linked user groups to: ${JSON.stringify(userGroups)}`);
-                    
+                                        
                     return {
                         id: localUser.id,
                         username: username,

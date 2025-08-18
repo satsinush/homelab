@@ -82,35 +82,40 @@ access_control:
         - 'group:homelab_admins'
         - 'group:homelab_users'
 
-
 definitions:
   user_attributes:
-    vaultwarden_roles:
-      expression: '"homelab_admins" in groups ? ["admin"] : "homelab_users" in groups ? ["user"] : [""]'
-    homelab_roles:
-      expression: '"homelab_admins" in groups ? ["admin"] : "homelab_users" in groups ? ["user"] : [""]'
+    homelab_role:
+      expression: '"homelab_admins" in groups ? "admin" : "homelab_users" in groups ? "user" : ""'
+    vaultwarden_role:
+      expression: '"homelab_admins" in groups ? "admin" : "homelab_users" in groups ? "user" : ""'
 
 identity_providers:
   oidc:
-    claims_policies:
-      vaultwarden:
-        id_token: ['vaultwarden_roles']
-        custom_claims:
-          vaultwarden_roles: {}
-      homelab_dashboard:
-        id_token: ['homelab_roles']
-        custom_claims:
-          homelab_roles: {}
-    scopes:
-      vaultwarden:
-        claims: ['vaultwarden_roles']
-      homelab_dashboard:
-        claims: ['homelab_roles']
     hmac_secret: '${AUTHELIA_HMAC_SECRET}'
     jwks:
       - algorithm: 'RS256'
         key: |
           JWKS_KEY_PLACEHOLDER
+
+    # Custom claims policies for role mapping
+    claims_policies:
+      homelab_dashboard:
+        custom_claims:
+          homelab_role:
+            attribute: 'homelab_role'
+      vaultwarden:
+        custom_claims:
+          vaultwarden_role:
+            attribute: 'vaultwarden_role'
+
+    # Custom scopes that provide access to our custom claims
+    scopes:
+      homelab_dashboard:
+        claims:
+          - 'homelab_role'
+      vaultwarden:
+        claims:
+          - 'vaultwarden_role'
 
     # This section defines the applications that can use Authelia for login.
     clients:
@@ -129,6 +134,7 @@ identity_providers:
           - 'offline_access'
           - 'profile'
           - 'email'
+          - 'groups'
           - 'vaultwarden'
         response_types:
           - 'code'
