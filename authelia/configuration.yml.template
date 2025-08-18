@@ -41,8 +41,12 @@ authentication_backend:
   ldap:
     address: ldap://lldap:3890
     base_dn: ${LLDAP_LDAP_BASE_DN}
-    user: uid=admin,ou=people,${LLDAP_LDAP_BASE_DN}    # LDAP bind user
-    password: ${LLDAP_USER_PASSWORD}
+    username_attribute: uid
+    additional_users_dn: ou=people
+    additional_groups_dn: ou=groups
+    user: ${LLDAP_LDAP_USER_DN}    # LDAP bind user
+
+    password: ${LLDAP_LDAP_USER_PASS}
     users_filter: '(&({username_attribute}={input})(objectClass=person))'
     groups_filter: '(&(objectClass=groupOfNames)(member={dn}))'
 
@@ -52,13 +56,38 @@ notifier:
 
 access_control:
   default_policy: one_factor
-  rules: []
+  rules:
+    # Portainer Admin Interface - Restrict to homelab_admins group  
+    - domain: '${PORTAINER_WEB_HOSTNAME}'
+      policy: one_factor
+      subject: 'group:homelab_admins'
+    
+    # Vaultwarden Admin Interface - Restrict to homelab_admins group
+    - domain: '${VAULTWARDEN_WEB_HOSTNAME}'
+      resources: '^/admin.*'
+      policy: one_factor
+      subject: 'group:homelab_admins'
+    
+    # General access to services for homelab users
+    - domain: 
+        - '${DASHBOARD_WEB_HOSTNAME}'
+        - '${PIHOLE_WEB_HOSTNAME}'
+        - '${NETDATA_WEB_HOSTNAME}'
+        - '${UPTIME_KUMA_WEB_HOSTNAME}'
+        - '${NTFY_WEB_HOSTNAME}'
+        - '${VAULTWARDEN_WEB_HOSTNAME}'
+      policy: one_factor
+      subject: 
+        - 'group:homelab_admins'
+        - 'group:homelab_users'
 
 
 definitions:
   user_attributes:
     vaultwarden_roles:
-      expression: '"vaultwarden_admins" in groups ? ["admin"] : "vaultwarden_users" in groups ? ["user"] : [""]'
+      expression: '"homelab_admins" in groups ? ["admin"] : "homelab_users" in groups ? ["user"] : [""]'
+    homelab_roles:
+      expression: '"homelab_admins" in groups ? ["admin"] : "homelab_users" in groups ? ["user"] : [""]'
 
 identity_providers:
   oidc:
@@ -67,9 +96,15 @@ identity_providers:
         id_token: ['vaultwarden_roles']
         custom_claims:
           vaultwarden_roles: {}
+      homelab_dashboard:
+        id_token: ['homelab_roles']
+        custom_claims:
+          homelab_roles: {}
     scopes:
       vaultwarden:
         claims: ['vaultwarden_roles']
+      homelab_dashboard:
+        claims: ['homelab_roles']
     hmac_secret: '${AUTHELIA_HMAC_SECRET}'
     jwks:
       - algorithm: 'RS256'
@@ -80,7 +115,7 @@ identity_providers:
     clients:
       - client_id: 'vaultwarden'
         client_name: 'Vaultwarden'
-        client_secret: '${VAULTWARDEN_OIDC_SECRET}' # Uses the variable from your .env file.
+        client_secret: '${VAULTWARDEN_OIDC_HASHED_SECRET}' # Uses the hashed variable from your .env file.
         public: false
         authorization_policy: 'one_factor'
         require_pkce: true
@@ -109,7 +144,7 @@ identity_providers:
 
       - client_id: 'portainer'
         client_name: 'Portainer'
-        client_secret: '${PORTAINER_OIDC_SECRET}' # Add this variable to your secrets/env file
+        client_secret: '${PORTAINER_OIDC_HASHED_SECRET}' # Uses the hashed variable from your .env file
         public: false
         authorization_policy: 'one_factor' # Or 'one_factor'
         redirect_uris:
@@ -130,9 +165,10 @@ identity_providers:
 
       - client_id: 'homelab-dashboard'
         client_name: 'Homelab Dashboard'
-        client_secret: '${DASHBOARD_OIDC_SECRET}'
+        client_secret: '${DASHBOARD_OIDC_HASHED_SECRET}'
         public: false
         authorization_policy: 'one_factor'
+        claims_policy: 'homelab_dashboard'
         redirect_uris:
           - 'https://${DASHBOARD_WEB_HOSTNAME}/api/users/sso-callback'
         scopes:
@@ -141,6 +177,7 @@ identity_providers:
           - 'email'
           - 'groups'
           - 'offline_access'
+          - 'homelab_dashboard'
         response_types:
           - 'code'
         grant_types:

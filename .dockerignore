@@ -1,14 +1,26 @@
-# Ignore Node.js dependency folders
-**/node_modules
+# .dockerignore
 
-# Ignore build artifacts
-build
-dist
-*/build
-*/dist
-
-# Ignore system files
+# Git and OS-specific files
+.git
+.gitignore
 .DS_Store
 
-# Ignore Git directory
-.git
+# Ignore local environment files
+.env
+*.env.*
+
+# IDE / Editor configuration
+.vscode
+.idea
+
+# Node.js dependencies at any nested level
+**/node_modules
+
+# Build output folders
+**/build
+**/dist
+
+# Docker files
+Dockerfile
+.dockerignore
+docker-compose.yml

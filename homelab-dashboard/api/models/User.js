@@ -95,7 +95,29 @@ class User {
             const ssoId = ssoProfile.sub; // 'sub' is the standard OIDC user identifier
             const username = ssoProfile.preferred_username || ssoProfile.name; // Use preferred_username first, fallback to name
             const email = ssoProfile.email || null; // Authelia provides email directly
+            
+            // Get user groups from either groups claim or custom homelab_roles claim
             let userGroups = ssoProfile.groups || [];
+            
+            // Check for custom homelab_roles claim from Authelia
+            if (ssoProfile.homelab_roles && Array.isArray(ssoProfile.homelab_roles)) {
+                // Map homelab_roles to groups for internal use
+                const homelabRoles = ssoProfile.homelab_roles;
+                if (homelabRoles.includes('admin')) {
+                    userGroups = userGroups.includes('admin') ? userGroups : [...userGroups, 'admin'];
+                } else if (homelabRoles.includes('user')) {
+                    userGroups = userGroups.includes('user') ? userGroups : [...userGroups, 'user'];
+                }
+            }
+            
+            // Fallback: check LDAP groups directly for backwards compatibility
+            if (userGroups.length === 0 && ssoProfile.groups) {
+                if (ssoProfile.groups.includes('homelab_admins')) {
+                    userGroups = ['admin'];
+                } else if (ssoProfile.groups.includes('homelab_users')) {
+                    userGroups = ['user'];
+                }
+            }
 
             // Check if this is the first user - if so, make them admin
             const isFirst = await this.isFirstUser();
@@ -109,20 +131,21 @@ class User {
             user = ssoUserStmt.get(ssoId);
 
             if (user) {
-                // Update existing SSO user - preserve admin role if they have it
-                const existingGroups = JSON.parse(user.groups);
+                // Update existing SSO user - always sync roles from LDAP/Authelia
+                console.log(`Updating existing SSO user: ${username}`);
+                console.log(`Previous groups: ${JSON.stringify(JSON.parse(user.groups))}`);
+                console.log(`New groups from SSO: ${JSON.stringify(userGroups)}`);
                 
-                // If user has admin role, preserve it regardless of what Authelia sends
-                if (existingGroups.includes('admin') && !userGroups.includes('admin')) {
-                    userGroups = [...userGroups, 'admin'];
-                }
-                
+                // Always update groups to match what LDAP/Authelia provides
+                // This ensures role revocations in LDAP are reflected in the dashboard
                 const updateStmt = this.db.prepare(`
                     UPDATE users 
                     SET username = ?, email = ?, groups = ?, last_login = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
                     WHERE id = ?
                 `);
                 updateStmt.run(username, email, JSON.stringify(userGroups), user.id);
+                
+                console.log(`Updated user groups to: ${JSON.stringify(userGroups)}`);
                 
                 return {
                     id: user.id,
@@ -140,12 +163,20 @@ class User {
 
                 if (localUser) {
                     // Map SSO user to existing local user by updating their groups and marking as SSO-linked
+                    console.log(`Linking SSO profile to existing local user: ${username}`);
+                    console.log(`Previous local user groups: ${JSON.stringify(JSON.parse(localUser.groups))}`);
+                    console.log(`New groups from SSO: ${JSON.stringify(userGroups)}`);
+                    
+                    // Always update groups to match what LDAP/Authelia provides
+                    // This ensures role changes in LDAP are reflected for linked local users
                     const updateStmt = this.db.prepare(`
                         UPDATE users 
                         SET email = ?, groups = ?, sso_id = ?, last_login = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
                         WHERE id = ?
                     `);
                     updateStmt.run(email, JSON.stringify(userGroups), ssoId, localUser.id);
+                    
+                    console.log(`Updated linked user groups to: ${JSON.stringify(userGroups)}`);
                     
                     return {
                         id: localUser.id,
