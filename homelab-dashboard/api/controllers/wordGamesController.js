@@ -9,6 +9,30 @@ class WordGamesController {
         this.executableFile = 'word_games';
         this.executableDir = path.join('/app/word_games');
         this.timeout = 30000; // 30 seconds timeout
+        this.resultsFolder = 'results';
+        this.cleanupDelay = 60 * 60 * 1000; // 1 hour in milliseconds
+
+        // Initialize words.bin by running a command
+        this.executeCommand('--help', 30000);
+        
+        // Run initial cleanup on startup to handle any leftover files
+        this.initialCleanup();
+    }
+
+    // Run initial cleanup when the controller starts
+    async initialCleanup() {
+        try {
+            console.log('Running initial cleanup of old results files...');
+            await this.cleanupOldResultsFiles();
+        } catch (error) {
+            console.error('Error during initial cleanup:', error.message);
+        }
+    }
+
+    // Generate a unique filename for results
+    generateResultsFilename(username, gameType) {
+        const timestamp = Date.now();
+        return path.join(this.resultsFolder, `${username || 'user'}_${gameType}_${timestamp}.txt`);
     }
 
     // Solve Letter Boxed puzzle
@@ -80,6 +104,9 @@ class WordGamesController {
                 return sendError(res, 400, 'Prune dominated classes must be 0 or 1');
             }
 
+            // Generate unique filename for this session
+            const resultsFilename = this.generateResultsFilename(req.user.username, 'letterboxed');
+
             // Build command with flags
             const flags = [
                 `--mode letterboxed`,
@@ -88,26 +115,35 @@ class WordGamesController {
                 `--minWordLength ${wordLen}`,
                 `--minUniqueLetters ${uniqueLetters}`,
                 `--pruneRedundantPaths ${pruneRedundant}`,
-                `--pruneDominatedClasses ${pruneDominated}`
+                `--pruneDominatedClasses ${pruneDominated}`,
+                `--file ${resultsFilename}`
             ].join(' ');
 
             // First, get the total number of results
             const countCommand = `${flags}`;
             console.log(`Executing Letter Boxed solver for count: ${countCommand}`);
             const countResult = await this.executeCommand(countCommand);
-            const totalFound = parseInt(countResult.stdout.trim());
+            
+            // Parse output: first line is count, second line is filename
+            const outputLines = countResult.stdout.trim().split('\n');
+            const totalFound = parseInt(outputLines[0]);
+            const actualResultsFile = outputLines[1];
+            
             if (isNaN(totalFound)) {
                 return sendError(res, 500, 'Failed to parse result count from solver');
             }
 
             // Now, read the results for the requested page
-            const readCommand = `--mode read --start ${start} --end ${end}`;
+            const readCommand = `--mode read --file ${actualResultsFile} --start ${start} --end ${end}`;
             console.log(`Reading Letter Boxed results: ${readCommand}`);
             const readResult = await this.executeCommand(readCommand);
+
+            this.scheduleFileCleanup(actualResultsFile);
 
             // Parse the output into solutions
             const allSolutions = this.parseWordGameOutput(readResult.stdout);
 
+            console.log(`Results file: ${actualResultsFile}`);
             return sendSuccess(res, {
                 success: true,
                 gameType: 'letterboxed',
@@ -123,7 +159,9 @@ class WordGamesController {
                 isLimited: totalFound > end,
                 executionTime: readResult.executionTime,
                 start,
-                end
+                end,
+                resultsFile: resultsFilename,
+                actualResultsFile: actualResultsFile
             });
 
         } catch (error) {
@@ -173,25 +211,37 @@ class WordGamesController {
                 return sendError(res, 400, 'All letters must be different for Spelling Bee');
             }
 
+            // Generate unique filename for this session
+            const resultsFilename = this.generateResultsFilename(req.user.username, 'spellingbee');
+
             // Build command with flags
             const flags = [
                 `--mode spellingbee`,
-                `--letters ${cleanLetters}`
+                `--letters ${cleanLetters}`,
+                `--file ${resultsFilename}`
             ].join(' ');
 
             // First, get the total number of results
             const countCommand = `${flags}`;
             console.log(`Executing Spelling Bee solver for count: ${countCommand}`);
             const countResult = await this.executeCommand(countCommand);
-            const totalFound = parseInt(countResult.stdout.trim());
+
+            // Parse output: first line is count, second line is filename
+            console.log(`stdout: ${countResult.stdout}`);
+            const outputLines = countResult.stdout.trim().split('\n');
+            const totalFound = parseInt(outputLines[0]);
+            const actualResultsFile = outputLines[1];
+            
             if (isNaN(totalFound)) {
                 return sendError(res, 500, 'Failed to parse result count from solver');
             }
 
             // Now, read the results for the requested page
-            const readCommand = `--mode read --start ${start} --end ${end}`;
+            const readCommand = `--mode read --file ${actualResultsFile} --start ${start} --end ${end}`;
             console.log(`Reading Spelling Bee results: ${readCommand}`);
             const readResult = await this.executeCommand(readCommand);
+
+            this.scheduleFileCleanup(actualResultsFile);
 
             // Parse the output into solutions
             const allSolutions = this.parseWordGameOutput(readResult.stdout);
@@ -206,7 +256,9 @@ class WordGamesController {
                 isLimited: totalFound > end,
                 executionTime: readResult.executionTime,
                 start,
-                end
+                end,
+                resultsFile: resultsFilename,
+                actualResultsFile: actualResultsFile
             });
 
         } catch (error) {
@@ -257,15 +309,18 @@ class WordGamesController {
     // Read a section of results from the temp file
     async readResults(req, res) {
         try {
-            const { start = 0, end = 100 } = req.body;
+            const { start = 0, end = 100, resultsFile } = req.body;
 
             // Validate input
             if (isNaN(start) || isNaN(end) || start < 0 || end <= start) {
                 return sendError(res, 400, 'Invalid start/end parameters');
             }
 
+            // If no resultsFile specified, try to read from default temp file
+            const filePath = resultsFile || "temp.txt";
+
             // Build read command
-            const readCommand = `--mode read --start ${start} --end ${end}`;
+            const readCommand = `--mode read --file ${filePath} --start ${start} --end ${end}`;
             console.log(`Reading results: ${readCommand}`);
             const readResult = await this.executeCommand(readCommand);
 
@@ -276,7 +331,8 @@ class WordGamesController {
                 solutions,
                 start,
                 end,
-                executionTime: readResult.executionTime
+                executionTime: readResult.executionTime,
+                resultsFile: resultsFile
             });
         } catch (error) {
             console.error('Read results error:', error);
@@ -330,6 +386,78 @@ class WordGamesController {
 
         // Limit results to 100 to prevent overwhelming the UI
         return solutions.slice(0, 100);
+    }
+
+    // Schedule file cleanup after 24 hours
+    scheduleFileCleanup(filePath) {
+        setTimeout(() => {
+            this.cleanupResultsFile(filePath);
+        }, this.cleanupDelay);
+    }
+
+    // Clean up a specific results file
+    async cleanupResultsFile(filePath) {
+        try {
+            const fullPath = path.join(this.executableDir, filePath);
+            const fs = require('fs').promises;
+            
+            // Check if file exists before attempting to delete
+            try {
+                await fs.access(fullPath);
+                await fs.unlink(fullPath);
+                console.log(`Cleaned up results file: ${filePath}`);
+            } catch (err) {
+                if (err.code !== 'ENOENT') {
+                    console.error(`Failed to cleanup results file ${filePath}:`, err.message);
+                }
+                // If file doesn't exist (ENOENT), that's fine - it's already cleaned up
+            }
+        } catch (error) {
+            console.error(`Error during file cleanup for ${filePath}:`, error.message);
+        }
+    }
+
+    // Clean up all old results files in the directory
+    async cleanupOldResultsFiles() {
+        try {
+            const fs = require('fs').promises;
+            const resultsDir = path.join(this.executableDir, this.resultsFolder);
+            
+            // Check if results directory exists
+            try {
+                await fs.access(resultsDir);
+            } catch (err) {
+                console.log('Results directory does not exist, nothing to clean up');
+                return;
+            }
+
+            // Read all files in the results directory
+            const files = await fs.readdir(resultsDir);
+            const now = Date.now();
+
+            let cleanedCount = 0;
+            
+            for (const filename of files) {
+                try {
+                    const filePath = path.join(resultsDir, filename);
+                    const stats = await fs.stat(filePath);
+                    
+                    // Check if file is older than cleanupDelay
+                    const fileAge = now - stats.mtime.getTime();
+
+                    if (fileAge > this.cleanupDelay) {
+                        await fs.unlink(filePath);
+                        console.log(`Cleaned up old results file: ${filename} (age: ${Math.round(fileAge / 1000)}s)`);
+                        cleanedCount++;
+                    }
+                } catch (err) {
+                    console.error(`Error processing file ${filename} during cleanup:`, err.message);
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error during results directory cleanup:', error.message);
+        }
     }
 }
 

@@ -48,8 +48,6 @@ RUN g++ -std=c++20 -static src/*.cpp -o word_games
 
 
 
-
-
 # --- Stage 3: Build the Final Node.js Image ---
 FROM node:20-alpine
 WORKDIR /app

@@ -150,7 +150,8 @@ const WordGames = () => {
                 executionTime: response.data.executionTime,
                 configDetails: config,
                 start: response.data.start,
-                end: response.data.end
+                end: response.data.end,
+                resultsFile: response.data.actualResultsFile || response.data.resultsFile
             });
 
             const message = response.data.isLimited
@@ -197,7 +198,8 @@ const WordGames = () => {
                 isLimited: response.data.isLimited,
                 executionTime: response.data.executionTime,
                 start: response.data.start,
-                end: response.data.end
+                end: response.data.end,
+                resultsFile: response.data.actualResultsFile || response.data.resultsFile
             });
 
             const message = response.data.isLimited
@@ -411,9 +413,14 @@ const WordGames = () => {
     const readMoreResults = async (start, end, gameType) => {
         setIsLoading(true);
         try {
+            console.log(`resultsFile: ${lastGameData?.resultsFile}`);
             const response = await tryApiCall('/wordgames/read', {
                 method: 'POST',
-                data: { start, end }
+                data: {
+                    start,
+                    end,
+                    resultsFile: lastGameData?.resultsFile
+                }
             });
             setSolutions(prev => [...prev, ...response.data.solutions]);
             setLastGameData(prev => ({
