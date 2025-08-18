@@ -41,7 +41,8 @@ authentication_backend:
   ldap:
     address: ldap://lldap:3890
     base_dn: ${LLDAP_LDAP_BASE_DN}
-    username_attribute: uid
+    attributes:
+      username: uid
     additional_users_dn: ou=people
     additional_groups_dn: ou=groups
     user: ${LLDAP_LDAP_USER_DN}    # LDAP bind user
