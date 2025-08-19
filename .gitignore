@@ -2,17 +2,12 @@
 *package-lock.json
 .env
 docker-compose.override.yml
-# Ignore the SSL certificate directory
-ssl/
-certificates/
-
-ddclient/config
-rustdesk/data/
-uptime-kuma/data/
-homelab-dashboard/data/
 
 id_ed25519
 id_ed25519.pub
 *.crt
 *.key
 *.pem
+
+volumes/
+backups/

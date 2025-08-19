@@ -40,13 +40,16 @@ if [ ! -f .env ]; then
 
   echo "   Enter username and password for homelab services:"
   read -p "   Username: " USERNAME
+
   while true; do
-    read -p "   Password: " PASSWORD
-    if [ -z "$PASSWORD" ]; then
-      echo "   ⚠️  Password cannot be empty. Please try again."
-      continue
+    read -p "   Password (min 12 characters): " PASSWORD
+    echo
+
+    if [ ${#PASSWORD} -lt 12 ]; then
+      echo "   ⚠️  Password is too short. Please try again."
+    else
+      break
     fi
-    break
   done
 
   echo "   Generating security tokens..."
@@ -114,7 +117,7 @@ echo "🔐 Setting up certificates and keys..."
 # --- Configuration Variables ---
 CERT_DAYS=3650 # Validity period in days (10 years)
 KEY_BITS=4096  # RSA key bits for stronger security
-CERTS_DIR="./certificates"
+CERTS_DIR="./volumes/certificates"
 
 # CA files
 CA_KEY_OUT="${CERTS_DIR}/homelab-ca.key"
@@ -152,7 +155,7 @@ declare -a SAN_DOMAINS=(
 mkdir -p "$CERTS_DIR"
 
 # --- Ensure Authelia private key exists ---
-AUTHELIA_DIR="./authelia"
+AUTHELIA_DIR="./volumes/authelia"
 AUTHELIA_KEY="${AUTHELIA_DIR}/private.pem"
 mkdir -p "$AUTHELIA_DIR"
 if [ ! -f "${AUTHELIA_KEY}" ]; then
@@ -167,7 +170,7 @@ fi
 
 # Copy example-data/kuma.db to data/kuma.db if it doesn't already exist
 EXAMPLE_DB="./uptime-kuma/example-data/kuma.db"
-TARGET_DB="./uptime-kuma/data/kuma.db"
+TARGET_DB="./volumes/uptime-kuma/data/kuma.db"
 
 if [ ! -f "$TARGET_DB" ]; then
   echo "   Setting up Uptime Kuma database..."

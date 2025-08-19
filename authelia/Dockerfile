@@ -8,9 +8,9 @@ RUN apk add --no-cache gettext
 WORKDIR /config
 
 # Copy all necessary files for building the config
-COPY configuration.yml.template .
-COPY private.pem ./jwks/private.pem
-COPY build_config.sh .
+COPY authelia/configuration.yml.template .
+COPY volumes/authelia/private.pem ./jwks/private.pem
+COPY authelia/build_config.sh .
 
 # Make the build script executable
 RUN chmod +x build_config.sh

@@ -15,7 +15,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./certificates:/etc/ssl/homelab:ro
+      - ./volumes/certificates:/etc/ssl/homelab:ro
     networks:
       - homelab-net
     environment:
@@ -50,7 +50,6 @@ services:
       - FTLCONF_webserver_api_password=
       - FTLCONF_dns_hosts=${HOMELAB_IP_ADDRESS} ${HOMELAB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PIHOLE_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${NETDATA_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${DASHBOARD_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PORTAINER_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${VAULTWARDEN_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${UPTIME_KUMA_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${NTFY_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${LLDAP_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${AUTHELIA_WEB_HOSTNAME};
     volumes:
-      #- ./pihole/pihole.toml:/etc/pihole/pihole.toml
       - pihole_data:/etc/pihole/
       - pihole_logs:/run/log/pihole/
     networks:
@@ -89,7 +88,7 @@ services:
     # The -r option points it to your relay server using its service name
     command: hbbs -r rustdesk-relay-server:21119 -k _
     volumes:
-      - ./rustdesk/data:/root
+      - ./volumes/rustdesk/data:/root
     networks:
       - homelab-net
     ports:
@@ -100,6 +99,9 @@ services:
     restart: unless-stopped
     depends_on:
       - rustdesk-relay-server
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
 
   # RustDesk Relay Server (hbbr)
   rustdesk-relay-server:
@@ -108,13 +110,16 @@ services:
     # This command tells the container to run the Relay server (hbbr)
     command: hbbr -k _
     volumes:
-      - ./rustdesk/data:/root
+      - ./volumes/rustdesk/data:/root
     networks:
       - homelab-net
     ports:
       - "21117:21117"
       - "21119:21119"
     restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
       
   # Netdata for real-time system monitoring
   netdata:
@@ -161,7 +166,7 @@ services:
     volumes:
       - homelab-dashboard-api-data:/app/api/data
       - homelab-dashboard-word-games-data:/app/word_games/data
-      - ./certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+      - ./volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
     networks:
       - homelab-net
     extra_hosts:
@@ -180,9 +185,11 @@ services:
     container_name: ddclient
     restart: unless-stopped
     environment:
-      - TZ='America/Chicago'
+      - TZ=${TZ}
+      - PUID=${PUID}
+      - PGID=${PGID}
     volumes:
-      - ./ddclient/config:/config
+      - ./volumes/ddclient/ddclient.conf:/config/ddclient.conf
     networks:
       - homelab-net
 
@@ -204,7 +211,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer-data:/data
-      - ./certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+      - ./volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
     networks:
       - homelab-net
   
@@ -217,6 +224,8 @@ services:
     networks:
       - homelab-net
     environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
       - WEBSOCKET_ENABLED=true
       - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
       - SIGNUPS_ALLOWED=true
@@ -239,10 +248,12 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./uptime-kuma/data:/app/data
+      - ./volumes/uptime-kuma/data:/app/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+      - ./volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
     environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
     networks:
       - homelab-net
@@ -256,6 +267,8 @@ services:
     volumes:
       - ntfy_data:/var/lib/ntfy
     environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
       - NTFY_BASE_URL=https://${NTFY_WEB_HOSTNAME}
       - NTFY_AUTH_FILE=/var/lib/ntfy/user.db
       - NTFY_CACHE_FILE=/var/lib/ntfy/cache.db
@@ -272,8 +285,8 @@ services:
   # Authelia - The Single Sign-On and 2FA portal
   authelia:
     build:
-      context: ./authelia
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: authelia/Dockerfile
       args:
         AUTHELIA_SESSION_SECRET: ${AUTHELIA_SESSION_SECRET}
         AUTHELIA_STORAGE_ENCRYPTION_KEY: ${AUTHELIA_STORAGE_ENCRYPTION_KEY}
@@ -296,7 +309,7 @@ services:
     networks:
       - homelab-net
     volumes:
-      - ./authelia/private.pem:/config/jwks/private.pem:ro
+      - ./volumes/authelia/private.pem:/config/jwks/private.pem:ro
       - authelia-data:/var/lib/authelia
     depends_on:
       - lldap
@@ -322,7 +335,9 @@ services:
     networks:
       - homelab-net
     environment:
-      - TZ=America/Chicago
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
       - LLDAP_JWT_SECRET=${LLDAP_JWT_SECRET}
       - LLDAP_LDAP_BASE_DN=${LLDAP_LDAP_BASE_DN}
       - LLDAP_LDAP_USER_PASS=${LLDAP_LDAP_USER_PASS}
