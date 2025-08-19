@@ -1,1 +1,0 @@
-journalctl -u homelab-api.service -f

@@ -1,0 +1,67 @@
+services:
+  homelab-dashboard:
+    command: npm run dev
+    environment:
+      - ENVIRONMENT=development
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./homelab-dashboard/api:/app/api
+      - /app/api/node_modules
+
+  dashboard-dev:
+    container_name: dashboard-dev
+    build: ./homelab-dashboard/frontend
+    command: npm run dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./homelab-dashboard/frontend:/app
+      - /app/node_modules
+    networks:
+      - homelab-net
+    environment:
+      - VITE_PIHOLE_WEB_HOSTNAME=${VITE_PIHOLE_WEB_HOSTNAME}
+      - VITE_NETDATA_WEB_HOSTNAME=${VITE_NETDATA_WEB_HOSTNAME}
+      - VITE_PORTAINER_WEB_HOSTNAME=${VITE_PORTAINER_WEB_HOSTNAME}
+      - VITE_VAULTWARDEN_WEB_HOSTNAME=${VITE_VAULTWARDEN_WEB_HOSTNAME}
+      - VITE_UPTIME_KUMA_WEB_HOSTNAME=${VITE_UPTIME_KUMA_WEB_HOSTNAME}
+      - VITE_NTFY_WEB_HOSTNAME=${VITE_NTFY_WEB_HOSTNAME}
+      - VITE_LLDAP_WEB_HOSTNAME=${VITE_LLDAP_WEB_HOSTNAME}
+      - VITE_AUTHELIA_WEB_HOSTNAME=${VITE_AUTHELIA_WEB_HOSTNAME}
+
+  pihole:
+    ports:
+      - "8080:80/tcp"
+
+  netdata:
+    ports:
+      - "19999:19999"
+
+  ollama:
+    ports:
+      - "11434:11434"
+
+  portainer:
+    ports:
+      - "9000:9000"
+
+  vaultwarden:
+    ports:
+      - "8000:80"
+  
+  uptime-kuma:
+    ports:
+      - "3001:3001"
+
+  ntfy:
+    ports:
+      - "8081:80"
+
+  lldap:
+    ports:
+      - "17170:17170"
+  
+  authelia:
+    ports:
+      - "9091:9091"

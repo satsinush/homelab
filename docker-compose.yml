@@ -1,0 +1,358 @@
+# docker-compose.yml
+networks:
+  homelab-net:
+    driver: bridge
+
+services:
+  # Nginx will act as a reverse proxy for your services
+  nginx:
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./volumes/certificates:/etc/ssl/homelab:ro
+    networks:
+      - homelab-net
+    environment:
+      - HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
+      - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
+      - PIHOLE_WEB_HOSTNAME=${PIHOLE_WEB_HOSTNAME}
+      - NETDATA_WEB_HOSTNAME=${NETDATA_WEB_HOSTNAME}
+      - PORTAINER_WEB_HOSTNAME=${PORTAINER_WEB_HOSTNAME}
+      - VAULTWARDEN_WEB_HOSTNAME=${VAULTWARDEN_WEB_HOSTNAME}
+      - UPTIME_KUMA_WEB_HOSTNAME=${UPTIME_KUMA_WEB_HOSTNAME}
+      - NTFY_WEB_HOSTNAME=${NTFY_WEB_HOSTNAME}
+      - LLDAP_WEB_HOSTNAME=${LLDAP_WEB_HOSTNAME}
+      - AUTHELIA_WEB_HOSTNAME=${AUTHELIA_WEB_HOSTNAME}
+
+  # Pi-hole for network-wide ad blocking
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: unless-stopped
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+    environment:
+      - TZ=America/Chicago
+      - FTLCONF_dns_upstreams=unbound#53
+      - FTLCONF_dns_domain=${DNS_DOMAIN}
+      - FTLCONF_dns_piholePTR=HOSTNAMEFQDN
+      - FTLCONF_webserver_domain=${PIHOLE_WEB_HOSTNAME}
+      - FTLCONF_dns_listeningMode=ALL
+      - FTLCONF_webserver_port=80
+      - DNSMASQ_LISTENING=all
+      - FTLCONF_webserver_api_password=
+      - FTLCONF_dns_hosts=${HOMELAB_IP_ADDRESS} ${HOMELAB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PIHOLE_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${NETDATA_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${DASHBOARD_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PORTAINER_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${VAULTWARDEN_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${UPTIME_KUMA_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${NTFY_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${LLDAP_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${AUTHELIA_WEB_HOSTNAME};
+    volumes:
+      - pihole_data:/etc/pihole/
+      - pihole_logs:/run/log/pihole/
+    networks:
+      - homelab-net
+    depends_on:
+      - unbound
+
+  # Unbound as a recursive DNS resolver
+  unbound:
+    # Use the pre-built image directly
+    image: klutchell/unbound:latest
+    container_name: unbound
+    restart: unless-stopped
+    volumes:
+      - ./unbound/unbound.conf:/etc/unbound/custom.conf.d/unbound.conf:ro
+      - ./unbound/cachedb.conf:/etc/unbound/custom.conf.d/cachedb.conf:ro
+    networks:
+      - homelab-net
+    depends_on:
+      - unbound-redis
+
+  unbound-redis:
+    image: redis:7-alpine
+    container_name: unbound-redis
+    restart: unless-stopped
+    volumes:
+      - unbound-redis-data:/data
+    networks:
+      - homelab-net
+
+  # RustDesk ID Server (hbbs)
+  rustdesk-id-server:
+    image: rustdesk/rustdesk-server:latest
+    container_name: rustdesk-id-server
+    # This command tells the container to run the ID server (hbbs)
+    # The -r option points it to your relay server using its service name
+    command: hbbs -r rustdesk-relay-server:21119 -k _
+    volumes:
+      - ./volumes/rustdesk/data:/root
+    networks:
+      - homelab-net
+    ports:
+      - "21115:21115"
+      - "21116:21116"
+      - "21116:21116/udp"
+      - "21118:21118"
+    restart: unless-stopped
+    depends_on:
+      - rustdesk-relay-server
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+
+  # RustDesk Relay Server (hbbr)
+  rustdesk-relay-server:
+    image: rustdesk/rustdesk-server:latest
+    container_name: rustdesk-relay-server
+    # This command tells the container to run the Relay server (hbbr)
+    command: hbbr -k _
+    volumes:
+      - ./volumes/rustdesk/data:/root
+    networks:
+      - homelab-net
+    ports:
+      - "21117:21117"
+      - "21119:21119"
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      
+  # Netdata for real-time system monitoring
+  netdata:
+    image: netdata/netdata:latest
+    container_name: netdata
+    hostname: ${HOMELAB_HOSTNAME}
+    pid: host
+    restart: unless-stopped
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /proc:/host/proc:ro
+      - /var/log:/host/var/log:ro
+      - /run/dbus:/run/dbus:ro
+    networks:
+      - homelab-net
+
+  homelab-dashboard:
+    container_name: homelab-dashboard
+    restart: unless-stopped
+    build:
+      context: . # Use the project root as the build context
+      dockerfile: homelab-dashboard/Dockerfile # Specify the path to the Dockerfile
+      args:
+        - VITE_DASHBOARD_WEB_HOSTNAME=${VITE_DASHBOARD_WEB_HOSTNAME}
+        - VITE_PIHOLE_WEB_HOSTNAME=${VITE_PIHOLE_WEB_HOSTNAME}
+        - VITE_NETDATA_WEB_HOSTNAME=${VITE_NETDATA_WEB_HOSTNAME}
+        - VITE_PORTAINER_WEB_HOSTNAME=${VITE_PORTAINER_WEB_HOSTNAME}
+        - VITE_VAULTWARDEN_WEB_HOSTNAME=${VITE_VAULTWARDEN_WEB_HOSTNAME}
+        - VITE_UPTIME_KUMA_WEB_HOSTNAME=${VITE_UPTIME_KUMA_WEB_HOSTNAME}
+        - VITE_NTFY_WEB_HOSTNAME=${VITE_NTFY_WEB_HOSTNAME}
+        - VITE_LLDAP_WEB_HOSTNAME=${VITE_LLDAP_WEB_HOSTNAME}
+        - VITE_AUTHELIA_WEB_HOSTNAME=${VITE_AUTHELIA_WEB_HOSTNAME}
+    volumes:
+      - homelab-dashboard-api-data:/app/api/data
+      - homelab-dashboard-word-games-data:/app/word_games/data
+      - ./volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+    networks:
+      - homelab-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - HOMELAB_API_SESSION_SECRET=${HOMELAB_API_SESSION_SECRET}
+      - AUTHELIA_WEB_HOSTNAME=${AUTHELIA_WEB_HOSTNAME}
+      - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
+      - DASHBOARD_OIDC_SECRET=${DASHBOARD_OIDC_SECRET}
+      - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
+      - NTFY_ADMIN_TOKENS=${NTFY_ADMIN_TOKENS}
+
+  # ddclient for dynamic DNS updates
+  ddclient:
+    image: linuxserver/ddclient:latest
+    container_name: ddclient
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - PUID=${PUID}
+      - PGID=${PGID}
+    volumes:
+      - ./volumes/ddclient/ddclient.conf:/config/ddclient.conf
+    networks:
+      - homelab-net
+
+  # ollama for running large language models
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - homelab-net
+
+  # Portainer for Docker container management
+  portainer:
+    build: ./portainer
+    container_name: portainer
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+      - ./volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+    networks:
+      - homelab-net
+  
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    volumes:
+      - vaultwarden-data:/data
+    networks:
+      - homelab-net
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - WEBSOCKET_ENABLED=true
+      - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
+      - SIGNUPS_ALLOWED=true
+
+      # - SSO_ENABLED=true
+      # - SSO_ONLY=false
+      # - SSO_AUTHORITY=https://${AUTHELIA_WEB_HOSTNAME}
+      # - SSO_SCOPES=profile email offline_access vaultwarden
+      # - SSO_PKCE=true
+      # - SSO_CLIENT_ID=vaultwarden
+      # - SSO_CLIENT_SECRET=${VAULTWARDEN_OIDC_SECRET}
+      # - SSO_ROLES_ENABLED=true
+      # - SSO_ROLES_DEFAULT_TO_USER=true
+      # - SSO_ROLES_TOKEN_PATH=/vaultwarden_roles
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./volumes/uptime-kuma/data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+    environment:
+      - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
+    networks:
+      - homelab-net
+  
+
+  # ntfy for self-hosted push notifications
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: ntfy
+    restart: unless-stopped
+    volumes:
+      - ntfy_data:/var/lib/ntfy
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - NTFY_BASE_URL=https://${NTFY_WEB_HOSTNAME}
+      - NTFY_AUTH_FILE=/var/lib/ntfy/user.db
+      - NTFY_CACHE_FILE=/var/lib/ntfy/cache.db
+      - NTFY_ATTACHMENT_CACHE_DIR=/var/lib/ntfy/attachments
+      - NTFY_AUTH_DEFAULT_ACCESS=deny-all
+      - NTFY_AUTH_USERS=${NTFY_ADMIN_USERS}
+      - NTFY_AUTH_TOKENS=${NTFY_ADMIN_TOKENS}
+      - NTFY_BEHIND_PROXY=true
+      - NTFY_ENABLE_LOGIN=true
+    networks:
+      - homelab-net
+    command: serve
+
+  # Authelia - The Single Sign-On and 2FA portal
+  authelia:
+    build:
+      context: .
+      dockerfile: authelia/Dockerfile
+      args:
+        AUTHELIA_SESSION_SECRET: ${AUTHELIA_SESSION_SECRET}
+        AUTHELIA_STORAGE_ENCRYPTION_KEY: ${AUTHELIA_STORAGE_ENCRYPTION_KEY}
+        AUTHELIA_JWT_SECRET: ${AUTHELIA_JWT_SECRET}
+        DNS_DOMAIN: ${DNS_DOMAIN}
+        LLDAP_LDAP_BASE_DN: ${LLDAP_LDAP_BASE_DN}
+        LLDAP_LDAP_USER_PASS: ${LLDAP_LDAP_USER_PASS}
+        AUTHELIA_WEB_HOSTNAME: ${AUTHELIA_WEB_HOSTNAME}
+        HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
+        VAULTWARDEN_OIDC_HASHED_SECRET: ${VAULTWARDEN_OIDC_HASHED_SECRET}
+        VAULTWARDEN_WEB_HOSTNAME: ${VAULTWARDEN_WEB_HOSTNAME}
+        AUTHELIA_HMAC_SECRET: ${AUTHELIA_HMAC_SECRET}
+        PORTAINER_WEB_HOSTNAME: ${PORTAINER_WEB_HOSTNAME}
+        PORTAINER_OIDC_HASHED_SECRET: ${PORTAINER_OIDC_HASHED_SECRET}
+        DASHBOARD_OIDC_HASHED_SECRET: ${DASHBOARD_OIDC_HASHED_SECRET}
+        DASHBOARD_WEB_HOSTNAME: ${DASHBOARD_WEB_HOSTNAME}
+        LLDAP_LDAP_USER_DN: ${LLDAP_LDAP_USER_DN}
+    container_name: authelia
+    restart: unless-stopped
+    networks:
+      - homelab-net
+    volumes:
+      - ./volumes/authelia/private.pem:/config/jwks/private.pem:ro
+      - authelia-data:/var/lib/authelia
+    depends_on:
+      - lldap
+      - authelia-redis
+
+  # Redis for Authelia session storage
+  authelia-redis:
+    image: redis:7-alpine
+    container_name: authelia-redis
+    restart: unless-stopped
+    volumes:
+      - authelia-redis-data:/data
+    networks:
+      - homelab-net
+
+  # LLDAP - A lightweight LDAP server for user authentication
+  lldap:
+    image: lldap/lldap:latest
+    container_name: lldap
+    restart: unless-stopped
+    volumes:
+      - lldap-data:/data
+    networks:
+      - homelab-net
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - LLDAP_JWT_SECRET=${LLDAP_JWT_SECRET}
+      - LLDAP_LDAP_BASE_DN=${LLDAP_LDAP_BASE_DN}
+      - LLDAP_LDAP_USER_PASS=${LLDAP_LDAP_USER_PASS}
+      - LLDAP_HTTP_URL=https://${LLDAP_WEB_HOSTNAME}
+  
+
+# Docker will manage these volumes for persistent data storage
+volumes:
+  homelab-dashboard-api-data:
+  homelab-dashboard-word-games-data:
+  ollama-data:
+  pihole_data:
+  pihole_logs:
+  portainer-data:
+  unbound-redis-data:
+  vaultwarden-data:
+  ntfy_data:
+  authelia-data: # Added for Authelia
+  authelia-redis-data: # Added for Authelia's Redis
+  lldap-data: # Added for LLDAP

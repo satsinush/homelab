@@ -1,3 +1,13 @@
 *node_modules/
 *package-lock.json
-*.env
+.env
+docker-compose.override.yml
+
+id_ed25519
+id_ed25519.pub
+*.crt
+*.key
+*.pem
+
+volumes/
+backups/

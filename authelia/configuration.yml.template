@@ -1,0 +1,196 @@
+#################################################################
+# Authelia Configuration Template
+# Placeholders like ${VAR} are replaced at build time via envsubst
+#################################################################
+
+server:
+  address: tcp://0.0.0.0:9091
+
+log:
+  level: info
+  format: text
+  file_path: ""
+
+session:
+  name: authelia_session
+  secret: ${AUTHELIA_SESSION_SECRET}
+  expiration: 24h
+  inactivity: 1h
+  remember_me: 1M
+  same_site: lax
+  cookies:
+    - domain: ${HOMELAB_HOSTNAME}          # e.g., homelab.home.arpa
+      authelia_url: https://${AUTHELIA_WEB_HOSTNAME}
+    - domain: 127.0.0.1
+      authelia_url: https://127.0.0.1:9091
+  redis:
+    host: authelia-redis
+    port: 6379
+    password: ""
+
+identity_validation:
+  reset_password:
+    jwt_secret: ${AUTHELIA_JWT_SECRET}
+
+storage:
+  local:
+    path: /var/lib/authelia/db.sqlite3
+  encryption_key: ${AUTHELIA_STORAGE_ENCRYPTION_KEY}
+
+authentication_backend:
+  ldap:
+    address: ldap://lldap:3890
+    base_dn: ${LLDAP_LDAP_BASE_DN}
+    attributes:
+      username: uid
+    additional_users_dn: ou=people
+    additional_groups_dn: ou=groups
+    user: ${LLDAP_LDAP_USER_DN}    # LDAP bind user
+
+    password: ${LLDAP_LDAP_USER_PASS}
+    users_filter: '(&({username_attribute}={input})(objectClass=person))'
+    groups_filter: '(&(objectClass=groupOfNames)(member={dn}))'
+
+notifier:
+  filesystem:
+    filename: /var/lib/authelia/notification.txt
+
+access_control:
+  default_policy: one_factor
+  rules:
+    # Portainer Admin Interface - Restrict to homelab_admins group  
+    - domain: '${PORTAINER_WEB_HOSTNAME}'
+      policy: one_factor
+      subject: 'group:homelab_admins'
+    
+    # Vaultwarden Admin Interface - Restrict to homelab_admins group
+    - domain: '${VAULTWARDEN_WEB_HOSTNAME}'
+      resources: '^/admin.*'
+      policy: one_factor
+      subject: 'group:homelab_admins'
+    
+    # General access to services for homelab users
+    - domain: 
+        - '${DASHBOARD_WEB_HOSTNAME}'
+        - '${PIHOLE_WEB_HOSTNAME}'
+        - '${NETDATA_WEB_HOSTNAME}'
+        - '${UPTIME_KUMA_WEB_HOSTNAME}'
+        - '${NTFY_WEB_HOSTNAME}'
+        - '${VAULTWARDEN_WEB_HOSTNAME}'
+      policy: one_factor
+      subject: 
+        - 'group:homelab_admins'
+        - 'group:homelab_users'
+
+definitions:
+  user_attributes:
+    homelab_role:
+      expression: '"homelab_admins" in groups ? "admin" : "homelab_users" in groups ? "user" : ""'
+    vaultwarden_role:
+      expression: '"homelab_admins" in groups ? "admin" : "homelab_users" in groups ? "user" : ""'
+
+identity_providers:
+  oidc:
+    hmac_secret: '${AUTHELIA_HMAC_SECRET}'
+    jwks:
+      - algorithm: 'RS256'
+        key: |
+          JWKS_KEY_PLACEHOLDER
+
+    # Custom claims policies for role mapping
+    claims_policies:
+      homelab_dashboard:
+        custom_claims:
+          homelab_role:
+            attribute: 'homelab_role'
+      vaultwarden:
+        custom_claims:
+          vaultwarden_role:
+            attribute: 'vaultwarden_role'
+
+    # Custom scopes that provide access to our custom claims
+    scopes:
+      homelab_dashboard:
+        claims:
+          - 'homelab_role'
+      vaultwarden:
+        claims:
+          - 'vaultwarden_role'
+
+    # This section defines the applications that can use Authelia for login.
+    clients:
+      - client_id: 'vaultwarden'
+        client_name: 'Vaultwarden'
+        client_secret: '${VAULTWARDEN_OIDC_HASHED_SECRET}' # Uses the hashed variable from your .env file.
+        public: false
+        authorization_policy: 'one_factor'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        claims_policy: 'vaultwarden'
+        redirect_uris:
+          - 'https://${VAULTWARDEN_WEB_HOSTNAME}/identity/connect/oidc-signin'
+        scopes:
+          - 'openid'
+          - 'offline_access'
+          - 'profile'
+          - 'email'
+          - 'groups'
+          - 'vaultwarden'
+        response_types:
+          - 'code'
+        grant_types:
+          - 'authorization_code'
+          - 'refresh_token'
+        access_token_signed_response_alg: 'none'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'client_secret_basic'
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1M'
+
+
+
+      - client_id: 'portainer'
+        client_name: 'Portainer'
+        client_secret: '${PORTAINER_OIDC_HASHED_SECRET}' # Uses the hashed variable from your .env file
+        public: false
+        authorization_policy: 'one_factor' # Or 'one_factor'
+        redirect_uris:
+          - 'https://${PORTAINER_WEB_HOSTNAME}'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+          - 'groups'
+        response_types:
+          - 'code'
+        grant_types:
+          - 'authorization_code'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'client_secret_basic'
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1M'
+
+      - client_id: 'homelab-dashboard'
+        client_name: 'Homelab Dashboard'
+        client_secret: '${DASHBOARD_OIDC_HASHED_SECRET}'
+        public: false
+        authorization_policy: 'one_factor'
+        claims_policy: 'homelab_dashboard'
+        redirect_uris:
+          - 'https://${DASHBOARD_WEB_HOSTNAME}/api/users/sso-callback'
+        scopes:
+          - 'openid'
+          - 'profile'
+          - 'email'
+          - 'groups'
+          - 'offline_access'
+          - 'homelab_dashboard'
+        response_types:
+          - 'code'
+        grant_types:
+          - 'authorization_code'
+          - 'refresh_token'
+        userinfo_signed_response_alg: 'none'
+        token_endpoint_auth_method: 'client_secret_basic'
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1M'
