@@ -54,28 +54,28 @@ This project bundles several open-source services, managed via `docker-compose`,
 ```mermaid
 graph TD
     subgraph Internet
-        RemoteClient[🌍 Remote User]
+        RemoteClient[Remote User]
     end
     subgraph LAN
-        Router[📶 Router]
-        LocalClient[💻 Local Devices]
-        subgraph Server[🖥️ Homelab Server]
-            WireGuard[🔒 WireGuard VPN]
-            UFW[🛡️ UFW Firewall]
-            subgraph Docker[🐳 Docker Network]
-                Nginx[🌐 NGINX Reverse Proxy]
-                Authelia[🔑 Authelia SSO]
-                Vaultwarden[🔐 Vaultwarden]
-                Portainer[📦 Portainer]
-                Dashboard[🏠 Homelab Dashboard]
-                Ollama[🤖 Ollama AI]
-                Netdata[📊 Netdata Monitoring]
-                UptimeKuma[📈 Uptime Kuma]
-                Ntfy[🔔 ntfy Notifications]
-                LLDAP[👥 LLDAP]
-                Pihole[🚫 Pi-hole DNS]
-                Unbound[🔎 Unbound DNS Resolver]
-                Rustdesk[🖥️ RustDesk ID & Relay]
+        Router[Router]
+        LocalClient[Local Devices]
+        subgraph Server[Homelab Server]
+            WireGuard[WireGuard VPN]
+            UFW[UFW Firewall]
+            subgraph Docker[Docker Network]
+                Nginx[NGINX Reverse Proxy]
+                Authelia[Authelia SSO]
+                Vaultwarden[Vaultwarden]
+                Portainer[Portainer]
+                Dashboard[Homelab Dashboard]
+                Ollama[Ollama AI]
+                Netdata[Netdata Monitoring]
+                UptimeKuma[Uptime Kuma]
+                Ntfy[ntfy Notifications]
+                LLDAP[LLDAP]
+                Pihole[Pi-hole DNS]
+                Unbound[Unbound DNS Resolver]
+                Rustdesk[RustDesk ID & Relay]
             end
         end
     end
