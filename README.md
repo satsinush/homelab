@@ -52,39 +52,55 @@ This project bundles several open-source services, managed via `docker-compose`,
 ### Infrastructure Diagram
 
 ```mermaid
+%%{init: {
+    "theme": "dark"
+}}%%
 graph TD
+    %% INTERNET
     subgraph Internet
-        RemoteClient[Remote User]
+        RemoteClient[🌍 Remote User]
     end
+
+    %% LAN
     subgraph LAN
-        Router[Router]
-        LocalClient[Local Devices]
-        subgraph Server[Homelab Server]
-            WireGuard[WireGuard VPN]
-            UFW[UFW Firewall]
-            subgraph Docker[Docker Network]
-                Nginx[NGINX Reverse Proxy]
-                Authelia[Authelia SSO]
-                Vaultwarden[Vaultwarden]
-                Portainer[Portainer]
-                Dashboard[Homelab Dashboard]
-                Ollama[Ollama AI]
-                Netdata[Netdata Monitoring]
-                UptimeKuma[Uptime Kuma]
-                Ntfy[ntfy Notifications]
-                LLDAP[LLDAP]
-                Pihole[Pi-hole DNS]
-                Unbound[Unbound DNS Resolver]
-                Rustdesk[RustDesk ID & Relay]
+        Router[📶 Router]
+        LocalClient[💻 Local Devices]
+
+        subgraph Server[🖥️ Homelab Server]
+            WireGuard[🔒 WireGuard VPN]
+            UFW[🛡️ UFW Firewall]
+
+            subgraph Docker[🐳 Docker Network]
+                Nginx[🌐 NGINX Reverse Proxy]
+                Authelia[🔑 Authelia SSO]
+                Vaultwarden[🔐 Vaultwarden]
+                Portainer[📦 Portainer]
+                Dashboard[🏠 Homelab Dashboard]
+                Ollama[🤖 Ollama AI]
+                Netdata[📊 Netdata Monitoring]
+                UptimeKuma[📈 Uptime Kuma]
+                Ntfy[🔔 ntfy Notifications]
+                LLDAP[👥 LLDAP]
+                Pihole[🚫 Pi-hole DNS]
+                Unbound[🔎 Unbound DNS Resolver]
+                Rustdesk[🖥️ RustDesk ID & Relay]
             end
         end
     end
+
+    %% Entry chain
     RemoteClient --> Router --> WireGuard --> UFW
     LocalClient --> UFW
+
+    %% DNS chain
     Pihole --> Unbound
     UFW -->|DNS| Pihole
+
+    %% Firewall routes
     UFW -->|HTTP| Nginx
     UFW -->|Remote Access| Rustdesk --> LocalClient
+
+    %% Proxy/Auth flows
     Nginx --> Authelia
     Nginx --> Vaultwarden
     Nginx --> Ntfy
@@ -93,11 +109,16 @@ graph TD
     Nginx --> Netdata
     Nginx --> UptimeKuma
     Nginx --> Ntfy
+
     Authelia --> LLDAP
+
+    %% Dashboard flows
     Dashboard --> Ollama
     Dashboard --> Netdata
     Dashboard -->|WOL| LocalClient
     Dashboard --> Ntfy
+
+    %% Notifications
     UptimeKuma --> Ntfy
     Vaultwarden --> Ntfy
 ```
