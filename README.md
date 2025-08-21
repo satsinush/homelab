@@ -509,6 +509,10 @@ Final configuration steps for individual services.
   * **🔑 Authelia**
     * If you need to recover an account, you can retrieve email verification codes by running subcribing to your `YOUR USERNAME` topic in ntfy.
       * [Authelia Docs 🔗](https://www.authelia.com/integration/prologue/get-started/)
+  * **🏠 Homelab Dashboard**
+    * Sign into the homelab dashboard using SSO. It's possible to sign in initially with a local account and map it to your SSO account, but this is not recommended.
+  * **📦 Portainer**
+    * Sign into Portainer using either SSO or your local homelab username and password.
 
 ### Congratulations! 🎉
 
