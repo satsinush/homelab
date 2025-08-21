@@ -10,7 +10,7 @@ This repository contains all the configuration and Docker instructions needed to
     <img src="https://img.shields.io/badge/Docker%20Compose-v2-2496ED?style=flat-square&logo=docker" alt="Docker Compose">
   </a>
   <a href="https://archlinux.org/">
-    <img src="https://img.shields.io/badge/Arch%20Linux-1793D1?style=flat-square&logo=arch-linux" alt="Arch Linux">
+    <img src="https://img.shields.io/badge/-Arch%20Linux-grey?style=flat-square&logo=arch-linux" alt="Arch Linux">
   </a>
 </p>
 
@@ -34,11 +34,11 @@ This project bundles several open-source services, managed via `docker-compose`,
 ### Core Services Included
 
   * **🏠 Homelab Dashboard**: A custom web interface with:
-      * LAN device scanning and WOL support
-      * Word puzzle game solver
-      * Host device package management (for *pacman*)
-      * An integrated AI chatbot
-  * **🛡️ Authelia**: Single Sign-On (SSO) for securing services.
+      * ⏻ LAN device scanning and WOL support
+      * 🧩 Word puzzle game solver
+      * 📦 Host device package management (for *pacman*)
+      * 🤖 An integrated AI chatbot with Ollama
+  * **🔑 Authelia**: Single Sign-On (SSO) for securing services.
   * **📊 Netdata**: Real-time performance monitoring.
   * **📦 Portainer**: Docker container management UI.
   * **📈 Uptime Kuma**: Service monitoring and status pages.
@@ -46,7 +46,7 @@ This project bundles several open-source services, managed via `docker-compose`,
   * **🚫 Pi-hole & Unbound**: Network-wide ad-blocking and recursive DNS.
   * **🌐 ddclient**: Dynamic DNS client to keep your domain pointed to your IP.
   * **🖥️ RustDesk**: A self-hosted remote desktop solution.
-  * **🔑 Vaultwarden**: Self-hosted password manager.
+  * **🔐 Vaultwarden**: Self-hosted password manager.
 
 ### Infrastructure Diagram
 
@@ -77,10 +77,10 @@ graph TD
                 Dashboard[🏠 Homelab Dashboard]
                 Ollama[🤖 Ollama AI]
                 Netdata[📊 Netdata Monitoring]
-                UptimeKuma[⏱️ Uptime Kuma]
-                Ntfy[📨 ntfy Notifications]
+                UptimeKuma[📈 Uptime Kuma]
+                Ntfy[🔔 ntfy Notifications]
                 LLDAP[👥 LLDAP]
-                Pihole[🛑 Pi-hole DNS]
+                Pihole[🚫 Pi-hole DNS]
                 Unbound[🔎 Unbound DNS Resolver]
                 Rustdesk[🖥️ RustDesk ID & Relay]
             end
@@ -149,7 +149,7 @@ For better security, it's recommended to use a non-default SSH port.
   * Ensure your new port is opened in the firewall rules below.
   * [OpenSSH Docs 🔗](https://wiki.archlinux.org/title/OpenSSH)
 
-### 2\. Firewall (UFW) Setup 🧱
+### 2\. Firewall (UFW) Setup 🛡️
 
 These rules assume your LAN is `10.10.10.0/24` and your VPN is `10.10.20.0/24`. Adjust as needed.
 
@@ -193,7 +193,7 @@ Then run this command to enable the firewall.
 sudo ufw reload
 ```
 
-### 3\. WireGuard VPN Setup 🌐
+### 3\. WireGuard VPN Setup 🔒
 
 1.  **Configuration**: Copy the example config from [`./wireguard/wg0.conf`](./wireguard/wg0.conf) to `/etc/wireguard/wg0.conf` and edit it with your keys and peer information.
 2.  **Enable IP Forwarding**: Create `/etc/sysctl.d/40-ipv4-forward.conf` and add the line `net.ipv4.ip_forward = 1`.
@@ -252,7 +252,7 @@ git submodule update
       * If you use a DDNS service, make sure to copy [`./ddclient/example.ddclient.conf`](./ddclient/example.ddclient.conf) to `./ddclient/ddclient.conf` and fill in your provider's details.
       * [ddclient Docs 🔗](https://ddclient.net/)
 2.  **Environment Variables**
-      * Carefully review and update any values you want to customize.
+      * The `setup.sh` script will use `./.env.template` as a base to generate your final `.env` file. Carefully change any values you want to customize in the template **before** running the script.
       * Values in `<angle_brackets>` will be replaced automatically by the setup script.
 
 ### 3\. Enable Systemd Services ⚙️
@@ -267,7 +267,7 @@ Copy the systemd service files to the system directory with this command.
 sudo cp -rv ./systemd/system/* /etc/systemd/system/
 ```
 
-#### **Step 2: Copy the Files to Systemd**
+#### **Step 2: Configure the Service Files**
 
 After copying the files, you must edit them to match your user and home directory.
 
@@ -343,7 +343,7 @@ Final configuration steps for individual services.
 
   * **📜 CA Certificate**
     * Install the generated `homelab-ca.crt` (found in [`./volumes/certificates`](./volumes/certificates/)) on all your client devices to avoid browser security warnings.
-  * **🔑 Vaultwarden**
+  * **🔐 Vaultwarden**
     * Create your primary account. You **must** use the email provided to you by the set up script, otherwise ntfy will not create notifcations for password reset emails and you may lose access to your account. Afterwards, you can optionally set `VAULTWARDEN_SIGNUPS_ALLOWED=false` in your `.env` and restart the container to disable public registration.
     * [Vaultwarden Docs 🔗](https://github.com/dani-garcia/vaultwarden/blob/main/README.md)
   * **📈 Uptime Kuma**
@@ -360,16 +360,17 @@ Final configuration steps for individual services.
     * Configure your clients by setting the **ID/Relay Server** to your host's IP/domain. The required public key is printed after running [`./setup.sh`](./setup.sh) or can be obtained by running this command: `docker cp rustdesk-id-server:/root/id_ed25519.pub - | tar -xO`
     * [RustDesk Docs 🔗](https://rustdesk.com/docs/)
   * **🚫 Pi-hole**
-    * For best results, consider replacing the default adlists with a more lest strict list, such as the [Hagezi Pro list](https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt).
+    * For best results, consider replacing the default adlists with a more lest strict list, such as the [Hagezi Pro list](https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt). Or if you want to block as much as possible use both.
+    * You can test if the ad-blocking service is working by going here [AdBlock Tester](https://adblock-tester.com).
     * [Pi-hole Docs 🔗](https://docs.pi-hole.net/)
-  * **🛡️ Authelia**
+  * **🔑 Authelia**
     * If you need to recover an account, you can retrieve email verification codes by running subcribing to your `YOUR USERNAME` topic in ntfy.
       * [Authelia Docs 🔗](https://www.authelia.com/integration/prologue/get-started/)
 
 
 ## 💾 Backup and Restore
 
-This project includes a powerful script, [`backup.sh`](https://www.google.com/search?q=./backup.sh), for both manual and automated backups. It archives all essential data—including local configurations, bind mounts (`./volumes`), and Docker named volumes—into a single, compressed `.tar.gz` file.
+This project includes a powerful script, [`backup.sh`](./backup.sh), for both manual and automated backups. It archives all essential data—including local configurations, bind mounts (`./volumes`), and Docker named volumes—into a single, compressed `.tar.gz` file.
 
 ### Creating a Backup
 
@@ -517,10 +518,11 @@ This typically points to a misconfiguration in your `.env` file, a port conflict
 
 -----
 
-### I'm seeing a HTTP error like '502 Bad Gateway'
+### I'm seeing an HTTP error like '404 Not Found' or '502 Bad Gateway'
 
 These errors mean the request reached your reverse proxy (e.g., Nginx, Traefik), but it couldn't be completed.
 
+  * **Cause (404 Not Found):** The reverse proxy received the request but has no configuration for that specific domain. Check your NGINX configuration file for typos in the hostname.
   * **Cause (502 Bad Gateway):** The reverse proxy has a rule, but it cannot communicate with the backend service container. This usually means the service container is stopped, unhealthy, or not on the same Docker network.
 
   * **Solution:** Check the logs of your reverse proxy container for specific error messages.
