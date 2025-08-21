@@ -21,6 +21,7 @@ This repository contains all the configuration and Docker instructions needed to
 - [Project Deployment](#-project-deployment)
 - [Backup and Restore](#-backup-and-restore)
 - [Post Installation Checklist](#-post-installation-checklist)
+- [Backup and Restore](#-backup-and-restore)
 - [Development](#-development)
 - [Troubleshooting](#-troubleshooting)
 - [License](#️-license)
@@ -130,30 +131,82 @@ Before you begin, ensure your device is up to date and that the following packag
 
 ```shell
 sudo pacman -Syu
-sudo pacman -S openssl apache sed grep xargs docker jq lm_sensors arp-scan
+sudo pacman -S openssl apache sed grep xargs docker jq lm_sensors arp-scan openssh wireguard-tools ufw
 ```
 
-  * After installing `lm_sensors`, run `sudo sensors-detect` to initialize it.
-  * The `apache` package is needed for the `htpasswd` utility used by the setup script.
+  * After installing `lm_sensors`, run `sudo sensors-detect` to initialize sensor data for Netdata to use.
+  * The `apache` package is needed for the `htpasswd` utility used by the setup script to create secure password hashes.
 
 
 ## 💻 Host Machine Configuration
 
 Follow these steps to prepare the host server.
 
-### 1\. SSH Setup 🔒
+### 1\. SSH Security Hardening 🔒
 
-For better security, it's recommended to use a non-default SSH port.
+For a secure setup, we will configure SSH to use **key-based authentication only**. This makes it much more difficult for an attacker to gain access.
 
-  * **Optional**: Change the SSH port from `22` to `2222` in your `/etc/ssh/sshd_config`.
-  * Ensure your new port is opened in the firewall rules below.
-  * [OpenSSH Docs 🔗](https://wiki.archlinux.org/title/OpenSSH)
+**Step 1: Set Up SSH Key Authentication**
+
+First, ensure you can log in using an SSH key instead of a password.
+
+1.  **On your local machine (not the server)**, generate an SSH key if you don't have one:
+    ```shell
+    ssh-keygen -t ed25519 -C "your_email@example.com"
+    ```
+2.  Copy your **public** key to the server (replace `user` and `server_ip`):
+    ```shell
+    ssh-copy-id user@server_ip
+    ```
+3.  Log in to your server using the key to confirm it works:
+    ```shell
+    ssh user@server_ip
+    ```
+
+**Step 2: Harden the SSH Server Configuration**
+
+Now, we'll edit the SSH server configuration file on the server.
+
+1.  Open the configuration file `/etc/ssh/sshd_config`
+
+2.  Make the following changes to improve security:
+      * **(Optional)** Change the port from `22` to `2222`. This helps avoid automated scans.
+        ```ini
+        Port 2222
+        ```
+      * **Disable root login** to prevent direct access to the most privileged account.
+        ```ini
+        PermitRootLogin no
+        ```
+      * **Disable password authentication** to force the use of secure SSH keys.
+        ```ini
+        PasswordAuthentication no
+        PubkeyAuthentication yes
+        ```
+
+3.  Save the file and restart the SSH service to apply the changes:
+    ```shell
+    sudo systemctl restart sshd
+    ```
+
+> **Important**: Ensure your new port (`2222/tcp`) is opened in your firewall rules before restarting SSH, or you may lock yourself out.
+
+* **Docs:** [OpenSSH Wiki 🔗](https://wiki.archlinux.org/title/OpenSSH)
 
 ### 2\. Firewall (UFW) Setup 🛡️
 
-These rules assume your LAN is `10.10.10.0/24` and your VPN is `10.10.20.0/24`. Adjust as needed.
+These instructions configure the Uncomplicated Firewall (UFW) to secure the server.
 
-First, set the default policies:
+**Prerequisites:**
+
+  * LAN Subnet: `10.10.10.0/24` (on `end0` interface)
+  * VPN Subnet: `10.10.20.0/24` (on `wg0` interface)
+
+Adjust these values in the commands below if your network is different.
+
+**Step 1: Set Default Policies**
+
+First, set the firewall's default behavior: block all incoming and forwarded traffic, but allow all outgoing traffic.
 
 ```shell
 sudo ufw default deny incoming
@@ -161,63 +214,153 @@ sudo ufw default allow outgoing
 sudo ufw default deny routed
 ```
 
-Then, apply the following rules for your services:
+**Step 2: Configure NAT for Forwarding**
 
-| To | Action | From | Description |
-| :--- | :---: | :--- | :--- |
-| **VPN Traffic** |
-| Anywhere on `wg0` | `ALLOW IN` | `10.10.20.0/24` | Allow all VPN traffic on the WireGuard interface |
-| `51820/udp` | `ALLOW IN` | `Anywhere` | WireGuard VPN Endpoint (IPv4 & v6) |
-| **LAN Access** |
-| `2222/tcp` | `ALLOW IN` | `10.10.10.0/24` | SSH from LAN |
-| `80,443/tcp` | `ALLOW IN` | `10.10.10.0/24` | Web services from LAN |
-| `53` | `ALLOW IN` | `10.10.10.0/24` | DNS (Pi-hole) from LAN |
-| `21114:21119/tcp` | `ALLOW IN` | `10.10.10.0/24` | RustDesk from LAN |
-| `21116/udp` | `ALLOW IN` | `10.10.10.0/24` | RustDesk from LAN |
-| **VPN Access** |
-| `2222/tcp` | `ALLOW IN` | `10.10.20.0/24` | SSH from VPN |
-| `80,443/tcp` | `ALLOW IN` | `10.10.20.0/24` | Web services from VPN |
-| `53` | `ALLOW IN` | `10.10.20.0/24` | DNS (Pi-hole) from VPN |
-| `21114:21119/tcp` | `ALLOW IN` | `10.10.20.0/24` | RustDesk from VPN |
-| `21116/udp` | `ALLOW IN` | `10.10.20.0/24` | RustDesk from VPN |
+For traffic to be routed correctly between the LAN and VPN, Network Address Translation (NAT) must be configured. This is primarily to ensure processes work correctly with WireGuard and Docker.
 
-Finally, copy the custom rules file which includes forwarding rules for Docker and WireGuard:
+  * Copy the provided `before.rules` file to the UFW directory:
+    ```shell
+    sudo cp ./ufw/before.rules /etc/ufw/before.rules
+    ```
 
-  * Copy [`./ufw/before.rules`](./ufw/before.rules) to `/etc/ufw/before.rules`
-  * [UFW Docs 🔗](https://wiki.archlinux.org/title/Uncomplicated_Firewall)
+**Step 3: Add Firewall Rules**
 
-Then run this command to enable the firewall.
+Run the following commands to allow access for your specific applications and enable forwarding between the LAN and VPN.
 
 ```shell
-# Applies and enables all firewall rules
-sudo ufw reload
+# --- CORE ACCESS ---
+# Allow WireGuard VPN connections from anywhere
+sudo ufw allow 51820/udp
+
+# Allow SSH from LAN and VPN
+sudo ufw allow from 10.10.10.0/24 to any port 2222 proto tcp
+sudo ufw allow from 10.10.20.0/24 to any port 2222 proto tcp
+
+
+# --- SERVICE ACCESS ---
+# Allow Web (HTTP/S) from LAN and VPN
+sudo ufw allow from 10.10.10.0/24 to any port 80,443 proto tcp
+sudo ufw allow from 10.10.20.0/24 to any port 80,443 proto tcp
+
+# Allow DNS (Pi-hole) from LAN and VPN
+sudo ufw allow from 10.10.10.0/24 to any port 53
+sudo ufw allow from 10.10.20.0/24 to any port 53
+
+# Allow RustDesk from LAN and VPN
+sudo ufw allow from 10.10.10.0/24 to any port 21114:21119 proto tcp
+sudo ufw allow from 10.10.10.0/24 to any port 21116 proto udp
+sudo ufw allow from 10.10.20.0/24 to any port 21114:21119 proto tcp
+sudo ufw allow from 10.10.20.0/24 to any port 21116 proto udp
+
+
+# --- FORWARDING RULES ---
+# Allow traffic from VPN clients to be forwarded to LAN devices
+sudo ufw route allow in on wg0 from 10.10.20.0/24 to 10.10.10.0/24 out on end0
+
+# Allow traffic from LAN devices to be forwarded to VPN clients
+sudo ufw route allow in on end0 from 10.10.10.0/24 to 10.10.20.0/24 out on wg0
+```
+
+> **Note**: For LAN-to-VPN forwarding to work, you must add a **static route** on your main network router. The route should direct traffic for the `10.10.20.0/24` network to this server's LAN IP address. This is only required if you need LAN devices to initiate connections to VPN devices.
+
+**Step 4: Enable Firewall**
+
+Finally, enable UFW and check the status to confirm the rules are active.
+
+```shell
+# Enable the firewall (will prompt 'y/n')
+sudo ufw enable
+
+# Check the status
+sudo ufw status verbose
 ```
 
 ### 3\. WireGuard VPN Setup 🔒
 
-1.  **Configuration**: Copy the example config from [`./wireguard/wg0.conf`](./wireguard/wg0.conf) to `/etc/wireguard/wg0.conf` and edit it with your keys and peer information.
-2.  **Enable IP Forwarding**: Create `/etc/sysctl.d/40-ipv4-forward.conf` and add the line `net.ipv4.ip_forward = 1`.
-3.  **Router Setup**: Configure your internet router to port forward UDP `51820` to your host machine.
+This guide will set up a WireGuard VPN, allowing secure remote access to your server and local network.
 
-<!-- end list -->
+**Step 1: Generate Keys**
 
-  * [WireGuard Docs 🔗](https://www.wireguard.com/quickstart/)
+WireGuard uses public-key cryptography for security. We need to generate a private and public key for the server and for each client (peer) that will connect.
 
-Apply changes with these commands.
+1.  Navigate to the WireGuard directory and set secure permissions:
+    ```shell
+    sudo -i
+    cd /etc/wireguard
+    umask 077
+    ```
+2.  Generate the server's key pair:
+    ```shell
+    wg genkey | tee server.private | wg pubkey > server.public
+    ```
+3.  Generate a key pair for each client (e.g., for "my-phone"). Repeat this for every device you want to connect:
+    ```shell
+    wg genkey | tee my-phone.private | wg pubkey > my-phone.public
+    ```
+4.  View the keys when you need them with `cat <filename>`. Exit the root shell with `exit`.
+
+**Step 2: Configure the Server**
+
+1.  Copy the example config file:
+
+    ```shell
+    sudo cp ./wireguard/wg0.conf /etc/wireguard/wg0.conf
+    ```
+
+2.  Edit the server configuration file (`sudo nano /etc/wireguard/wg0.conf`). Use the keys you just generated to fill in the placeholders.
+
+    **Example `wg0.conf`:**
+
+    ```ini
+    [Interface]
+    # Server's private key (from server.private)
+    PrivateKey = <PASTE_SERVER_PRIVATE_KEY>
+    Address = 10.10.20.1/24
+    ListenPort = 51820
+
+    # --- PEER 1: MY-PHONE ---
+    [Peer]
+    # Client's public key (from my-phone.public)
+    PublicKey = <PASTE_MY-PHONE_PUBLIC_KEY>
+    # The IP address this client will use on the VPN
+    AllowedIPs = 10.10.20.13/32
+    ```
+
+    > **Tip**: It's good practice to align the client's VPN IP with its LAN IP. For example, a PC at `10.10.10.13` on the LAN could be assigned `10.10.20.13` on the VPN.
+
+**Step 3: Enable IP Forwarding**
+
+To allow VPN clients to access your LAN, the server must be able to forward network packets.
+
+  * Create a sysctl configuration file to make this setting permanent:
+    ```shell
+    echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/40-ipv4-forward.conf
+    ```
+
+**Step 4: Configure Your Router**
+
+1.  **Port Forwarding:** In your internet router's settings, forward **UDP port 51820** to the LAN IP address of your server (e.g., `10.10.10.10`).
+2.  **Static IP/DHCP Reservation:** Ensure your server always has the same LAN IP address by setting a DHCP reservation or a static IP in your router's settings. Do this for other devices you want to have a static IP as well.
+
+**Step 5: Start and Enable the Service**
+
+Apply the IP forwarding rule and start the WireGuard service.
 
 ```shell
 # Reloads all kernel parameters from /etc/sysctl.d/
 sudo sysctl --system
 
-# Restarts the wg0 interface to apply the new config
-sudo systemctl restart wg-quick@wg0.service
+# Starts the WireGuard interface and enables it to start on boot
+sudo systemctl enable --now wg-quick@wg0
 ```
+
+* **Docs:** [WireGuard Quickstart 🔗](https://www.wireguard.com/quickstart/)
 
 ### 4\. DNS Configuration
 
 1.  **`dhcpcd.conf`**: Configure `/etc/dhcpcd.conf` to prevent the DHCP client from overwriting your custom DNS settings. See [`./dns/dhcpcd.conf`](./dns/dhcpcd.conf) as an example.
 2.  **`resolv.conf`**: Configure `/etc/resolv.conf` to prioritize the local Pi-hole resolver while providing a backup DNS for when Pi-hole is not running. See [`./dns/resolv.conf`](./dns/resolv.conf) as an example.
-3.  **`resolved.conf`**: Configure `/etc/systemd/resolved.conf` to disable the systemd stub listener on port 53, freeing it up for Pi-hole. See [`./resolved.conf`](./resolved.conf) as an example.
+3.  **`resolved.conf`**: Configure `/etc/systemd/resolved.conf` to disable the systemd stub listener on port 53. This is necessary to free up port 53 so that Pi-hole can use it to answer DNS queries. See [`./resolved.conf`](./resolved.conf) as an example.
 
 Apply changes with these commands.
 
@@ -367,6 +510,9 @@ Final configuration steps for individual services.
     * If you need to recover an account, you can retrieve email verification codes by running subcribing to your `YOUR USERNAME` topic in ntfy.
       * [Authelia Docs 🔗](https://www.authelia.com/integration/prologue/get-started/)
 
+### Congratulations! 🎉
+
+You've officially set up your homelab system! Check out the information below for more details on backing up your data, working on development, and troubleshooting issues.
 
 ## 💾 Backup and Restore
 
