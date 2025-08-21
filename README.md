@@ -3,9 +3,15 @@
 This repository contains all the configuration and Docker instructions needed to deploy a comprehensive, self-hosted homelab system.
 
 <p align="center">
-  <img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License: MIT">
-  <img src="https://img.shields.io/badge/Docker%20Compose-v2-2496ED?style=flat-square&logo=docker" alt="Docker Compose">
-  <img src="https://img.shields.io/badge/-Arch%20Linux-grey?style=flat-square&logo=arch-linux" alt="Arch Linux">
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License: MIT">
+  </a>
+  <a href="https://docs.docker.com/compose/">
+    <img src="https://img.shields.io/badge/Docker%20Compose-v2-2496ED?style=flat-square&logo=docker" alt="Docker Compose">
+  </a>
+  <a href="https://archlinux.org/">
+    <img src="https://img.shields.io/badge/Arch%20Linux-1793D1?style=flat-square&logo=arch-linux" alt="Arch Linux">
+  </a>
 </p>
 
 ## 📚 Table of Contents
