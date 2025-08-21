@@ -1,0 +1,12 @@
+# /etc/systemd/system/pacman-sync.timer
+
+[Unit]
+Description=Run pacman-sync daily
+Requires=pacman-sync.service
+
+[Timer]
+OnCalendar=*-*-* 08:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

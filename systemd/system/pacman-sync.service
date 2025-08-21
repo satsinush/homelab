@@ -1,0 +1,10 @@
+# /etc/systemd/system/pacman-sync.service
+
+[Unit]
+Description=Synchronize Pacman package databases
+After=network-online.target 
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/pacman -Sy --noconfirm
+User=root

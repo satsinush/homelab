@@ -39,18 +39,20 @@ if [ ! -f .env ]; then
   fi
 
   echo "   Enter username and password for homelab services:"
-  read -p "   Username: " USERNAME
+  read -p "                       Username: " USERNAME
 
   while true; do
     read -p "   Password (min 12 characters): " PASSWORD
-    echo
-
     if [ ${#PASSWORD} -lt 12 ]; then
       echo "   ⚠️  Password is too short. Please try again."
     else
       break
     fi
   done
+
+  echo "   Enter host device IP address:"
+  read -p "                     IP Address: " IP_ADDRESS
+  echo
 
   echo "   Generating security tokens..."
   # Generate bcrypt password
@@ -100,6 +102,7 @@ if [ ! -f .env ]; then
   sed -i "s|<username>|$USERNAME|g" "$OUTPUT_FILE"
   sed -i "s|<password>|$PASSWORD|g" "$OUTPUT_FILE"
   sed -i "s|<ntfy-token>|$NTFY_TOKEN|g" "$OUTPUT_FILE"
+  sed -i "s|<ip-address>|$IP_ADDRESS|g" "$OUTPUT_FILE"
 
   echo "✅ Environment configuration created"
 else
@@ -130,11 +133,6 @@ CSR_OUT="/tmp/${HOMELAB_HOSTNAME}.csr"
 CONF_FILE="/tmp/server_ssl_config.cnf"
 
 # --- Certificate Details ---
-COUNTRY="US"
-STATE="Wisconsin"
-CITY="Appleton"
-ORGANIZATION="aneedham"
-OU_NAME="homelab"
 COMMON_NAME="${HOMELAB_HOSTNAME}"
 
 # List all Subject Alternative Names (SANs) for the server certificate.
@@ -188,10 +186,13 @@ if [ ! -f "$CA_KEY_OUT" ] || [ ! -f "$CA_CERT_OUT" ]; then
     # Generate the CA's private key
     sudo openssl genrsa -out "${CA_KEY_OUT}" "${KEY_BITS}"
 
-    # Generate the CA's self-signed root certificate
+    # Compute CA subject: prefer HOMELAB_USERNAME (from .env), then USERNAME (interactive), then system user
+    CA_SUBJECT="${HOMELAB_USERNAME} Homelab CA"
+
+    # Generate the CA's self-signed root certificate using the computed subject
     sudo openssl req -x509 -new -nodes -key "${CA_KEY_OUT}" -sha256 -days "${CERT_DAYS}" \
         -out "${CA_CERT_OUT}" \
-        -subj "/C=${COUNTRY}/ST=${STATE}/O=${ORGANIZATION}/CN=${ORGANIZATION} Homelab CA"
+        -subj "/CN=${CA_SUBJECT}"
     
     echo "   ✅ Certificate Authority created"
     echo "   ⚠️  Remember to add CA certificate to your devices' trust stores"
@@ -210,11 +211,6 @@ distinguished_name = dn
 req_extensions = v3_req
 
 [dn]
-C = ${COUNTRY}
-ST = ${STATE}
-L = ${CITY}
-O = ${ORGANIZATION}
-OU = ${OU_NAME}
 CN = ${COMMON_NAME}
 
 [v3_req]
@@ -237,8 +233,8 @@ sudo openssl x509 -req -in "${CSR_OUT}" \
     -extfile "${CONF_FILE}" -extensions v3_req
 
 # Set secure permissions
-sudo chmod 600 "${KEY_OUT}"
-sudo chmod 600 "${CA_KEY_OUT}"
+sudo chmod 644 "${KEY_OUT}"
+sudo chmod 644 "${CA_KEY_OUT}"
 
 # Try to install CA in system trust store
 if [ -f "${CA_CERT_OUT}" ]; then
@@ -451,7 +447,7 @@ set_user_password() {
   else
     echo "    Token not available, falling back to admin password authentication..."
     if [ -z "${LLDAP_LDAP_USER_PASS:-}" ]; then
-      echo "    ❌ Admin password not configured (LLDAP_LDAP_USER_PASS is empty). Cannot set password."
+      echo "    ❌ Admin password not configured (LLLDAP_LDAP_USER_PASS is empty). Cannot set password."
       return 1
     fi
     local cli_result
@@ -527,7 +523,7 @@ add_user_to_group() {
     local http_code=$(echo "$response" | grep "HTTP_CODE:" | cut -d: -f2)
     local body=$(echo "$response" | sed '/HTTP_CODE:/d')
     
-    if [ "$http_code" = "200" ]; then
+    if [ "$http_code" -eq 200 ]; then
         local success=$(echo "$body" | jq -r '.data.addUserToGroup.ok' 2>/dev/null)
         if [ "$success" = "true" ]; then
             echo "     ✅ Added $username to $group_name"
@@ -555,7 +551,7 @@ done
 if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
     echo "   ❌ Failed to authenticate with LLDAP after 5 attempts"
     echo "   ⚠️  You'll need to manually create users and groups in LLDAP web interface"
-    echo "      Default login: admin / ${LLDAP_PASSWORD}"
+    echo "      Default login: admin / ${HOMELAB_PASSWORD}"
 else
     echo "   Creating LLDAP groups..."
     
@@ -566,17 +562,17 @@ else
     echo "👤 Creating personal user account..."
     
     # Create your personal user account
-    create_lldap_user "$LLDAP_USERNAME" \
-                      "$LLDAP_USERNAME@$DNS_DOMAIN" \
-                      "$LLDAP_USERNAME" \
-                      "$LLDAP_PASSWORD" \
+    create_lldap_user "$HOMELAB_USERNAME" \
+                      "$HOMELAB_USERNAME@$HOMELAB_HOSTNAME" \
+                      "$HOMELAB_USERNAME" \
+                      "$HOMELAB_PASSWORD" \
                       "$TOKEN"
     
     echo "   Adding user to admin groups..."
     
     # Add user to admin groups (using display names since that's what we need to look up)
-    add_user_to_group "$LLDAP_USERNAME" "lldap_admin" "$TOKEN"
-    add_user_to_group "$LLDAP_USERNAME" "homelab_admins" "$TOKEN"
+    add_user_to_group "$HOMELAB_USERNAME" "lldap_admin" "$TOKEN"
+    add_user_to_group "$HOMELAB_USERNAME" "homelab_admins" "$TOKEN"
     
     echo "   ✅ LLDAP setup complete"
 fi
@@ -641,33 +637,29 @@ echo "🎉 Homelab Setup Complete!"
 echo "=========================="
 echo ""
 echo "📋 Access Information:"
-echo "   Username: ${LLDAP_USERNAME}"
-echo "   Password: ${LLDAP_PASSWORD}"
+echo "   Username: ${HOMELAB_USERNAME}"
+echo "   Password: ${HOMELAB_PASSWORD}"
+echo "   Email:    ${HOMELAB_USERNAME}@${HOMELAB_HOSTNAME}"
 echo ""
 
-# Print RustDesk public key if available
-RUSTDESK_PUB="./rustdesk/data/id_ed25519.pub"
-if [ -f "${RUSTDESK_PUB}" ]; then
-  echo "🖥️ RustDesk Public Key:"
-  cat "${RUSTDESK_PUB}"
+# Print RustDesk public key if the container is running
+if [ "$(docker ps -q -f name=rustdesk-id-server)" ]; then
+  echo "🖥️  RustDesk Public Key:"
+  docker cp rustdesk-id-server:/root/id_ed25519.pub - | tar -xO | sed 's/^/   /'
+  echo ""
   echo ""
 fi
 
 # Print ntfy token if available
-if [ ! -z "${NTFY_TOKEN}" ]; then
+if [ ! -z "${NTFY_ADMIN_TOKENS}" ]; then
   echo "📱 Ntfy Token:"
-  echo "   ${NTFY_TOKEN}"
+  # Split the string by ":" and print the second field (the token)
+  echo "   $(echo "${NTFY_ADMIN_TOKENS}" | cut -d ':' -f2)"
   echo ""
 fi
 
-echo "🌐 Web Interfaces:"
-echo "   Dashboard:    https://${DASHBOARD_WEB_HOSTNAME}"
-echo "   Vaultwarden:  https://${VAULTWARDEN_WEB_HOSTNAME}"
-echo "   Portainer:    https://${PORTAINER_WEB_HOSTNAME}"
-echo "   Uptime Kuma:  https://${UPTIME_KUMA_WEB_HOSTNAME}"
-echo "   LLDAP:        https://${LLDAP_WEB_HOSTNAME}"
-echo "   Authelia:     https://${AUTHELIA_WEB_HOSTNAME}"
-echo "   Ntfy:         https://${NTFY_WEB_HOSTNAME}"
+echo "🌐 Web Access:"
+echo "   https://${HOMELAB_HOSTNAME}"
 echo ""
 echo "⚠️  Remember to add the CA certificate to your devices' trust stores!"
 echo "   CA Certificate: ${CA_CERT_OUT}"
