@@ -520,15 +520,15 @@ This typically points to a misconfiguration in your `.env` file, a port conflict
 
 ### I'm seeing an HTTP error like '404 Not Found' or '502 Bad Gateway'
 
-These errors mean the request reached your reverse proxy (e.g., Nginx, Traefik), but it couldn't be completed.
+These errors mean the request reached nginx, but it couldn't be completed.
 
   * **Cause (404 Not Found):** The reverse proxy received the request but has no configuration for that specific domain. Check your NGINX configuration file for typos in the hostname.
   * **Cause (502 Bad Gateway):** The reverse proxy has a rule, but it cannot communicate with the backend service container. This usually means the service container is stopped, unhealthy, or not on the same Docker network.
 
-  * **Solution:** Check the logs of your reverse proxy container for specific error messages.
+  * **Solution:** Check the logs of nginx container for specific error messages.
 
     ```shell
-    docker compose logs <your-reverse-proxy-container>
+    docker compose logs nginx
     ```
 
 -----
