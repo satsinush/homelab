@@ -9,12 +9,14 @@ This repository contains all the configuration and Docker instructions needed to
 </p>
 
 ## 📚 Table of Contents
+- [Overview](#-overview)
 - [Prerequisites](#-prerequisites)
 - [Host Machine Configuration](#-host-machine-configuration)
 - [Project Deployment](#-project-deployment)
 - [Backup and Restore](#-backup-and-restore)
 - [Post Installation Checklist](#-post-installation-checklist)
 - [Development](#-development)
+- [Troubleshooting](#-troubleshooting)
 - [License](#️-license)
 
 ## ✨ Overview
@@ -40,7 +42,7 @@ This project bundles several open-source services, managed via `docker-compose`,
   * **🖥️ RustDesk**: A self-hosted remote desktop solution.
   * **🔑 Vaultwarden**: Self-hosted password manager.
 
-## Infrastructure Diagram
+### Infrastructure Diagram
 
 ```mermaid
 %%{init: {
@@ -244,40 +246,38 @@ git submodule update
       * If you use a DDNS service, make sure to copy [`./ddclient/example.ddclient.conf`](./ddclient/example.ddclient.conf) to `./ddclient/ddclient.conf` and fill in your provider's details.
       * [ddclient Docs 🔗](https://ddclient.net/)
 2.  **Environment Variables**
-      * Carefully review and update all values, especially `HOMELAB_IP_ADDRESS` and any hostnames.
+      * Carefully review and update any values you want to customize.
       * Values in `<angle_brackets>` will be replaced automatically by the setup script.
 
-### 3\. Run the Setup Script ⚡
-
-Execute the main setup script. It will prompt you to create a username and password and automatically configure and initialize all the services.
-
-```shell
-./setup.sh
-```
-
-> **Note**: The setup script creates a user-specific email address. You **must** use this email for services like Vaultwarden and Authelia to receive notifications via Ntfy. Your notification topic in Ntfy is `YOUR USERNAME`.
-
-> **Tip**: You can run this script again at any time to recreate SSL certificates. The CA certificate will not be affected and all other settings will stay the same.
-
-### 4\. Enable Systemd Services ⚙️
+### 3\. Enable Systemd Services ⚙️
 
 To complete the server setup, you'll need to configure and enable a few custom `systemd` services. These manage the host API, automatic package updates, and automated backups.
 
-#### **Step 1: Configure the Service Files**
+#### **Step 1: Copy the Files to Systemd**
 
-Before copying the files, you must edit them to match your user and home directory.
-
-1.  Open `./systemd/system/homelab-host-api.service`.
-2.  Open `./systemd/system/homelab-backup.service`.
-
-In both files, find and replace the placeholder `user` with your actual username (e.g., `aneedham`).
-
-#### **Step 2: Copy the Files to Systemd**
-
-Once you've saved your edits, copy all the unit files to the systemd directory.
+Copy the systemd service files to the system directory with this command.
 
 ```shell
 sudo cp -rv ./systemd/system/* /etc/systemd/system/
+```
+
+#### **Step 2: Copy the Files to Systemd**
+
+After copying the files, you must edit them to match your user and home directory.
+
+1.  Open `/etc/systemd/system/homelab-host-api.service`.
+2.  Open `/etc/systemd/system/homelab-backup.service`.
+
+In both files, find and replace the usernames and file paths with the correct values.
+
+Replace these lines:
+```
+WorkingDirectory=/home/USERNAME/homelab
+ExecStart=/home/USERNAME/homelab/backup.sh backup --auto
+
+User=USERNAME
+Group=USERNAME
+WorkingDirectory=/home/USERNAME/homelab/homelab-dashboard/host-api
 ```
 
 #### **Step 3: Reload Daemon and Enable Services**
@@ -295,6 +295,11 @@ Next, enable and start the new services and timers. The `enable --now` command s
 sudo systemctl enable --now homelab-host-api.service
 sudo systemctl enable --now pacman-sync.timer
 sudo systemctl enable --now homelab-backup.timer
+
+# You can verify the services are running with
+sudo systemctl status homelab-host-api.service
+sudo systemctl status pacman-sync.timer
+sudo systemctl status homelab-backup.timer
 ```
 
 Finally, ensure the system's time synchronization service is active, as accurate time is crucial for many services.
@@ -312,6 +317,18 @@ timedatectl status
 -----
 
   * [Systemd Docs 🔗](https://wiki.archlinux.org/title/Systemd#Basic_systemctl_usage)
+
+### 4\. Run the Setup Script ⚡
+
+Execute the main setup script. It will prompt you to create a username and password and automatically configure and initialize all the services.
+
+```shell
+./setup.sh
+```
+
+> **Note**: The setup script creates a user-specific email address. You **must** use this email for services like Vaultwarden and Authelia to receive notifications via Ntfy. Your notification topic in Ntfy is `YOUR USERNAME`.
+
+> **Tip**: You can run this script again at any time to recreate SSL certificates. The CA certificate will not be affected and all other settings will stay the same.
 
 
 ## ✅ Post-Installation Checklist
