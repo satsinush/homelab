@@ -1,0 +1,12 @@
+# /etc/systemd/system/homelab-backup.timer
+
+[Unit]
+Description=Run homelab-backup daily
+Requires=homelab-backup.service
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,10 @@
+# /etc/systemd/system/homelab-backup.service
+
+[Unit]
+Description=Backup homelab system data
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/USERNAME/homelab
+ExecStart=/home/USERNAME/homelab/backup.sh backup --auto
+User=root

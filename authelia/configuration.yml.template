@@ -52,8 +52,13 @@ authentication_backend:
     groups_filter: '(&(objectClass=groupOfNames)(member={dn}))'
 
 notifier:
-  filesystem:
-    filename: /var/lib/authelia/notification.txt
+  smtp:
+    address: smtp://ntfy:25
+    sender: "Authelia <authelia@${HOMELAB_HOSTNAME}>"
+    username: ${HOMELAB_USERNAME}
+    password: ${HOMELAB_PASSWORD}
+    disable_require_tls: true
+    disable_starttls: true
 
 access_control:
   default_policy: one_factor

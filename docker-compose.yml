@@ -76,7 +76,7 @@ services:
     container_name: unbound-redis
     restart: unless-stopped
     volumes:
-      - unbound-redis-data:/data
+      - unbound_redis_data:/data
     networks:
       - homelab-net
 
@@ -88,7 +88,7 @@ services:
     # The -r option points it to your relay server using its service name
     command: hbbs -r rustdesk-relay-server:21119 -k _
     volumes:
-      - ./volumes/rustdesk/data:/root
+      - rustdesk_data:/root
     networks:
       - homelab-net
     ports:
@@ -99,9 +99,6 @@ services:
     restart: unless-stopped
     depends_on:
       - rustdesk-relay-server
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
 
   # RustDesk Relay Server (hbbr)
   rustdesk-relay-server:
@@ -110,16 +107,13 @@ services:
     # This command tells the container to run the Relay server (hbbr)
     command: hbbr -k _
     volumes:
-      - ./volumes/rustdesk/data:/root
+      - rustdesk_data:/root
     networks:
       - homelab-net
     ports:
       - "21117:21117"
       - "21119:21119"
     restart: unless-stopped
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
       
   # Netdata for real-time system monitoring
   netdata:
@@ -164,8 +158,8 @@ services:
         - VITE_LLDAP_WEB_HOSTNAME=${VITE_LLDAP_WEB_HOSTNAME}
         - VITE_AUTHELIA_WEB_HOSTNAME=${VITE_AUTHELIA_WEB_HOSTNAME}
     volumes:
-      - homelab-dashboard-api-data:/app/api/data
-      - homelab-dashboard-word-games-data:/app/word_games/data
+      - dashboard_api_data:/app/api/data
+      - dashboard_word_games_data:/app/word_games/data
       - ./volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
     networks:
       - homelab-net
@@ -181,15 +175,12 @@ services:
 
   # ddclient for dynamic DNS updates
   ddclient:
-    image: linuxserver/ddclient:latest
+    build:
+      context: ./ddclient
     container_name: ddclient
     restart: unless-stopped
     environment:
       - TZ=${TZ}
-      - PUID=${PUID}
-      - PGID=${PGID}
-    volumes:
-      - ./volumes/ddclient/ddclient.conf:/config/ddclient.conf
     networks:
       - homelab-net
 
@@ -199,7 +190,7 @@ services:
     container_name: ollama
     restart: unless-stopped
     volumes:
-      - ollama-data:/root/.ollama
+      - ollama_data:/root/.ollama
     networks:
       - homelab-net
 
@@ -210,7 +201,7 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - portainer-data:/data
+      - portainer_data:/data
       - ./volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
     networks:
       - homelab-net
@@ -220,15 +211,21 @@ services:
     container_name: vaultwarden
     restart: unless-stopped
     volumes:
-      - vaultwarden-data:/data
+      - vaultwarden_data:/data
     networks:
       - homelab-net
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
       - WEBSOCKET_ENABLED=true
       - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
       - SIGNUPS_ALLOWED=true
+      - DOMAIN=https://${VAULTWARDEN_WEB_HOSTNAME}
+      - SMTP_SSL_CA_CERT=/etc/ssl/certs/homelab-ca.crt
+      - SMTP_HOST=ntfy
+      - SMTP_PORT=25
+      - SMTP_SECURITY=off
+      - SMTP_FROM=vaultwarden@${HOMELAB_HOSTNAME}
+      - SMTP_USERNAME=${HOMELAB_USERNAME}
+      - SMTP_PASSWORD=${HOMELAB_PASSWORD}
 
       # - SSO_ENABLED=true
       # - SSO_ONLY=false
@@ -265,8 +262,6 @@ services:
     volumes:
       - ntfy_data:/var/lib/ntfy
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
       - NTFY_BASE_URL=https://${NTFY_WEB_HOSTNAME}
       - NTFY_AUTH_FILE=/var/lib/ntfy/user.db
       - NTFY_CACHE_FILE=/var/lib/ntfy/cache.db
@@ -276,6 +271,8 @@ services:
       - NTFY_AUTH_TOKENS=${NTFY_ADMIN_TOKENS}
       - NTFY_BEHIND_PROXY=true
       - NTFY_ENABLE_LOGIN=true
+      - NTFY_SMTP_SERVER_LISTEN=:25
+      - NTFY_SMTP_SERVER_DOMAIN=${HOMELAB_HOSTNAME}
     networks:
       - homelab-net
     command: serve
@@ -289,7 +286,6 @@ services:
         AUTHELIA_SESSION_SECRET: ${AUTHELIA_SESSION_SECRET}
         AUTHELIA_STORAGE_ENCRYPTION_KEY: ${AUTHELIA_STORAGE_ENCRYPTION_KEY}
         AUTHELIA_JWT_SECRET: ${AUTHELIA_JWT_SECRET}
-        DNS_DOMAIN: ${DNS_DOMAIN}
         LLDAP_LDAP_BASE_DN: ${LLDAP_LDAP_BASE_DN}
         LLDAP_LDAP_USER_PASS: ${LLDAP_LDAP_USER_PASS}
         AUTHELIA_WEB_HOSTNAME: ${AUTHELIA_WEB_HOSTNAME}
@@ -302,13 +298,15 @@ services:
         DASHBOARD_OIDC_HASHED_SECRET: ${DASHBOARD_OIDC_HASHED_SECRET}
         DASHBOARD_WEB_HOSTNAME: ${DASHBOARD_WEB_HOSTNAME}
         LLDAP_LDAP_USER_DN: ${LLDAP_LDAP_USER_DN}
+        HOMELAB_USERNAME: ${HOMELAB_USERNAME}
+        HOMELAB_PASSWORD: ${HOMELAB_PASSWORD}
     container_name: authelia
     restart: unless-stopped
     networks:
       - homelab-net
     volumes:
       - ./volumes/authelia/private.pem:/config/jwks/private.pem:ro
-      - authelia-data:/var/lib/authelia
+      - authelia_data:/var/lib/authelia
     depends_on:
       - lldap
       - authelia-redis
@@ -319,7 +317,7 @@ services:
     container_name: authelia-redis
     restart: unless-stopped
     volumes:
-      - authelia-redis-data:/data
+      - authelia_redis_data:/data
     networks:
       - homelab-net
 
@@ -329,30 +327,28 @@ services:
     container_name: lldap
     restart: unless-stopped
     volumes:
-      - lldap-data:/data
+      - lldap_data:/data
     networks:
       - homelab-net
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
       - TZ=${TZ}
       - LLDAP_JWT_SECRET=${LLDAP_JWT_SECRET}
       - LLDAP_LDAP_BASE_DN=${LLDAP_LDAP_BASE_DN}
       - LLDAP_LDAP_USER_PASS=${LLDAP_LDAP_USER_PASS}
       - LLDAP_HTTP_URL=https://${LLDAP_WEB_HOSTNAME}
-  
 
 # Docker will manage these volumes for persistent data storage
 volumes:
-  homelab-dashboard-api-data:
-  homelab-dashboard-word-games-data:
-  ollama-data:
+  dashboard_api_data:
+  dashboard_word_games_data:
+  ollama_data:
   pihole_data:
   pihole_logs:
-  portainer-data:
-  unbound-redis-data:
-  vaultwarden-data:
+  portainer_data:
+  unbound_redis_data:
+  vaultwarden_data:
   ntfy_data:
-  authelia-data: # Added for Authelia
-  authelia-redis-data: # Added for Authelia's Redis
-  lldap-data: # Added for LLDAP
+  authelia_data:
+  authelia_redis_data:
+  lldap_data:
+  rustdesk_data:
