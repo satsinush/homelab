@@ -531,6 +531,16 @@ These errors mean the request reached your reverse proxy (e.g., Nginx, Traefik),
     docker compose logs <your-reverse-proxy-container>
     ```
 
+-----
+
+### Ads are not being blocked on a specific device
+
+This happens when a device's DNS requests are bypassing your Pi-hole.
+
+1.  **Verify Client DNS Settings:** Ensure the device is configured to use your Pi-hole's IP as its **only** DNS server. Remove any secondary servers like `8.8.8.8` or `1.1.1.1`.
+
+2.  **Disable "Secure DNS" in Your Browser:** Most modern browsers have a **DNS-over-HTTPS (DoH)** feature that bypasses Pi-hole entirely. You must disable it in your browser's security settings.
+
 ## ⚖️ License
 
 This project is licensed under the MIT License. See the [`./LICENSE`](./LICENSE) file for details.
