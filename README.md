@@ -259,6 +259,9 @@ sudo ufw route allow in on wg0 from 10.10.20.0/24 to 10.10.10.0/24 out on end0
 
 # Allow traffic from LAN devices to be forwarded to VPN clients
 sudo ufw route allow in on end0 from 10.10.10.0/24 to 10.10.20.0/24 out on wg0
+
+# Allow traffic from VPN devices to be forwarded to other VPN clients
+sudo ufw route allow in on wg0 from 10.10.20.0/24 to 10.10.20.0/24 out on wg0
 ```
 
 > **Note**: For LAN-to-VPN forwarding to work, you must add a **static route** on your main network router. The route should direct traffic for the `10.10.20.0/24` network to this server's LAN IP address. This is only required if you need LAN devices to initiate connections to VPN devices.
