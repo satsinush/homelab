@@ -214,13 +214,23 @@ sudo ufw default allow outgoing
 sudo ufw default deny routed
 ```
 
-**Step 2: Configure NAT for Forwarding**
+**Step 2: Configure Before Rules**
 
-For traffic to be routed correctly between the LAN and VPN, Network Address Translation (NAT) must be configured. This is primarily to ensure processes work correctly with WireGuard and Docker.
+For traffic to be routed correctly between the LAN and Docker networks, specific rules must be configured in the firewall. Follow these steps to ensure the UFW `before.rules` are properly configured.
 
   * Copy the provided `before.rules` file to the UFW directory:
     ```shell
     sudo cp ./ufw/before.rules /etc/ufw/before.rules
+    ```
+
+    Specifically, make sure you have these lines under the `*filter` section:
+    ```ini
+    # START DOCKER RULES
+    -A ufw-before-input -i docker0 -j ACCEPT
+    -A ufw-before-input -i br+ -j ACCEPT
+    -A ufw-before-output -o docker0 -j ACCEPT
+    -A ufw-before-output -o br+ -j ACCEPT
+    # END DOCKER RULES
     ```
 
 **Step 3: Add Firewall Rules**
@@ -254,14 +264,14 @@ sudo ufw allow from 10.10.20.0/24 to any port 21116 proto udp
 
 
 # --- FORWARDING RULES ---
-# Allow traffic from VPN clients to be forwarded to LAN devices
-sudo ufw route allow in on wg0 from 10.10.20.0/24 to 10.10.10.0/24 out on end0
+# Allow traffic from VPN clients to be forwarded to anywhere (ensures VPN devices have internet access)
+sudo ufw route allow in on wg0 out on end0 from 10.10.20.0/24 to 0.0.0.0/0
 
 # Allow traffic from LAN devices to be forwarded to VPN clients
-sudo ufw route allow in on end0 from 10.10.10.0/24 to 10.10.20.0/24 out on wg0
+sudo ufw route allow in on end0 out on wg0 from 10.10.10.0/24 to 10.10.20.0/24
 
 # Allow traffic from VPN devices to be forwarded to other VPN clients
-sudo ufw route allow in on wg0 from 10.10.20.0/24 to 10.10.20.0/24 out on wg0
+sudo ufw route allow in on wg0 out on wg0 from 10.10.20.0/24 to 10.10.20.0/24
 ```
 
 > **Note**: For LAN-to-VPN forwarding to work, you must add a **static route** on your main network router. The route should direct traffic for the `10.10.20.0/24` network to this server's LAN IP address. This is only required if you need LAN devices to initiate connections to VPN devices.
@@ -314,12 +324,14 @@ WireGuard uses public-key cryptography for security. We need to generate a priva
 
     **Example `wg0.conf`:**
 
-    ```ini
+    ```
     [Interface]
     # Server's private key (from server.private)
     PrivateKey = <PASTE_SERVER_PRIVATE_KEY>
     Address = 10.10.20.1/24
     ListenPort = 51820
+    PostUp = iptables -t nat -A POSTROUTING -s 10.10.20.0/24 -d 10.10.10.0/24 -o end0 -j RETURN; iptables -t nat -A POSTROUTING -s 10.10.20.0/24 -o end0 -j MASQUERADE
+    PostDown = iptables -t nat -D POSTROUTING -s 10.10.20.0/24 -o end0 -j MASQUERADE; iptables -t nat -D POSTROUTING -s 10.10.20.0/24 -d 10.10.10.0/24 -o end0 -j RETURN
 
     # --- PEER 1: MY-PHONE ---
     [Peer]
@@ -327,6 +339,13 @@ WireGuard uses public-key cryptography for security. We need to generate a priva
     PublicKey = <PASTE_MY-PHONE_PUBLIC_KEY>
     # The IP address this client will use on the VPN
     AllowedIPs = 10.10.20.13/32
+    ```
+
+    Make sure that you include the PostUp and PostDown rules as they are essential for making sure requests are forwarded over NAT depedning on the destination. If you don't have static routes set up on your router or devices, you can replace the rules with these to translate all packets, but you may lose functionality with programs like *KDE Connect*.
+
+    ```
+    PostUp = iptables -t nat -A POSTROUTING -s 10.10.20.0/24 -o end0 -j MASQUERADE
+    PostDown = iptables -t nat -D POSTROUTING -s 10.10.20.0/24 -o end0 -j MASQUERADE
     ```
 
     > **Tip**: It's good practice to align the client's VPN IP with its LAN IP. For example, a PC at `10.10.10.13` on the LAN could be assigned `10.10.20.13` on the VPN.
@@ -344,6 +363,7 @@ To allow VPN clients to access your LAN, the server must be able to forward netw
 
 1.  **Port Forwarding:** In your internet router's settings, forward **UDP port 51820** to the LAN IP address of your server (e.g., `10.10.10.10`).
 2.  **Static IP/DHCP Reservation:** Ensure your server always has the same LAN IP address by setting a DHCP reservation or a static IP in your router's settings. Do this for other devices you want to have a static IP as well.
+3.  **Static Routing:** Make sure your router is set to forward all routes for your VPN subnet (e.g., `10.10.20.0/24`) to your server as the next hop. If your router doesn't support static routing and you don't set static routes on each of your devices, make sure to see the notes above about the NAT translation rules for WireGuard.
 
 **Step 5: Start and Enable the Service**
 
@@ -513,9 +533,9 @@ Final configuration steps for individual services.
     * If you need to recover an account, you can retrieve email verification codes by running subcribing to your `YOUR USERNAME` topic in ntfy.
       * [Authelia Docs 🔗](https://www.authelia.com/integration/prologue/get-started/)
   * **🏠 Homelab Dashboard**
-    * Sign into the homelab dashboard using SSO. It's possible to sign in initially with a local account and map it to your SSO account, but this is not recommended.
+    * You can sign into the homelab dashbooard using either SSO or your local homelab username and password.
   * **📦 Portainer**
-    * Sign into Portainer using either SSO or your local homelab username and password.
+    * You can sign into Portainer using either SSO or your local homelab username and password.
 
 ### Congratulations! 🎉
 
