@@ -3,6 +3,8 @@ networks:
   homelab-net:
     name: homelab-net
     driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-homelab-net
     ipam:
       config:
         - subnet: 10.10.30.0/24
