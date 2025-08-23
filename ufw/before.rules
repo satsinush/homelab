@@ -19,10 +19,14 @@
 
 
 # START DOCKER RULES
--A ufw-before-input -i docker0 -j ACCEPT
--A ufw-before-input -i br+ -j ACCEPT
--A ufw-before-output -o docker0 -j ACCEPT
--A ufw-before-output -o br+ -j ACCEPT
+
+# Allow traffic for established connections (essential for return traffic)
+-A ufw-before-forward -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+# Allow new traffic to be forwarded from any Docker bridge to the main NIC.
+# IMPORTANT: Replace 'end0' with your server's main network interface (e.g., eth0)
+-A ufw-before-forward -i br-homelab-net -o end0 -j ACCEPT
+
 # END DOCKER RULES
 
 # allow all on loopback

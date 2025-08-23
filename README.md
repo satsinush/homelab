@@ -201,6 +201,7 @@ These instructions configure the Uncomplicated Firewall (UFW) to secure the serv
 
   * LAN Subnet: `10.10.10.0/24` (on `end0` interface)
   * VPN Subnet: `10.10.20.0/24` (on `wg0` interface)
+  * Docker subnet: `10.10.30.0/24` (on `br-homelab-net` interface)
 
 Adjust these values in the commands below if your network is different.
 
@@ -218,7 +219,7 @@ sudo ufw default deny routed
 
 For traffic to be routed correctly between the LAN and Docker networks, specific rules must be configured in the firewall. Follow these steps to ensure the UFW `before.rules` are properly configured.
 
-  * Copy the provided `before.rules` file to the UFW directory:
+  * Copy the provided `before.rules` file to the UFW directory, and adjust any values as needed.
     ```shell
     sudo cp ./ufw/before.rules /etc/ufw/before.rules
     ```
@@ -226,10 +227,14 @@ For traffic to be routed correctly between the LAN and Docker networks, specific
     Specifically, make sure you have these lines under the `*filter` section:
     ```ini
     # START DOCKER RULES
-    -A ufw-before-input -i docker0 -j ACCEPT
-    -A ufw-before-input -i br+ -j ACCEPT
-    -A ufw-before-output -o docker0 -j ACCEPT
-    -A ufw-before-output -o br+ -j ACCEPT
+
+    # Allow traffic for established connections (essential for return traffic)
+    -A ufw-before-forward -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+    # Allow new traffic to be forwarded from any Docker bridge to the main NIC.
+    # IMPORTANT: Replace 'end0' with your server's main network interface (e.g., eth0)
+    -A ufw-before-forward -i br-homelab-net -o end0 -j ACCEPT
+
     # END DOCKER RULES
     ```
 
@@ -252,9 +257,10 @@ sudo ufw allow from 10.10.20.0/24 to any port 2222 proto tcp
 sudo ufw allow from 10.10.10.0/24 to any port 80,443 proto tcp
 sudo ufw allow from 10.10.20.0/24 to any port 80,443 proto tcp
 
-# Allow DNS (Pi-hole) from LAN and VPN
+# Allow DNS (Pi-hole) from LAN, VPN, and Docker
 sudo ufw allow from 10.10.10.0/24 to any port 53
 sudo ufw allow from 10.10.20.0/24 to any port 53
+sudo ufw allow from 10.10.30.0/24 to any port 53
 
 # Allow RustDesk from LAN and VPN
 sudo ufw allow from 10.10.10.0/24 to any port 21114:21119 proto tcp
@@ -262,6 +268,8 @@ sudo ufw allow from 10.10.10.0/24 to any port 21116 proto udp
 sudo ufw allow from 10.10.20.0/24 to any port 21114:21119 proto tcp
 sudo ufw allow from 10.10.20.0/24 to any port 21116 proto udp
 
+# Allow Homelab Host API from Docker
+sudo ufw allow from 10.10.30.0/24 to any port 5001 proto tcp
 
 # --- FORWARDING RULES ---
 # Allow traffic from VPN clients to be forwarded to anywhere (ensures VPN devices have internet access)
@@ -274,7 +282,7 @@ sudo ufw route allow in on end0 out on wg0 from 10.10.10.0/24 to 10.10.20.0/24
 sudo ufw route allow in on wg0 out on wg0 from 10.10.20.0/24 to 10.10.20.0/24
 ```
 
-> **Note**: For LAN-to-VPN forwarding to work, you must add a **static route** on your main network router. The route should direct traffic for the `10.10.20.0/24` network to this server's LAN IP address. This is only required if you need LAN devices to initiate connections to VPN devices.
+> **Note**: For LAN-to-VPN forwarding to work, you must add a **static route** on your main network router. The route should direct traffic for the `10.10.20.0/24` network to this server's LAN IP address. This is only required if you need LAN devices to initiate connections and connect directly to VPN devices.
 
 **Step 4: Enable Firewall**
 

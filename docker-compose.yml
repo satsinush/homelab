@@ -153,7 +153,7 @@ services:
     restart: unless-stopped
     build:
       context: . # Use the project root as the build context
-      dockerfile: homelab-dashboard/Dockerfile # Specify the path to the Dockerfile
+      dockerfile: homelab-dashboard/api/Dockerfile # Specify the path to the Dockerfile
       args:
         - VITE_DASHBOARD_WEB_HOSTNAME=${VITE_DASHBOARD_WEB_HOSTNAME}
         - VITE_PIHOLE_WEB_HOSTNAME=${VITE_PIHOLE_WEB_HOSTNAME}
