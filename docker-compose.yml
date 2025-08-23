@@ -1,7 +1,13 @@
 # docker-compose.yml
 networks:
   homelab-net:
+    name: homelab-net
     driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-homelab-net
+    ipam:
+      config:
+        - subnet: 10.10.30.0/24
 
 services:
   # Nginx will act as a reverse proxy for your services
@@ -17,7 +23,8 @@ services:
     volumes:
       - ./volumes/certificates:/etc/ssl/homelab:ro
     networks:
-      - homelab-net
+      homelab-net:
+        ipv4_address: 10.10.30.100
     environment:
       - HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
       - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
@@ -146,7 +153,7 @@ services:
     restart: unless-stopped
     build:
       context: . # Use the project root as the build context
-      dockerfile: homelab-dashboard/Dockerfile # Specify the path to the Dockerfile
+      dockerfile: homelab-dashboard/api/Dockerfile # Specify the path to the Dockerfile
       args:
         - VITE_DASHBOARD_WEB_HOSTNAME=${VITE_DASHBOARD_WEB_HOSTNAME}
         - VITE_PIHOLE_WEB_HOSTNAME=${VITE_PIHOLE_WEB_HOSTNAME}
@@ -165,6 +172,7 @@ services:
       - homelab-net
     extra_hosts:
       - "host.docker.internal:host-gateway"
+      - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
     environment:
       - HOMELAB_API_SESSION_SECRET=${HOMELAB_API_SESSION_SECRET}
       - AUTHELIA_WEB_HOSTNAME=${AUTHELIA_WEB_HOSTNAME}
@@ -205,6 +213,8 @@ services:
       - ./volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
     networks:
       - homelab-net
+    extra_hosts:
+      - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
   
   vaultwarden:
     image: vaultwarden/server:latest
@@ -252,7 +262,6 @@ services:
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
     networks:
       - homelab-net
-  
 
   # ntfy for self-hosted push notifications
   ntfy:
@@ -310,6 +319,8 @@ services:
     depends_on:
       - lldap
       - authelia-redis
+    extra_hosts:
+      - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
 
   # Redis for Authelia session storage
   authelia-redis:

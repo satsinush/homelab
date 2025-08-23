@@ -19,7 +19,6 @@ This repository contains all the configuration and Docker instructions needed to
 - [Prerequisites](#-prerequisites)
 - [Host Machine Configuration](#-host-machine-configuration)
 - [Project Deployment](#-project-deployment)
-- [Backup and Restore](#-backup-and-restore)
 - [Post Installation Checklist](#-post-installation-checklist)
 - [Backup and Restore](#-backup-and-restore)
 - [Development](#-development)
@@ -130,8 +129,18 @@ Services will run on other operating systems with different package managers, bu
 Before you begin, ensure your device is up to date and that the following packages are installed on your Arch Linux host:
 
 ```shell
+# Install core dependencies
 sudo pacman -Syu
-sudo pacman -S openssl apache sed grep xargs docker jq lm_sensors arp-scan openssh wireguard-tools ufw
+sudo pacman -S \
+  openssl \      # Core SSL/TLS toolkit
+  apache \       # For the 'htpasswd' utility
+  sed grep xargs \ # Text manipulation utilities
+  docker jq \      # Docker and JSON processor
+  lm_sensors \   # For initializing hardware sensors
+  arp-scan \     # For LAN device scanning
+  openssh \      # Secure Shell server
+  wireguard-tools \ # WireGuard VPN tools
+  ufw            # Uncomplicated Firewallopenssh wireguard-tools ufw
 ```
 
   * After installing `lm_sensors`, run `sudo sensors-detect` to initialize sensor data for Netdata to use.
@@ -140,9 +149,10 @@ sudo pacman -S openssl apache sed grep xargs docker jq lm_sensors arp-scan opens
 
 ## 💻 Host Machine Configuration
 
+Before deploying the Docker stack, we need to secure the host machine by hardening SSH, configuring the firewall, and setting up a VPN.
 Follow these steps to prepare the host server.
 
-### 1\. SSH Security Hardening 🔒
+### 1\. 🔒 SSH Security Hardening
 
 For a secure setup, we will configure SSH to use **key-based authentication only**. This makes it much more difficult for an attacker to gain access.
 
@@ -189,7 +199,7 @@ Now, we'll edit the SSH server configuration file on the server.
     sudo systemctl restart sshd
     ```
 
-> **Important**: Ensure your new port (`2222/tcp`) is opened in your firewall rules before restarting SSH, or you may lock yourself out.
+> **⚠️ Important**: Ensure your new port (`2222/tcp`) is opened in your firewall rules before restarting SSH, or you may lock yourself out.
 
 * **Docs:** [OpenSSH Wiki 🔗](https://wiki.archlinux.org/title/OpenSSH)
 
@@ -201,8 +211,9 @@ These instructions configure the Uncomplicated Firewall (UFW) to secure the serv
 
   * LAN Subnet: `10.10.10.0/24` (on `end0` interface)
   * VPN Subnet: `10.10.20.0/24` (on `wg0` interface)
+  * Docker subnet: `10.10.30.0/24` (on `br-homelab-net` interface)
 
-Adjust these values in the commands below if your network is different.
+> **ℹ️ Note**: Adjust these values in the commands below if your network is different.
 
 **Step 1: Set Default Policies**
 
@@ -214,13 +225,27 @@ sudo ufw default allow outgoing
 sudo ufw default deny routed
 ```
 
-**Step 2: Configure NAT for Forwarding**
+**Step 2: Configure Before Rules**
 
-For traffic to be routed correctly between the LAN and VPN, Network Address Translation (NAT) must be configured. This is primarily to ensure processes work correctly with WireGuard and Docker.
+For traffic to be routed correctly between the LAN and Docker networks, specific rules must be configured in the firewall. Follow these steps to ensure the UFW `before.rules` are properly configured.
 
-  * Copy the provided `before.rules` file to the UFW directory:
+  * Copy the provided `before.rules` file to the UFW directory, and adjust any values as needed.
     ```shell
     sudo cp ./ufw/before.rules /etc/ufw/before.rules
+    ```
+
+    Specifically, make sure you have these lines under the `*filter` section:
+    ```ini
+    # START DOCKER RULES
+
+    # Allow traffic for established connections (essential for return traffic)
+    -A ufw-before-forward -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+    # Allow new traffic to be forwarded from any Docker bridge to the main NIC.
+    # IMPORTANT: Replace 'end0' with your server's main network interface (e.g., eth0)
+    -A ufw-before-forward -i br-homelab-net -o end0 -j ACCEPT
+
+    # END DOCKER RULES
     ```
 
 **Step 3: Add Firewall Rules**
@@ -242,9 +267,10 @@ sudo ufw allow from 10.10.20.0/24 to any port 2222 proto tcp
 sudo ufw allow from 10.10.10.0/24 to any port 80,443 proto tcp
 sudo ufw allow from 10.10.20.0/24 to any port 80,443 proto tcp
 
-# Allow DNS (Pi-hole) from LAN and VPN
+# Allow DNS (Pi-hole) from LAN, VPN, and Docker
 sudo ufw allow from 10.10.10.0/24 to any port 53
 sudo ufw allow from 10.10.20.0/24 to any port 53
+sudo ufw allow from 10.10.30.0/24 to any port 53
 
 # Allow RustDesk from LAN and VPN
 sudo ufw allow from 10.10.10.0/24 to any port 21114:21119 proto tcp
@@ -252,19 +278,21 @@ sudo ufw allow from 10.10.10.0/24 to any port 21116 proto udp
 sudo ufw allow from 10.10.20.0/24 to any port 21114:21119 proto tcp
 sudo ufw allow from 10.10.20.0/24 to any port 21116 proto udp
 
+# Allow Homelab Host API from Docker
+sudo ufw allow from 10.10.30.0/24 to any port 5001 proto tcp
 
 # --- FORWARDING RULES ---
-# Allow traffic from VPN clients to be forwarded to LAN devices
-sudo ufw route allow in on wg0 from 10.10.20.0/24 to 10.10.10.0/24 out on end0
+# Allow traffic from VPN clients to be forwarded to anywhere (ensures VPN devices have internet access)
+sudo ufw route allow in on wg0 out on end0 from 10.10.20.0/24 to 0.0.0.0/0
 
 # Allow traffic from LAN devices to be forwarded to VPN clients
-sudo ufw route allow in on end0 from 10.10.10.0/24 to 10.10.20.0/24 out on wg0
+sudo ufw route allow in on end0 out on wg0 from 10.10.10.0/24 to 10.10.20.0/24
 
 # Allow traffic from VPN devices to be forwarded to other VPN clients
-sudo ufw route allow in on wg0 from 10.10.20.0/24 to 10.10.20.0/24 out on wg0
+sudo ufw route allow in on wg0 out on wg0 from 10.10.20.0/24 to 10.10.20.0/24
 ```
 
-> **Note**: For LAN-to-VPN forwarding to work, you must add a **static route** on your main network router. The route should direct traffic for the `10.10.20.0/24` network to this server's LAN IP address. This is only required if you need LAN devices to initiate connections to VPN devices.
+> **ℹ️ Note**: For LAN-to-VPN forwarding to work, you must add a **static route** on your main network router. The route should direct traffic for the `10.10.20.0/24` network to this server's LAN IP address. This is only required if you need LAN devices to initiate connections and connect directly to VPN devices.
 
 **Step 4: Enable Firewall**
 
@@ -278,7 +306,7 @@ sudo ufw enable
 sudo ufw status verbose
 ```
 
-### 3\. WireGuard VPN Setup 🔒
+### 3\. 🔒 WireGuard VPN Setup
 
 This guide will set up a WireGuard VPN, allowing secure remote access to your server and local network.
 
@@ -300,7 +328,7 @@ WireGuard uses public-key cryptography for security. We need to generate a priva
     ```shell
     wg genkey | tee my-phone.private | wg pubkey > my-phone.public
     ```
-4.  View the keys when you need them with `cat <filename>`. Exit the root shell with `exit`.
+4.  View the keys when you need them with `cat <filename>` (e.g. `cat server.public`)
 
 **Step 2: Configure the Server**
 
@@ -314,12 +342,14 @@ WireGuard uses public-key cryptography for security. We need to generate a priva
 
     **Example `wg0.conf`:**
 
-    ```ini
+    ```
     [Interface]
     # Server's private key (from server.private)
     PrivateKey = <PASTE_SERVER_PRIVATE_KEY>
     Address = 10.10.20.1/24
     ListenPort = 51820
+    PostUp = iptables -t nat -A POSTROUTING -s 10.10.20.0/24 -d 10.10.10.0/24 -o end0 -j RETURN; iptables -t nat -A POSTROUTING -s 10.10.20.0/24 -o end0 -j MASQUERADE
+    PostDown = iptables -t nat -D POSTROUTING -s 10.10.20.0/24 -o end0 -j MASQUERADE; iptables -t nat -D POSTROUTING -s 10.10.20.0/24 -d 10.10.10.0/24 -o end0 -j RETURN
 
     # --- PEER 1: MY-PHONE ---
     [Peer]
@@ -329,7 +359,14 @@ WireGuard uses public-key cryptography for security. We need to generate a priva
     AllowedIPs = 10.10.20.13/32
     ```
 
-    > **Tip**: It's good practice to align the client's VPN IP with its LAN IP. For example, a PC at `10.10.10.13` on the LAN could be assigned `10.10.20.13` on the VPN.
+    Make sure that you include the PostUp and PostDown rules as they are essential for making sure requests are forwarded using NAT depedning on the destination. If you don't have static routes set up on your router or devices, you can replace the rules with these to translate all packets, but you may lose functionality with programs such as *KDE Connect*.
+
+    ```
+    PostUp = iptables -t nat -A POSTROUTING -s 10.10.20.0/24 -o end0 -j MASQUERADE
+    PostDown = iptables -t nat -D POSTROUTING -s 10.10.20.0/24 -o end0 -j MASQUERADE
+    ```
+
+    > **ℹ️ Tip**: It's good practice to align the client's VPN IP with its LAN IP. For example, a PC at `10.10.10.13` on the LAN could be assigned `10.10.20.13` on the VPN.
 
 **Step 3: Enable IP Forwarding**
 
@@ -344,6 +381,7 @@ To allow VPN clients to access your LAN, the server must be able to forward netw
 
 1.  **Port Forwarding:** In your internet router's settings, forward **UDP port 51820** to the LAN IP address of your server (e.g., `10.10.10.10`).
 2.  **Static IP/DHCP Reservation:** Ensure your server always has the same LAN IP address by setting a DHCP reservation or a static IP in your router's settings. Do this for other devices you want to have a static IP as well.
+3.  **Static Routing:** Make sure your router is set to forward all routes for your VPN subnet (e.g., `10.10.20.0/24`) to your server as the next hop. If your router doesn't support static routing and you don't set static routes on each of your devices, make sure to see the notes above about the NAT translation rules for WireGuard.
 
 **Step 5: Start and Enable the Service**
 
@@ -379,7 +417,7 @@ sudo systemctl restart dhcpcd.service
 
 Once the host is configured, follow these steps to deploy the services.
 
-### 1\. Clone & Initialize 📂
+### 1\. 📂 Clone & Initialize
 
 Clone this repository and its submodules.
 
@@ -392,7 +430,7 @@ git submodule update
 
   * [Git Docs 🔗](https://docs.github.com/en/get-started/using-git)
 
-### 2\. Configure Environment 📝
+### 2\. 📝 Configure Environment
 
 1.  **Dynamic DNS**
       * If you use a DDNS service, make sure to copy [`./ddclient/example.ddclient.conf`](./ddclient/example.ddclient.conf) to `./ddclient/ddclient.conf` and fill in your provider's details.
@@ -401,7 +439,7 @@ git submodule update
       * The `setup.sh` script will use `./.env.template` as a base to generate your final `.env` file. Carefully change any values you want to customize in the template **before** running the script.
       * Values in `<angle_brackets>` will be replaced automatically by the setup script.
 
-### 3\. Enable Systemd Services ⚙️
+### 3\. ⚙️ Enable Systemd Services
 
 To complete the server setup, you'll need to configure and enable a few custom `systemd` services. These manage the host API, automatic package updates, and automated backups.
 
@@ -464,13 +502,13 @@ sudo systemctl enable --now systemd-timesyncd
 timedatectl status
 ```
 
-> If **`System clock synchronized`** shows **`no`**, you may need to edit `/etc/systemd/timesyncd.conf` to configure a reliable time source. Check [`./systemd/timesyncd.conf`](./systemd/timesyncd.conf) for an example. After editing, restart the service with `sudo systemctl restart systemd-timesyncd`.
+> **ℹ️ Note**: If **`System clock synchronized`** shows **`no`**, you may need to edit `/etc/systemd/timesyncd.conf` to configure a reliable time source. Check [`./systemd/timesyncd.conf`](./systemd/timesyncd.conf) for an example. After editing, restart the service with `sudo systemctl restart systemd-timesyncd`.
 
 -----
 
   * [Systemd Docs 🔗](https://wiki.archlinux.org/title/Systemd#Basic_systemctl_usage)
 
-### 4\. Run the Setup Script ⚡
+### 4\. ⚡ Run the Setup Script
 
 Execute the main setup script. It will prompt you to create a username and password and automatically configure and initialize all the services.
 
@@ -478,9 +516,9 @@ Execute the main setup script. It will prompt you to create a username and passw
 ./setup.sh
 ```
 
-> **Note**: The setup script creates a user-specific email address. You **must** use this email for services like Vaultwarden and Authelia to receive notifications via Ntfy. Your notification topic in Ntfy is `YOUR USERNAME`.
+> **⚠️ Important**: The setup script creates a user-specific email address. You **must** use this email for services like Vaultwarden and Authelia to receive notifications via Ntfy, otherwise you risk not being able to reset your password if needed. Your notification topic in Ntfy is `YOUR USERNAME`.
 
-> **Tip**: You can run this script again at any time to recreate SSL certificates. The CA certificate will not be affected and all other settings will stay the same.
+> **ℹ️ Tip**: You can run this script again at any time to recreate SSL certificates. The CA certificate will not be affected and all other settings will stay the same.
 
 
 ## ✅ Post-Installation Checklist
@@ -513,11 +551,11 @@ Final configuration steps for individual services.
     * If you need to recover an account, you can retrieve email verification codes by running subcribing to your `YOUR USERNAME` topic in ntfy.
       * [Authelia Docs 🔗](https://www.authelia.com/integration/prologue/get-started/)
   * **🏠 Homelab Dashboard**
-    * Sign into the homelab dashboard using SSO. It's possible to sign in initially with a local account and map it to your SSO account, but this is not recommended.
+    * You can sign into the homelab dashbooard using either SSO or your local homelab username and password.
   * **📦 Portainer**
-    * Sign into Portainer using either SSO or your local homelab username and password.
+    * You can sign into Portainer using either SSO or your local homelab username and password.
 
-### Congratulations! 🎉
+### 🎉 Congratulations!
 
 You've officially set up your homelab system! Check out the information below for more details on backing up your data, working on development, and troubleshooting issues.
 
@@ -698,4 +736,4 @@ This happens when a device's DNS requests are bypassing your Pi-hole.
 
 This project is licensed under the MIT License. See the [`./LICENSE`](./LICENSE) file for details.
 
-> **Note**: The software for each containerized service falls under its own respective license. The MIT license for this repository applies only to the original configuration files, scripts, and the `homelab-dashboard` source code.
+> **ℹ️ Note**: The software for each containerized service falls under its own respective license. The MIT license for this repository applies only to the original configuration files, scripts, and the `homelab-dashboard` source code.

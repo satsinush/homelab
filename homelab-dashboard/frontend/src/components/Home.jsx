@@ -33,7 +33,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import NetdataLogo from '../assets/netdata_logo.png';
 import PiHoleLogo from '../assets/pi_hole_logo.png';
-import PortainerLogo from '../assets/portainer_logo.png';
+import PortainerLogo from '../assets/portainer_logo.jpg';
 import VaultwardenLogo from '../assets/vaultwarden_logo.png';
 import UptimeKumaLogo from '../assets/uptime_kuma_logo.png';
 import NtfyLogo from '../assets/ntfy_logo.png';

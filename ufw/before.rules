@@ -9,13 +9,6 @@
 #   ufw-before-forward
 #
 
-# START WIREGUARD RULES
-*nat
-:POSTROUTING ACCEPT [0:0]
--A POSTROUTING -s 10.10.20.0/24 -o end0 -j MASQUERADE
-COMMIT
-# END WIREGUARD RULES
-
 # Don't delete these required lines, otherwise there will be errors
 *filter
 :ufw-before-input - [0:0]
@@ -26,10 +19,14 @@ COMMIT
 
 
 # START DOCKER RULES
--A ufw-before-input -i docker0 -j ACCEPT
--A ufw-before-input -i br+ -j ACCEPT
--A ufw-before-output -o docker0 -j ACCEPT
--A ufw-before-output -o br+ -j ACCEPT
+
+# Allow traffic for established connections (essential for return traffic)
+-A ufw-before-forward -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+
+# Allow new traffic to be forwarded from any Docker bridge to the main NIC.
+# IMPORTANT: Replace 'end0' with your server's main network interface (e.g., eth0)
+-A ufw-before-forward -i br-homelab-net -o end0 -j ACCEPT
+
 # END DOCKER RULES
 
 # allow all on loopback
@@ -40,18 +37,6 @@ COMMIT
 -A ufw-before-input -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 -A ufw-before-output -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 -A ufw-before-forward -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-
-
-# START UFW FORWARD RULES
-# Allow traffic from VPN to LAN
-#-A ufw-before-forward -i wg0 -o end0 -s 10.10.20.0/24 -d 10.10.10.0/24 -j ACCEPT
-#
-# Allow traffic from VPN to Internet
-#-A ufw-before-forward -i wg0 -o end0 -j ACCEPT
-#
-# Allow return traffic from LAN and Internet back to VPN
-#-A ufw-before-forward -i end0 -o wg0 -j ACCEPT
-# END UFW FORWARD RULES
 
 
 # drop INVALID packets (logs these in loglevel medium and higher)

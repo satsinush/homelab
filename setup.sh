@@ -632,6 +632,60 @@ else
   exit 1
 fi
 
+dashboard_curl() {
+  local path="$1"
+  local data="$2"
+  local url="http://127.0.0.1:5000$path"
+
+  local output
+  output=$(docker exec homelab-dashboard wget -qO- \
+    --server-response \
+    --header="Content-Type: application/json" \
+    --post-data="$data" \
+    "$url" 2>&1)
+
+  # Body = everything up to last blank line
+  local body=$(echo "$output" | sed -n '/^\r\{0,1\}$/,$!p')
+
+  # Status code = last "HTTP/1.1 XXX" line
+  local status_code=$(echo "$output" | grep -o "HTTP/1.[01] [0-9]*" | tail -n1 | awk '{print $2}')
+
+  echo "$body"
+  echo "$status_code"
+}
+
+
+# --- MAIN FUNCTION ---
+# Performs a login and checks if it was successful.
+dashboard_login() {
+  local username="$1"
+  local password="$2"
+
+  # Construct the JSON data for the login request
+  local login_data=$(jq -n --arg u "$username" --arg p "$password" '{username: $u, password: $p}')
+
+  # Call the curl function and capture the output
+  local output=$(dashboard_curl "/api/users/login" "$login_data")
+
+  # The status code is the last line of the output
+  local http_code=$(echo "$output" | tail -n1)
+
+  # Check if the HTTP status code is 200 (OK)
+  if [ "$http_code" = "200" ]; then
+    echo "   ✅ Login successful!"
+  else
+    echo "   ❌ Login failed. Server responded with HTTP status code: $http_code"
+  fi
+}
+
+
+# --- SCRIPT EXECUTION ---
+echo ""
+echo "🏠 Configuring Homelab Dashboard..."
+echo "   Initializing admin user..."
+# This is how you call the function
+dashboard_login "${HOMELAB_USERNAME}" "${HOMELAB_PASSWORD}"
+
 echo ""
 echo "🎉 Homelab Setup Complete!"
 echo "=========================="
