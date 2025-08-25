@@ -14,7 +14,10 @@ router.post('/wordgames/letterboxed', requireAuth('admin'), (req, res) => wordGa
 // Spelling Bee solver endpoint
 router.post('/wordgames/spellingbee', requireAuth('admin'), (req, res) => wordGamesController.solveSpellingBee(req, res));
 
-// Read results from temp file (pagination)
-router.post('/wordgames/read', requireAuth('admin'), (req, res) => wordGamesController.readResults(req, res));
+// Wordle solver endpoint
+router.post('/wordgames/wordle', requireAuth('admin'), (req, res) => wordGamesController.solveWordle(req, res));
+
+// Load results from file (pagination) - supports all game types
+router.post('/wordgames/load', requireAuth('admin'), (req, res) => wordGamesController.loadResults(req, res));
 
 module.exports = router;

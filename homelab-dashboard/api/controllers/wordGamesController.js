@@ -272,6 +272,143 @@ class WordGamesController {
         }
     }
 
+    // Solve Wordle puzzle
+    async solveWordle(req, res) {
+        try {
+            const { guesses, maxDepth = 0, start = 0, end = 100 } = req.body;
+
+            // Basic request validation
+            if (!req.body || typeof req.body !== 'object') {
+                return sendError(res, 400, 'Invalid request body');
+            }
+
+            // Validate input
+            if (!guesses || !Array.isArray(guesses) || guesses.length === 0) {
+                return sendError(res, 400, 'Guesses parameter is required and must be a non-empty array');
+            }
+
+            // Validate each guess
+            for (let i = 0; i < guesses.length; i++) {
+                const guess = guesses[i];
+                if (!guess.word || !guess.feedback) {
+                    return sendError(res, 400, `Guess ${i + 1} must have both 'word' and 'feedback' properties`);
+                }
+
+                const word = guess.word.trim().toUpperCase();
+                const feedback = guess.feedback.trim();
+
+                if (word.length !== 5) {
+                    return sendError(res, 400, `Guess ${i + 1}: Word must be exactly 5 letters`);
+                }
+
+                if (!/^[A-Z]+$/.test(word)) {
+                    return sendError(res, 400, `Guess ${i + 1}: Word must contain only letters`);
+                }
+
+                if (feedback.length !== 5) {
+                    return sendError(res, 400, `Guess ${i + 1}: Feedback must be exactly 5 digits`);
+                }
+
+                if (!/^[012]+$/.test(feedback)) {
+                    return sendError(res, 400, `Guess ${i + 1}: Feedback must contain only 0, 1, or 2`);
+                }
+            }
+
+            // Validate max depth
+            const depth = parseInt(maxDepth);
+            if (isNaN(depth) || depth < 0 || depth > 1) {
+                return sendError(res, 400, 'Max depth must be 0 or 1 (higher values are too slow)');
+            }
+
+            // Generate unique filenames for this session
+            const possibleFilename = this.generateResultsFilename(req.user.username, 'wordle_possible');
+            const guessesFilename = this.generateResultsFilename(req.user.username, 'wordle_guesses');
+
+            // Build guess arguments for command line
+            const guessArgs = guesses.map(g => `"${g.word.toUpperCase()} ${g.feedback}"`).join(' ');
+
+            // Build command with flags
+            const flags = [
+                `--mode wordle`,
+                `--guesses ${guessArgs}`,
+                `--maxDepth ${depth}`,
+                `--possibleFile ${possibleFilename}`,
+                `--guessesFile ${guessesFilename}`
+            ].join(' ');
+
+            console.log(`Executing Wordle solver: ${flags}`);
+            const result = await this.executeCommand(flags);
+
+            // Parse the initial output to get counts and filenames
+            // Expected format:
+            // number of possible solutions
+            // number of guesses
+            // possibleWordsFile
+            // guessesFile
+            const outputLines = result.stdout.trim().split('\n');
+            if (outputLines.length < 4) {
+                return sendError(res, 500, 'Invalid output format from Wordle solver');
+            }
+
+            const possibleWordsCount = parseInt(outputLines[0]);
+            const guessesCount = parseInt(outputLines[1]);
+            const actualPossibleFile = outputLines[2];
+            const actualGuessesFile = outputLines[3];
+
+            if (isNaN(possibleWordsCount) || isNaN(guessesCount)) {
+                return sendError(res, 500, 'Failed to parse counts from Wordle solver output');
+            }
+
+            // Schedule cleanup for both files
+            this.scheduleFileCleanup(actualPossibleFile);
+            this.scheduleFileCleanup(actualGuessesFile);
+
+            // Read the possible words file
+            const readPossibleCommand = `--mode read --file ${actualPossibleFile} --start ${start} --end ${end}`;
+            const possibleResult = await this.executeCommand(readPossibleCommand);
+            const possibleWords = this.parseWordGameOutput(possibleResult.stdout);
+            possibleWords.sort(); // Sort alphabetically
+
+            // Read the guesses file and parse it
+            const readGuessesCommand = `--mode read --file ${actualGuessesFile} --start ${start} --end ${end}`;
+            const guessesResult = await this.executeCommand(readGuessesCommand);
+            const guessesWithEntropy = this.parseWordleGuesses(guessesResult.stdout);
+
+            return sendSuccess(res, {
+                success: true,
+                gameType: 'wordle',
+                guesses: guesses,
+                maxDepth: depth,
+                possibleWords: possibleWords,
+                guessesWithEntropy: guessesWithEntropy,
+                possibleWordsCount: possibleWordsCount,
+                guessesCount: guessesCount,
+                actualPossibleWordsFound: possibleWordsCount,
+                actualGuessesFound: guessesCount,
+                isLimitedPossible: possibleWordsCount > end,
+                isLimitedGuesses: guessesCount > end,
+                executionTime: result.executionTime,
+                start,
+                end,
+                possibleFile: actualPossibleFile,
+                guessesFile: actualGuessesFile
+            });
+
+        } catch (error) {
+            console.error('Wordle solver error:', error);
+            
+            if (error.message.includes('Command failed')) {
+                return sendError(res, 500, 'Word games executable failed to run. Please check if the executable is available.');
+            }
+            
+            if (error.message.includes('timeout')) {
+                return sendError(res, 408, 'Request timeout. The puzzle is too complex or the system is overloaded.');
+            }
+            
+            return sendError(res, 500, 'Failed to solve Wordle puzzle', error.message);
+        }
+    }
+
     // Get word games status (check if executable exists and is working)
     async getStatus(req, res) {
         try {
@@ -302,37 +439,53 @@ class WordGamesController {
         }
     }
 
-    // Read a section of results from the temp file
-    async readResults(req, res) {
+    // Load a section of results from a file for any game mode
+    async loadResults(req, res) {
         try {
-            const { start = 0, end = 100, resultsFile } = req.body;
+            const { start = 0, end = 100, gameMode, fileType, filePath } = req.body;
 
             // Validate input
             if (isNaN(start) || isNaN(end) || start < 0 || end <= start) {
                 return sendError(res, 400, 'Invalid start/end parameters');
             }
 
-            // If no resultsFile specified, try to read from default temp file
-            const filePath = resultsFile || "temp.txt";
+            if (!gameMode) {
+                return sendError(res, 400, 'Game mode is required');
+            }
+
+            if (!fileType || !['possible', 'guesses', 'results'].includes(fileType)) {
+                return sendError(res, 400, 'Valid file type is required (possible, guesses, or results)');
+            }
+
+            if (!filePath) {
+                return sendError(res, 400, 'File path is required');
+            }
 
             // Build read command
             const readCommand = `--mode read --file ${filePath} --start ${start} --end ${end}`;
-            console.log(`Reading results: ${readCommand}`);
+            console.log(`Loading ${gameMode} ${fileType}: ${readCommand}`);
             const readResult = await this.executeCommand(readCommand);
 
-            // Parse the output into solutions
-            const solutions = this.parseWordGameOutput(readResult.stdout);
+            // Parse the output based on game mode and file type
+            let solutions;
+            if (gameMode === 'wordle' && fileType === 'guesses') {
+                solutions = this.parseWordleGuesses(readResult.stdout);
+            } else {
+                solutions = this.parseWordGameOutput(readResult.stdout);
+            }
 
             return sendSuccess(res, {
                 solutions,
                 start,
                 end,
-                executionTime: readResult.executionTime,
-                resultsFile: resultsFile
+                gameMode,
+                fileType,
+                filePath,
+                executionTime: readResult.executionTime
             });
         } catch (error) {
-            console.error('Read results error:', error);
-            return sendError(res, 500, 'Failed to read results', error.message);
+            console.error('Load results error:', error);
+            return sendError(res, 500, 'Failed to load results', error.message);
         }
     }
 
@@ -382,6 +535,39 @@ class WordGamesController {
 
         // Limit results to 100 to prevent overwhelming the UI
         return solutions.slice(0, 100);
+    }
+
+    // Parse Wordle guesses output with entropy and probability
+    parseWordleGuesses(output) {
+        if (!output || typeof output !== 'string') {
+            return [];
+        }
+
+        // Split by lines and filter out empty lines
+        const lines = output.split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+
+        const guesses = [];
+        for (const line of lines) {
+            // Expected format: "WORD Probability Entropy1 Entropy2..."
+            const parts = line.split(/\s+/);
+            if (parts.length >= 3) {
+                const word = parts[0];
+                const probability = parseFloat(parts[1]);
+                const entropy = parseFloat(parts[2]);
+
+                // Validate word format
+                guesses.push({
+                    word: word,
+                    probability: probability,
+                    entropy: entropy
+                });
+            }
+        }
+
+        // Limit results to 100 to prevent overwhelming the UI
+        return guesses.slice(0, 100);
     }
 
     // Schedule file cleanup after 24 hours
