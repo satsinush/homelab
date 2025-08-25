@@ -145,6 +145,12 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError })
                                 }
                             }}
                             helperText={`${spellingBeeLetters.length}/7 letters entered`}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleSolve();
+                                }
+                            }}
                         />
                     </Grid>
                 </Grid>

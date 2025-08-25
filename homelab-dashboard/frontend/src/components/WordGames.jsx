@@ -76,6 +76,7 @@ const WordGames = () => {
 
     const handleTabChange = useCallback((event, newValue) => {
         setActiveTab(newValue);
+        handleClear('all');
     }, []);
 
     const handleSolve = useCallback(async (gameType, gameData) => {
@@ -86,7 +87,8 @@ const WordGames = () => {
             if (gameType === 'letterboxed') {
                 response = await tryApiCall('/wordgames/letterboxed', {
                     method: 'POST',
-                    data: gameData
+                    data: gameData,
+                    timeout: 30000
                 });
                 const newGameData = {
                     letters: response.data.letters,
@@ -110,7 +112,8 @@ const WordGames = () => {
             } else if (gameType === 'spellingbee') {
                 response = await tryApiCall('/wordgames/spellingbee', {
                     method: 'POST',
-                    data: gameData
+                    data: gameData,
+                    timeout: 30000
                 });
                 const newGameData = {
                     letters: response.data.letters,
@@ -133,7 +136,8 @@ const WordGames = () => {
             } else if (gameType === 'wordle') {
                 response = await tryApiCall('/wordgames/wordle', {
                     method: 'POST',
-                    data: gameData
+                    data: gameData,
+                    timeout: 30000
                 });
                 const newGameData = {
                     guesses: gameData.guesses,
@@ -167,11 +171,13 @@ const WordGames = () => {
     }, [showError, showSuccess]);
 
     const handleClear = useCallback((gameType) => {
-        if (gameType === 'letterboxed') {
+        if (gameType === 'letterboxed' || gameType == 'all') {
             setLetterBoxedResults({ solutions: [], gameData: null });
-        } else if (gameType === 'spellingbee') {
+        }
+        if (gameType === 'spellingbee' || gameType == 'all') {
             setSpellingBeeResults({ solutions: [], gameData: null });
-        } else if (gameType === 'wordle') {
+        }
+        if (gameType === 'wordle' || gameType == 'all') {
             setWordleResults({ possibleWords: [], guessesWithEntropy: [], gameData: null });
         }
     }, []);
@@ -179,23 +185,114 @@ const WordGames = () => {
     const handleLoadMore = useCallback(async (type) => {
         // Implementation for loading more results
         let gameData;
-        if (activeTab === 0) gameData = letterBoxedResults.gameData;
-        else if (activeTab === 1) gameData = spellingBeeResults.gameData;
-        else if (activeTab === 2) gameData = wordleResults.gameData;
+        let currentResults;
+        if (activeTab === 0) {
+            gameData = letterBoxedResults.gameData;
+            currentResults = letterBoxedResults;
+        } else if (activeTab === 1) {
+            gameData = spellingBeeResults.gameData;
+            currentResults = spellingBeeResults;
+        } else if (activeTab === 2) {
+            gameData = wordleResults.gameData;
+            currentResults = wordleResults;
+        }
 
         if (!gameData) return;
 
         setIsLoading(true);
         try {
-            // This would use the /load endpoint we created earlier
-            // Implementation depends on the specific type and game
-            console.log('Loading more:', type);
+            let endpoint = '';
+            let dataToSend = {};
+            let currentCount = 0;
+
+            if (activeTab === 2) { // Wordle
+                if (type === 'possible') {
+                    currentCount = currentResults.possibleWords.length;
+                    endpoint = '/wordgames/load';
+                    dataToSend = {
+                        start: currentCount,
+                        end: currentCount + 100,
+                        gameMode: 'wordle',
+                        fileType: 'possible',
+                        filePath: gameData.possibleFile
+                    };
+                } else if (type === 'guesses') {
+                    currentCount = currentResults.guessesWithEntropy.length;
+                    endpoint = '/wordgames/load';
+                    dataToSend = {
+                        start: currentCount,
+                        end: currentCount + 100,
+                        gameMode: 'wordle',
+                        fileType: 'guesses',
+                        filePath: gameData.guessesFile
+                    };
+                }
+
+                const response = await tryApiCall(endpoint, {
+                    method: 'POST',
+                    data: dataToSend
+                });
+
+                if (type === 'possible') {
+                    setWordleResults(prev => ({
+                        ...prev,
+                        possibleWords: [...prev.possibleWords, ...(response.data.solutions || [])]
+                    }));
+                } else if (type === 'guesses') {
+                    setWordleResults(prev => ({
+                        ...prev,
+                        guessesWithEntropy: [...prev.guessesWithEntropy, ...(response.data.solutions || [])]
+                    }));
+                }
+            } else {
+                // Letter Boxed or Spelling Bee
+                currentCount = currentResults.solutions.length;
+
+                if (activeTab === 0) {
+                    endpoint = '/wordgames/load';
+                    dataToSend = {
+                        start: currentCount,
+                        end: currentCount + 100,
+                        gameMode: 'letterboxed',
+                        fileType: 'results',
+                        filePath: gameData.resultsFile
+                    };
+                } else {
+                    endpoint = '/wordgames/load';
+                    dataToSend = {
+                        start: currentCount,
+                        end: currentCount + 100,
+                        gameMode: 'spellingbee',
+                        fileType: 'results',
+                        filePath: gameData.resultsFile
+                    };
+                }
+
+                const response = await tryApiCall(endpoint, {
+                    method: 'POST',
+                    data: dataToSend
+                });
+
+                if (activeTab === 0) {
+                    setLetterBoxedResults(prev => ({
+                        ...prev,
+                        solutions: [...prev.solutions, ...(response.data.solutions || [])]
+                    }));
+                } else {
+                    setSpellingBeeResults(prev => ({
+                        ...prev,
+                        solutions: [...prev.solutions, ...(response.data.solutions || [])]
+                    }));
+                }
+            }
+
+            showSuccess(`Loaded more ${type} results`);
         } catch (error) {
             showError('Failed to load more results');
         } finally {
             setIsLoading(false);
         }
-    }, [activeTab, letterBoxedResults.gameData, spellingBeeResults.gameData, wordleResults.gameData, showError]); const copyToClipboard = useCallback((text) => {
+    }, [activeTab, letterBoxedResults, spellingBeeResults, wordleResults, showError, showSuccess]); const copyToClipboard = useCallback((text) => {
         navigator.clipboard.writeText(text).then(() => {
             showSuccess('Copied to clipboard');
         }).catch(() => {

@@ -253,6 +253,12 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError })
                                 }
                             }}
                             helperText={`${letterBoxedLetters.length}/12 letters entered`}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleSolve();
+                                }
+                            }}
                         />
                     </Grid>
                 </Grid>

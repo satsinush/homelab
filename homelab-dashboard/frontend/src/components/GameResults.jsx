@@ -46,7 +46,7 @@ const GameResults = ({
     };
 
     const copyGuesses = () => {
-        const guessesText = guessesWithEntropy.map(g => `${g.word} - ${g.probability}% - Entropy: ${g.entropy}`).join('\n');
+        const guessesText = guessesWithEntropy.map(g => `${g.word} - ${g.probability} - ${g.entropy}`).join('\n');
         onCopyToClipboard(guessesText);
     };
 
@@ -69,151 +69,171 @@ const GameResults = ({
     const memoizedPossibleWords = useMemo(() => possibleWords, [possibleWords]);
     const memoizedGuesses = useMemo(() => guessesWithEntropy, [guessesWithEntropy]);
 
-    if (gameType === 'wordle' && (memoizedPossibleWords.length > 0 || memoizedGuesses.length > 0)) {
+    if (gameType === 'wordle' && (memoizedPossibleWords.length > 0 || memoizedGuesses.length > 0 || lastGameData)) {
         return (
             <Grid container spacing={3}>
                 {/* Possible Words */}
-                <Grid size={{ xs: 12, md: 6 }}>
+                <Grid size={{ xs: 12, md: memoizedGuesses.length > 0 || (lastGameData && lastGameData.guessesCount > 0) ? 6 : 12 }}>
                     <Card>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-                                    Possible Words ({memoizedPossibleWords.length})
-                                </Typography>
-                                {memoizedPossibleWords.length > 0 && (
-                                    <Button
-                                        variant="outlined"
-                                        size="small"
-                                        onClick={copyPossibleWords}
-                                        startIcon={<CopyIcon />}
-                                    >
-                                        Copy
-                                    </Button>
-                                )}
-                            </Box>
-                            <Paper
-                                variant="outlined"
-                                sx={{
-                                    maxHeight: 300,
-                                    overflowY: 'auto',
-                                    bgcolor: 'background.default'
-                                }}
-                            >
-                                <List dense>
-                                    {memoizedPossibleWords.map((word, index) => (
-                                        <React.Fragment key={index}>
-                                            <ListItem
-                                                onClick={() => onCopyToClipboard(word)}
-                                                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
-                                            >
-                                                <ListItemText
-                                                    primary={word}
-                                                    primaryTypographyProps={{
-                                                        fontFamily: 'monospace',
-                                                        fontSize: '1rem',
-                                                        fontWeight: 'bold'
-                                                    }}
-                                                />
-                                            </ListItem>
-                                            {index < memoizedPossibleWords.length - 1 && <Divider />}
-                                        </React.Fragment>
-                                    ))}
-                                </List>
-                            </Paper>
-                            {lastGameData && lastGameData.isLimitedPossible && lastGameData.end < lastGameData.actualPossibleWordsFound && (
-                                <Button
-                                    variant="contained"
-                                    onClick={() => onLoadMore('possible')}
-                                    disabled={isLoading}
-                                    sx={{ mt: 2 }}
-                                    size="small"
+                        {(memoizedPossibleWords.length > 0) ? (
+                            <CardContent>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                    <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+                                        Possible Words ({memoizedPossibleWords.length}/{lastGameData?.possibleWordsCount || memoizedPossibleWords.length})
+                                    </Typography>
+                                    {memoizedPossibleWords.length > 0 && (
+                                        <Button
+                                            variant="outlined"
+                                            size="small"
+                                            onClick={copyPossibleWords}
+                                            startIcon={<CopyIcon />}
+                                        >
+                                            Copy
+                                        </Button>
+                                    )}
+                                </Box>
+                                <Paper
+                                    variant="outlined"
+                                    sx={{
+                                        maxHeight: 300,
+                                        overflowY: 'auto',
+                                        bgcolor: 'background.default'
+                                    }}
                                 >
-                                    Load More Possible Words
-                                </Button>
-                            )}
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                {/* Suggested Guesses with Entropy */}
-                <Grid size={{ xs: 12, md: 6 }}>
-                    <Card>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-                                    Suggested Guesses ({memoizedGuesses.length})
-                                </Typography>
-                                {memoizedGuesses.length > 0 && (
-                                    <Button
-                                        variant="outlined"
-                                        size="small"
-                                        onClick={copyGuesses}
-                                        startIcon={<CopyIcon />}
-                                    >
-                                        Copy
-                                    </Button>
-                                )}
-                            </Box>
-                            <TableContainer
-                                component={Paper}
-                                variant="outlined"
-                                sx={{
-                                    maxHeight: 300,
-                                    overflowY: 'auto',
-                                    bgcolor: 'background.default'
-                                }}
-                            >
-                                <Table size="small" stickyHeader>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell sx={{ fontWeight: 'bold' }}>Word</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>Information</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {memoizedGuesses.map((guess, index) => (
-                                            <TableRow key={index} hover>
-                                                <TableCell>
-                                                    <Typography
-                                                        sx={{
+                                    <List dense>
+                                        {memoizedPossibleWords.map((word, index) => (
+                                            <React.Fragment key={index}>
+                                                <ListItem
+                                                    onClick={() => onCopyToClipboard(word)}
+                                                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
+                                                >
+                                                    <ListItemText
+                                                        primary={word}
+                                                        primaryTypographyProps={{
                                                             fontFamily: 'monospace',
                                                             fontSize: '1rem',
                                                             fontWeight: 'bold'
                                                         }}
-                                                    >
-                                                        {guess.word}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    <Typography variant="body2">
-                                                        {formatRoundedNum(guess.probability)}%
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    <Typography variant="body2">
-                                                        {formatRoundedNum(guess.entropy)}
-                                                    </Typography>
-                                                </TableCell>
-                                            </TableRow>
+                                                    />
+                                                </ListItem>
+                                                {index < memoizedPossibleWords.length - 1 && <Divider />}
+                                            </React.Fragment>
                                         ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                            {lastGameData && lastGameData.isLimitedGuesses && lastGameData.end < lastGameData.actualGuessesFound && (
-                                <Button
-                                    variant="contained"
-                                    onClick={() => onLoadMore('guesses')}
-                                    disabled={isLoading}
-                                    sx={{ mt: 2 }}
-                                    size="small"
-                                >
-                                    Load More Suggested Guesses
-                                </Button>
-                            )}
-                        </CardContent>
+                                    </List>
+                                </Paper>
+                                {lastGameData && lastGameData.isLimitedPossible && memoizedPossibleWords.length < (lastGameData.possibleWordsCount || 0) && (
+                                    <Button
+                                        variant="contained"
+                                        onClick={() => onLoadMore('possible')}
+                                        disabled={isLoading}
+                                        sx={{ mt: 2 }}
+                                        size="small"
+                                    >
+                                        Load More
+                                    </Button>
+                                )}
+                            </CardContent>) :
+                            <CardContent>
+                                <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+                                    Possible Words ({memoizedPossibleWords.length}/{lastGameData?.possibleWordsCount || 0})
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                    No solutions found.
+                                </Typography>
+                            </CardContent>
+                        }
                     </Card>
                 </Grid>
+
+                {/* Suggested Guesses with Entropy - Only show if there are guesses or guesses are expected */}
+                {(memoizedGuesses.length > 0 || (lastGameData && lastGameData.guessesCount > 0)) && (
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Card>
+                            <CardContent>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                    <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+                                        Suggested Guesses ({memoizedGuesses.length}/{lastGameData?.guessesCount || memoizedGuesses.length})
+                                    </Typography>
+                                    {memoizedGuesses.length > 0 && (
+                                        <Button
+                                            variant="outlined"
+                                            size="small"
+                                            onClick={copyGuesses}
+                                            startIcon={<CopyIcon />}
+                                        >
+                                            Copy
+                                        </Button>
+                                    )}
+                                </Box>
+                                {memoizedGuesses.length > 0 ? (
+                                    <>
+                                        <TableContainer
+                                            component={Paper}
+                                            variant="outlined"
+                                            sx={{
+                                                maxHeight: 300,
+                                                overflowY: 'auto',
+                                                bgcolor: 'background.default'
+                                            }}
+                                        >
+                                            <Table size="small" stickyHeader>
+                                                <TableHead>
+                                                    <TableRow>
+                                                        <TableCell sx={{ fontWeight: 'bold' }}>Word</TableCell>
+                                                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
+                                                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>Information</TableCell>
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {memoizedGuesses.map((guess, index) => (
+                                                        <TableRow key={index} hover>
+                                                            <TableCell>
+                                                                <Typography
+                                                                    sx={{
+                                                                        fontFamily: 'monospace',
+                                                                        fontSize: '1rem',
+                                                                        fontWeight: 'bold'
+                                                                    }}
+                                                                >
+                                                                    {guess.word}
+                                                                </Typography>
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                <Typography variant="body2">
+                                                                    {formatRoundedNum(guess.probability * 100)}%
+                                                                </Typography>
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                <Typography variant="body2">
+                                                                    {guess.entropy !== null ? formatRoundedNum(guess.entropy) : 'N/A'}
+                                                                </Typography>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </TableContainer>
+                                        {lastGameData && lastGameData.isLimitedGuesses && memoizedGuesses.length < (lastGameData.guessesCount || 0) && (
+                                            <Button
+                                                variant="contained"
+                                                onClick={() => onLoadMore('guesses')}
+                                                disabled={isLoading}
+                                                sx={{ mt: 2 }}
+                                                size="small"
+                                            >
+                                                Load More
+                                            </Button>
+                                        )}
+                                    </>
+                                ) : (
+                                    <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                        No suggested guesses available. Use "Calculate best guesses" mode to see recommendations.
+                                    </Typography>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                )}
             </Grid>
         );
     }

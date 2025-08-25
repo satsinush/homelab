@@ -552,10 +552,10 @@ class WordGamesController {
         for (const line of lines) {
             // Expected format: "WORD Probability Entropy1 Entropy2..."
             const parts = line.split(/\s+/);
-            if (parts.length >= 3) {
+            if (parts.length >= 2) {
                 const word = parts[0];
                 const probability = parseFloat(parts[1]);
-                const entropy = parseFloat(parts[2]);
+                const entropy = parts[2] ? parseFloat(parts[2]) : null;
 
                 // Validate word format
                 guesses.push({
