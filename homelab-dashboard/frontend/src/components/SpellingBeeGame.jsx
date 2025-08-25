@@ -131,7 +131,6 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError })
                             label="Enter 7 letters (center first, then outer)"
                             value={spellingBeeLetters}
                             onChange={handleSpellingBeeChange}
-                            placeholder="Type letters here..."
                             fullWidth
                             slotProps={{
                                 htmlInput: {

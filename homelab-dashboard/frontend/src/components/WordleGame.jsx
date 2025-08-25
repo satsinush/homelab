@@ -123,7 +123,6 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
                                             label="5-letter word"
                                             value={currentGuess}
                                             onChange={handleCurrentGuessChange}
-                                            placeholder="CRANE"
                                             fullWidth
                                             slotProps={{
                                                 htmlInput: {

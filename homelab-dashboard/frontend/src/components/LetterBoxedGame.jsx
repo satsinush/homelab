@@ -239,7 +239,6 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError })
                             label="Enter 12 letters (clockwise from top)"
                             value={letterBoxedLetters}
                             onChange={handleLetterBoxedChange}
-                            placeholder="Type letters here..."
                             fullWidth
                             slotProps={{
                                 htmlInput: {
