@@ -228,29 +228,6 @@ const Home = () => {
         }
     ];
 
-    const systemFeatures = [
-        {
-            icon: <ComputerIcon />,
-            title: 'System Monitoring',
-            description: 'Real-time CPU, memory, disk, and network monitoring'
-        },
-        {
-            icon: <RouterIcon />,
-            title: 'Wake-on-LAN',
-            description: 'Remote device power management and network discovery'
-        },
-        {
-            icon: <StorageIcon />,
-            title: 'Package Management',
-            description: 'System package installation and updates'
-        },
-        {
-            icon: <SpeedIcon />,
-            title: 'Performance Metrics',
-            description: 'Historical data and performance analytics'
-        }
-    ];
-
     return (
         <Container maxWidth="lg" sx={{ py: 3 }}>
             {/* Welcome Section */}
@@ -369,51 +346,15 @@ const Home = () => {
                                         size="small"
                                         color={service.color}
                                         href={service.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        endIcon={<ExternalLinkIcon />}
+                                        // target="_blank"  <-- REMOVED
+                                        // rel="noopener noreferrer" <-- REMOVED (optional but good practice)
+                                        // endIcon={<ExternalLinkIcon />} // You might also want to remove this icon
                                         sx={{ ml: 'auto' }}
                                     >
                                         Open
                                     </Button>
                                 </CardActions>
                             </Card>
-                        </Grid>
-                    ))}
-                </Grid>
-            </Box>
-
-            <Divider sx={{ my: 4 }} />
-
-            {/* Features Overview Section */}
-            <Box sx={{ mb: 4 }}>
-                <Typography variant="h4" component="h2" gutterBottom>
-                    Dashboard Features
-                </Typography>
-                <Grid container spacing={3}>
-                    {systemFeatures.map((feature, index) => (
-                        <Grid size={{ xs: 12, sm: 6 }} key={index}>
-                            <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
-                                <Avatar
-                                    sx={{
-                                        bgcolor: 'primary.main',
-                                        mr: 2,
-                                        mt: 0.5,
-                                        width: 40,
-                                        height: 40
-                                    }}
-                                >
-                                    {feature.icon}
-                                </Avatar>
-                                <Box>
-                                    <Typography variant="h6" component="h3" gutterBottom>
-                                        {feature.title}
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary">
-                                        {feature.description}
-                                    </Typography>
-                                </Box>
-                            </Box>
                         </Grid>
                     ))}
                 </Grid>
