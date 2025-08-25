@@ -230,7 +230,7 @@ const Chat = () => {
         }
     };
 
-    const handleKeyPress = (event) => {
+    const handleKeyDown = (event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
             handleSendMessage();
@@ -667,7 +667,7 @@ const Chat = () => {
                                 maxRows={4}
                                 value={inputMessage}
                                 onChange={(e) => setInputMessage(e.target.value)}
-                                onKeyPress={handleKeyPress}
+                                onKeyDown={handleKeyDown}
                                 placeholder={
                                     availableModels.length === 0
                                         ? "Download a model first to start chatting..."
