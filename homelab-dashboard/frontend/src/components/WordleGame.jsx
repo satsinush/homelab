@@ -25,7 +25,7 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
     const [wordleGuesses, setWordleGuesses] = useState([]);
     const [currentGuess, setCurrentGuess] = useState('');
     const [currentGuessColors, setCurrentGuessColors] = useState([0, 0, 0, 0, 0]); // 0=grey, 1=yellow, 2=green
-    const [wordleMaxDepth, setWordleMaxDepth] = useState(0);
+    const [wordleMaxDepth, setWordleMaxDepth] = useState(1);
 
     // Memoized color map to prevent recreation on every render
     const colorMap = useMemo(() => ({
