@@ -275,7 +275,7 @@ class WordGamesController {
     // Solve Wordle puzzle
     async solveWordle(req, res) {
         try {
-            const { guesses, maxDepth = 0, start = 0, end = 100 } = req.body;
+            const { guesses, maxDepth = 0, excludeUncommonWords = 0, start = 0, end = 100 } = req.body;
 
             // Basic request validation
             if (!req.body || typeof req.body !== 'object') {
@@ -320,6 +320,12 @@ class WordGamesController {
                 return sendError(res, 400, 'Max depth must be 0 or 1 (higher values are too slow)');
             }
 
+            // Validate excludeUncommonWords
+            const excludeFlag = parseInt(excludeUncommonWords);
+            if (isNaN(excludeFlag) || (excludeFlag !== 0 && excludeFlag !== 1)) {
+                return sendError(res, 400, 'excludeUncommonWords must be 0 or 1');
+            }
+
             // Generate unique filenames for this session
             const possibleFilename = this.generateResultsFilename(req.user.username, 'wordle_possible');
             const guessesFilename = this.generateResultsFilename(req.user.username, 'wordle_guesses');
@@ -332,6 +338,7 @@ class WordGamesController {
                 `--mode wordle`,
                 `--guesses ${guessArgs}`,
                 `--maxDepth ${depth}`,
+                `--excludeUncommonWords ${excludeFlag}`,
                 `--possibleFile ${possibleFilename}`,
                 `--guessesFile ${guessesFilename}`
             ].join(' ');
@@ -409,6 +416,187 @@ class WordGamesController {
         }
     }
 
+    // Solve Mastermind puzzle
+    async solveMastermind(req, res) {
+        try {
+            const { 
+                guess, 
+                numPegs = 4, 
+                numColors = 6, 
+                allowDuplicates = 1, 
+                maxDepth = 0, 
+                start = 0, 
+                end = 100 
+            } = req.body;
+
+            console.log('Mastermind request body:', req.body);
+
+            // Basic request validation
+            if (!req.body || typeof req.body !== 'object') {
+                return sendError(res, 400, 'Invalid request body');
+            }
+
+            // Validate input
+            if (!guess || typeof guess !== 'string') {
+                return sendError(res, 400, 'Guess parameter is required and must be a string');
+            }
+
+            // Validate numPegs
+            const pegs = parseInt(numPegs);
+            if (isNaN(pegs) || pegs < 3 || pegs > 6) {
+                return sendError(res, 400, 'Number of pegs must be between 3 and 6');
+            }
+
+            // Validate numColors
+            const colors = parseInt(numColors);
+            if (isNaN(colors) || colors < 3 || colors > 10) {
+                return sendError(res, 400, 'Number of colors must be between 3 and 10');
+            }
+
+            // Validate allowDuplicates
+            const duplicates = parseInt(allowDuplicates);
+            if (duplicates !== 0 && duplicates !== 1) {
+                return sendError(res, 400, 'Allow duplicates must be 0 or 1');
+            }
+
+            // Validate max depth (only allow 0 for mastermind)
+            const depth = parseInt(maxDepth);
+            if (isNaN(depth) || depth !== 0) {
+                return sendError(res, 400, 'Max depth must be 0 for Mastermind');
+            }
+
+            // Validate guess format
+            const guesses = guess.split(',');
+            for (let i = 0; i < guesses.length; i++) {
+                const g = guesses[i].trim();
+                if (!g.includes('|')) {
+                    return sendError(res, 400, `Guess ${i + 1}: Must be in format "pattern|feedback"`);
+                }
+
+                const [pattern, feedback] = g.split('|');
+                const patternParts = pattern.trim().split(' ');
+                const feedbackParts = feedback.trim().split(' ');
+
+                if (patternParts.length !== pegs) {
+                    return sendError(res, 400, `Guess ${i + 1}: Pattern must have exactly ${pegs} values`);
+                }
+
+                if (feedbackParts.length !== 2) {
+                    return sendError(res, 400, `Guess ${i + 1}: Feedback must have exactly 2 values (correct position, correct color)`);
+                }
+
+                // Validate pattern values
+                for (let j = 0; j < patternParts.length; j++) {
+                    const val = parseInt(patternParts[j]);
+                    if (isNaN(val) || val < 0 || val >= colors) {
+                        return sendError(res, 400, `Guess ${i + 1}: Pattern value ${j + 1} must be between 0 and ${colors - 1}`);
+                    }
+                }
+
+                // Validate feedback values
+                const correctPos = parseInt(feedbackParts[0]);
+                const correctCol = parseInt(feedbackParts[1]);
+                if (isNaN(correctPos) || isNaN(correctCol) || correctPos < 0 || correctCol < 0 || correctPos + correctCol > pegs) {
+                    return sendError(res, 400, `Guess ${i + 1}: Invalid feedback values`);
+                }
+            }
+
+            // Generate unique filenames for this session
+            const possibleFilename = this.generateResultsFilename(req.user.username, 'mastermind_possible');
+            const guessesFilename = this.generateResultsFilename(req.user.username, 'mastermind_guesses');
+
+            // Build command with flags
+            const baseFlags = [
+                `--mode mastermind`,
+                `--numPegs ${pegs}`,
+                `--numColors ${colors}`,
+                `--allowDuplicates ${duplicates}`,
+                `--maxDepth ${depth}`,
+                `--possibleFile ${possibleFilename}`,
+                `--guessesFile ${guessesFilename}`
+            ];
+
+            // Add each guess as a separate --guess flag (reuse guesses array from validation)
+            const guessFlags = guesses.map(g => `--guess "${g.trim()}"`);
+            
+            const flags = [...baseFlags, ...guessFlags].join(' ');
+
+            console.log(`Executing Mastermind solver: ${flags}`);
+            const result = await this.executeCommand(flags);
+
+            // Parse the initial output to get counts and filenames
+            // Expected format:
+            // number of possible solutions
+            // number of guesses
+            // possibleWordsFile
+            // guessesFile
+            const outputLines = result.stdout.trim().split('\n');
+            if (outputLines.length < 4) {
+                return sendError(res, 500, 'Invalid output format from Mastermind solver');
+            }
+
+            const possibleWordsCount = parseInt(outputLines[0]);
+            const guessesCount = parseInt(outputLines[1]);
+            const actualPossibleFile = outputLines[2];
+            const actualGuessesFile = outputLines[3];
+
+            if (isNaN(possibleWordsCount) || isNaN(guessesCount)) {
+                return sendError(res, 500, 'Failed to parse counts from Mastermind solver output');
+            }
+
+            // Schedule cleanup for both files
+            this.scheduleFileCleanup(actualPossibleFile);
+            this.scheduleFileCleanup(actualGuessesFile);
+
+            // Read the possible words file
+            const readPossibleCommand = `--mode read --file ${actualPossibleFile} --start ${start} --end ${end}`;
+            const possibleResult = await this.executeCommand(readPossibleCommand);
+            const possibleWords = this.parseMastermindOutput(possibleResult.stdout);
+            possibleWords.sort(); // Sort by pattern
+
+            // Read the guesses file and parse it
+            const readGuessesCommand = `--mode read --file ${actualGuessesFile} --start ${start} --end ${end}`;
+            const guessesResult = await this.executeCommand(readGuessesCommand);
+            const guessesWithEntropy = this.parseMastermindGuesses(guessesResult.stdout);
+
+            return sendSuccess(res, {
+                success: true,
+                gameType: 'mastermind',
+                guess: guess,
+                numPegs: pegs,
+                numColors: colors,
+                allowDuplicates: duplicates,
+                maxDepth: depth,
+                possibleWords: possibleWords,
+                guessesWithEntropy: guessesWithEntropy,
+                possibleWordsCount: possibleWordsCount,
+                guessesCount: guessesCount,
+                actualPossibleWordsFound: possibleWordsCount,
+                actualGuessesFound: guessesCount,
+                isLimitedPossible: possibleWordsCount > end,
+                isLimitedGuesses: guessesCount > end,
+                executionTime: result.executionTime,
+                start,
+                end,
+                possibleFile: actualPossibleFile,
+                guessesFile: actualGuessesFile
+            });
+
+        } catch (error) {
+            console.error('Mastermind solver error:', error);
+            
+            if (error.message.includes('Command failed')) {
+                return sendError(res, 500, 'Word games executable failed to run. Please check if the executable is available.');
+            }
+            
+            if (error.message.includes('timeout')) {
+                return sendError(res, 408, 'Request timeout. The puzzle is too complex or the system is overloaded.');
+            }
+            
+            return sendError(res, 500, 'Failed to solve Mastermind puzzle', error.message);
+        }
+    }
+
     // Get word games status (check if executable exists and is working)
     async getStatus(req, res) {
         try {
@@ -470,6 +658,10 @@ class WordGamesController {
             let solutions;
             if (gameMode === 'wordle' && fileType === 'guesses') {
                 solutions = this.parseWordleGuesses(readResult.stdout);
+            } else if (gameMode === 'mastermind' && fileType === 'guesses') {
+                solutions = this.parseMastermindGuesses(readResult.stdout);
+            } else if (gameMode === 'mastermind' && fileType === 'possible') {
+                solutions = this.parseMastermindOutput(readResult.stdout);
             } else {
                 solutions = this.parseWordGameOutput(readResult.stdout);
             }
@@ -533,8 +725,7 @@ class WordGamesController {
         // Filter out any lines that don't look like words (contain only letters)
         const solutions = lines.filter(line => /^[a-zA-Z\s\-,]+$/.test(line));
 
-        // Limit results to 100 to prevent overwhelming the UI
-        return solutions.slice(0, 100);
+        return solutions;
     }
 
     // Parse Wordle guesses output with entropy and probability
@@ -550,8 +741,8 @@ class WordGamesController {
 
         const guesses = [];
         for (const line of lines) {
-            // Expected format: "WORD Probability Entropy1 Entropy2..."
-            const parts = line.split(/\s+/);
+            // Expected format: "WORD,Probability,Entropy1,Entropy2..." (comma-separated from C++)
+            const parts = line.split(',');
             if (parts.length >= 2) {
                 const word = parts[0];
                 const probability = parseFloat(parts[1]);
@@ -566,8 +757,62 @@ class WordGamesController {
             }
         }
 
-        // Limit results to 100 to prevent overwhelming the UI
-        return guesses.slice(0, 100);
+        return guesses;
+    }
+
+    // Parse Mastermind guesses output with entropy and probability
+    parseMastermindGuesses(output) {
+        if (!output || typeof output !== 'string') {
+            return [];
+        }
+
+        // Split by lines and filter out empty lines
+        const lines = output.split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+
+        const guesses = [];
+        for (const line of lines) {
+            // Expected format: "0 0 1 2 ,0.0039,3.270"
+            const parts = line.split(',');
+            if (parts.length >= 3) {
+                const pattern = parts[0].trim();
+                const probability = parseFloat(parts[1]);
+                const entropy = parseFloat(parts[2]);
+
+                // Validate pattern format (should be space-separated numbers)
+                guesses.push({
+                    word: pattern, // Use same property name for consistency with frontend
+                    probability: probability,
+                    entropy: entropy
+                });
+            }
+        }
+
+        return guesses;
+    }
+
+    // Parse Mastermind possible solutions output (space-separated numbers)
+    parseMastermindOutput(output) {
+        if (!output || typeof output !== 'string') {
+            return [];
+        }
+
+        // Split by lines and filter out empty lines
+        const lines = output.split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+
+        const solutions = [];
+        for (const line of lines) {
+            // Expected format: "1 1 1 1" (space-separated numbers)
+            // Validate that line contains only numbers and spaces
+            if (/^[\d\s]+$/.test(line)) {
+                solutions.push(line);
+            }
+        }
+
+        return solutions;
     }
 
     // Schedule file cleanup after 24 hours

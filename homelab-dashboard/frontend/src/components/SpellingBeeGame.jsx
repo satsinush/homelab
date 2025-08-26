@@ -27,15 +27,15 @@ const SpellingBeeDisplay = ({ letters }) => {
                 backgroundColor: 'background.paper'
             }}>
                 {/* Center hexagon */}
-                {(centerLetter) && (
+                {centerLetter && (
                     <Box
                         sx={{
                             position: 'absolute',
                             top: '50%',
                             left: '50%',
                             transform: 'translate(-50%, -50%)',
-                            width: 60,
-                            height: 60,
+                            width: 51.96, // Approximately 60 * sqrt(3) / 2 * 2 / sqrt(3) = ~69.28 (visual width for better proportion)
+                            height: 45,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -43,7 +43,7 @@ const SpellingBeeDisplay = ({ letters }) => {
                             color: 'white',
                             fontWeight: 'bold',
                             fontSize: '1.5rem',
-                            clipPath: 'polygon(50% 0%, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%)',
+                            clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
                         }}
                     >
                         {centerLetter}
@@ -54,8 +54,8 @@ const SpellingBeeDisplay = ({ letters }) => {
                 {outerLetters.map((letter, index) => {
                     const angle = (index * 60) - 90; // Start from top, go clockwise
                     const radian = (angle * Math.PI) / 180;
-                    const x = 70 * Math.cos(radian);
-                    const y = 70 * Math.sin(radian);
+                    const x = 60 * Math.cos(radian);
+                    const y = 60 * Math.sin(radian);
 
                     return (
                         <Box
@@ -65,7 +65,7 @@ const SpellingBeeDisplay = ({ letters }) => {
                                 top: '50%',
                                 left: '50%',
                                 transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
-                                width: 45,
+                                width: 51.96, // Approximately 45 * sqrt(3) / 2 * 2 / sqrt(3) = ~51.96
                                 height: 45,
                                 display: 'flex',
                                 alignItems: 'center',
@@ -74,7 +74,7 @@ const SpellingBeeDisplay = ({ letters }) => {
                                 color: 'black',
                                 fontWeight: 'bold',
                                 fontSize: '1.2rem',
-                                clipPath: 'polygon(50% 0%, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%)',
+                                clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
                             }}
                         >
                             {letter}
@@ -191,4 +191,4 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError })
     );
 };
 
-export default SpellingBeeGame;
+export default React.memo(SpellingBeeGame);

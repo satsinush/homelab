@@ -26,6 +26,7 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
     const [currentGuess, setCurrentGuess] = useState('');
     const [currentGuessColors, setCurrentGuessColors] = useState([0, 0, 0, 0, 0]); // 0=grey, 1=yellow, 2=green
     const [wordleMaxDepth, setWordleMaxDepth] = useState(1);
+    const [excludeUncommonWords, setExcludeUncommonWords] = useState(true);
 
     // Memoized color map to prevent recreation on every render
     const colorMap = useMemo(() => ({
@@ -41,6 +42,10 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
 
     const handleWordleMaxDepthChange = useCallback((e) => {
         setWordleMaxDepth(e.target.value);
+    }, []);
+
+    const handleExcludeUncommonWordsChange = useCallback((e) => {
+        setExcludeUncommonWords(e.target.value);
     }, []);
 
     const addWordleGuess = useCallback(() => {
@@ -85,16 +90,18 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
         await onSolve('wordle', {
             guesses: wordleGuesses,
             maxDepth: wordleMaxDepth,
+            excludeUncommonWords: excludeUncommonWords ? 1 : 0,
             start: 0,
             end: 100
         });
-    }, [wordleGuesses, wordleMaxDepth, onSolve, showError]);
+    }, [wordleGuesses, wordleMaxDepth, excludeUncommonWords, onSolve, showError]);
 
     const handleClear = useCallback(() => {
         setWordleGuesses([]);
         setCurrentGuess('');
         setCurrentGuessColors([0, 0, 0, 0, 0]);
         setWordleMaxDepth(0);
+        setExcludeUncommonWords(false);
         onClear();
     }, [onClear]);
 
@@ -261,6 +268,19 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
                                 </Select>
                             </FormControl>
 
+                            {/* Exclude Uncommon Words Setting */}
+                            <FormControl fullWidth>
+                                <InputLabel>Exclude Uncommon Words</InputLabel>
+                                <Select
+                                    value={excludeUncommonWords}
+                                    label="Exclude Uncommon Words"
+                                    onChange={handleExcludeUncommonWordsChange}
+                                >
+                                    <MenuItem value={false}>No</MenuItem>
+                                    <MenuItem value={true}>Yes</MenuItem>
+                                </Select>
+                            </FormControl>
+
                             {/* Action Buttons */}
                             <Stack direction="row" spacing={2}>
                                 <Button
@@ -291,4 +311,4 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
     );
 };
 
-export default WordleGame;
+export default React.memo(WordleGame);

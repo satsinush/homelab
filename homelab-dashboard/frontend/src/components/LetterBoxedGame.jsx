@@ -392,4 +392,4 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError })
     );
 };
 
-export default LetterBoxedGame;
+export default React.memo(LetterBoxedGame);
