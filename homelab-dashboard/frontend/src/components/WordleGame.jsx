@@ -112,8 +112,6 @@ const WordleGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, showEr
         setWordleGuesses([]);
         setCurrentGuess('');
         setCurrentGuessColors([0, 0, 0, 0, 0]);
-        setWordleMaxDepth(0);
-        setExcludeUncommonWords(false);
         onClear();
     }, [onClear]);
 
