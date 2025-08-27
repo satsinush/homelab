@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import {
     Box,
     Card,
@@ -106,7 +106,7 @@ const ColorPalette = ({ enabledColors, setEnabledColors, onColorSelect, colorMap
                                 height: { xs: 40, sm: 45 },
                                 borderRadius: '50%',
                                 backgroundColor: PEG_COLORS[colorIndex],
-                                border: `3px solid ${enabledColors[colorIndex] ? '#333' : '#ccc'}`,
+                                border: `0px solid ${enabledColors[colorIndex] ? '#aaa' : '#aaa'}`,
                                 cursor: enabledColors[colorIndex] ? 'pointer' : 'not-allowed',
                                 display: 'flex',
                                 alignItems: 'center',
@@ -118,7 +118,7 @@ const ColorPalette = ({ enabledColors, setEnabledColors, onColorSelect, colorMap
                                 transition: 'all 0.2s ease',
                                 '&:hover': {
                                     transform: enabledColors[colorIndex] ? 'scale(1.1)' : 'none',
-                                    border: `3px solid ${enabledColors[colorIndex] ? '#000' : '#ccc'}`
+                                    border: `${enabledColors[colorIndex] ? '3px solid #fff' : '0px solid #fff'}`
                                 }
                             }}
                             title={enabledColors[colorIndex] ? `Click ${PEG_COLOR_NAMES[colorIndex]} to add (${colorMapping.originalToMastermind[colorIndex] ?? colorIndex})` : `${PEG_COLOR_NAMES[colorIndex]} disabled`}
@@ -156,7 +156,7 @@ const PatternSlots = ({ pattern, numPegs, onSlotClick, colorMapping }) => {
                                     height: { xs: 45, sm: 50 },
                                     borderRadius: '50%',
                                     backgroundColor: hasColor ? PEG_COLORS[colorValue] : 'transparent',
-                                    border: hasColor ? '3px solid #333' : '3px dashed #ccc',
+                                    border: hasColor ? '0px solid #aaa' : '3px dashed #ccc',
                                     cursor: 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -168,7 +168,7 @@ const PatternSlots = ({ pattern, numPegs, onSlotClick, colorMapping }) => {
                                     transition: 'all 0.2s ease',
                                     '&:hover': {
                                         transform: 'scale(1.05)',
-                                        borderColor: hasColor ? '#000' : '#999'
+                                        border: hasColor ? '3px solid #ccc' : '3px dashed #999'
                                     }
                                 }}
                                 title={hasColor ? `${PEG_COLOR_NAMES[colorValue]} - Click to remove` : `Empty slot ${slotIndex + 1}`}
@@ -243,7 +243,7 @@ const MastermindDisplay = ({ pattern, numPegs, numColors }) => {
     );
 };
 
-const MastermindGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
+const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, showError }, ref) => {
     // State is now local to this component
     const [state, setState] = useState({
         guesses: [],
@@ -301,6 +301,25 @@ const MastermindGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) 
 
         return { originalToMastermind, mastermindToOriginal };
     }, [enabledColors]);
+
+    // Expose methods to parent component via ref
+    useImperativeHandle(ref, () => ({
+        fillSuggestedGuess: (pattern) => {
+            // Convert pattern from mastermind indices to original color indices
+            const originalPattern = pattern.split(' ').map(color => {
+                const mastermindIndex = parseInt(color, 10);
+                return colorMapping.mastermindToOriginal[mastermindIndex] ?? mastermindIndex;
+            });
+
+            // Fill the current pattern
+            setState(prev => ({
+                ...prev,
+                currentPattern: originalPattern,
+                correctPosition: 0,
+                correctColor: 0
+            }));
+        }
+    }), [colorMapping]);
 
     // Clear game when colors or number of pegs changes - simplified approach
     useEffect(() => {
@@ -709,26 +728,28 @@ const MastermindGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) 
                                             <Box key={index} sx={{
                                                 display: 'flex',
                                                 flexDirection: { xs: 'column', sm: 'row' },
-                                                alignItems: { xs: 'flex-start', sm: 'center' },
-                                                gap: { xs: 1, sm: 2 },
-                                                p: { xs: 1.5, sm: 2 },
+                                                alignItems: { xs: 'center', sm: 'center' },
+                                                justifyContent: { xs: 'center', sm: 'space-between' },
+                                                gap: { xs: 1.5, sm: 2 },
+                                                p: { xs: 2, sm: 2 },
                                                 border: '1px solid',
                                                 borderColor: 'divider',
-                                                borderRadius: 1
+                                                borderRadius: 1,
+                                                position: 'relative'
                                             }}>
                                                 {/* Pattern display */}
                                                 <Box sx={{
                                                     display: 'flex',
-                                                    gap: { xs: 0.25, sm: 0.5 },
-                                                    flexWrap: 'wrap',
-                                                    alignItems: 'center'
+                                                    gap: { xs: 0.5, sm: 0.5 },
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
                                                 }}>
                                                     {(guess.displayPattern || guess.pattern).split(' ').map((color, pegIndex) => (
                                                         <Tooltip key={pegIndex} title={`${PEG_COLOR_NAMES[parseInt(color, 10)]} (${color})`}>
                                                             <Box
                                                                 sx={{
-                                                                    width: { xs: 24, sm: 30 },
-                                                                    height: { xs: 24, sm: 30 },
+                                                                    width: { xs: 32, sm: 30 },
+                                                                    height: { xs: 32, sm: 30 },
                                                                     borderRadius: '50%',
                                                                     backgroundColor: PEG_COLORS[parseInt(color, 10)],
                                                                     border: '2px solid #333',
@@ -736,7 +757,7 @@ const MastermindGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) 
                                                                     alignItems: 'center',
                                                                     justifyContent: 'center',
                                                                     color: PEG_TEXT_COLORS[parseInt(color, 10)] || '#fff',
-                                                                    fontSize: { xs: '0.5rem', sm: '0.6rem' },
+                                                                    fontSize: { xs: '0.6rem', sm: '0.6rem' },
                                                                     fontWeight: 'bold',
                                                                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                                                                 }}
@@ -750,29 +771,32 @@ const MastermindGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) 
                                                 {/* Feedback display */}
                                                 <Box sx={{
                                                     display: 'flex',
-                                                    flexDirection: { xs: 'column', sm: 'row' },
-                                                    gap: { xs: 0.5, sm: 1 },
-                                                    alignItems: { xs: 'flex-start', sm: 'center' },
-                                                    minWidth: 0, // Allow shrinking
-                                                    flex: 1
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    flex: { xs: 'none', sm: 1 }
                                                 }}>
                                                     <Typography
                                                         variant="h6"
                                                         sx={{
-                                                            fontSize: { xs: '1rem', sm: '1.25rem' },
+                                                            fontSize: { xs: '1.1rem', sm: '1.25rem' },
                                                             fontWeight: 'bold',
-                                                            color: 'text.primary'
+                                                            color: 'text.primary',
+                                                            textAlign: 'center'
                                                         }}
                                                     >
                                                         {guess.correctPosition}⚫ {guess.correctColor}⚪
                                                     </Typography>
-                                                </Box>                                                <IconButton
+                                                </Box>
+
+                                                {/* Remove button */}
+                                                <IconButton
                                                     onClick={() => removeMastermindGuess(index)}
                                                     size="small"
                                                     color="error"
                                                     sx={{
-                                                        alignSelf: { xs: 'flex-end', sm: 'center' },
-                                                        mt: { xs: 0.5, sm: 0 }
+                                                        position: { xs: 'absolute', sm: 'static' },
+                                                        top: { xs: 8, sm: 'auto' },
+                                                        right: { xs: 8, sm: 'auto' }
                                                     }}
                                                 >
                                                     <CloseIcon fontSize="small" />
@@ -815,6 +839,8 @@ const MastermindGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) 
             </CardContent>
         </Card>
     );
-};
+});
+
+MastermindGame.displayName = 'MastermindGame';
 
 export default React.memo(MastermindGame);

@@ -1,5 +1,5 @@
 // src/components/WordGames.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Box,
     Container,
@@ -55,6 +55,11 @@ const WordGames = () => {
         guessesWithEntropy: [],
         gameData: null
     });
+
+    // Ref to access MastermindGame component
+    const mastermindGameRef = useRef(null);
+    // Ref to access WordleGame component  
+    const wordleGameRef = useRef(null);
 
     const { showError, showSuccess } = useNotification();
 
@@ -223,6 +228,28 @@ const WordGames = () => {
             setMastermindResults({ possibleWords: [], guessesWithEntropy: [], gameData: null });
         }
     }, []);
+
+    const handleSuggestedGuessSelect = useCallback((pattern) => {
+        // Handle selecting a suggested guess for both wordle and mastermind
+        if (activeTab === 2 && wordleGameRef.current) {
+            // For Wordle, pattern is a word string
+            wordleGameRef.current.fillSuggestedGuess(pattern);
+        } else if (activeTab === 3 && mastermindGameRef.current) {
+            // For Mastermind, pattern is a space-separated string of numbers
+            mastermindGameRef.current.fillSuggestedGuess(pattern);
+        }
+    }, [activeTab]);
+
+    const handlePossibleSolutionSelect = useCallback((solution) => {
+        // Handle selecting a possible solution for both wordle and mastermind
+        if (activeTab === 2 && wordleGameRef.current) {
+            // For Wordle, solution is a word string
+            wordleGameRef.current.fillSuggestedGuess(solution);
+        } else if (activeTab === 3 && mastermindGameRef.current) {
+            // For Mastermind, solution is a space-separated string of numbers
+            mastermindGameRef.current.fillSuggestedGuess(solution);
+        }
+    }, [activeTab]);
 
     const handleLoadMore = useCallback(async (type) => {
         // Implementation for loading more results
@@ -490,6 +517,7 @@ const WordGames = () => {
                     )}
                     {activeTab === 2 && (
                         <WordleGame
+                            ref={wordleGameRef}
                             gameStatus={gameStatus}
                             isLoading={isLoading}
                             onSolve={handleSolve}
@@ -499,6 +527,7 @@ const WordGames = () => {
                     )}
                     {activeTab === 3 && (
                         <MastermindGame
+                            ref={mastermindGameRef}
                             gameStatus={gameStatus}
                             isLoading={isLoading}
                             onSolve={handleSolve}
@@ -548,6 +577,8 @@ const WordGames = () => {
                         isLoading={isLoading}
                         onLoadMore={handleLoadMore}
                         onCopyToClipboard={copyToClipboard}
+                        onSuggestedGuessSelect={handleSuggestedGuessSelect}
+                        onPossibleSolutionSelect={handlePossibleSolutionSelect}
                     />
                 )}
                 {activeTab === 3 && (
@@ -561,6 +592,8 @@ const WordGames = () => {
                         isLoading={isLoading}
                         onLoadMore={handleLoadMore}
                         onCopyToClipboard={copyToClipboard}
+                        onSuggestedGuessSelect={handleSuggestedGuessSelect}
+                        onPossibleSolutionSelect={handlePossibleSolutionSelect}
                     />
                 )}
             </Box>

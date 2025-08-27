@@ -107,7 +107,9 @@ const GameResults = ({
     lastGameType,
     isLoading,
     onLoadMore,
-    onCopyToClipboard
+    onCopyToClipboard,
+    onSuggestedGuessSelect,
+    onPossibleSolutionSelect
 }) => {
     const formatLetters = (letters) => {
         return letters.toUpperCase().split('').join(' ');
@@ -156,9 +158,16 @@ const GameResults = ({
                         {(memoizedPossibleWords.length > 0) ? (
                             <CardContent>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                    <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-                                        Possible Words ({memoizedPossibleWords.length}/{lastGameData?.possibleWordsCount || memoizedPossibleWords.length})
-                                    </Typography>
+                                    <Box>
+                                        <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+                                            Possible Words ({memoizedPossibleWords.length}/{lastGameData?.possibleWordsCount || memoizedPossibleWords.length})
+                                        </Typography>
+                                        {onPossibleSolutionSelect && (
+                                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                                Click a word to fill the guess form
+                                            </Typography>
+                                        )}
+                                    </Box>
                                     {memoizedPossibleWords.length > 0 && (
                                         <Button
                                             variant="outlined"
@@ -182,7 +191,7 @@ const GameResults = ({
                                         {memoizedPossibleWords.map((word, index) => (
                                             <React.Fragment key={index}>
                                                 <ListItem
-                                                    onClick={() => onCopyToClipboard(word)}
+                                                    onClick={() => onPossibleSolutionSelect ? onPossibleSolutionSelect(word) : onCopyToClipboard(word)}
                                                     sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
                                                 >
                                                     <ListItemText
@@ -229,9 +238,16 @@ const GameResults = ({
                         <Card>
                             <CardContent>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                    <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-                                        Suggested Guesses ({memoizedGuesses.length}/{lastGameData?.guessesCount || memoizedGuesses.length})
-                                    </Typography>
+                                    <Box>
+                                        <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+                                            Suggested Guesses ({memoizedGuesses.length}/{lastGameData?.guessesCount || memoizedGuesses.length})
+                                        </Typography>
+                                        {onSuggestedGuessSelect && (
+                                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                                Click a word to fill the guess form
+                                            </Typography>
+                                        )}
+                                    </Box>
                                     {memoizedGuesses.length > 0 && (
                                         <Button
                                             variant="outlined"
@@ -264,11 +280,18 @@ const GameResults = ({
                                                 </TableHead>
                                                 <TableBody>
                                                     {memoizedGuesses.map((guess, index) => (
-                                                        <TableRow key={index} hover>
-                                                            <TableCell
-                                                                onClick={() => onCopyToClipboard(guess.word)}
-                                                                sx={{ cursor: 'pointer' }}
-                                                            >
+                                                        <TableRow
+                                                            key={index}
+                                                            hover
+                                                            onClick={() => onSuggestedGuessSelect && onSuggestedGuessSelect(guess.word)}
+                                                            sx={{
+                                                                cursor: onSuggestedGuessSelect ? 'pointer' : 'default',
+                                                                '&:hover': onSuggestedGuessSelect ? {
+                                                                    backgroundColor: 'action.hover'
+                                                                } : {}
+                                                            }}
+                                                        >
+                                                            <TableCell>
                                                                 <Typography
                                                                     sx={{
                                                                         fontFamily: 'monospace',
@@ -328,9 +351,16 @@ const GameResults = ({
                         {(memoizedPossibleWords.length > 0) ? (
                             <CardContent>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                    <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-                                        Possible Patterns ({memoizedPossibleWords.length}/{lastGameData?.possibleWordsCount || memoizedPossibleWords.length})
-                                    </Typography>
+                                    <Box>
+                                        <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+                                            Possible Patterns ({memoizedPossibleWords.length}/{lastGameData?.possibleWordsCount || memoizedPossibleWords.length})
+                                        </Typography>
+                                        {onPossibleSolutionSelect && (
+                                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                                Click a pattern to fill the guess form
+                                            </Typography>
+                                        )}
+                                    </Box>
                                     {memoizedPossibleWords.length > 0 && (
                                         <Button
                                             variant="outlined"
@@ -354,7 +384,7 @@ const GameResults = ({
                                         {memoizedPossibleWords.map((pattern, index) => (
                                             <React.Fragment key={index}>
                                                 <ListItem
-                                                    onClick={() => onCopyToClipboard(pattern)}
+                                                    onClick={() => onPossibleSolutionSelect ? onPossibleSolutionSelect(pattern) : onCopyToClipboard(pattern)}
                                                     sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
                                                 >
                                                     <ListItemText
@@ -404,9 +434,16 @@ const GameResults = ({
                         <Card>
                             <CardContent>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                    <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-                                        Suggested Guesses ({memoizedGuesses.length}/{lastGameData?.guessesCount || memoizedGuesses.length})
-                                    </Typography>
+                                    <Box>
+                                        <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+                                            Suggested Guesses ({memoizedGuesses.length}/{lastGameData?.guessesCount || memoizedGuesses.length})
+                                        </Typography>
+                                        {onSuggestedGuessSelect && (
+                                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                                Click a pattern to fill the guess form
+                                            </Typography>
+                                        )}
+                                    </Box>
                                     {memoizedGuesses.length > 0 && (
                                         <Button
                                             variant="outlined"
@@ -439,7 +476,17 @@ const GameResults = ({
                                                 </TableHead>
                                                 <TableBody>
                                                     {memoizedGuesses.map((guess, index) => (
-                                                        <TableRow key={index} hover>
+                                                        <TableRow
+                                                            key={index}
+                                                            hover
+                                                            onClick={() => onSuggestedGuessSelect && onSuggestedGuessSelect(guess.word)}
+                                                            sx={{
+                                                                cursor: onSuggestedGuessSelect ? 'pointer' : 'default',
+                                                                '&:hover': onSuggestedGuessSelect ? {
+                                                                    backgroundColor: 'action.hover'
+                                                                } : {}
+                                                            }}
+                                                        >
                                                             <TableCell>
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                                                     <MastermindPatternDisplay

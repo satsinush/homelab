@@ -374,7 +374,6 @@ class WordGamesController {
             const readPossibleCommand = `--mode read --file ${actualPossibleFile} --start ${start} --end ${end}`;
             const possibleResult = await this.executeCommand(readPossibleCommand);
             const possibleWords = this.parseWordGameOutput(possibleResult.stdout);
-            possibleWords.sort(); // Sort alphabetically
 
             // Read the guesses file and parse it
             const readGuessesCommand = `--mode read --file ${actualGuessesFile} --start ${start} --end ${end}`;
@@ -505,21 +504,20 @@ class WordGamesController {
             const possibleFilename = this.generateResultsFilename(req.user.username, 'mastermind_possible');
             const guessesFilename = this.generateResultsFilename(req.user.username, 'mastermind_guesses');
 
+            // Build guess arguments for command line (similar to Wordle format)
+            const guessArgs = guesses.map(g => `"${g.trim()}"`).join(' ');
+
             // Build command with flags
-            const baseFlags = [
+            const flags = [
                 `--mode mastermind`,
+                `--guesses ${guessArgs}`,
                 `--numPegs ${pegs}`,
                 `--numColors ${colors}`,
                 `--allowDuplicates ${duplicates}`,
                 `--maxDepth ${depth}`,
                 `--possibleFile ${possibleFilename}`,
                 `--guessesFile ${guessesFilename}`
-            ];
-
-            // Add each guess as a separate --guess flag (reuse guesses array from validation)
-            const guessFlags = guesses.map(g => `--guess "${g.trim()}"`);
-            
-            const flags = [...baseFlags, ...guessFlags].join(' ');
+            ].join(' ');
 
             console.log(`Executing Mastermind solver: ${flags}`);
             const result = await this.executeCommand(flags);
@@ -552,7 +550,6 @@ class WordGamesController {
             const readPossibleCommand = `--mode read --file ${actualPossibleFile} --start ${start} --end ${end}`;
             const possibleResult = await this.executeCommand(readPossibleCommand);
             const possibleWords = this.parseMastermindOutput(possibleResult.stdout);
-            possibleWords.sort(); // Sort by pattern
 
             // Read the guesses file and parse it
             const readGuessesCommand = `--mode read --file ${actualGuessesFile} --start ${start} --end ${end}`;

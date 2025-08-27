@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import {
     Box,
     Card,
@@ -21,7 +21,7 @@ import {
     Close as CloseIcon
 } from '@mui/icons-material';
 
-const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
+const WordleGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, showError }, ref) => {
     const [wordleGuesses, setWordleGuesses] = useState([]);
     const [currentGuess, setCurrentGuess] = useState('');
     const [currentGuessColors, setCurrentGuessColors] = useState([0, 0, 0, 0, 0]); // 0=grey, 1=yellow, 2=green
@@ -33,6 +33,18 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
         0: { bg: '#787c7e', color: 'white' }, // grey
         1: { bg: '#c9b458', color: 'white' }, // yellow
         2: { bg: '#6aaa64', color: 'white' }  // green
+    }), []);
+
+    // Expose methods to parent component via ref
+    useImperativeHandle(ref, () => ({
+        fillSuggestedGuess: (word) => {
+            // Fill the current guess with the suggested word
+            const cleanWord = word.trim().toUpperCase();
+            if (cleanWord.length === 5 && /^[A-Z]+$/.test(cleanWord)) {
+                setCurrentGuess(cleanWord);
+                setCurrentGuessColors([0, 0, 0, 0, 0]); // Reset colors to grey
+            }
+        }
     }), []);
 
     const handleCurrentGuessChange = useCallback((e) => {
@@ -309,6 +321,8 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
             </CardContent>
         </Card>
     );
-};
+});
+
+WordleGame.displayName = 'WordleGame';
 
 export default React.memo(WordleGame);
