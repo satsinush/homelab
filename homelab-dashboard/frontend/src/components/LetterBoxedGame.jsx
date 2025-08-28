@@ -284,7 +284,7 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError })
                             </FormControl>
 
                             {/* Custom Configuration Editor - Always Visible */}
-                            <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, bgcolor: 'background.paper' }}>
+                            <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, }}>
                                 <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
                                     Configuration Settings:
                                 </Typography>
@@ -392,4 +392,4 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError })
     );
 };
 
-export default LetterBoxedGame;
+export default React.memo(LetterBoxedGame);

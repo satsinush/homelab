@@ -1,5 +1,5 @@
 // src/components/WordGames.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Box,
     Container,
@@ -18,13 +18,15 @@ import {
     Quiz as QuizIcon,
     ViewModule as LetterBoxedIcon,
     EmojiNature as Bee,
-    HelpOutline as HelpIcon
+    HelpOutline as HelpIcon,
+    Psychology as MastermindIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/NotificationContext';
 import LetterBoxedGame from './LetterBoxedGame';
 import SpellingBeeGame from './SpellingBeeGame';
 import WordleGame from './WordleGame';
+import MastermindGame from './MastermindGame';
 import GameResults from './GameResults';
 import GameHelpModal from './GameHelpModal';
 
@@ -48,6 +50,16 @@ const WordGames = () => {
         guessesWithEntropy: [],
         gameData: null
     });
+    const [mastermindResults, setMastermindResults] = useState({
+        possibleWords: [],
+        guessesWithEntropy: [],
+        gameData: null
+    });
+
+    // Ref to access MastermindGame component
+    const mastermindGameRef = useRef(null);
+    // Ref to access WordleGame component  
+    const wordleGameRef = useRef(null);
 
     const { showError, showSuccess } = useNotification();
 
@@ -161,6 +173,38 @@ const WordGames = () => {
                 });
                 const message = `Found ${response.data.possibleWordsCount} possible words and ${response.data.guessesCount} suggested guesses in ${response.data.executionTime}ms`;
                 showSuccess(message);
+            } else if (gameType === 'mastermind') {
+                response = await tryApiCall('/wordgames/mastermind', {
+                    method: 'POST',
+                    data: gameData,
+                    timeout: 30000
+                });
+                const newGameData = {
+                    guess: gameData.guess,
+                    numPegs: gameData.numPegs,
+                    numColors: gameData.numColors,
+                    allowDuplicates: gameData.allowDuplicates,
+                    maxDepth: gameData.maxDepth,
+                    colorMapping: gameData.colorMapping, // Pass through color mapping
+                    possibleWordsCount: response.data.possibleWordsCount,
+                    guessesCount: response.data.guessesCount,
+                    actualPossibleWordsFound: response.data.actualPossibleWordsFound,
+                    actualGuessesFound: response.data.actualGuessesFound,
+                    isLimitedPossible: response.data.isLimitedPossible,
+                    isLimitedGuesses: response.data.isLimitedGuesses,
+                    executionTime: response.data.executionTime,
+                    start: response.data.start,
+                    end: response.data.end,
+                    possibleFile: response.data.possibleFile,
+                    guessesFile: response.data.guessesFile
+                };
+                setMastermindResults({
+                    possibleWords: response.data.possibleWords || [],
+                    guessesWithEntropy: response.data.guessesWithEntropy || [],
+                    gameData: newGameData
+                });
+                const message = `Found ${response.data.possibleWordsCount} possible patterns and ${response.data.guessesCount} suggested guesses in ${response.data.executionTime}ms`;
+                showSuccess(message);
             }
         } catch (error) {
             console.error(`Failed to solve ${gameType}:`, error);
@@ -180,7 +224,32 @@ const WordGames = () => {
         if (gameType === 'wordle' || gameType == 'all') {
             setWordleResults({ possibleWords: [], guessesWithEntropy: [], gameData: null });
         }
+        if (gameType === 'mastermind' || gameType == 'all') {
+            setMastermindResults({ possibleWords: [], guessesWithEntropy: [], gameData: null });
+        }
     }, []);
+
+    const handleSuggestedGuessSelect = useCallback((pattern) => {
+        // Handle selecting a suggested guess for both wordle and mastermind
+        if (activeTab === 2 && wordleGameRef.current) {
+            // For Wordle, pattern is a word string
+            wordleGameRef.current.fillSuggestedGuess(pattern);
+        } else if (activeTab === 3 && mastermindGameRef.current) {
+            // For Mastermind, pattern is a space-separated string of numbers
+            mastermindGameRef.current.fillSuggestedGuess(pattern);
+        }
+    }, [activeTab]);
+
+    const handlePossibleSolutionSelect = useCallback((solution) => {
+        // Handle selecting a possible solution for both wordle and mastermind
+        if (activeTab === 2 && wordleGameRef.current) {
+            // For Wordle, solution is a word string
+            wordleGameRef.current.fillSuggestedGuess(solution);
+        } else if (activeTab === 3 && mastermindGameRef.current) {
+            // For Mastermind, solution is a space-separated string of numbers
+            mastermindGameRef.current.fillSuggestedGuess(solution);
+        }
+    }, [activeTab]);
 
     const handleLoadMore = useCallback(async (type) => {
         // Implementation for loading more results
@@ -195,6 +264,9 @@ const WordGames = () => {
         } else if (activeTab === 2) {
             gameData = wordleResults.gameData;
             currentResults = wordleResults;
+        } else if (activeTab === 3) {
+            gameData = mastermindResults.gameData;
+            currentResults = mastermindResults;
         }
 
         if (!gameData) return;
@@ -205,14 +277,14 @@ const WordGames = () => {
             let dataToSend = {};
             let currentCount = 0;
 
-            if (activeTab === 2) { // Wordle
+            if (activeTab === 2 || activeTab === 3) { // Wordle or Mastermind
                 if (type === 'possible') {
                     currentCount = currentResults.possibleWords.length;
                     endpoint = '/wordgames/load';
                     dataToSend = {
                         start: currentCount,
                         end: currentCount + 100,
-                        gameMode: 'wordle',
+                        gameMode: activeTab === 2 ? 'wordle' : 'mastermind',
                         fileType: 'possible',
                         filePath: gameData.possibleFile
                     };
@@ -222,7 +294,7 @@ const WordGames = () => {
                     dataToSend = {
                         start: currentCount,
                         end: currentCount + 100,
-                        gameMode: 'wordle',
+                        gameMode: activeTab === 2 ? 'wordle' : 'mastermind',
                         fileType: 'guesses',
                         filePath: gameData.guessesFile
                     };
@@ -234,15 +306,29 @@ const WordGames = () => {
                 });
 
                 if (type === 'possible') {
-                    setWordleResults(prev => ({
-                        ...prev,
-                        possibleWords: [...prev.possibleWords, ...(response.data.solutions || [])]
-                    }));
+                    if (activeTab === 2) {
+                        setWordleResults(prev => ({
+                            ...prev,
+                            possibleWords: [...prev.possibleWords, ...(response.data.solutions || [])]
+                        }));
+                    } else {
+                        setMastermindResults(prev => ({
+                            ...prev,
+                            possibleWords: [...prev.possibleWords, ...(response.data.solutions || [])]
+                        }));
+                    }
                 } else if (type === 'guesses') {
-                    setWordleResults(prev => ({
-                        ...prev,
-                        guessesWithEntropy: [...prev.guessesWithEntropy, ...(response.data.solutions || [])]
-                    }));
+                    if (activeTab === 2) {
+                        setWordleResults(prev => ({
+                            ...prev,
+                            guessesWithEntropy: [...prev.guessesWithEntropy, ...(response.data.solutions || [])]
+                        }));
+                    } else {
+                        setMastermindResults(prev => ({
+                            ...prev,
+                            guessesWithEntropy: [...prev.guessesWithEntropy, ...(response.data.solutions || [])]
+                        }));
+                    }
                 }
             } else {
                 // Letter Boxed or Spelling Bee
@@ -292,7 +378,7 @@ const WordGames = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [activeTab, letterBoxedResults, spellingBeeResults, wordleResults, showError, showSuccess]); const copyToClipboard = useCallback((text) => {
+    }, [activeTab, letterBoxedResults, spellingBeeResults, wordleResults, mastermindResults, showError, showSuccess]); const copyToClipboard = useCallback((text) => {
         navigator.clipboard.writeText(text).then(() => {
             showSuccess('Copied to clipboard');
         }).catch(() => {
@@ -361,14 +447,17 @@ const WordGames = () => {
                     <Tabs
                         value={activeTab}
                         onChange={handleTabChange}
-                        variant="fullWidth"
+                        variant="scrollable"
+                        scrollButtons="auto"
+                        allowScrollButtonsMobile
                         sx={{
                             flex: 1,
                             '& .MuiTab-root': {
                                 minHeight: 72,
                                 textTransform: 'none',
-                                fontSize: '1rem',
-                                fontWeight: 500
+                                fontSize: { xs: '0.875rem', sm: '1rem' },
+                                fontWeight: 500,
+                                minWidth: { xs: 120, sm: 'auto' }
                             }
                         }}
                     >
@@ -385,6 +474,11 @@ const WordGames = () => {
                         <Tab
                             icon={<QuizIcon />}
                             label="Wordle"
+                            iconPosition="top"
+                        />
+                        <Tab
+                            icon={<MastermindIcon />}
+                            label="Mastermind"
                             iconPosition="top"
                         />
                     </Tabs>
@@ -423,10 +517,21 @@ const WordGames = () => {
                     )}
                     {activeTab === 2 && (
                         <WordleGame
+                            ref={wordleGameRef}
                             gameStatus={gameStatus}
                             isLoading={isLoading}
                             onSolve={handleSolve}
                             onClear={() => handleClear('wordle')}
+                            showError={showError}
+                        />
+                    )}
+                    {activeTab === 3 && (
+                        <MastermindGame
+                            ref={mastermindGameRef}
+                            gameStatus={gameStatus}
+                            isLoading={isLoading}
+                            onSolve={handleSolve}
+                            onClear={() => handleClear('mastermind')}
                             showError={showError}
                         />
                     )}
@@ -472,6 +577,23 @@ const WordGames = () => {
                         isLoading={isLoading}
                         onLoadMore={handleLoadMore}
                         onCopyToClipboard={copyToClipboard}
+                        onSuggestedGuessSelect={handleSuggestedGuessSelect}
+                        onPossibleSolutionSelect={handlePossibleSolutionSelect}
+                    />
+                )}
+                {activeTab === 3 && (
+                    <GameResults
+                        gameType="mastermind"
+                        solutions={[]}
+                        possibleWords={mastermindResults.possibleWords}
+                        guessesWithEntropy={mastermindResults.guessesWithEntropy}
+                        lastGameData={mastermindResults.gameData}
+                        lastGameType="mastermind"
+                        isLoading={isLoading}
+                        onLoadMore={handleLoadMore}
+                        onCopyToClipboard={copyToClipboard}
+                        onSuggestedGuessSelect={handleSuggestedGuessSelect}
+                        onPossibleSolutionSelect={handlePossibleSolutionSelect}
                     />
                 )}
             </Box>
@@ -480,7 +602,7 @@ const WordGames = () => {
             <GameHelpModal
                 open={helpModalOpen}
                 onClose={handleHelpClose}
-                gameType={activeTab === 0 ? 'letterboxed' : activeTab === 1 ? 'spellingbee' : 'wordle'}
+                gameType={activeTab === 0 ? 'letterboxed' : activeTab === 1 ? 'spellingbee' : activeTab === 2 ? 'wordle' : 'mastermind'}
             />
         </Container>
     );

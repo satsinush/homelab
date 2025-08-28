@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import {
     Box,
     Card,
@@ -21,17 +21,30 @@ import {
     Close as CloseIcon
 } from '@mui/icons-material';
 
-const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
+const WordleGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, showError }, ref) => {
     const [wordleGuesses, setWordleGuesses] = useState([]);
     const [currentGuess, setCurrentGuess] = useState('');
     const [currentGuessColors, setCurrentGuessColors] = useState([0, 0, 0, 0, 0]); // 0=grey, 1=yellow, 2=green
     const [wordleMaxDepth, setWordleMaxDepth] = useState(1);
+    const [excludeUncommonWords, setExcludeUncommonWords] = useState(true);
 
     // Memoized color map to prevent recreation on every render
     const colorMap = useMemo(() => ({
-        0: { bg: '#787c7e', color: 'white' }, // grey
-        1: { bg: '#c9b458', color: 'white' }, // yellow
-        2: { bg: '#6aaa64', color: 'white' }  // green
+        0: { bg: '#787c7e', color: 'white', symbol: null }, // grey
+        1: { bg: '#c9b458', color: 'white', symbol: '●' }, // yellow
+        2: { bg: '#6aaa64', color: 'white', symbol: '■' }  // green
+    }), []);
+
+    // Expose methods to parent component via ref
+    useImperativeHandle(ref, () => ({
+        fillSuggestedGuess: (word) => {
+            // Fill the current guess with the suggested word
+            const cleanWord = word.trim().toUpperCase();
+            if (cleanWord.length === 5 && /^[A-Z]+$/.test(cleanWord)) {
+                setCurrentGuess(cleanWord);
+                setCurrentGuessColors([0, 0, 0, 0, 0]); // Reset colors to grey
+            }
+        }
     }), []);
 
     const handleCurrentGuessChange = useCallback((e) => {
@@ -41,6 +54,10 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
 
     const handleWordleMaxDepthChange = useCallback((e) => {
         setWordleMaxDepth(e.target.value);
+    }, []);
+
+    const handleExcludeUncommonWordsChange = useCallback((e) => {
+        setExcludeUncommonWords(e.target.value);
     }, []);
 
     const addWordleGuess = useCallback(() => {
@@ -85,16 +102,16 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
         await onSolve('wordle', {
             guesses: wordleGuesses,
             maxDepth: wordleMaxDepth,
+            excludeUncommonWords: excludeUncommonWords ? 1 : 0,
             start: 0,
             end: 100
         });
-    }, [wordleGuesses, wordleMaxDepth, onSolve, showError]);
+    }, [wordleGuesses, wordleMaxDepth, excludeUncommonWords, onSolve, showError]);
 
     const handleClear = useCallback(() => {
         setWordleGuesses([]);
         setCurrentGuess('');
         setCurrentGuessColors([0, 0, 0, 0, 0]);
-        setWordleMaxDepth(0);
         onClear();
     }, [onClear]);
 
@@ -113,6 +130,37 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
                 <Grid container spacing={3} justifyContent="center">
                     <Grid size={{ xs: 12, md: 8 }}>
                         <Stack spacing={3}>
+                            <Grid container spacing={2}>
+                                <Grid item size={6}>
+                                    {/* Solver Mode Setting */}
+                                    <FormControl fullWidth size="small">
+                                        <InputLabel>Solver Mode</InputLabel>
+                                        <Select
+                                            value={wordleMaxDepth}
+                                            label="Solver Mode"
+                                            onChange={handleWordleMaxDepthChange}
+                                        >
+                                            <MenuItem value={0}>Get all possible words</MenuItem>
+                                            <MenuItem value={1}>Calculate best guesses</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+                                <Grid item size={6}>
+                                    {/* Exclude Uncommon Words Setting */}
+                                    <FormControl fullWidth size="small">
+                                        <InputLabel>Exclude Uncommon Words</InputLabel>
+                                        <Select
+                                            value={excludeUncommonWords}
+                                            label="Exclude Uncommon Words"
+                                            onChange={handleExcludeUncommonWordsChange}
+                                        >
+                                            <MenuItem value={false}>No</MenuItem>
+                                            <MenuItem value={true}>Yes</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+                            </Grid>
+
                             {/* Add Guess Section */}
                             <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                                 <Typography variant="h6" sx={{ mb: 2 }}>Add Guess</Typography>
@@ -167,13 +215,30 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
                                                                     fontWeight: 'bold',
                                                                     cursor: 'pointer',
                                                                     border: '2px solid #d3d6da',
+                                                                    position: 'relative',
                                                                     borderRadius: 1,
+                                                                    userSelect: 'none',
                                                                     '&:hover': {
                                                                         opacity: 0.8
                                                                     }
                                                                 }}
                                                             >
                                                                 {letter}
+                                                                {colors.symbol && (
+                                                                    <Box
+                                                                        component="span"
+                                                                        sx={{
+                                                                            position: 'absolute',
+                                                                            bottom: { xs: 2, sm: 4 },
+                                                                            right: { xs: 2, sm: 4 },
+                                                                            fontSize: { xs: '0.9rem', sm: '1.0rem' },
+                                                                            lineHeight: 0.5,
+                                                                            opacity: 1,
+                                                                        }}
+                                                                    >
+                                                                        {colors.symbol}
+                                                                    </Box>
+                                                                )}
                                                             </Box>
                                                         );
                                                     })}
@@ -197,9 +262,12 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
                             </Box>
 
                             {/* Current Guesses */}
-                            {wordleGuesses.length > 0 && (
-                                <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                                    <Typography variant="h6" sx={{ mb: 2 }}>Current Guesses</Typography>
+
+                            <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                                <Typography variant="h6" sx={{ mb: 2 }}>
+                                    {`Current Guesses (${wordleGuesses.length})`}
+                                </Typography>
+                                {wordleGuesses.length > 0 ? (
                                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                                         {wordleGuesses.map((guess, index) => (
                                             <Box key={index} sx={{
@@ -226,10 +294,27 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
                                                                     fontSize: { xs: '1.2rem', sm: '1.5rem' },
                                                                     fontWeight: 'bold',
                                                                     border: '2px solid #d3d6da',
+                                                                    position: 'relative', // <-- ADD THIS LINE
+                                                                    userSelect: 'none',
                                                                     borderRadius: 1
                                                                 }}
                                                             >
                                                                 {letter}
+                                                                {colors.symbol && (
+                                                                    <Box
+                                                                        component="span"
+                                                                        sx={{
+                                                                            position: 'absolute',
+                                                                            bottom: { xs: 2, sm: 4 },
+                                                                            right: { xs: 2, sm: 4 },
+                                                                            fontSize: { xs: '0.9rem', sm: '1.0rem' },
+                                                                            lineHeight: 0.5,
+                                                                            opacity: 1,
+                                                                        }}
+                                                                    >
+                                                                        {colors.symbol}
+                                                                    </Box>
+                                                                )}
                                                             </Box>
                                                         );
                                                     })}
@@ -245,21 +330,14 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
                                             </Box>
                                         ))}
                                     </Box>
-                                </Box>
-                            )}
+                                ) : (
+                                    <Typography variant="body2" color="text.secondary">
+                                        No guesses yet. Add a guess above to see it here.
+                                    </Typography>
+                                )}
+                            </Box>
 
-                            {/* Solver Mode Setting */}
-                            <FormControl fullWidth>
-                                <InputLabel>Solver Mode</InputLabel>
-                                <Select
-                                    value={wordleMaxDepth}
-                                    label="Solver Mode"
-                                    onChange={handleWordleMaxDepthChange}
-                                >
-                                    <MenuItem value={0}>Get all possible words</MenuItem>
-                                    <MenuItem value={1}>Calculate best guesses</MenuItem>
-                                </Select>
-                            </FormControl>
+
 
                             {/* Action Buttons */}
                             <Stack direction="row" spacing={2}>
@@ -289,6 +367,8 @@ const WordleGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
             </CardContent>
         </Card>
     );
-};
+});
 
-export default WordleGame;
+WordleGame.displayName = 'WordleGame';
+
+export default React.memo(WordleGame);

@@ -62,13 +62,13 @@ const GameHelpModal = ({ open, onClose, gameType }) => {
                                 <ListItem>
                                     <ListItemText
                                         primary="Prune Redundant Paths"
-                                        secondary="Eliminates duplicate solution paths for faster processing"
+                                        secondary="Eliminates paths that include words which don't use any new letters"
                                     />
                                 </ListItem>
                                 <ListItem>
                                     <ListItemText
                                         primary="Prune Dominated Classes"
-                                        secondary="Advanced optimization that removes inferior solution branches"
+                                        secondary="Advanced optimization that removes groups of words which have less unique words than another group that starts and ends with the same letters"
                                     />
                                 </ListItem>
                             </List>
@@ -127,15 +127,13 @@ const GameHelpModal = ({ open, onClose, gameType }) => {
                                     <ListItemText primary="Click on letter boxes to cycle through colors:" />
                                 </ListItem>
                                 <ListItem sx={{ pl: 4 }}>
-                                    <ListItemText
-                                        primary="• Gray: Letter not in the word"
-                                    />
+                                    <ListItemText primary="• Gray (Symbol: None): Letter not in the word" />
                                 </ListItem>
                                 <ListItem sx={{ pl: 4 }}>
-                                    <ListItemText primary="• Yellow: Letter in word but wrong position" />
+                                    <ListItemText primary="• Yellow (Symbol: ●): Letter in word but wrong position" />
                                 </ListItem>
                                 <ListItem sx={{ pl: 4 }}>
-                                    <ListItemText primary="• Green: Letter in correct position" />
+                                    <ListItemText primary="• Green (Symbol: ■): Letter in correct position" />
                                 </ListItem>
                                 <ListItem>
                                     <ListItemText primary="The solver will suggest possible words and optimal next guesses" />
@@ -151,6 +149,66 @@ const GameHelpModal = ({ open, onClose, gameType }) => {
                                         primary="Solver Mode"
                                         secondary="What the solver will do (Filter all words for all possible solutions, or get all possible solutions and calculate the best next guesses)"
                                     />
+                                </ListItem>
+                            </List>
+                        </Box>
+                    )
+                };
+
+            case 'mastermind':
+                return {
+                    title: 'Mastermind Rules & Tips',
+                    content: (
+                        <Box>
+                            <Typography variant="h6" gutterBottom>How to Play:</Typography>
+                            <List dense>
+                                <ListItem>
+                                    <ListItemText primary="Enter your guesses as sequences of colored pegs" />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText primary="For each guess, provide feedback on how many pegs are correct" />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText primary="Correct Position: Number of pegs in the right position with the right color" />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText primary="Correct Color: Number of additional pegs with the right color but wrong position" />
+                                </ListItem>
+                            </List>
+
+                            <Divider sx={{ my: 2 }} />
+
+                            <Typography variant="h6" gutterBottom>Configuration Options:</Typography>
+                            <List dense>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="Number of Pegs"
+                                        secondary="How many pegs in each pattern (3-6)"
+                                    />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="Number of Colors"
+                                        secondary="How many different colors are available (3-10)"
+                                    />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="Allow Duplicates"
+                                        secondary="Whether the secret pattern can have repeated colors"
+                                    />
+                                </ListItem>
+                            </List>
+
+                            <Divider sx={{ my: 2 }} />
+
+                            <Typography variant="h6" gutterBottom>Color Legend:</Typography>
+                            <List dense>
+                                <ListItem>
+                                    <ListItemText primary="0=Red, 1=Green, 2=Blue, 3=Yellow, 4=Magenta" />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText primary="5=Cyan, 6=Orange, 7=Purple, 8=White, 9=Black" />
                                 </ListItem>
                             </List>
                         </Box>
