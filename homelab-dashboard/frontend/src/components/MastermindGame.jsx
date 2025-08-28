@@ -701,8 +701,8 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
                                                         <Tooltip key={pegIndex} title={`${PEG_COLOR_NAMES[parseInt(color, 10)]} (${color})`}>
                                                             <Box
                                                                 sx={{
-                                                                    width: { xs: 32, sm: 30 },
-                                                                    height: { xs: 32, sm: 30 },
+                                                                    width: { xs: 30, sm: 35 },
+                                                                    height: { xs: 30, sm: 35 },
                                                                     borderRadius: '50%',
                                                                     backgroundColor: PEG_COLORS[parseInt(color, 10)],
                                                                     border: '2px solid #333',
@@ -711,7 +711,7 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
                                                                     justifyContent: 'center',
                                                                     color: PEG_TEXT_COLORS[parseInt(color, 10)] || '#fff',
                                                                     textShadow: `0px 0px 5px #000`,
-                                                                    fontSize: { xs: '0.8rem', sm: '0.8rem' },
+                                                                    fontSize: { xs: '0.8rem', sm: '1.0rem' },
                                                                     fontWeight: 'bold',
                                                                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                                                                 }}

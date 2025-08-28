@@ -69,7 +69,7 @@ const PEG_TEXT_COLORS = [
 // Component to display mastermind pattern with colored pegs
 const MastermindPatternDisplay = ({ pattern, size = 'small', colorMapping = null }) => {
     const pegSize = size === 'small' ? 20 : 25;
-    const fontSize = size === 'small' ? '0.5rem' : '0.7rem';
+    const fontSize = size === 'small' ? '0.8rem' : '0.9rem';
 
     if (!pattern || typeof pattern !== 'string') {
         return <Typography variant="body2">-</Typography>;
