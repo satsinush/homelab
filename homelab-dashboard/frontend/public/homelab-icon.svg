@@ -1,19 +1,27 @@
 <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Server rack icon -->
-  <rect x="4" y="2" width="24" height="28" rx="2" fill="#2563eb" stroke="#1e40af" stroke-width="2"/>
-  
-  <!-- Server units -->
-  <rect x="6" y="4" width="20" height="4" rx="1" fill="#3b82f6"/>
-  <rect x="6" y="10" width="20" height="4" rx="1" fill="#3b82f6"/>
-  <rect x="6" y="16" width="20" height="4" rx="1" fill="#3b82f6"/>
-  <rect x="6" y="22" width="20" height="4" rx="1" fill="#3b82f6"/>
-  
+  <path d="M2 14 
+           L16 3 
+           L30 14 
+           H26 
+           V27 
+           Q26 30 23 30 
+           H9 
+           Q6 30 6 27 
+           V14 
+           H2 Z" 
+        fill="#2563eb" stroke="#1e40af" stroke-width="2" stroke-linejoin="round"/>
+
+  <!-- Server units inside the house -->
+  <rect x="9" y="15" width="14" height="3" rx="1" fill="#3b82f6"/>
+  <rect x="9" y="19.5" width="14" height="3" rx="1" fill="#3b82f6"/>
+  <rect x="9" y="24" width="14" height="3" rx="1" fill="#3b82f6"/>
+
   <!-- Status lights -->
-  <circle cx="24" cy="6" r="1" fill="#10b981"/>
-  <circle cx="24" cy="12" r="1" fill="#10b981"/>
-  <circle cx="24" cy="18" r="1" fill="#f59e0b"/>
-  <circle cx="24" cy="24" r="1" fill="#10b981"/>
-  
-  <!-- Power button -->
-  <circle cx="16" cy="28" r="1.5" fill="#64748b"/>
+  <circle cx="21.5" cy="16.5" r="0.9" fill="#10b981"/>
+  <circle cx="21.5" cy="21" r="0.9" fill="#f59e0b"/>
+  <circle cx="21.5" cy="25.5" r="0.9" fill="#10b981"/>
+
+  <!-- Attic button with window grid -->
+  <circle cx="16" cy="11" r="1.8" fill="#64748b"/>
+  <circle cx="16" cy="11" r="1.3" fill="#94a3b8"/>
 </svg>

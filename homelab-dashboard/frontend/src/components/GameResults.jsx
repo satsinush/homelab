@@ -23,16 +23,16 @@ import { ContentCopy as CopyIcon } from '@mui/icons-material';
 
 // Color palette for mastermind pegs (same as MastermindGame)
 const PEG_COLORS = [
-    '#df312bff', // Red - 0
-    '#5cda3cff', // Green - 1
-    '#1e65ffff', // Blue - 2
+    '#df312b', // Red - 0
+    '#5cda3c', // Green - 1
+    '#1e65ff', // Blue - 2
     '#FFD700', // Yellow - 3
-    '#e02f8eff', // Magenta - 4
+    '#e02f8e', // Magenta - 4
     '#40E0D0', // Cyan - 5
     '#FF8C00', // Orange - 6
     '#8A2BE2', // Purple - 7
-    '#f1f1f1ff', // White - 8
-    '#1d1d1dff'  // Black - 9
+    '#f1f1f1', // White - 8
+    '#1d1d1d'  // Black - 9
 ];
 
 const PEG_COLOR_NAMES = [
@@ -41,22 +41,34 @@ const PEG_COLOR_NAMES = [
 ];
 
 // Text colors for readability on each peg color
+// const PEG_TEXT_COLORS = [
+//     '#000000', // Black text on Red
+//     '#000000', // White text on Green
+//     '#FFFFFF', // White text on Blue
+//     '#000000', // Black text on Yellow
+//     '#000000', // White text on Magenta
+//     '#000000', // Black text on Cyan
+//     '#000000', // Black text on Orange
+//     '#FFFFFF', // White text on Purple
+//     '#000000', // Black text on White
+//     '#FFFFFF'  // White text on Black
+// ];
 const PEG_TEXT_COLORS = [
-    '#FFFFFF', // White text on Red
-    '#000000', // White text on Green
-    '#FFFFFF', // White text on Blue
-    '#000000', // Black text on Yellow
-    '#000000', // White text on Magenta
-    '#000000', // Black text on Cyan
-    '#FFFFFF', // White text on Orange
-    '#FFFFFF', // White text on Purple
-    '#000000', // Black text on White
-    '#FFFFFF'  // White text on Black
+    '#FFFFFF', // Red
+    '#FFFFFF', // Green
+    '#FFFFFF', // Blue
+    '#FFFFFF', // Yellow
+    '#FFFFFF', // Magenta
+    '#FFFFFF', // Cyan
+    '#FFFFFF', // Orange
+    '#FFFFFF', // Purple
+    '#FFFFFF', // White
+    '#FFFFFF'  // Black
 ];
 
 // Component to display mastermind pattern with colored pegs
 const MastermindPatternDisplay = ({ pattern, size = 'small', colorMapping = null }) => {
-    const pegSize = size === 'small' ? 20 : 30;
+    const pegSize = size === 'small' ? 20 : 25;
     const fontSize = size === 'small' ? '0.5rem' : '0.7rem';
 
     if (!pattern || typeof pattern !== 'string') {
@@ -84,6 +96,7 @@ const MastermindPatternDisplay = ({ pattern, size = 'small', colorMapping = null
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 color: PEG_TEXT_COLORS[actualColorIndex] || '#fff',
+                                textShadow: `0px 0px 5px #000`,
                                 fontSize: fontSize,
                                 fontWeight: 'bold',
                                 boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
@@ -196,10 +209,12 @@ const GameResults = ({
                                                 >
                                                     <ListItemText
                                                         primary={word}
-                                                        primaryTypographyProps={{
-                                                            fontFamily: 'monospace',
-                                                            fontSize: '1rem',
-                                                            fontWeight: 'bold'
+                                                        slotProps={{
+                                                            primary: {
+                                                                fontFamily: 'monospace',
+                                                                fontSize: '1rem',
+                                                                fontWeight: 'bold'
+                                                            }
                                                         }}
                                                     />
                                                 </ListItem>
@@ -392,7 +407,7 @@ const GameResults = ({
                                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                                                 <MastermindPatternDisplay
                                                                     pattern={pattern}
-                                                                    size="small"
+                                                                    size="medium"
                                                                     colorMapping={lastGameData?.colorMapping}
                                                                 />
                                                             </Box>
@@ -491,7 +506,7 @@ const GameResults = ({
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                                                     <MastermindPatternDisplay
                                                                         pattern={guess.word}
-                                                                        size="small"
+                                                                        size="medium"
                                                                         colorMapping={lastGameData?.colorMapping}
                                                                     />
                                                                 </Box>
@@ -576,9 +591,12 @@ const GameResults = ({
                                             >
                                                 <ListItemText
                                                     primary={solution}
-                                                    primaryTypographyProps={{
-                                                        fontFamily: 'monospace',
-                                                        fontSize: '0.875rem'
+                                                    slotProps={{
+                                                        primary: {
+                                                            fontFamily: 'monospace',
+                                                            fontSize: '1rem',
+                                                            fontWeight: 'bold'
+                                                        }
                                                     }}
                                                 />
                                             </ListItem>

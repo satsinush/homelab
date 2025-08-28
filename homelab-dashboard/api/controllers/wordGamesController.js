@@ -715,12 +715,12 @@ class WordGamesController {
 
         // Split by lines and filter out empty lines
         const lines = output.split('\n')
-            .map(line => line.trim())
+            .map(line => line.trim().toUpperCase())
             .filter(line => line.length > 0);
 
         // For word games, assume each line is a solution
         // Filter out any lines that don't look like words (contain only letters)
-        const solutions = lines.filter(line => /^[a-zA-Z\s\-,]+$/.test(line));
+        const solutions = lines.filter(line => /^[A-Z\s\-,]+$/.test(line));
 
         return solutions;
     }
@@ -741,7 +741,7 @@ class WordGamesController {
             // Expected format: "WORD,Probability,Entropy1,Entropy2..." (comma-separated from C++)
             const parts = line.split(',');
             if (parts.length >= 2) {
-                const word = parts[0];
+                const word = parts[0].toUpperCase();
                 const probability = parseFloat(parts[1]);
                 const entropy = parts[2] ? parseFloat(parts[2]) : null;
 

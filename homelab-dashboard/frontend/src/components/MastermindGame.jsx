@@ -30,16 +30,16 @@ import {
 
 // Color palette for pegs (10 colors)
 const PEG_COLORS = [
-    '#df312bff', // Red - 0
-    '#5cda3cff', // Green - 1
-    '#1e65ffff', // Blue - 2
+    '#df312b', // Red - 0
+    '#5cda3c', // Green - 1
+    '#1e65ff', // Blue - 2
     '#FFD700', // Yellow - 3
-    '#e02f8eff', // Magenta - 4
+    '#e02f8e', // Magenta - 4
     '#40E0D0', // Cyan - 5
     '#FF8C00', // Orange - 6
     '#8A2BE2', // Purple - 7
-    '#f1f1f1ff', // White - 8
-    '#1d1d1dff'  // Black - 9
+    '#f1f1f1', // White - 8
+    '#1d1d1d'  // Black - 9
 ];
 
 const PEG_COLOR_NAMES = [
@@ -48,17 +48,29 @@ const PEG_COLOR_NAMES = [
 ];
 
 // Text colors for readability on each peg color
+// const PEG_TEXT_COLORS = [
+//     '#000000', // Black text on Red
+//     '#000000', // White text on Green
+//     '#FFFFFF', // White text on Blue
+//     '#000000', // Black text on Yellow
+//     '#000000', // White text on Magenta
+//     '#000000', // Black text on Cyan
+//     '#000000', // Black text on Orange
+//     '#FFFFFF', // White text on Purple
+//     '#000000', // Black text on White
+//     '#FFFFFF'  // White text on Black
+// ];
 const PEG_TEXT_COLORS = [
-    '#FFFFFF', // White text on Red
-    '#000000', // White text on Green
-    '#FFFFFF', // White text on Blue
-    '#000000', // Black text on Yellow
-    '#000000', // White text on Magenta
-    '#000000', // Black text on Cyan
-    '#FFFFFF', // White text on Orange
-    '#FFFFFF', // White text on Purple
-    '#000000', // Black text on White
-    '#FFFFFF'  // White text on Black
+    '#FFFFFF', // Red
+    '#FFFFFF', // Green
+    '#FFFFFF', // Blue
+    '#FFFFFF', // Yellow
+    '#FFFFFF', // Magenta
+    '#FFFFFF', // Cyan
+    '#FFFFFF', // Orange
+    '#FFFFFF', // Purple
+    '#FFFFFF', // White
+    '#FFFFFF'  // Black
 ];
 
 // Color Palette Component with click selection
@@ -111,11 +123,13 @@ const ColorPalette = ({ enabledColors, setEnabledColors, onColorSelect, colorMap
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                color: PEG_TEXT_COLORS[colorIndex],
-                                fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                                color: PEG_TEXT_COLORS[colorIndex] || '#fff',
+                                textShadow: `0px 0px 5px #000`,
+                                fontSize: { xs: '0.9rem', sm: '1.0rem' },
                                 fontWeight: 'bold',
                                 opacity: enabledColors[colorIndex] ? 1 : 0.4,
                                 transition: 'all 0.2s ease',
+                                userSelect: 'none',
                                 '&:hover': {
                                     transform: enabledColors[colorIndex] ? 'scale(1.1)' : 'none',
                                     border: `${enabledColors[colorIndex] ? '3px solid #fff' : '0px solid #fff'}`
@@ -161,10 +175,12 @@ const PatternSlots = ({ pattern, numPegs, onSlotClick, colorMapping }) => {
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    color: hasColor ? PEG_TEXT_COLORS[colorValue] : '#ccc',
-                                    fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                                    color: PEG_TEXT_COLORS[parseInt(colorValue, 10)] || '#fff',
+                                    textShadow: `0px 0px 5px #000`,
+                                    fontSize: { xs: '0.9rem', sm: '1.0rem' },
                                     fontWeight: 'bold',
                                     mb: 1,
+                                    userSelect: 'none',
                                     transition: 'all 0.2s ease',
                                     '&:hover': {
                                         transform: 'scale(1.05)',
@@ -178,66 +194,6 @@ const PatternSlots = ({ pattern, numPegs, onSlotClick, colorMapping }) => {
                         </Box>
                     );
                 })}
-            </Box>
-        </Box>
-    );
-};
-
-// Mastermind display component
-const MastermindDisplay = ({ pattern, numPegs, numColors }) => {
-    if (!pattern || pattern.length === 0) {
-        return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    {Array.from({ length: numPegs }, (_, i) => (
-                        <Box
-                            key={i}
-                            sx={{
-                                width: 40,
-                                height: 40,
-                                borderRadius: '50%',
-                                border: '2px dashed #ccc',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#ccc',
-                                fontSize: '0.8rem'
-                            }}
-                        >
-                            {i + 1}
-                        </Box>
-                    ))}
-                </Box>
-            </Box>
-        );
-    }
-
-    const pegValues = pattern.split(' ').map(p => parseInt(p.trim(), 10));
-
-    return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-                {pegValues.map((color, index) => (
-                    <Box
-                        key={index}
-                        sx={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: '50%',
-                            backgroundColor: PEG_COLORS[color] || '#ccc',
-                            border: '2px solid #333',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: PEG_TEXT_COLORS[color] || '#fff', // Black text on Yellow and White pegs
-                            fontSize: '0.7rem',
-                            fontWeight: 'bold'
-                        }}
-                        title={`${PEG_COLOR_NAMES[color]} (${color})`}
-                    >
-                        {color}
-                    </Box>
-                ))}
             </Box>
         </Box>
     );
@@ -548,38 +504,35 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
                     <Grid size={{ xs: 12, md: 6 }}>
                         <Stack spacing={2}>
                             {/* Game Settings */}
-                            <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                                <Typography variant="h6" sx={{ mb: 2 }}>Game Settings</Typography>
-                                <Grid container spacing={2}>
-                                    <Grid size={6}>
-                                        <FormControl fullWidth size="small">
-                                            <InputLabel>Number of Pegs</InputLabel>
-                                            <Select
-                                                value={state.numPegs}
-                                                label="Number of Pegs"
-                                                onChange={handleNumPegsChange}
-                                            >
-                                                {[3, 4, 5, 6].map(num => (
-                                                    <MenuItem key={num} value={num}>{num}</MenuItem>
-                                                ))}
-                                            </Select>
-                                        </FormControl>
-                                    </Grid>
-                                    <Grid size={6}>
-                                        <FormControl fullWidth size="small">
-                                            <InputLabel>Allow Duplicates</InputLabel>
-                                            <Select
-                                                value={state.allowDuplicates}
-                                                label="Allow Duplicates"
-                                                onChange={handleAllowDuplicatesChange}
-                                            >
-                                                <MenuItem value={1}>Yes</MenuItem>
-                                                <MenuItem value={0}>No</MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                    </Grid>
+                            <Grid container spacing={2}>
+                                <Grid size={6}>
+                                    <FormControl fullWidth size="small">
+                                        <InputLabel>Number of Pegs</InputLabel>
+                                        <Select
+                                            value={state.numPegs}
+                                            label="Number of Pegs"
+                                            onChange={handleNumPegsChange}
+                                        >
+                                            {[3, 4, 5, 6].map(num => (
+                                                <MenuItem key={num} value={num}>{num}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
                                 </Grid>
-                            </Box>
+                                <Grid size={6}>
+                                    <FormControl fullWidth size="small">
+                                        <InputLabel>Allow Duplicates</InputLabel>
+                                        <Select
+                                            value={state.allowDuplicates}
+                                            label="Allow Duplicates"
+                                            onChange={handleAllowDuplicatesChange}
+                                        >
+                                            <MenuItem value={1}>Yes</MenuItem>
+                                            <MenuItem value={0}>No</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+                            </Grid>
 
                             {/* Color Palette */}
                             <ColorPalette
@@ -757,7 +710,8 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
                                                                     alignItems: 'center',
                                                                     justifyContent: 'center',
                                                                     color: PEG_TEXT_COLORS[parseInt(color, 10)] || '#fff',
-                                                                    fontSize: { xs: '0.6rem', sm: '0.6rem' },
+                                                                    textShadow: `0px 0px 5px #000`,
+                                                                    fontSize: { xs: '0.8rem', sm: '0.8rem' },
                                                                     fontWeight: 'bold',
                                                                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                                                                 }}

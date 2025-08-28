@@ -71,7 +71,7 @@ const SpellingBeeDisplay = ({ letters }) => {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 backgroundColor: 'primary.main',
-                                color: 'black',
+                                color: 'white',
                                 fontWeight: 'bold',
                                 fontSize: '1.2rem',
                                 clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
