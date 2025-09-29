@@ -36,6 +36,13 @@ services:
       - NTFY_WEB_HOSTNAME=${NTFY_WEB_HOSTNAME}
       - LLDAP_WEB_HOSTNAME=${LLDAP_WEB_HOSTNAME}
       - AUTHELIA_WEB_HOSTNAME=${AUTHELIA_WEB_HOSTNAME}
+    healthcheck:
+      # Checks if Nginx is serving traffic on port 80
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # Pi-hole for network-wide ad blocking
   pihole:
@@ -62,11 +69,18 @@ services:
     networks:
       - homelab-net
     depends_on:
-      - unbound
+      unbound:
+        condition: service_healthy
+    healthcheck:
+      # Checks if the Pi-hole admin interface is accessible
+      test: "curl -f http://localhost/admin/ || exit 1"
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
 
   # Unbound as a recursive DNS resolver
   unbound:
-    # Use the pre-built image directly
     image: klutchell/unbound:latest
     container_name: unbound
     restart: unless-stopped
@@ -76,7 +90,15 @@ services:
     networks:
       - homelab-net
     depends_on:
-      - unbound-redis
+      unbound-redis:
+        condition: service_healthy
+    healthcheck:
+      # Uses the unbound control utility to check daemon status
+      test: ["CMD-SHELL", "unbound-control status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   unbound-redis:
     image: redis:7-alpine
@@ -86,13 +108,18 @@ services:
       - unbound_redis_data:/data
     networks:
       - homelab-net
+    healthcheck:
+      # Pings the Redis server to ensure it's responsive
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 20s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   # RustDesk ID Server (hbbs)
   rustdesk-id-server:
     image: rustdesk/rustdesk-server:latest
     container_name: rustdesk-id-server
-    # This command tells the container to run the ID server (hbbs)
-    # The -r option points it to your relay server using its service name
     command: hbbs -r rustdesk-relay-server:21119 -k _
     volumes:
       - rustdesk_data:/root
@@ -105,13 +132,20 @@ services:
       - "21118:21118"
     restart: unless-stopped
     depends_on:
-      - rustdesk-relay-server
+      rustdesk-relay-server:
+        condition: service_started # No healthcheck here to avoid circular dependency
+    healthcheck:
+      # Checks if the main TCP port is listening inside the container
+      test: ["CMD-SHELL", "netstat -ltn | grep -q :21116 || exit 1"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # RustDesk Relay Server (hbbr)
   rustdesk-relay-server:
     image: rustdesk/rustdesk-server:latest
     container_name: rustdesk-relay-server
-    # This command tells the container to run the Relay server (hbbr)
     command: hbbr -k _
     volumes:
       - rustdesk_data:/root
@@ -121,6 +155,13 @@ services:
       - "21117:21117"
       - "21119:21119"
     restart: unless-stopped
+    healthcheck:
+      # Checks if the main TCP port is listening inside the container
+      test: ["CMD-SHELL", "netstat -ltn | grep -q :21117 || exit 1"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
       
   # Netdata for real-time system monitoring
   netdata:
@@ -142,18 +183,24 @@ services:
       - /etc/passwd:/host/etc/passwd:ro
       - /etc/group:/host/etc/group:ro
       - /etc/localtime:/etc/localtime:ro
-      - /proc:/host/proc:ro
       - /var/log:/host/var/log:ro
       - /run/dbus:/run/dbus:ro
     networks:
       - homelab-net
+    healthcheck:
+      # Hits the Netdata API to confirm it's running
+      test: "curl -f http://localhost:19999/api/v1/info || exit 1"
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
 
   homelab-dashboard:
     container_name: homelab-dashboard
     restart: unless-stopped
     build:
-      context: . # Use the project root as the build context
-      dockerfile: homelab-dashboard/api/Dockerfile # Specify the path to the Dockerfile
+      context: .
+      dockerfile: homelab-dashboard/api/Dockerfile
       args:
         - VITE_DASHBOARD_WEB_HOSTNAME=${VITE_DASHBOARD_WEB_HOSTNAME}
         - VITE_PIHOLE_WEB_HOSTNAME=${VITE_PIHOLE_WEB_HOSTNAME}
@@ -180,6 +227,13 @@ services:
       - DASHBOARD_OIDC_SECRET=${DASHBOARD_OIDC_SECRET}
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
       - NTFY_ADMIN_TOKENS=${NTFY_ADMIN_TOKENS}
+    healthcheck:
+      # Checks if the Node.js app is responding. Adjust port if needed.
+      test: "curl -f http://localhost:3000 || exit 1"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # ddclient for dynamic DNS updates
   ddclient:
@@ -191,6 +245,13 @@ services:
       - TZ=${TZ}
     networks:
       - homelab-net
+    healthcheck:
+      # Checks if the ddclient process is running (assumes pgrep is available)
+      test: ["CMD-SHELL", "pgrep ddclient || exit 1"]
+      interval: 5m
+      timeout: 10s
+      retries: 2
+      start_period: 1m
 
   # ollama for running large language models
   ollama:
@@ -201,6 +262,13 @@ services:
       - ollama_data:/root/.ollama
     networks:
       - homelab-net
+    healthcheck:
+      # Checks if the Ollama API is responsive
+      test: ["CMD", "curl", "-f", "http://localhost:11434/"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
 
   # Portainer for Docker container management
   portainer:
@@ -215,7 +283,14 @@ services:
       - homelab-net
     extra_hosts:
       - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
-  
+    healthcheck:
+      # Pings the Portainer API status endpoint
+      test: "curl -f http://localhost:9000/api/status || exit 1"
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+ 
   vaultwarden:
     image: vaultwarden/server:latest
     container_name: vaultwarden
@@ -236,17 +311,13 @@ services:
       - SMTP_FROM=vaultwarden@${HOMELAB_HOSTNAME}
       - SMTP_USERNAME=${HOMELAB_USERNAME}
       - SMTP_PASSWORD=${HOMELAB_PASSWORD}
-
-      # - SSO_ENABLED=true
-      # - SSO_ONLY=false
-      # - SSO_AUTHORITY=https://${AUTHELIA_WEB_HOSTNAME}
-      # - SSO_SCOPES=profile email offline_access vaultwarden
-      # - SSO_PKCE=true
-      # - SSO_CLIENT_ID=vaultwarden
-      # - SSO_CLIENT_SECRET=${VAULTWARDEN_OIDC_SECRET}
-      # - SSO_ROLES_ENABLED=true
-      # - SSO_ROLES_DEFAULT_TO_USER=true
-      # - SSO_ROLES_TOKEN_PATH=/vaultwarden_roles
+    healthcheck:
+      # Vaultwarden provides a specific endpoint for health checks
+      test: ["CMD", "curl", "-f", "http://localhost:80/alive"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   uptime-kuma:
     image: louislam/uptime-kuma:1
@@ -262,6 +333,13 @@ services:
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
     networks:
       - homelab-net
+    healthcheck:
+      # Checks if the Uptime Kuma web interface is responsive
+      test: "curl -f http://localhost:3001 || exit 1"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 1m
 
   # ntfy for self-hosted push notifications
   ntfy:
@@ -285,6 +363,13 @@ services:
     networks:
       - homelab-net
     command: serve
+    healthcheck:
+      # Ntfy provides a specific endpoint for health checks
+      test: ["CMD", "curl", "-f", "http://localhost:80/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # Authelia - The Single Sign-On and 2FA portal
   authelia:
@@ -317,10 +402,19 @@ services:
       - ./volumes/authelia/private.pem:/config/jwks/private.pem:ro
       - authelia_data:/var/lib/authelia
     depends_on:
-      - lldap
-      - authelia-redis
+      lldap:
+        condition: service_healthy
+      authelia-redis:
+        condition: service_healthy
     extra_hosts:
       - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
+    healthcheck:
+      # Authelia provides a specific API endpoint for health checks
+      test: "curl -f http://localhost:9091/api/health || exit 1"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   # Redis for Authelia session storage
   authelia-redis:
@@ -331,6 +425,13 @@ services:
       - authelia_redis_data:/data
     networks:
       - homelab-net
+    healthcheck:
+      # Pings the Redis server to ensure it's responsive
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 20s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   # LLDAP - A lightweight LDAP server for user authentication
   lldap:
@@ -347,6 +448,13 @@ services:
       - LLDAP_LDAP_BASE_DN=${LLDAP_LDAP_BASE_DN}
       - LLDAP_LDAP_USER_PASS=${LLDAP_LDAP_USER_PASS}
       - LLDAP_HTTP_URL=https://${LLDAP_WEB_HOSTNAME}
+    healthcheck:
+      # LLDAP provides a specific endpoint for health checks
+      test: ["CMD", "curl", "-f", "http://localhost:17170/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 # Docker will manage these volumes for persistent data storage
 volumes:
