@@ -93,11 +93,9 @@ services:
       unbound-redis:
         condition: service_healthy
     healthcheck:
-      # Use drill to perform a real DNS query against the local unbound instance.
-      # This is a true functional check without needing remote-control.
-      test: ["CMD-SHELL", "drill @localhost pi-hole.net || exit 1"]
+      test: ["CMD-SHELL", "drill @localhost www.google.com || exit 1"]
       interval: 30s
-      timeout: 10s
+      timeout: 30s
       retries: 3
       start_period: 30s
 
