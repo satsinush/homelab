@@ -1,0 +1,33 @@
+# compose/docker-compose.core.yml
+services:
+  nginx:
+    build:
+      context: ..
+      dockerfile: nginx/Dockerfile
+    container_name: nginx
+    restart: on-failure
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../volumes/certificates:/etc/ssl/homelab:ro
+    networks:
+      homelab-net:
+        ipv4_address: 10.10.30.100
+    environment:
+      - HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
+      - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
+      - PIHOLE_WEB_HOSTNAME=${PIHOLE_WEB_HOSTNAME}
+      - NETDATA_WEB_HOSTNAME=${NETDATA_WEB_HOSTNAME}
+      - PORTAINER_WEB_HOSTNAME=${PORTAINER_WEB_HOSTNAME}
+      - VAULTWARDEN_WEB_HOSTNAME=${VAULTWARDEN_WEB_HOSTNAME}
+      - UPTIME_KUMA_WEB_HOSTNAME=${UPTIME_KUMA_WEB_HOSTNAME}
+      - NTFY_WEB_HOSTNAME=${NTFY_WEB_HOSTNAME}
+      - LLDAP_WEB_HOSTNAME=${LLDAP_WEB_HOSTNAME}
+      - AUTHELIA_WEB_HOSTNAME=${AUTHELIA_WEB_HOSTNAME}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "--no-check-certificate", "https://localhost/healthz"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m

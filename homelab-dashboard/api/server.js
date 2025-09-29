@@ -115,7 +115,7 @@ const initializeServer = async () => {
         // No default user creation - first login will create the initial user
                 
         // Start server
-        app.listen(config.port, '0.0.0.0', async () => {
+        app.listen(config.port, async () => {
             console.log(`Homelab API Server running on http://0.0.0.0:${config.port}`);
             console.log(`Database path: ${path.join(config.database.path, config.database.filename)}`);
             console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
