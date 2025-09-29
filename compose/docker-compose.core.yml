@@ -26,7 +26,7 @@ services:
       - LLDAP_WEB_HOSTNAME=${LLDAP_WEB_HOSTNAME}
       - AUTHELIA_WEB_HOSTNAME=${AUTHELIA_WEB_HOSTNAME}
     healthcheck:
-      test: "wget -q --spider --no-check-certificate https://localhost"
+      test: ["CMD", "wget", "-q", "--spider", "--no-check-certificate", "https://localhost/healthz"]
       interval: 1m
       timeout: 10s
       retries: 3

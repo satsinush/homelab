@@ -1,9 +1,18 @@
-# --- Default Server Block (No changes needed) ---
+# --- Default Server Block ---
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
     server_name ${HOMELAB_HOSTNAME};
-    return 301 https://${DASHBOARD_WEB_HOSTNAME}$request_uri;
+
+    location /healthz {
+        access_log off;
+        return 200 "healthy";
+        add_header Content-Type text/plain;
+    }
+
+    location / {
+        return 301 https://${DASHBOARD_WEB_HOSTNAME}$request_uri;
+    }
 }
 
 server {
@@ -15,7 +24,15 @@ server {
     listen [::]:443 ssl default_server;
     http2 on;
 
-    return 301 https://${DASHBOARD_WEB_HOSTNAME}$request_uri;
+    location /healthz {
+        access_log off;
+        return 200 "healthy";
+        add_header Content-Type text/plain;
+    }
+
+    location / {
+        return 301 https://${DASHBOARD_WEB_HOSTNAME}$request_uri;
+    }
 }
 
 
