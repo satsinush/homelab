@@ -1,0 +1,82 @@
+# compose/docker-compose.auth.yml
+services:
+  authelia:
+    build:
+      context: ..
+      dockerfile: authelia/Dockerfile
+      args:
+        AUTHELIA_SESSION_SECRET: ${AUTHELIA_SESSION_SECRET}
+        AUTHELIA_STORAGE_ENCRYPTION_KEY: ${AUTHELIA_STORAGE_ENCRYPTION_KEY}
+        AUTHELIA_JWT_SECRET: ${AUTHELIA_JWT_SECRET}
+        LLDAP_LDAP_BASE_DN: ${LLDAP_LDAP_BASE_DN}
+        LLDAP_LDAP_USER_PASS: ${LLDAP_LDAP_USER_PASS}
+        AUTHELIA_WEB_HOSTNAME: ${AUTHELIA_WEB_HOSTNAME}
+        HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
+        VAULTWARDEN_OIDC_HASHED_SECRET: ${VAULTWARDEN_OIDC_HASHED_SECRET}
+        VAULTWARDEN_WEB_HOSTNAME: ${VAULTWARDEN_WEB_HOSTNAME}
+        AUTHELIA_HMAC_SECRET: ${AUTHELIA_HMAC_SECRET}
+        PORTAINER_WEB_HOSTNAME: ${PORTAINER_WEB_HOSTNAME}
+        PORTAINER_OIDC_HASHED_SECRET: ${PORTAINER_OIDC_HASHED_SECRET}
+        DASHBOARD_OIDC_HASHED_SECRET: ${DASHBOARD_OIDC_HASHED_SECRET}
+        DASHBOARD_WEB_HOSTNAME: ${DASHBOARD_WEB_HOSTNAME}
+        LLDAP_LDAP_USER_DN: ${LLDAP_LDAP_USER_DN}
+        HOMELAB_USERNAME: ${HOMELAB_USERNAME}
+        HOMELAB_PASSWORD: ${HOMELAB_PASSWORD}
+    container_name: authelia
+    restart: on-failure
+    networks:
+      - homelab-net
+    volumes:
+      - ../volumes/authelia/private.pem:/config/jwks/private.pem:ro
+      - authelia_data:/var/lib/authelia
+    depends_on:
+      lldap:
+        condition: service_healthy
+      authelia-redis:
+        condition: service_healthy
+      ntfy:
+        condition: service_healthy
+    extra_hosts:
+      - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
+    healthcheck:
+      test: "wget -q --spider http://localhost:9091/api/health || exit 1"
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+  authelia-redis:
+    image: redis:7-alpine
+    container_name: authelia-redis
+    restart: on-failure
+    volumes:
+      - authelia_redis_data:/data
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  lldap:
+    image: lldap/lldap:latest
+    container_name: lldap
+    restart: on-failure
+    volumes:
+      - lldap_data:/data
+    networks:
+      - homelab-net
+    environment:
+      - TZ=${TZ}
+      - LLDAP_JWT_SECRET=${LLDAP_JWT_SECRET}
+      - LLDAP_LDAP_BASE_DN=${LLDAP_LDAP_BASE_DN}
+      - LLDAP_LDAP_USER_PASS=${LLDAP_LDAP_USER_PASS}
+      - LLDAP_HTTP_URL=https://${LLDAP_WEB_HOSTNAME}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:17170/health"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m

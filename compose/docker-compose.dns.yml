@@ -1,0 +1,69 @@
+# compose/docker-compose.dns.yml
+services:
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: on-failure
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+    environment:
+      - TZ=America/Chicago
+      - FTLCONF_dns_upstreams=unbound#53
+      - FTLCONF_dns_domain=${DNS_DOMAIN}
+      - FTLCONF_dns_piholePTR=HOSTNAMEFQDN
+      - FTLCONF_webserver_domain=${PIHOLE_WEB_HOSTNAME}
+      - FTLCONF_dns_listeningMode=ALL
+      - FTLCONF_webserver_port=80
+      - DNSMASQ_LISTENING=all
+      - FTLCONF_webserver_api_password=
+      - FTLCONF_dns_hosts=${HOMELAB_IP_ADDRESS} ${HOMELAB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PIHOLE_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${NETDATA_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${DASHBOARD_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PORTAINER_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${VAULTWARDEN_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${UPTIME_KUMA_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${NTFY_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${LLDAP_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${AUTHELIA_WEB_HOSTNAME};
+    volumes:
+      - pihole_data:/etc/pihole/
+      - pihole_logs:/run/log/pihole/
+    networks:
+      - homelab-net
+    depends_on:
+      unbound:
+        condition: service_healthy
+    healthcheck:
+      test: "curl -f http://localhost/admin/ || exit 1"
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+  unbound:
+    image: klutchell/unbound:latest
+    container_name: unbound
+    restart: on-failure
+    volumes:
+      - ../unbound/unbound.conf:/etc/unbound/custom.conf.d/unbound.conf:ro
+      - ../unbound/cachedb.conf:/etc/unbound/custom.conf.d/cachedb.conf:ro
+      - ../unbound/root.hints:/etc/unbound/root.hints:ro
+    networks:
+      - homelab-net
+    depends_on:
+      unbound-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "drill", "icann.org", "@unbound"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  unbound-redis:
+    image: redis:7-alpine
+    container_name: unbound-redis
+    restart: on-failure
+    volumes:
+      - unbound_redis_data:/data
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
