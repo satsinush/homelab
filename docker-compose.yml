@@ -93,8 +93,9 @@ services:
       unbound-redis:
         condition: service_healthy
     healthcheck:
-      # Uses the unbound control utility to check daemon status
-      test: ["CMD-SHELL", "unbound-control status || exit 1"]
+      # Use drill to perform a real DNS query against the local unbound instance.
+      # This is a true functional check without needing remote-control.
+      test: ["CMD-SHELL", "drill @localhost pi-hole.net || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
