@@ -54,6 +54,10 @@ if [ ! -f .env ]; then
   read -p "                     IP Address: " IP_ADDRESS
   echo
 
+  echo "   Enter PUID and PGID for file permissions:"
+  read -p "                           PUID: " PUID
+  read -p "                           PGID: " PGID
+
   echo "   Generating security tokens..."
   # Generate bcrypt password
   BCRYPT_PASSWORD=$(htpasswd -nbBC 10 "" "$PASSWORD" | tr -d ':' )
@@ -103,6 +107,8 @@ if [ ! -f .env ]; then
   sed -i "s|<password>|$PASSWORD|g" "$OUTPUT_FILE"
   sed -i "s|<ntfy-token>|$NTFY_TOKEN|g" "$OUTPUT_FILE"
   sed -i "s|<ip-address>|$IP_ADDRESS|g" "$OUTPUT_FILE"
+  sed -i "s|<PUID>|$PUID|g" "$OUTPUT_FILE"
+  sed -i "s|<PGID>|$PGID|g" "$OUTPUT_FILE"
 
   echo "✅ Environment configuration created"
 else

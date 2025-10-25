@@ -66,23 +66,26 @@ services:
       authelia:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5000"]
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:5000" ]
       interval: 1m
       timeout: 10s
       retries: 3
       start_period: 1m
 
   ddclient:
-    build:
-      context: ../ddclient
+    image: linuxserver/ddclient:latest
     container_name: ddclient
     restart: on-failure
     environment:
       - TZ=${TZ}
+      - PUID=${PUID}
+      - PGID=${PGID}
     networks:
       - homelab-net
+    volumes:
+      - ../ddclient/ddclient.conf:/config/ddclient.conf
     healthcheck:
-      test: ["CMD", "pgrep", "ddclient"]
+      test: [ "CMD", "pgrep", "ddclient" ]
       interval: 5m
       timeout: 10s
       retries: 2
@@ -97,7 +100,7 @@ services:
     networks:
       - homelab-net
     healthcheck:
-      test: ["CMD", "ollama", "list"]
+      test: [ "CMD", "ollama", "list" ]
       interval: 1m
       timeout: 10s
       retries: 3
@@ -127,7 +130,7 @@ services:
       ntfy:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:80/alive"]
+      test: [ "CMD", "curl", "-fs", "http://localhost:80/alive" ]
       interval: 1m
       timeout: 10s
       retries: 3
@@ -155,7 +158,7 @@ services:
       - homelab-net
     command: serve
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost/v1/health"]
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost/v1/health" ]
       interval: 1m
       timeout: 10s
       retries: 3
@@ -185,7 +188,7 @@ services:
     networks:
       - homelab-net
     healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:19999/api/v1/info"]
+      test: [ "CMD", "curl", "-fs", "http://localhost:19999/api/v1/info" ]
       interval: 1m
       timeout: 10s
       retries: 3
@@ -207,7 +210,7 @@ services:
       authelia:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:9000/api/system/status"]
+      test: [ "CMD", "curl", "-fs", "http://localhost:9000/api/system/status" ]
       interval: 1m
       timeout: 10s
       retries: 3
@@ -231,7 +234,7 @@ services:
       ntfy:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:3001"]
+      test: [ "CMD", "curl", "-fs", "http://localhost:3001" ]
       interval: 1m
       timeout: 10s
       retries: 3
