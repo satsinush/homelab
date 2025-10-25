@@ -62,3 +62,15 @@ This happens when a device's DNS requests are bypassing your Pi-hole.
 1.  **Verify Client DNS Settings:** Ensure the device is configured to use your Pi-hole's IP as its **only** DNS server. Remove any secondary servers like `8.8.8.8` or `1.1.1.1`.
 
 2.  **Disable "Secure DNS" in Your Browser:** Most modern browsers have a **DNS-over-HTTPS (DoH)** feature that bypasses Pi-hole entirely. You must disable it in your browser's security settings.
+
+-----
+
+### Packages are not updating
+
+Use this command to check when the Arch Linux mirrorlist was last updated:
+
+```shell
+grep -E "^Server" /etc/pacman.d/mirrorlist | cut -d ' ' -f 3 | sed 's/$arch/aarch64/;s/$repo/sync/' | xargs curl -L --head 2>/dev/null | grep Last-Modified
+```
+
+-----
