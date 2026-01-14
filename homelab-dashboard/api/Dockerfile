@@ -38,13 +38,20 @@ RUN npm run build
 
 
 
-# --- Stage 2: Compile the C++ Executable ---
-# (This stage is correct and remains the same)
+# --- Stage 2: Compile the C++ Executable using CMake ---
+# Build a minimal CLI executable using the mingw-core preset
 FROM alpine:latest AS cpp-builder
-RUN apk add --no-cache g++
+RUN apk add --no-cache g++ cmake ninja make
 WORKDIR /build
+COPY ./word_games/CMakeLists.txt ./
+COPY ./word_games/CMakePresets.json ./
 COPY ./word_games/src ./src/
-RUN g++ -std=c++20 -static src/*.cpp -o word_games
+COPY ./word_games/resources ./resources/
+# Configure and build using mingw-core preset (add -static flag for Alpine compatibility)
+RUN cmake --preset mingw-core -DCMAKE_CXX_FLAGS="-static" \
+    && cmake --build --preset mingw-core --target p++
+# Rename the executable to word_games for consistency with API
+RUN mv build/mingw-core/p++ build/mingw-core/word_games
 
 
 
@@ -64,9 +71,9 @@ COPY ./homelab-dashboard/api/ .
 WORKDIR /app
 COPY --from=react-builder /frontend/dist ./frontend/dist/
 
-# 4. Copy word_games binary and word_lists into /app/word_games
-COPY --from=cpp-builder /build/word_games ./word_games/
-COPY ./word_games/word_lists ./word_games/word_lists/
+# 4. Copy word_games binary and words.bin into /app/word_games
+COPY --from=cpp-builder /build/build/mingw-core/word_games ./word_games/
+COPY ./word_games/resources ./word_games/resources/
 
 # 5. Set working directory to /app/api for running the server
 WORKDIR /app/api

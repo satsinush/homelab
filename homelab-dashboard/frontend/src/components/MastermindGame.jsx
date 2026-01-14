@@ -17,7 +17,18 @@ import {
     Switch,
     FormControlLabel,
     Tooltip,
-    Chip
+    Chip,
+    Paper,
+    List,
+    ListItem,
+    ListItemText,
+    Divider,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow
 } from '@mui/material';
 import {
     PlayArrow as PlayIcon,
@@ -25,8 +36,11 @@ import {
     Close as CloseIcon,
     DragIndicator as DragIcon,
     KeyboardArrowUp as ArrowUpIcon,
-    KeyboardArrowDown as ArrowDownIcon
+    KeyboardArrowDown as ArrowDownIcon,
+    Settings as SettingsIcon,
+    ContentCopy as CopyIcon
 } from '@mui/icons-material';
+import GameSettingsDialog from './GameSettingsDialog';
 
 // Color palette for pegs (10 colors)
 const PEG_COLORS = [
@@ -45,6 +59,20 @@ const PEG_COLORS = [
 const PEG_COLOR_NAMES = [
     'Red', 'Green', 'Blue', 'Yellow', 'Magenta',
     'Cyan', 'Orange', 'Purple', 'White', 'Black'
+];
+
+// Color characters for CLI (matches word_games CLI format)
+const PEG_COLOR_CHARS = [
+    'R', // Red - 0
+    'G', // Green - 1
+    'B', // Blue - 2
+    'Y', // Yellow - 3
+    'M', // Magenta - 4
+    'C', // Cyan - 5
+    'O', // Orange - 6
+    'P', // Purple - 7
+    'W', // White - 8
+    'K'  // Black - 9
 ];
 
 // Text colors for readability on each peg color
@@ -199,7 +227,284 @@ const PatternSlots = ({ pattern, numPegs, onSlotClick, colorMapping }) => {
     );
 };
 
-const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, showError }, ref) => {
+// Component to display mastermind pattern with colored pegs
+const MastermindPatternDisplay = ({ pattern, size = 'small', colorMapping = null }) => {
+    const pegSize = size === 'small' ? 20 : 25;
+    const fontSize = size === 'small' ? '0.8rem' : '0.9rem';
+
+    if (!pattern || typeof pattern !== 'string') {
+        return <Typography variant="body2">-</Typography>;
+    }
+
+    // Determine if pattern is color characters (new format) or numeric indices (old format)
+    const isColorCharFormat = /^[RGBYMCOPWK]+$/i.test(pattern.trim());
+
+    let pegValues;
+    if (isColorCharFormat) {
+        // New format: "RGBY" - convert chars to indices
+        pegValues = pattern.split('').map(char => {
+            const index = PEG_COLOR_CHARS.indexOf(char.toUpperCase());
+            return index !== -1 ? index : 0;
+        });
+    } else {
+        // Old format: "0 1 2 3" - space-separated indices
+        pegValues = pattern.split(' ').map(p => parseInt(p.trim(), 10));
+    }
+
+    return (
+        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+            {pegValues.map((colorIndex, index) => {
+                // Map mastermind indices back to original color indices if colorMapping is provided
+                const actualColorIndex = colorMapping?.mastermindToOriginal?.[colorIndex] ?? colorIndex;
+
+                return (
+                    <Tooltip key={index} title={`${PEG_COLOR_NAMES[actualColorIndex]} (${PEG_COLOR_CHARS[actualColorIndex]})`}>
+                        <Box
+                            sx={{
+                                width: pegSize,
+                                height: pegSize,
+                                borderRadius: '50%',
+                                backgroundColor: PEG_COLORS[actualColorIndex] || '#ccc',
+                                border: '1px solid #333',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: PEG_TEXT_COLORS[actualColorIndex] || '#fff',
+                                textShadow: `0px 0px 5px #000`,
+                                fontSize: fontSize,
+                                fontWeight: 'bold',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.2)'
+                            }}
+                        >
+                            {PEG_COLOR_CHARS[actualColorIndex]}
+                        </Box>
+                    </Tooltip>
+                );
+            })}
+        </Box>
+    );
+};
+
+const MastermindResults = ({
+    possibleWords,
+    guessesWithEntropy,
+    lastGameData,
+    isLoading,
+    onLoadMore,
+    onCopyToClipboard,
+    onPossibleSolutionSelect,
+    onSuggestedGuessSelect
+}) => {
+    const copyPossibleWords = () => {
+        const wordsText = possibleWords.join('\n');
+        onCopyToClipboard(wordsText);
+    };
+
+    const copyGuesses = () => {
+        const guessesText = guessesWithEntropy.map(g => `${g.word} - ${g.probability} - ${g.entropy}`).join('\n');
+        onCopyToClipboard(guessesText);
+    };
+
+    const formatRoundedNum = (num) => {
+        if (!num) return '0.00';
+        if (num > 0 && num.toFixed(2) === '0.00') return '<0.01';
+        return `${num.toFixed(2)}`;
+    };
+
+    return (
+        <Grid container spacing={3}>
+            {/* Possible Patterns */}
+            <Grid item xs={12} md={guessesWithEntropy.length > 0 ? 6 : 12}>
+                <Card>
+                    {(possibleWords.length > 0) ? (
+                        <CardContent>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                <Box>
+                                    <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+                                        Possible Patterns ({possibleWords.length}/{lastGameData?.possibleWordsCount || possibleWords.length})
+                                    </Typography>
+                                    {onPossibleSolutionSelect && (
+                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                            Click a pattern to fill the guess form
+                                        </Typography>
+                                    )}
+                                </Box>
+                                {possibleWords.length > 0 && (
+                                    <Button
+                                        variant="outlined"
+                                        size="small"
+                                        onClick={copyPossibleWords}
+                                        startIcon={<CopyIcon />}
+                                    >
+                                        Copy
+                                    </Button>
+                                )}
+                            </Box>
+                            <Paper
+                                variant="outlined"
+                                sx={{
+                                    maxHeight: 300,
+                                    overflowY: 'auto',
+                                    bgcolor: 'background.default'
+                                }}
+                            >
+                                <List dense>
+                                    {possibleWords.map((pattern, index) => (
+                                        <React.Fragment key={index}>
+                                            <ListItem
+                                                onClick={() => onPossibleSolutionSelect ? onPossibleSolutionSelect(pattern) : onCopyToClipboard(pattern)}
+                                                sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
+                                            >
+                                                <ListItemText
+                                                    primary={
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                                            <MastermindPatternDisplay
+                                                                pattern={pattern}
+                                                                size="medium"
+                                                                colorMapping={lastGameData?.colorMapping}
+                                                            />
+                                                        </Box>
+                                                    }
+                                                />
+                                            </ListItem>
+                                            {index < possibleWords.length - 1 && <Divider />}
+                                        </React.Fragment>
+                                    ))}
+                                </List>
+                            </Paper>
+                            {lastGameData && lastGameData.isLimitedPossible && possibleWords.length < (lastGameData.possibleWordsCount || 0) && (
+                                <Button
+                                    variant="contained"
+                                    onClick={() => onLoadMore('possible')}
+                                    disabled={isLoading}
+                                    sx={{ mt: 2 }}
+                                    size="small"
+                                >
+                                    Load More
+                                </Button>
+                            )}
+                        </CardContent>) :
+                        <CardContent>
+                            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+                                Possible Patterns ({possibleWords.length}/{lastGameData?.possibleWordsCount || 0})
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                No patterns found. Check that all guesses are valid and try again.
+                            </Typography>
+                        </CardContent>
+                    }
+                </Card>
+            </Grid>
+
+            {/* Suggested Guesses */}
+            {(guessesWithEntropy.length > 0) && (
+                <Grid item xs={12} md={6}>
+                    <Card>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                <Box>
+                                    <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+                                        Suggested Guesses ({guessesWithEntropy.length}/{lastGameData?.guessesCount || guessesWithEntropy.length})
+                                    </Typography>
+                                    {onSuggestedGuessSelect && (
+                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                            Click a pattern to fill the guess form
+                                        </Typography>
+                                    )}
+                                </Box>
+                                {guessesWithEntropy.length > 0 && (
+                                    <Button
+                                        variant="outlined"
+                                        size="small"
+                                        onClick={copyGuesses}
+                                        startIcon={<CopyIcon />}
+                                    >
+                                        Copy
+                                    </Button>
+                                )}
+                            </Box>
+                            {guessesWithEntropy.length > 0 ? (
+                                <>
+                                    <TableContainer
+                                        component={Paper}
+                                        variant="outlined"
+                                        sx={{
+                                            maxHeight: 300,
+                                            overflowY: 'auto',
+                                            bgcolor: 'background.default'
+                                        }}
+                                    >
+                                        <Table size="small" stickyHeader>
+                                            <TableHead>
+                                                <TableRow>
+                                                    <TableCell sx={{ fontWeight: 'bold' }}>Pattern</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 'bold' }}>ENT</TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {guessesWithEntropy.map((guess, index) => (
+                                                    <TableRow
+                                                        key={index}
+                                                        hover
+                                                        onClick={() => onSuggestedGuessSelect && onSuggestedGuessSelect(guess.word)}
+                                                        sx={{
+                                                            cursor: onSuggestedGuessSelect ? 'pointer' : 'default',
+                                                            '&:hover': onSuggestedGuessSelect ? {
+                                                                backgroundColor: 'action.hover'
+                                                            } : {}
+                                                        }}
+                                                    >
+                                                        <TableCell>
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                                                <MastermindPatternDisplay
+                                                                    pattern={guess.word}
+                                                                    size="medium"
+                                                                    colorMapping={lastGameData?.colorMapping}
+                                                                />
+                                                            </Box>
+                                                        </TableCell>
+                                                        <TableCell align="right">
+                                                            <Typography variant="body2">
+                                                                {formatRoundedNum(guess.probability * 100)}%
+                                                            </Typography>
+                                                        </TableCell>
+                                                        <TableCell align="right">
+                                                            <Typography variant="body2">
+                                                                {guess.entropy !== null ? formatRoundedNum(guess.entropy) : 'N/A'}
+                                                            </Typography>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                    {lastGameData && lastGameData.isLimitedGuesses && guessesWithEntropy.length < (lastGameData.guessesCount || 0) && (
+                                        <Button
+                                            variant="contained"
+                                            onClick={() => onLoadMore('guesses')}
+                                            disabled={isLoading}
+                                            sx={{ mt: 2 }}
+                                            size="small"
+                                        >
+                                            Load More
+                                        </Button>
+                                    )}
+                                </>
+                            ) : (
+                                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                    No suggested guesses available.
+                                </Typography>
+                            )}
+                        </CardContent>
+                    </Card>
+                </Grid>
+            )}
+        </Grid>
+    );
+};
+
+const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, showError, results, onLoadMore }, ref) => {
     // State is now local to this component
     const [state, setState] = useState({
         guesses: [],
@@ -207,8 +512,10 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
         correctPosition: 0,
         correctColor: 0,
         numPegs: 4,
-        allowDuplicates: 1
+        allowDuplicates: 1,
+        maxDepth: 0 // 0 = off (just get possible patterns), 1 = calculate best guesses
     });
+
     // Local state for enabled colors - start with first 6 colors enabled by default
     const [enabledColors, setEnabledColors] = useState(() => {
         const initial = {};
@@ -217,6 +524,7 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
         }
         return initial;
     });
+    const [settingsOpen, setSettingsOpen] = useState(false);
 
     // Clear function to reset local state
     const handleLocalClear = useCallback(() => {
@@ -230,6 +538,33 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
         });
         onClear(); // Call parent clear function for results
     }, [onClear, state.numPegs, state.allowDuplicates]);
+
+    const fillPatternFromSelection = useCallback((pattern) => {
+        if (!pattern) return;
+
+        // Determine if pattern is color characters (new format) or numeric indices (old format)
+        const isColorCharFormat = /^[RGBYMCOPWK]+$/i.test(pattern.trim());
+
+        let newPattern;
+        if (isColorCharFormat) {
+            // New format: "RGBY" - convert chars to indices
+            newPattern = pattern.split('').map(char => {
+                const index = PEG_COLOR_CHARS.indexOf(char.toUpperCase());
+                return index !== -1 ? index : null;
+            });
+        } else {
+            // Old format: "0 1 2 3" - space-separated indices
+            newPattern = pattern.split(' ').map(p => parseInt(p.trim(), 10));
+        }
+
+        setState(prev => ({
+            ...prev,
+            currentPattern: newPattern
+        }));
+
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
 
     // Refs to track previous values for optimization
     const prevEnabledColorsRef = useRef(JSON.stringify(enabledColors));
@@ -261,10 +596,11 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
     // Expose methods to parent component via ref
     useImperativeHandle(ref, () => ({
         fillSuggestedGuess: (pattern) => {
-            // Convert pattern from mastermind indices to original color indices
-            const originalPattern = pattern.split(' ').map(color => {
-                const mastermindIndex = parseInt(color, 10);
-                return colorMapping.mastermindToOriginal[mastermindIndex] ?? mastermindIndex;
+            // Pattern comes as a string of color characters like "RGBY"
+            // Convert each color char to original color index
+            const originalPattern = pattern.split('').map(char => {
+                const charIndex = PEG_COLOR_CHARS.indexOf(char.toUpperCase());
+                return charIndex !== -1 ? charIndex : null;
             });
 
             // Fill the current pattern
@@ -275,7 +611,7 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
                 correctColor: 0
             }));
         }
-    }), [colorMapping]);
+    }), []);
 
     // Clear game when colors or number of pegs changes - simplified approach
     useEffect(() => {
@@ -456,26 +792,78 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
         }));
     }, [setState]);
 
+    const updateGuessFeedback = useCallback((index, field, delta) => {
+        setState(prev => {
+            const guesses = [...(prev.guesses || [])];
+            const guess = { ...guesses[index] };
+            const newValue = Math.max(0, Math.min(prev.numPegs, guess[field] + delta));
+
+            // Auto-adjust other field if total exceeds numPegs (same logic as add guess)
+            const otherField = field === 'correctPosition' ? 'correctColor' : 'correctPosition';
+            const currentTotal = newValue + guess[otherField];
+
+            if (currentTotal > prev.numPegs) {
+                // Reduce the other field to make room
+                const adjustedOther = Math.max(0, prev.numPegs - newValue);
+                guess[field] = newValue;
+                guess[otherField] = adjustedOther;
+            } else {
+                guess[field] = newValue;
+            }
+
+            guess.feedback = `${guess.correctPosition} ${guess.correctColor}`;
+            guesses[index] = guess;
+            return { ...prev, guesses };
+        });
+    }, [setState]);
+
     const handleSolve = useCallback(async () => {
         if (!state.guesses || state.guesses.length === 0) {
             showError('Please add at least one guess with feedback');
             return;
         }
 
-        // Format guesses for the API
-        const guessString = state.guesses.map(g => `${g.pattern}|${g.feedback}`).join(',');
+        // Build the colors string from enabled colors
+        const enabledIndices = Object.keys(enabledColors)
+            .filter(key => enabledColors[key])
+            .map(key => parseInt(key, 10))
+            .sort((a, b) => a - b);
+        const colorsString = enabledIndices.map(idx => PEG_COLOR_CHARS[idx]).join('');
+
+        // Format guesses for the API in new format: array of {pattern, black, white}
+        const guesses = state.guesses.map(g => {
+            // Convert the pattern from mastermind indices to color characters
+            const patternParts = g.pattern.split(' ').map(idx => parseInt(idx, 10));
+            // Map mastermind index back to original index, then to color char
+            const patternChars = patternParts.map(mastermindIdx => {
+                const originalIdx = colorMapping.mastermindToOriginal[mastermindIdx];
+                return PEG_COLOR_CHARS[originalIdx];
+            }).join('');
+
+            return {
+                pattern: patternChars,
+                black: g.correctPosition,
+                white: g.correctColor
+            };
+        });
 
         await onSolve('mastermind', {
-            guess: guessString,
-            numPegs: state.numPegs,
-            numColors: numColors,
+            guesses: guesses.map(g => ({
+                pattern: g.pattern,
+                feedback: {
+                    red: g.correctPosition,
+                    white: g.correctColor
+                }
+            })),
+            pegs: state.numPegs,
+            colors: colorsString,
             allowDuplicates: state.allowDuplicates,
-            maxDepth: 0, // Only allow depth 0 for mastermind
+            maxDepth: state.maxDepth,
             start: 0,
             end: 100,
             colorMapping: colorMapping // Pass the color mapping to results
         });
-    }, [state.guesses, state.numPegs, numColors, state.allowDuplicates, colorMapping, onSolve, showError]);
+    }, [state.guesses, state.numPegs, state.allowDuplicates, state.maxDepth, colorMapping, enabledColors, onSolve, showError]);
 
     const handleClear = useCallback(() => {
         setState(prev => ({
@@ -491,9 +879,21 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
     return (
         <Card>
             <CardContent>
+                {/* Top Left Control Layout */}
+                <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                    <Button variant="outlined" onClick={handleClear} disabled={isLoading} size="small">
+                        New Game
+                    </Button>
+                    <Tooltip title="Settings">
+                        <IconButton onClick={() => setSettingsOpen(true)} size="small">
+                            <SettingsIcon />
+                        </IconButton>
+                    </Tooltip>
+                </Stack>
+
                 <Box sx={{ textAlign: 'center', mb: 3 }}>
                     <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 1 }}>
-                        Mastermind
+                        Mastermind Solver
                     </Typography>
                     <Typography variant="body1" color="text.secondary">
                         Solve Mastermind puzzles by entering guesses and feedback
@@ -503,36 +903,6 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
                 <Grid container spacing={3} justifyContent="center">
                     <Grid size={{ xs: 12, md: 6 }}>
                         <Stack spacing={2}>
-                            {/* Game Settings */}
-                            <Grid container spacing={2}>
-                                <Grid size={6}>
-                                    <FormControl fullWidth size="small">
-                                        <InputLabel>Number of Pegs</InputLabel>
-                                        <Select
-                                            value={state.numPegs}
-                                            label="Number of Pegs"
-                                            onChange={handleNumPegsChange}
-                                        >
-                                            {[3, 4, 5, 6].map(num => (
-                                                <MenuItem key={num} value={num}>{num}</MenuItem>
-                                            ))}
-                                        </Select>
-                                    </FormControl>
-                                </Grid>
-                                <Grid size={6}>
-                                    <FormControl fullWidth size="small">
-                                        <InputLabel>Allow Duplicates</InputLabel>
-                                        <Select
-                                            value={state.allowDuplicates}
-                                            label="Allow Duplicates"
-                                            onChange={handleAllowDuplicatesChange}
-                                        >
-                                            <MenuItem value={1}>Yes</MenuItem>
-                                            <MenuItem value={0}>No</MenuItem>
-                                        </Select>
-                                    </FormControl>
-                                </Grid>
-                            </Grid>
 
                             {/* Color Palette */}
                             <ColorPalette
@@ -546,115 +916,94 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
                             <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                                 <Typography variant="h6" sx={{ mb: 2 }}>Add Guess</Typography>
                                 <Stack spacing={2}>
-                                    {/* Pattern Input */}
-                                    <PatternSlots
-                                        pattern={state.currentPattern || Array(state.numPegs).fill(null)}
-                                        numPegs={state.numPegs}
-                                        onSlotClick={handleSlotClick}
-                                        colorMapping={colorMapping}
-                                    />
+                                    {/* Inline Pattern + Feedback Row */}
+                                    <Box sx={{
+                                        display: 'flex',
+                                        flexDirection: { xs: 'column', sm: 'row' },
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: { xs: 2, sm: 3 },
+                                        p: 2,
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        borderRadius: 1,
+                                        backgroundColor: 'action.hover'
+                                    }}>
+                                        {/* Pattern Input - inline slots */}
+                                        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                                            {Array.from({ length: state.numPegs }, (_, slotIndex) => {
+                                                const colorValue = state.currentPattern[slotIndex];
+                                                const hasColor = colorValue !== undefined && colorValue !== null;
+                                                return (
+                                                    <Box
+                                                        key={slotIndex}
+                                                        onClick={() => handleSlotClick(slotIndex)}
+                                                        sx={{
+                                                            width: { xs: 35, sm: 40 },
+                                                            height: { xs: 35, sm: 40 },
+                                                            borderRadius: '50%',
+                                                            backgroundColor: hasColor ? PEG_COLORS[colorValue] : 'transparent',
+                                                            border: hasColor ? '2px solid #333' : '3px dashed #ccc',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            color: PEG_TEXT_COLORS[parseInt(colorValue, 10)] || '#fff',
+                                                            textShadow: hasColor ? '0px 0px 5px #000' : 'none',
+                                                            fontSize: { xs: '0.8rem', sm: '1.0rem' },
+                                                            fontWeight: 'bold',
+                                                            boxShadow: hasColor ? '0 2px 4px rgba(0,0,0,0.2)' : 'none',
+                                                            transition: 'all 0.2s ease',
+                                                            '&:hover': { opacity: 0.8 }
+                                                        }}
+                                                    >
+                                                        {hasColor ? colorValue : ''}
+                                                    </Box>
+                                                );
+                                            })}
+                                        </Box>
 
-                                    {/* Feedback Input */}
-                                    <Box sx={{ mt: 4 }}>
-                                        <Typography variant="body2" sx={{ mb: 2 }}>
-                                            Feedback for this guess:
-                                        </Typography>
-                                        <Grid container spacing={3}>
-                                            <Grid size={{ xs: 12, sm: 6 }}>
-                                                <Box sx={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    flexDirection: 'column',
-                                                    gap: 1,
-                                                    p: 2,
-                                                    border: '1px solid',
-                                                    borderColor: 'divider',
-                                                    borderRadius: 1
-                                                }}>
-                                                    <Typography variant="body2" fontWeight="bold">
-                                                        Correct Color + Position
-                                                    </Typography>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <IconButton
-                                                            onClick={() => handleCorrectPositionChange(-1)}
-                                                            disabled={state.correctPosition === 0}
-                                                            size="small"
-                                                        >
-                                                            <ArrowDownIcon />
-                                                        </IconButton>
-                                                        <Box sx={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: 0.5,
-                                                            minWidth: 60,
-                                                            justifyContent: 'center'
-                                                        }}>
-                                                            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                                                                {state.correctPosition}
-                                                            </Typography>
-                                                            <Typography variant="h6">
-                                                                ⚫
-                                                            </Typography>
-                                                        </Box>
-                                                        <IconButton
-                                                            onClick={() => handleCorrectPositionChange(1)}
-                                                            disabled={state.correctPosition >= state.numPegs}
-                                                            size="small"
-                                                        >
-                                                            <ArrowUpIcon />
-                                                        </IconButton>
-                                                    </Box>
-                                                </Box>
-                                            </Grid>
-                                            <Grid size={{ xs: 12, sm: 6 }}>
-                                                <Box sx={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    flexDirection: 'column',
-                                                    gap: 1,
-                                                    p: 2,
-                                                    border: '1px solid',
-                                                    borderColor: 'divider',
-                                                    borderRadius: 1
-                                                }}>
-                                                    <Typography variant="body2" fontWeight="bold">
-                                                        Correct Color
-                                                    </Typography>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <IconButton
-                                                            onClick={() => handleCorrectColorChange(-1)}
-                                                            disabled={state.correctColor === 0}
-                                                            size="small"
-                                                        >
-                                                            <ArrowDownIcon />
-                                                        </IconButton>
-                                                        <Box sx={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: 0.5,
-                                                            minWidth: 60,
-                                                            justifyContent: 'center'
-                                                        }}>
-                                                            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                                                                {state.correctColor}
-                                                            </Typography>
-                                                            <Typography variant="h6">
-                                                                ⚪
-                                                            </Typography>
-                                                        </Box>
-                                                        <IconButton
-                                                            onClick={() => handleCorrectColorChange(1)}
-                                                            disabled={state.correctColor >= state.numPegs}
-                                                            size="small"
-                                                        >
-                                                            <ArrowUpIcon />
-                                                        </IconButton>
-                                                    </Box>
-                                                </Box>
-                                            </Grid>
-                                        </Grid>
+                                        {/* Feedback Input - inline with pattern */}
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => handleCorrectPositionChange(-1)}
+                                                    disabled={state.correctPosition === 0}
+                                                >
+                                                    <ArrowDownIcon fontSize="small" />
+                                                </IconButton>
+                                                <Typography variant="h6" sx={{ fontWeight: 'bold', minWidth: 30, textAlign: 'center' }}>
+                                                    {state.correctPosition}⚫
+                                                </Typography>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => handleCorrectPositionChange(1)}
+                                                    disabled={state.correctPosition >= state.numPegs}
+                                                >
+                                                    <ArrowUpIcon fontSize="small" />
+                                                </IconButton>
+                                            </Box>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => handleCorrectColorChange(-1)}
+                                                    disabled={state.correctColor === 0}
+                                                >
+                                                    <ArrowDownIcon fontSize="small" />
+                                                </IconButton>
+                                                <Typography variant="h6" sx={{ fontWeight: 'bold', minWidth: 30, textAlign: 'center' }}>
+                                                    {state.correctColor}⚪
+                                                </Typography>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => handleCorrectColorChange(1)}
+                                                    disabled={state.correctColor >= state.numPegs}
+                                                >
+                                                    <ArrowUpIcon fontSize="small" />
+                                                </IconButton>
+                                            </Box>
+                                        </Box>
                                     </Box>
 
                                     <Button
@@ -722,24 +1071,52 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
                                                     ))}
                                                 </Box>
 
-                                                {/* Feedback display */}
+                                                {/* Feedback display - editable */}
                                                 <Box sx={{
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
-                                                    flex: { xs: 'none', sm: 1 }
+                                                    flex: { xs: 'none', sm: 1 },
+                                                    gap: 2
                                                 }}>
-                                                    <Typography
-                                                        variant="h6"
-                                                        sx={{
-                                                            fontSize: { xs: '1.1rem', sm: '1.25rem' },
-                                                            fontWeight: 'bold',
-                                                            color: 'text.primary',
-                                                            textAlign: 'center'
-                                                        }}
-                                                    >
-                                                        {guess.correctPosition}⚫ {guess.correctColor}⚪
-                                                    </Typography>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => updateGuessFeedback(index, 'correctPosition', -1)}
+                                                            disabled={guess.correctPosition === 0}
+                                                        >
+                                                            <ArrowDownIcon fontSize="small" />
+                                                        </IconButton>
+                                                        <Typography variant="h6" sx={{ fontWeight: 'bold', minWidth: 30, textAlign: 'center' }}>
+                                                            {guess.correctPosition}⚫
+                                                        </Typography>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => updateGuessFeedback(index, 'correctPosition', 1)}
+                                                            disabled={guess.correctPosition >= state.numPegs}
+                                                        >
+                                                            <ArrowUpIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Box>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => updateGuessFeedback(index, 'correctColor', -1)}
+                                                            disabled={guess.correctColor === 0}
+                                                        >
+                                                            <ArrowDownIcon fontSize="small" />
+                                                        </IconButton>
+                                                        <Typography variant="h6" sx={{ fontWeight: 'bold', minWidth: 30, textAlign: 'center' }}>
+                                                            {guess.correctColor}⚪
+                                                        </Typography>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => updateGuessFeedback(index, 'correctColor', 1)}
+                                                            disabled={guess.correctColor >= state.numPegs}
+                                                        >
+                                                            <ArrowUpIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Box>
                                                 </Box>
 
                                                 {/* Remove button */}
@@ -790,6 +1167,85 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
                         </Stack>
                     </Grid>
                 </Grid>
+
+                {/* Settings Dialog */}
+                <GameSettingsDialog
+                    open={settingsOpen}
+                    onClose={() => setSettingsOpen(false)}
+                    onSave={(config) => {
+                        setState(prev => {
+                            const numPegsChanged = config.numPegs !== prev.numPegs;
+                            return {
+                                ...prev,
+                                numPegs: config.numPegs,
+                                allowDuplicates: config.allowDuplicates,
+                                maxDepth: config.maxDepth,
+                                // Clear if numPegs changed
+                                currentPattern: numPegsChanged ? Array(config.numPegs).fill(null) : prev.currentPattern,
+                                correctPosition: numPegsChanged ? 0 : prev.correctPosition,
+                                correctColor: numPegsChanged ? 0 : prev.correctColor,
+                                guesses: numPegsChanged ? [] : prev.guesses
+                            };
+                        });
+                    }}
+                    title="Mastermind Settings"
+                    config={{
+                        numPegs: state.numPegs,
+                        allowDuplicates: state.allowDuplicates,
+                        maxDepth: state.maxDepth
+                    }}
+                    fields={[
+                        {
+                            name: 'numPegs',
+                            label: 'Number of Pegs',
+                            type: 'select',
+                            options: [
+                                { value: 3, label: '3 Pegs' },
+                                { value: 4, label: '4 Pegs' },
+                                { value: 5, label: '5 Pegs' },
+                                { value: 6, label: '6 Pegs' }
+                            ]
+                        },
+                        {
+                            name: 'allowDuplicates',
+                            label: 'Allow Duplicates',
+                            type: 'select',
+                            options: [
+                                { value: 1, label: 'Yes' },
+                                { value: 0, label: 'No' }
+                            ]
+                        },
+                        {
+                            name: 'maxDepth',
+                            label: 'Solver Mode',
+                            type: 'select',
+                            options: [
+                                { value: 0, label: 'Get possible patterns only' },
+                                { value: 1, label: 'Calculate best guesses' }
+                            ]
+                        }
+                    ]}
+                />
+
+                {/* Results Component */}
+                {results && (
+                    <Box sx={{ mt: 3 }}>
+                        <MastermindResults
+                            possibleWords={results.possibleWords || []}
+                            guessesWithEntropy={results.guessesWithEntropy || []}
+                            lastGameData={results.gameData}
+                            isLoading={isLoading}
+                            onLoadMore={onLoadMore}
+                            onCopyToClipboard={(text) => navigator.clipboard.writeText(text)}
+                            onPossibleSolutionSelect={(pattern) => {
+                                fillPatternFromSelection(pattern);
+                            }}
+                            onSuggestedGuessSelect={(pattern) => {
+                                fillPatternFromSelection(pattern);
+                            }}
+                        />
+                    </Box>
+                )}
             </CardContent>
         </Card>
     );

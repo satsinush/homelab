@@ -8,9 +8,20 @@ import {
     Button,
     Grid,
     CircularProgress,
-    Stack
+    Stack,
+    IconButton,
+    Tooltip,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Paper,
+    Divider
 } from '@mui/material';
-import { PlayArrow as PlayIcon } from '@mui/icons-material';
+import { PlayArrow as PlayIcon, Settings as SettingsIcon, ContentCopy as CopyIcon } from '@mui/icons-material';
+import GameSettingsDialog from './GameSettingsDialog';
 
 // Spelling Bee display component
 const SpellingBeeDisplay = ({ letters }) => {
@@ -21,62 +32,44 @@ const SpellingBeeDisplay = ({ letters }) => {
     return (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
             <Box sx={{
-                position: 'relative', width: 200, height: 200,
-                border: '2px solid #ddd',
-                borderRadius: 2,
-                backgroundColor: 'background.paper'
+                position: 'relative', width: 220, height: 220,
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
-                {/* Center hexagon */}
-                {centerLetter && (
-                    <Box
-                        sx={{
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -50%)',
-                            width: 51.96, // Approximately 60 * sqrt(3) / 2 * 2 / sqrt(3) = ~69.28 (visual width for better proportion)
-                            height: 45,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: 'secondary.main',
-                            color: 'white',
-                            fontWeight: 'bold',
-                            fontSize: '1.5rem',
-                            clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
-                        }}
-                    >
-                        {centerLetter}
-                    </Box>
-                )}
+                {/* Center Hexagon - Flat Top */}
+                <Box sx={{
+                    position: 'absolute', width: 70, height: 60,
+                    clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
+                    backgroundColor: 'primary.main',
+                    color: 'primary.contrastText',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 'bold', fontSize: '1.5rem',
+                    zIndex: 2,
+                    boxShadow: 3
+                }}>
+                    {centerLetter || '?'}
+                </Box>
 
-                {/* Outer hexagons */}
-                {outerLetters.map((letter, index) => {
-                    const angle = (index * 60) - 90; // Start from top, go clockwise
-                    const radian = (angle * Math.PI) / 180;
-                    const x = 60 * Math.cos(radian);
-                    const y = 60 * Math.sin(radian);
+                {/* Outer Hexagons - Flat Top */}
+                {outerLetters.map((letter, i) => {
+                    // Adjust angles for flat-top stacking (vertical alignment)
+                    // We want neighbors at 30, 90, 150, 210, 270, 330 degrees
+                    const angle = (i * 60 - 30) * (Math.PI / 180);
+                    const radius = 75;
+                    const x = Math.cos(angle) * radius;
+                    const y = Math.sin(angle) * radius;
 
                     return (
-                        <Box
-                            key={index}
-                            sx={{
-                                position: 'absolute',
-                                top: '50%',
-                                left: '50%',
-                                transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
-                                width: 51.96, // Approximately 45 * sqrt(3) / 2 * 2 / sqrt(3) = ~51.96
-                                height: 45,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                backgroundColor: 'primary.main',
-                                color: 'white',
-                                fontWeight: 'bold',
-                                fontSize: '1.2rem',
-                                clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
-                            }}
-                        >
+                        <Box key={i} sx={{
+                            position: 'absolute', width: 70, height: 60,
+                            left: `calc(50% + ${x}px - 35px)`,
+                            top: `calc(50% + ${y}px - 30px)`,
+                            clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
+                            backgroundColor: 'action.selected',
+                            color: 'text.primary',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontWeight: 'bold', fontSize: '1.5rem',
+                            border: '1px solid transparent', // clip-path hides border, but keeping for sizing structure
+                        }}>
                             {letter}
                         </Box>
                     );
@@ -86,26 +79,122 @@ const SpellingBeeDisplay = ({ letters }) => {
     );
 };
 
-const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError }) => {
+const SpellingBeeResults = ({ results, onCopy, onLoadMore, isLoading }) => {
+    if (!results || !results.solutions || results.solutions.length === 0) return null;
+
+    const { solutions, gameData } = results;
+    const totalFound = gameData?.actualTotalFound || gameData?.totalSolutions || 0;
+    const hasMore = solutions.length < totalFound;
+
+    return (
+        <Card sx={{ mt: 3 }}>
+            <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h5" component="h2" sx={{ fontWeight: 600 }}>
+                        Solutions ({solutions.length}/{totalFound})
+                    </Typography>
+                    {solutions.length > 0 && (
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => onCopy(solutions.join('\n'))}
+                            startIcon={<CopyIcon />}
+                        >
+                            Copy All
+                        </Button>
+                    )}
+                </Box>
+
+                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 400, overflowY: 'auto' }}>
+                    <Table size="small" stickyHeader>
+                        <TableHead>
+                            <TableRow>
+                                <TableCell sx={{ fontWeight: 'bold' }}>Word</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Length</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Unique</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {solutions.map((solution, index) => (
+                                <TableRow
+                                    key={index}
+                                    hover
+                                    onClick={() => onCopy(solution)}
+                                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
+                                >
+                                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+                                        {solution}
+                                    </TableCell>
+                                    <TableCell align="right">{solution.length}</TableCell>
+                                    <TableCell align="right">{new Set(solution.split('')).size}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+
+                {hasMore && (
+                    <Button
+                        variant="contained"
+                        onClick={onLoadMore}
+                        disabled={isLoading}
+                        sx={{ mt: 2 }}
+                    >
+                        Load More
+                    </Button>
+                )}
+            </CardContent>
+        </Card>
+    );
+};
+
+const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, results, onLoadMore }) => {
     const [spellingBeeLetters, setSpellingBeeLetters] = useState('');
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [config, setConfig] = useState({
+        excludeUncommonWords: false,
+        mustIncludeFirstLetter: true,
+        reuseLetters: true
+    });
+
+    const settingsFields = [
+        {
+            name: 'excludeUncommonWords',
+            label: 'Exclude Uncommon Words',
+            type: 'checkbox'
+        },
+        {
+            name: 'mustIncludeFirstLetter',
+            label: 'Must Include First Letter',
+            type: 'checkbox'
+        },
+        {
+            name: 'reuseLetters',
+            label: 'Allow Letter Reuse',
+            type: 'checkbox'
+        }
+    ];
 
     const handleSpellingBeeChange = useCallback((e) => {
-        const cleanValue = e.target.value.replace(/[^a-zA-Z]/g, '').slice(0, 7);
+        const cleanValue = e.target.value.replace(/[^a-zA-Z]/g, '');
         setSpellingBeeLetters(cleanValue);
     }, []);
 
     const handleSolve = useCallback(async () => {
-        if (!spellingBeeLetters.trim()) {
-            showError('Please enter letters for Spelling Bee');
+        if (!spellingBeeLetters.trim() || spellingBeeLetters.length < 3) {
+            showError('Please enter at least 3 letters for Spelling Bee');
             return;
         }
 
         await onSolve('spellingbee', {
             letters: spellingBeeLetters.trim(),
+            excludeUncommonWords: config.excludeUncommonWords,
+            mustIncludeFirstLetter: config.mustIncludeFirstLetter,
+            reuseLetters: config.reuseLetters,
             start: 0,
             end: 100
         });
-    }, [spellingBeeLetters, onSolve, showError]);
+    }, [spellingBeeLetters, config, onSolve, showError]);
 
     const handleClear = useCallback(() => {
         setSpellingBeeLetters('');
@@ -115,12 +204,24 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError })
     return (
         <Card>
             <CardContent>
+                {/* Top Left Control Layout */}
+                <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                    <Button variant="outlined" onClick={handleClear} disabled={isLoading} size="small">
+                        New Game
+                    </Button>
+                    <Tooltip title="Settings">
+                        <IconButton onClick={() => setSettingsOpen(true)} size="small">
+                            <SettingsIcon />
+                        </IconButton>
+                    </Tooltip>
+                </Stack>
+
                 <Box sx={{ textAlign: 'center', mb: 3 }}>
                     <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 1 }}>
                         Spelling Bee
                     </Typography>
                     <Typography variant="body1" color="text.secondary">
-                        Enter the 7 letters from the Spelling Bee puzzle (center letter first)
+                        Enter letters (minimum 3, duplicates allowed, first letter is special)
                     </Typography>
                 </Box>
 
@@ -128,13 +229,19 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError })
                 <Grid container spacing={3} justifyContent="center" sx={{ mb: 3 }}>
                     <Grid size={{ xs: 12, md: 8 }}>
                         <TextField
-                            label="Enter 7 letters (center first, then outer)"
+                            label="Enter letters (first is center/special)"
                             value={spellingBeeLetters}
                             onChange={handleSpellingBeeChange}
                             fullWidth
+                            helperText={`${spellingBeeLetters.length} letters entered (minimum 3)`}
+                            autoCorrect="off"
+                            autoComplete="off"
                             slotProps={{
                                 htmlInput: {
-                                    maxLength: 7,
+                                    autoComplete: 'off',
+                                    autoCorrect: 'off',
+                                    autoCapitalize: 'off',
+                                    spellCheck: 'false',
                                     style: {
                                         textAlign: 'center',
                                         fontSize: '1.2rem',
@@ -144,7 +251,7 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError })
                                     },
                                 }
                             }}
-                            helperText={`${spellingBeeLetters.length}/7 letters entered`}
+
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                     e.preventDefault();
@@ -160,32 +267,38 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError })
 
                 <Grid container spacing={3} justifyContent="center">
                     <Grid size={{ xs: 12, md: 6 }}>
-                        <Stack spacing={2}>
-                            {/* Action Buttons */}
-                            <Stack direction="row" spacing={2}>
-                                <Button
-                                    variant="contained"
-                                    onClick={handleSolve}
-                                    disabled={isLoading || gameStatus?.status !== 'available' || !spellingBeeLetters.trim()}
-                                    startIcon={isLoading ? <CircularProgress size={20} /> : <PlayIcon />}
-                                    fullWidth
-                                    size="large"
-                                    color="primary"
-                                >
-                                    Solve Spelling Bee
-                                </Button>
-                                <Button
-                                    variant="outlined"
-                                    onClick={handleClear}
-                                    disabled={isLoading}
-                                    size="large"
-                                >
-                                    Clear
-                                </Button>
-                            </Stack>
-                        </Stack>
+                        <Button
+                            fullWidth
+                            variant="contained"
+                            size="large"
+                            onClick={handleSolve}
+                            disabled={isLoading || spellingBeeLetters.length < 3}
+                            startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
+                        >
+                            {isLoading ? 'Solving...' : 'Solve Puzzle'}
+                        </Button>
                     </Grid>
                 </Grid>
+
+                {/* Results Table */}
+                {results && (
+                    <SpellingBeeResults
+                        results={results}
+                        onCopy={(text) => navigator.clipboard.writeText(text)}
+                        onLoadMore={onLoadMore}
+                        isLoading={isLoading}
+                    />
+                )}
+
+                {/* Settings Dialog */}
+                <GameSettingsDialog
+                    open={settingsOpen}
+                    onClose={() => setSettingsOpen(false)}
+                    onSave={setConfig}
+                    title="Spelling Bee Settings"
+                    config={config}
+                    fields={settingsFields}
+                />
             </CardContent>
         </Card>
     );
