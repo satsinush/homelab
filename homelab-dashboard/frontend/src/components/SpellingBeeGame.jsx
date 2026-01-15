@@ -111,7 +111,7 @@ const SpellingBeeResults = ({ results, onCopy, onLoadMore, isLoading }) => {
                             <TableRow>
                                 <TableCell sx={{ fontWeight: 'bold' }}>Word</TableCell>
                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>Length</TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Unique</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Unique Letters</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -202,105 +202,106 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
     }, [onClear]);
 
     return (
-        <Card>
-            <CardContent>
-                {/* Top Left Control Layout */}
-                <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-                    <Button variant="outlined" onClick={handleClear} disabled={isLoading} size="small">
-                        New Game
-                    </Button>
-                    <Tooltip title="Settings">
-                        <IconButton onClick={() => setSettingsOpen(true)} size="small">
-                            <SettingsIcon />
-                        </IconButton>
-                    </Tooltip>
-                </Stack>
-
-                <Box sx={{ textAlign: 'center', mb: 3 }}>
-                    <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 1 }}>
-                        Spelling Bee
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary">
-                        Enter letters (minimum 3, duplicates allowed, first letter is special)
-                    </Typography>
-                </Box>
-
-                {/* Input Field */}
-                <Grid container spacing={3} justifyContent="center" sx={{ mb: 3 }}>
-                    <Grid size={{ xs: 12, md: 8 }}>
-                        <TextField
-                            label="Enter letters (first is center/special)"
-                            value={spellingBeeLetters}
-                            onChange={handleSpellingBeeChange}
-                            fullWidth
-                            helperText={`${spellingBeeLetters.length} letters entered (minimum 3)`}
-                            autoCorrect="off"
-                            autoComplete="off"
-                            slotProps={{
-                                htmlInput: {
-                                    autoComplete: 'off',
-                                    autoCorrect: 'off',
-                                    autoCapitalize: 'off',
-                                    spellCheck: 'false',
-                                    style: {
-                                        textAlign: 'center',
-                                        fontSize: '1.2rem',
-                                        fontWeight: 'bold',
-                                        letterSpacing: '3px',
-                                        textTransform: 'uppercase'
-                                    },
-                                }
-                            }}
-
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    handleSolve();
-                                }
-                            }}
-                        />
-                    </Grid>
-                </Grid>
-
-                {/* Spelling Bee Display */}
-                <SpellingBeeDisplay letters={spellingBeeLetters} />
-
-                <Grid container spacing={3} justifyContent="center">
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <Button
-                            fullWidth
-                            variant="contained"
-                            size="large"
-                            onClick={handleSolve}
-                            disabled={isLoading || spellingBeeLetters.length < 3}
-                            startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
-                        >
-                            {isLoading ? 'Solving...' : 'Solve Puzzle'}
+        <>
+            <Card>
+                <CardContent>
+                    {/* Top Left Control Layout */}
+                    <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                        <Button variant="outlined" onClick={handleClear} disabled={isLoading} size="small">
+                            New Game
                         </Button>
+                        <Tooltip title="Settings">
+                            <IconButton onClick={() => setSettingsOpen(true)} size="small">
+                                <SettingsIcon />
+                            </IconButton>
+                        </Tooltip>
+                    </Stack>
+
+                    <Box sx={{ textAlign: 'center', mb: 3 }}>
+                        <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 1 }}>
+                            Spelling Bee
+                        </Typography>
+                        <Typography variant="body1" color="text.secondary">
+                            Enter letters (minimum 3, duplicates allowed, first letter is special)
+                        </Typography>
+                    </Box>
+
+                    {/* Input Field */}
+                    <Grid container spacing={3} justifyContent="center" sx={{ mb: 3 }}>
+                        <Grid size={{ xs: 12, md: 8 }}>
+                            <TextField
+                                label="Enter letters (first is center/special)"
+                                value={spellingBeeLetters}
+                                onChange={handleSpellingBeeChange}
+                                fullWidth
+                                helperText={`${spellingBeeLetters.length} letters entered (minimum 3)`}
+                                autoCorrect="off"
+                                autoComplete="off"
+                                slotProps={{
+                                    htmlInput: {
+                                        autoComplete: 'off',
+                                        autoCorrect: 'off',
+                                        autoCapitalize: 'off',
+                                        spellCheck: 'false',
+                                        style: {
+                                            textAlign: 'center',
+                                            fontSize: '1.2rem',
+                                            fontWeight: 'bold',
+                                            letterSpacing: '3px',
+                                            textTransform: 'uppercase'
+                                        },
+                                    }
+                                }}
+
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleSolve();
+                                    }
+                                }}
+                            />
+                        </Grid>
                     </Grid>
-                </Grid>
 
-                {/* Results Table */}
-                {results && (
-                    <SpellingBeeResults
-                        results={results}
-                        onCopy={(text) => navigator.clipboard.writeText(text)}
-                        onLoadMore={onLoadMore}
-                        isLoading={isLoading}
+                    {/* Spelling Bee Display */}
+                    <SpellingBeeDisplay letters={spellingBeeLetters} />
+
+                    <Grid container spacing={3} justifyContent="center">
+                        <Grid size={{ xs: 12, md: 6 }}>
+                            <Button
+                                fullWidth
+                                variant="contained"
+                                size="large"
+                                onClick={handleSolve}
+                                disabled={isLoading || spellingBeeLetters.length < 3}
+                                startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
+                            >
+                                {isLoading ? 'Solving...' : 'Solve Puzzle'}
+                            </Button>
+                        </Grid>
+                    </Grid>
+
+                    <GameSettingsDialog
+                        open={settingsOpen}
+                        onClose={() => setSettingsOpen(false)}
+                        onSave={setConfig}
+                        title="Spelling Bee Settings"
+                        config={config}
+                        fields={settingsFields}
                     />
-                )}
+                </CardContent>
+            </Card>
 
-                {/* Settings Dialog */}
-                <GameSettingsDialog
-                    open={settingsOpen}
-                    onClose={() => setSettingsOpen(false)}
-                    onSave={setConfig}
-                    title="Spelling Bee Settings"
-                    config={config}
-                    fields={settingsFields}
+            {/* Results Table */}
+            {results && (
+                <SpellingBeeResults
+                    results={results}
+                    onCopy={(text) => navigator.clipboard.writeText(text)}
+                    onLoadMore={onLoadMore}
+                    isLoading={isLoading}
                 />
-            </CardContent>
-        </Card>
+            )}
+        </>
     );
 };
 

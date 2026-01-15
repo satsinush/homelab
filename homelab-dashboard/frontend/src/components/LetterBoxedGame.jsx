@@ -335,185 +335,188 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
     const isCustom = tempConfig.preset === 0;
 
     return (
-        <Card>
-            <CardContent>
-                {/* Top Left Control Layout */}
-                <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-                    <Button variant="outlined" onClick={handleClear} disabled={isLoading} size="small">
-                        New Game
-                    </Button>
-                    <Tooltip title="Settings">
-                        <IconButton onClick={handleOpenSettings} size="small">
-                            <SettingsIcon />
-                        </IconButton>
-                    </Tooltip>
-                </Stack>
-
-                <Box sx={{ textAlign: 'center', mb: 3 }}>
-                    <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 1 }}>
-                        Letter Boxed
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary">
-                        Enter the 12 letters from the Letter Boxed puzzle (clockwise from top)
-                    </Typography>
-                </Box>
-
-                {/* Input Field */}
-                <Grid container spacing={3} justifyContent="center" sx={{ mb: 3 }}>
-                    <Grid size={{ xs: 12, md: 8 }}>
-                        <TextField
-                            label="Enter 12 letters (clockwise from top)"
-                            value={letterBoxedLetters}
-                            onChange={handleLetterBoxedChange}
-                            fullWidth
-                            slotProps={{
-                                htmlInput: {
-                                    maxLength: 12,
-                                    style: {
-                                        textAlign: 'center',
-                                        fontSize: '1.2rem',
-                                        fontWeight: 'bold',
-                                        letterSpacing: '3px',
-                                        textTransform: 'uppercase'
-                                    },
-                                    autoComplete: 'off',
-                                    autoCorrect: 'off',
-                                    autoCapitalize: 'off',
-                                    spellCheck: 'false'
-                                }
-                            }}
-                            helperText={`${letterBoxedLetters.length}/12 letters entered`}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    handleSolve();
-                                }
-                            }}
-                        />
-                    </Grid>
-                </Grid>
-
-                {/* Letter Grid Display */}
-                <LetterBoxedGrid letters={letterBoxedLetters} />
-
-                <Grid container spacing={3} justifyContent="center">
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <Button
-                            variant="contained"
-                            onClick={handleSolve}
-                            disabled={isLoading || gameStatus?.status !== 'available' || !letterBoxedLetters.trim() || !isConfigValid()}
-                            startIcon={isLoading ? <CircularProgress size={20} /> : <PlayIcon />}
-                            fullWidth
-                            size="large"
-                            color="primary"
-                        >
-                            Solve
+        <>
+            <Card>
+                <CardContent>
+                    {/* Top Left Control Layout */}
+                    <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                        <Button variant="outlined" onClick={handleClear} disabled={isLoading} size="small">
+                            New Game
                         </Button>
+                        <Tooltip title="Settings">
+                            <IconButton onClick={handleOpenSettings} size="small">
+                                <SettingsIcon />
+                            </IconButton>
+                        </Tooltip>
+                    </Stack>
+
+                    <Box sx={{ textAlign: 'center', mb: 3 }}>
+                        <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 1 }}>
+                            Letter Boxed
+                        </Typography>
+                        <Typography variant="body1" color="text.secondary">
+                            Enter the 12 letters from the Letter Boxed puzzle (clockwise from top)
+                        </Typography>
+                    </Box>
+
+                    {/* Input Field */}
+                    <Grid container spacing={3} justifyContent="center" sx={{ mb: 3 }}>
+                        <Grid size={{ xs: 12, md: 8 }}>
+                            <TextField
+                                label="Enter 12 letters (clockwise from top)"
+                                value={letterBoxedLetters}
+                                onChange={handleLetterBoxedChange}
+                                fullWidth
+                                slotProps={{
+                                    htmlInput: {
+                                        maxLength: 12,
+                                        style: {
+                                            textAlign: 'center',
+                                            fontSize: '1.2rem',
+                                            fontWeight: 'bold',
+                                            letterSpacing: '3px',
+                                            textTransform: 'uppercase'
+                                        },
+                                        autoComplete: 'off',
+                                        autoCorrect: 'off',
+                                        autoCapitalize: 'off',
+                                        spellCheck: 'false'
+                                    }
+                                }}
+                                helperText={`${letterBoxedLetters.length}/12 letters entered`}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleSolve();
+                                    }
+                                }}
+                            />
+                        </Grid>
                     </Grid>
-                </Grid>
 
-                {/* Settings Dialog */}
-                <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="sm" fullWidth>
-                    <DialogTitle>Letter Boxed Settings</DialogTitle>
-                    <DialogContent>
-                        <Stack spacing={3} sx={{ mt: 1 }}>
-                            <FormControl fullWidth>
-                                <InputLabel>Preset</InputLabel>
-                                <Select
-                                    value={tempConfig.preset}
-                                    label="Preset"
-                                    onChange={handlePresetChange}
-                                >
-                                    <MenuItem value={1}>Default (2 words)</MenuItem>
-                                    <MenuItem value={2}>Fast (2 words)</MenuItem>
-                                    <MenuItem value={3}>Thorough (3 words)</MenuItem>
-                                    <MenuItem value={0}>Custom</MenuItem>
-                                </Select>
-                            </FormControl>
+                    {/* Letter Grid Display */}
+                    <LetterBoxedGrid letters={letterBoxedLetters} />
 
-                            <Divider />
+                    <Grid container spacing={3} justifyContent="center">
+                        <Grid size={{ xs: 12, md: 6 }}>
+                            <Button
+                                variant="contained"
+                                onClick={handleSolve}
+                                disabled={isLoading || gameStatus?.status !== 'available' || !letterBoxedLetters.trim() || !isConfigValid()}
+                                startIcon={isLoading ? <CircularProgress size={20} /> : <PlayIcon />}
+                                fullWidth
+                                size="large"
+                                color="primary"
+                            >
+                                Solve
+                            </Button>
+                        </Grid>
+                    </Grid>
 
-                            <Grid container spacing={2}>
-                                <Grid size={6}>
-                                    <TextField
-                                        label="Max Depth"
-                                        type="number"
-                                        value={tempConfig.maxDepth}
-                                        onChange={(e) => handleTempConfigChange('maxDepth', parseInt(e.target.value) || 0)}
-                                        fullWidth
-                                        disabled={!isCustom}
-                                        slotProps={{ htmlInput: { min: 1, max: 10 } }}
-                                    />
-                                </Grid>
-                                <Grid size={6}>
-                                    <TextField
-                                        label="Min Word Length"
-                                        type="number"
-                                        value={tempConfig.minWordLength}
-                                        onChange={(e) => handleTempConfigChange('minWordLength', parseInt(e.target.value) || 0)}
-                                        fullWidth
-                                        disabled={!isCustom}
-                                        slotProps={{ htmlInput: { min: 1, max: 20 } }}
-                                    />
-                                </Grid>
-                                <Grid size={6}>
-                                    <TextField
-                                        label="Min Unique Letters"
-                                        type="number"
-                                        value={tempConfig.minUniqueLetters}
-                                        onChange={(e) => handleTempConfigChange('minUniqueLetters', parseInt(e.target.value) || 0)}
-                                        fullWidth
-                                        disabled={!isCustom}
-                                        slotProps={{ htmlInput: { min: 1, max: 12 } }}
-                                    />
-                                </Grid>
-                                <Grid size={6}>
-                                    <FormControl fullWidth disabled={!isCustom}>
-                                        <InputLabel>Prune Redundant Paths</InputLabel>
-                                        <Select
-                                            value={tempConfig.pruneRedundantPaths ? 1 : 0}
-                                            label="Prune Redundant Paths"
-                                            onChange={(e) => handleTempConfigChange('pruneRedundantPaths', e.target.value === 1)}
-                                        >
-                                            <MenuItem value={1}>Yes</MenuItem>
-                                            <MenuItem value={0}>No</MenuItem>
-                                        </Select>
-                                    </FormControl>
-                                </Grid>
-                                <Grid size={6}>
-                                    <FormControl fullWidth disabled={!isCustom}>
-                                        <InputLabel>Prune Dominated Classes</InputLabel>
-                                        <Select
-                                            value={tempConfig.pruneDominatedClasses ? 1 : 0}
-                                            label="Prune Dominated Classes"
-                                            onChange={(e) => handleTempConfigChange('pruneDominatedClasses', e.target.value === 1)}
-                                        >
-                                            <MenuItem value={1}>Yes</MenuItem>
-                                            <MenuItem value={0}>No</MenuItem>
-                                        </Select>
-                                    </FormControl>
-                                </Grid>
-                            </Grid>
-                        </Stack>
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setSettingsOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSaveSettings} variant="contained">Save</Button>
-                    </DialogActions>
-                </Dialog>
+                    {/* Settings Dialog */}
+                    <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="sm" fullWidth>
+                        <DialogTitle>Letter Boxed Settings</DialogTitle>
+                        <DialogContent>
+                            <Stack spacing={3} sx={{ mt: 1 }}>
+                                <FormControl fullWidth>
+                                    <InputLabel>Preset</InputLabel>
+                                    <Select
+                                        value={tempConfig.preset}
+                                        label="Preset"
+                                        onChange={handlePresetChange}
+                                    >
+                                        <MenuItem value={1}>Default (2 words)</MenuItem>
+                                        <MenuItem value={2}>Fast (2 words)</MenuItem>
+                                        <MenuItem value={3}>Thorough (3 words)</MenuItem>
+                                        <MenuItem value={0}>Custom</MenuItem>
+                                    </Select>
+                                </FormControl>
 
-                {/* Results Component */}
-                {results && (
-                    <LetterBoxedResults
-                        solutions={results.solutions || []}
-                        lastGameData={results.gameData}
-                        isLoading={isLoading}
-                        onLoadMore={onLoadMore}
-                        onCopyToClipboard={(text) => navigator.clipboard.writeText(text)}
-                    />
-                )}
-            </CardContent>
-        </Card>
+                                <Divider />
+
+                                <Grid container spacing={2}>
+                                    <Grid size={6}>
+                                        <TextField
+                                            label="Max Depth"
+                                            type="number"
+                                            value={tempConfig.maxDepth}
+                                            onChange={(e) => handleTempConfigChange('maxDepth', parseInt(e.target.value) || 0)}
+                                            fullWidth
+                                            disabled={!isCustom}
+                                            slotProps={{ htmlInput: { min: 1, max: 10 } }}
+                                        />
+                                    </Grid>
+                                    <Grid size={6}>
+                                        <TextField
+                                            label="Min Word Length"
+                                            type="number"
+                                            value={tempConfig.minWordLength}
+                                            onChange={(e) => handleTempConfigChange('minWordLength', parseInt(e.target.value) || 0)}
+                                            fullWidth
+                                            disabled={!isCustom}
+                                            slotProps={{ htmlInput: { min: 1, max: 20 } }}
+                                        />
+                                    </Grid>
+                                    <Grid size={6}>
+                                        <TextField
+                                            label="Min Unique Letters"
+                                            type="number"
+                                            value={tempConfig.minUniqueLetters}
+                                            onChange={(e) => handleTempConfigChange('minUniqueLetters', parseInt(e.target.value) || 0)}
+                                            fullWidth
+                                            disabled={!isCustom}
+                                            slotProps={{ htmlInput: { min: 1, max: 12 } }}
+                                        />
+                                    </Grid>
+                                    <Grid size={6}>
+                                        <FormControl fullWidth disabled={!isCustom}>
+                                            <InputLabel>Prune Redundant Paths</InputLabel>
+                                            <Select
+                                                value={tempConfig.pruneRedundantPaths ? 1 : 0}
+                                                label="Prune Redundant Paths"
+                                                onChange={(e) => handleTempConfigChange('pruneRedundantPaths', e.target.value === 1)}
+                                            >
+                                                <MenuItem value={1}>Yes</MenuItem>
+                                                <MenuItem value={0}>No</MenuItem>
+                                            </Select>
+                                        </FormControl>
+                                    </Grid>
+                                    <Grid size={6}>
+                                        <FormControl fullWidth disabled={!isCustom}>
+                                            <InputLabel>Prune Dominated Classes</InputLabel>
+                                            <Select
+                                                value={tempConfig.pruneDominatedClasses ? 1 : 0}
+                                                label="Prune Dominated Classes"
+                                                onChange={(e) => handleTempConfigChange('pruneDominatedClasses', e.target.value === 1)}
+                                            >
+                                                <MenuItem value={1}>Yes</MenuItem>
+                                                <MenuItem value={0}>No</MenuItem>
+                                            </Select>
+                                        </FormControl>
+                                    </Grid>
+                                </Grid>
+                            </Stack>
+                        </DialogContent>
+                        <DialogActions>
+                            <Button onClick={() => setSettingsOpen(false)}>Cancel</Button>
+                            <Button onClick={handleSaveSettings} variant="contained">Save</Button>
+                        </DialogActions>
+                    </Dialog>
+
+                </CardContent>
+            </Card>
+
+            {/* Results Component */}
+            {results && (
+                <LetterBoxedResults
+                    solutions={results.solutions || []}
+                    lastGameData={results.gameData}
+                    isLoading={isLoading}
+                    onLoadMore={onLoadMore}
+                    onCopyToClipboard={(text) => navigator.clipboard.writeText(text)}
+                />
+            )}
+        </>
     );
 };
 

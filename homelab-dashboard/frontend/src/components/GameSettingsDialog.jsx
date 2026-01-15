@@ -93,7 +93,12 @@ const GameSettingsDialog = ({ open, onClose, onSave, title, config, fields }) =>
                             if (val === '') {
                                 handleChange(field.name, '');
                             } else {
-                                handleChange(field.name, parseInt(val, 10));
+                                let num = parseInt(val, 10);
+                                if (!isNaN(num)) {
+                                    if (field.min !== undefined) num = Math.max(field.min, num);
+                                    if (field.max !== undefined) num = Math.min(field.max, num);
+                                    handleChange(field.name, num);
+                                }
                             }
                         }}
                         slotProps={{ htmlInput: { min: field.min, max: field.max, autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'off', spellCheck: 'false' } }}

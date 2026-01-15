@@ -66,7 +66,7 @@ const WordGames = () => {
         gameData: null
     });
     const [mastermindResults, setMastermindResults] = useState({
-        possibleWords: [],
+        possiblePatterns: [],
         guessesWithEntropy: [],
         gameData: null
     });
@@ -76,7 +76,7 @@ const WordGames = () => {
         gameData: null
     });
     const [dungleonResults, setDungleonResults] = useState({
-        possibleWords: [],
+        possiblePatterns: [],
         guessesWithEntropy: [],
         gameData: null
     });
@@ -215,8 +215,8 @@ const WordGames = () => {
                     resultsFile: response.data.resultsFile
                 };
                 setMastermindResults({
-                    possibleWords: response.data.possiblePatterns || [],
-                    guessesWithEntropy: (response.data.guessesWithEntropy || []).map(g => ({ ...g, word: g.pattern })),
+                    possiblePatterns: response.data.possiblePatterns || [],
+                    guessesWithEntropy: response.data.guessesWithEntropy || [],
                     gameData: newGameData
                 });
                 const message = `Found ${response.data.possibleCount} possible patterns and ${response.data.guessesCount} suggested guesses in ${response.data.executionTime}ms`;
@@ -268,8 +268,8 @@ const WordGames = () => {
                     resultsFile: response.data.resultsFile
                 };
                 setDungleonResults({
-                    possibleWords: response.data.possiblePatterns || [],
-                    guessesWithEntropy: (response.data.guessesWithEntropy || []).map(g => ({ ...g, word: g.pattern })),
+                    possiblePatterns: response.data.possiblePatterns || [],
+                    guessesWithEntropy: response.data.guessesWithEntropy || [],
                     gameData: newGameData
                 });
                 const message = `Found ${response.data.possiblePatternsCount} possible words and ${response.data.guessesCount} suggested guesses in ${response.data.executionTime}ms`;
@@ -294,13 +294,13 @@ const WordGames = () => {
             setWordleResults({ possibleWords: [], guessesWithEntropy: [], gameData: null });
         }
         if (gameType === 'mastermind' || gameType === 'all') {
-            setMastermindResults({ possibleWords: [], guessesWithEntropy: [], gameData: null });
+            setMastermindResults({ possiblePatterns: [], guessesWithEntropy: [], gameData: null });
         }
         if (gameType === 'hangman' || gameType === 'all') {
             setHangmanResults({ letterSuggestions: [], possibleWords: [], gameData: null });
         }
         if (gameType === 'dungleon' || gameType === 'all') {
-            setDungleonResults({ possibleWords: [], guessesWithEntropy: [], gameData: null });
+            setDungleonResults({ possiblePatterns: [], guessesWithEntropy: [], gameData: null });
         }
     }, []);
 
@@ -400,13 +400,13 @@ const WordGames = () => {
                         const newSolutions = response.data.solutions || {};
                         setMastermindResults(prev => ({
                             ...prev,
-                            possibleWords: [...prev.possibleWords, ...(newSolutions.possiblePatterns || [])]
+                            possiblePatterns: [...prev.possiblePatterns, ...(newSolutions.possiblePatterns || [])]
                         }));
                     } else if (activeTab === 5) {
                         const newSolutions = response.data.solutions || {};
                         setDungleonResults(prev => ({
                             ...prev,
-                            possibleWords: [...prev.possibleWords, ...(newSolutions.possiblePatterns || [])]
+                            possiblePatterns: [...prev.possiblePatterns, ...(newSolutions.possiblePatterns || [])]
                         }));
                     }
                 } else if (type === 'guesses') {
@@ -420,13 +420,13 @@ const WordGames = () => {
                         const newSolutions = response.data.solutions || {};
                         setMastermindResults(prev => ({
                             ...prev,
-                            guessesWithEntropy: [...prev.guessesWithEntropy, ...(newSolutions.guessesWithEntropy || []).map(g => ({ ...g, word: g.pattern }))]
+                            guessesWithEntropy: [...prev.guessesWithEntropy, ...(newSolutions.guessesWithEntropy || [])]
                         }));
                     } else if (activeTab === 5) {
                         const newSolutions = response.data.solutions || {};
                         setDungleonResults(prev => ({
                             ...prev,
-                            guessesWithEntropy: [...prev.guessesWithEntropy, ...(newSolutions.guessesWithEntropy || []).map(g => ({ ...g, word: g.pattern }))]
+                            guessesWithEntropy: [...prev.guessesWithEntropy, ...(newSolutions.guessesWithEntropy || [])]
                         }));
                     }
                 }

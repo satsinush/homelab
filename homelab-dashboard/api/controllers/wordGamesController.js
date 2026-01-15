@@ -1,6 +1,8 @@
 const { exec } = require('child_process');
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
+const readline = require('readline');
 const { sendError, sendSuccess } = require('../utils/response');
 
 class WordGamesController {
@@ -236,43 +238,58 @@ class WordGamesController {
 
     // Solve Wordle puzzle
     // Helper to read results file in chunks (parallel pagination for words and guesses)
+    // Helper to read results file in chunks using streams (parallel pagination for words and guesses)
     async readResultsFileChunks(filePath, start, end, possibleCount) {
-        // We want to read two chunks:
-        // 1. Possible words: lines [start+1, end] (capped at possibleCount)
-        // 2. Guesses: lines [possibleCount + start + 1, possibleCount + end]
-        // Note: sed is 1-indexed. end is exclusive in slice but inclusive in our logic?
-        // Let's assume frontend requests count=100 (start=0, end=100) -> lines 1-100.
+        // Range 1 (Possible Words): [start, end) where lines < possibleCount
+        // Range 2 (Guesses): [possibleCount + start, possibleCount + end)
         
-        const limit = end - start;
-        const sedCommands = [];
+        // We use 0-based indexing for internal logic, but the previous sed logic used 1-based logic implicitly.
+        // Let's stick to the requested ranges. logic: 
+        // Request asks for start=0, end=100. We want lines 0-99 (if 0-indexed).
         
-        // Chunk 1: Possible Words
-        if (start < possibleCount) {
-            const chunk1Start = start + 1;
-            const chunk1End = Math.min(end, possibleCount);
-            if (chunk1Start <= chunk1End) {
-                sedCommands.push(`${chunk1Start},${chunk1End}p`);
+        return new Promise((resolve, reject) => {
+            const results = [];
+            // Handle relative path from executable dir
+            const fullPath = path.isAbsolute(filePath) ? filePath : path.join(this.executableDir, filePath);
+            
+            // Check if file exists first
+            if (!fs.existsSync(fullPath)) {
+                console.warn(`Results file not found: ${fullPath}`);
+                return resolve('');
             }
-        }
-        
-        // Chunk 2: Guesses
-        // Guesses start after possibleCount lines
-        const chunk2Start = possibleCount + start + 1;
-        const chunk2End = possibleCount + end;
-        // We don't strictly cap chunk2End effectively because file ends anyway, but sed handles it.
-        sedCommands.push(`${chunk2Start},${chunk2End}p`);
-        
-        const info = sedCommands.join(';');
-        const command = `sed -n '${info}' "${filePath}"`;
-        
-        try {
-            const result = await this.executeCommand(command);
-            return result.stdout;
-        } catch (error) {
-            console.error('Error reading results chunks:', error);
-            // Fallback to reading head if sed fails (shouldn't happen on linux)
-            return '';
-        }
+
+            const fileStream = fs.createReadStream(fullPath);
+
+            const rl = readline.createInterface({
+                input: fileStream,
+                crlfDelay: Infinity
+            });
+
+            let lineIndex = 0; // 0-based line index
+
+            rl.on('line', (line) => {
+                // Check Range 1: Possible Words part
+                const inRange1 = lineIndex >= start && lineIndex < Math.min(end, possibleCount);
+                
+                // Check Range 2: Guesses part (starts after possibleCount lines)
+                const inRange2 = lineIndex >= (possibleCount + start) && lineIndex < (possibleCount + end);
+
+                if (inRange1 || inRange2) {
+                    results.push(line);
+                }
+
+                lineIndex++;
+            });
+
+            rl.on('close', () => {
+                resolve(results.join('\n'));
+            });
+
+            rl.on('error', (err) => {
+                console.error('Error reading file stream:', err);
+                reject(err);
+            });
+        });
     }
 
     async solveWordle(req, res) {
@@ -422,23 +439,39 @@ class WordGamesController {
 
             // Validate pegs
             const numPegs = parseInt(pegs);
-            const numColors = isNaN(parseInt(colors)) ? colors.length : parseInt(colors);
-            
             if (isNaN(numPegs) || numPegs < 1 || numPegs > 10) return sendError(res, 400, 'Pegs must be between 1 and 10');
-            if (numColors < 1 || numColors > 10) return sendError(res, 400, 'Colors must be between 1 and 10');
+
+            // Handle colors: backend expects a string of characters (e.g. "RGBCMY")
+            // If we get a count, we map it to the standard set.
+            const STANDARD_COLORS = "RGBCMYOPWK"; // Red, Green, Blue, Yellow, Magenta, Cyan, Orange, Purple, White, Black
+            let colorString = colors;
+            let numColors = 0;
+
+            if (!isNaN(parseInt(colors)) && String(colors).length < 3) {
+                // It's a number (count)
+                const count = parseInt(colors);
+                if (count < 1 || count > 10) return sendError(res, 400, 'Colors must be between 1 and 10');
+                colorString = STANDARD_COLORS.substring(0, count);
+                numColors = count;
+            } else {
+                // It's already a string?
+                colorString = String(colors);
+                numColors = colorString.length;
+            }
 
             const resultsFilename = this.generateResultsFilename(req.user.username, 'mastermind');
 
-            // Build guesses string: "PATTERN R-W;PATTERN2 R-W"
+            // Build guesses string: "PATTERN P C;PATTERN2 P C"
             // where pattern is standard indices "0123" or CLI chars "RGBY"
             let guessesStr = '';
             if (guesses && Array.isArray(guesses) && guesses.length > 0) {
                  guessesStr = guesses.map(g => {
                      // Ensure pattern is clean
                      const pattern = String(g.pattern).replace(/\s+/g, '');
-                     const red = g.feedback?.red || 0;
-                     const white = g.feedback?.white || 0;
-                     return `${pattern} ${red}-${white}`;
+                     // Frontend sends correctPosition/correctColor at top level of guess object
+                     const pos = g.correctPosition !== undefined ? g.correctPosition : (g.feedback?.red || 0);
+                     const col = g.correctColor !== undefined ? g.correctColor : (g.feedback?.white || 0);
+                     return `${pattern} ${pos} ${col}`;
                  }).join(';');
             }
 
@@ -446,7 +479,7 @@ class WordGamesController {
             const args = [
                 'mastermind',
                 `--pegs ${numPegs}`,
-                `--colors ${numColors}`,
+                `--colors ${colorString}`,
                 `--duplicate ${allowDuplicates ? 1 : 0}`,
                 `--max-depth ${maxDepth}`,
                 `-o ${resultsFilename}`
@@ -918,6 +951,7 @@ class WordGamesController {
         return { possibleWords, guessesWithEntropy };
     }
 
+    // Parse Mastermind output with possible patterns and guesses with entropy
     // Parse Mastermind output with possible patterns and guesses with entropy
     parseMastermindOutput(output, possibleCount) {
         if (!output || typeof output !== 'string') {
