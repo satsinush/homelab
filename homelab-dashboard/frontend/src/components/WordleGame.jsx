@@ -21,7 +21,7 @@ import {
 } from '@mui/icons-material';
 import GameSettingsDialog from './GameSettingsDialog';
 
-const WordleResults = ({
+const WordleResults = React.memo(({
     possibleWords,
     guessesWithEntropy,
     lastGameData,
@@ -221,7 +221,7 @@ const WordleResults = ({
             )}
         </Grid>
     );
-};
+});
 
 const WordleGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, showError, results, onLoadMore }, ref) => {
     const [wordleGuesses, setWordleGuesses] = useState([]);
@@ -247,8 +247,9 @@ const WordleGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, showEr
             label: 'Solver Mode',
             type: 'select',
             options: [
-                { value: 0, label: 'Get all possible words' },
-                { value: 1, label: 'Calculate best guesses' }
+                { value: 0, label: '0: Fastest' },
+                { value: 1, label: '1: Balanced' },
+                { value: 2, label: '2: Deep' }
             ]
         },
         {
@@ -356,6 +357,24 @@ const WordleGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, showEr
         setCurrentGuessColors(Array(config.wordLength).fill(0));
         onClear();
     }, [config.wordLength, onClear]);
+
+    const handleCopyToClipboard = useCallback((text) => {
+        navigator.clipboard.writeText(text);
+    }, []);
+
+    const handlePossibleSolutionSelect = useCallback((word) => {
+        setCurrentGuess(word);
+        // Reset colors for new word
+        setCurrentGuessColors(Array(word.length).fill(0));
+        // Scroll to input
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
+
+    const handleSuggestedGuessSelect = useCallback((word) => {
+        setCurrentGuess(word);
+        setCurrentGuessColors(Array(word.length).fill(0));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
 
     return (
         <>
@@ -612,19 +631,9 @@ const WordleGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, showEr
                         lastGameData={results.gameData}
                         isLoading={isLoading}
                         onLoadMore={onLoadMore}
-                        onCopyToClipboard={(text) => navigator.clipboard.writeText(text)}
-                        onPossibleSolutionSelect={(word) => {
-                            setCurrentGuess(word);
-                            // Reset colors for new word
-                            setCurrentGuessColors(Array(word.length).fill(0));
-                            // Scroll to input
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
-                        onSuggestedGuessSelect={(word) => {
-                            setCurrentGuess(word);
-                            setCurrentGuessColors(Array(word.length).fill(0));
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
+                        onCopyToClipboard={handleCopyToClipboard}
+                        onPossibleSolutionSelect={handlePossibleSolutionSelect}
+                        onSuggestedGuessSelect={handleSuggestedGuessSelect}
                     />
                 </Box>
             )}

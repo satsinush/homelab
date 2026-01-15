@@ -109,7 +109,7 @@ const DungleonPatternDisplay = ({ pattern }) => {
     );
 };
 
-const DungleonResults = ({
+const DungleonResults = React.memo(({
     possiblePatterns, // Renamed from possibleWords
     guessesWithEntropy,
     lastGameData,
@@ -303,7 +303,7 @@ const DungleonResults = ({
             )}
         </Grid>
     );
-};
+});
 
 const DungleonGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, showError, results, onLoadMore }, ref) => {
     const [guesses, setGuesses] = useState([]);
@@ -311,7 +311,7 @@ const DungleonGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, show
     const [currentPattern, setCurrentPattern] = useState([]);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [config, setConfig] = useState({
-        maxDepth: 1,
+        maxDepth: 0,
         excludeImpossible: true
     });
 
@@ -321,9 +321,9 @@ const DungleonGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, show
             label: 'Search Depth',
             type: 'select',
             options: [
-                { value: 0, label: '0 (Fastest)' },
-                { value: 1, label: '1 (Balanced)' },
-                { value: 2, label: '2 (Deep)' }
+                { value: 0, label: '0: Fastest' },
+                { value: 1, label: '1: Balanced' },
+                { value: 2, label: '2: Deep' }
             ]
         },
         {
@@ -339,6 +339,10 @@ const DungleonGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, show
             setCurrentPattern(newPattern);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+    }, []);
+
+    const handleCopyToClipboard = useCallback((text) => {
+        navigator.clipboard.writeText(text);
     }, []);
 
     // Expose methods to parent
@@ -763,13 +767,9 @@ const DungleonGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, show
                         lastGameData={results.gameData}
                         isLoading={isLoading}
                         onLoadMore={onLoadMore}
-                        onCopyToClipboard={(text) => navigator.clipboard.writeText(text)}
-                        onPossibleSolutionSelect={(pattern) => {
-                            fillSuggestedGuess(pattern);
-                        }}
-                        onSuggestedGuessSelect={(pattern) => {
-                            fillSuggestedGuess(pattern);
-                        }}
+                        onCopyToClipboard={handleCopyToClipboard}
+                        onPossibleSolutionSelect={fillSuggestedGuess}
+                        onSuggestedGuessSelect={fillSuggestedGuess}
                     />
                 </Box>
             )}

@@ -285,7 +285,7 @@ const MastermindPatternDisplay = ({ pattern, size = 'small', colorMapping = null
     );
 };
 
-const MastermindResults = ({
+const MastermindResults = React.memo(({
     possiblePatterns, // Renamed from possibleWords
     guessesWithEntropy,
     lastGameData,
@@ -490,7 +490,7 @@ const MastermindResults = ({
             )}
         </Grid>
     );
-};
+});
 
 const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, showError, results, onLoadMore }, ref) => {
     // State is now local to this component
@@ -526,6 +526,10 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
         });
         onClear(); // Call parent clear function for results
     }, [onClear, state.numPegs, state.allowDuplicates]);
+
+    const handleCopyToClipboard = useCallback((text) => {
+        navigator.clipboard.writeText(text);
+    }, []);
 
     const fillPatternFromSelection = useCallback((pattern) => {
         if (!pattern) return;
@@ -1202,8 +1206,9 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
                                 label: 'Solver Mode',
                                 type: 'select',
                                 options: [
-                                    { value: 0, label: 'Get possible patterns only' },
-                                    { value: 1, label: 'Calculate best guesses' }
+                                    { value: 0, label: '0: Fastest' },
+                                    { value: 1, label: '1: Balanced' },
+                                    { value: 2, label: '2: Deep' }
                                 ]
                             }
                         ]}
@@ -1221,13 +1226,9 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
                         lastGameData={results.gameData}
                         isLoading={isLoading}
                         onLoadMore={onLoadMore}
-                        onCopyToClipboard={(text) => navigator.clipboard.writeText(text)}
-                        onPossibleSolutionSelect={(pattern) => {
-                            fillPatternFromSelection(pattern);
-                        }}
-                        onSuggestedGuessSelect={(pattern) => {
-                            fillPatternFromSelection(pattern);
-                        }}
+                        onCopyToClipboard={handleCopyToClipboard}
+                        onPossibleSolutionSelect={fillPatternFromSelection}
+                        onSuggestedGuessSelect={fillPatternFromSelection}
                     />
                 </Box>
             )}

@@ -9,8 +9,11 @@ import {
     CircularProgress,
     Tooltip,
     IconButton,
-    Tabs,
-    Tab
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    Button
 } from '@mui/material';
 import {
     Games as GamesIcon,
@@ -542,67 +545,57 @@ const WordGames = () => {
                 </Alert>
             )}
 
-            {/* Game Tabs */}
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Tabs
+            {/* Game Selection Dropdown */}
+            <Box sx={{ mb: 3 }}>
+                <FormControl fullWidth variant="outlined">
+                    <InputLabel id="game-select-label">Select Game</InputLabel>
+                    <Select
+                        labelId="game-select-label"
+                        id="game-select"
                         value={activeTab}
-                        onChange={handleTabChange}
-                        variant="scrollable"
-                        scrollButtons="auto"
-                        allowScrollButtonsMobile
-                        sx={{
-                            flex: 1,
-                            '& .MuiTab-root': {
-                                minHeight: 72,
-                                textTransform: 'none',
-                                fontSize: { xs: '0.875rem', sm: '1rem' },
-                                fontWeight: 500,
-                                minWidth: { xs: 120, sm: 'auto' }
-                            }
-                        }}
+                        onChange={(e) => handleTabChange(e, e.target.value)}
+                        label="Select Game"
                     >
-                        <Tab
-                            icon={<LetterBoxedIcon />}
-                            label="Letter Boxed"
-                            iconPosition="top"
-                        />
-                        <Tab
-                            icon={<Bee />}
-                            label="Spelling Bee"
-                            iconPosition="top"
-                        />
-                        <Tab
-                            icon={<QuizIcon />}
-                            label="Wordle"
-                            iconPosition="top"
-                        />
-                        <Tab
-                            icon={<MastermindIcon />}
-                            label="Mastermind"
-                            iconPosition="top"
-                        />
-                        <Tab
-                            icon={<HangmanIcon />}
-                            label="Hangman"
-                            iconPosition="top"
-                        />
-                        <Tab
-                            icon={<DungleonIcon />}
-                            label="Dungleon"
-                            iconPosition="top"
-                        />
-
-                    </Tabs>
-                    <Tooltip title="Help & Rules">
-                        <IconButton
-                            onClick={handleHelpOpen}
-                            color="primary"
-                            sx={{ ml: 1 }}
-                        >
-                            <HelpIcon />
-                        </IconButton>
-                    </Tooltip>
+                        <MenuItem value={0}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <LetterBoxedIcon /> Letter Boxed
+                            </Box>
+                        </MenuItem>
+                        <MenuItem value={1}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Bee /> Spelling Bee
+                            </Box>
+                        </MenuItem>
+                        <MenuItem value={2}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <QuizIcon /> Wordle
+                            </Box>
+                        </MenuItem>
+                        <MenuItem value={3}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <MastermindIcon /> Mastermind
+                            </Box>
+                        </MenuItem>
+                        <MenuItem value={4}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <HangmanIcon /> Hangman
+                            </Box>
+                        </MenuItem>
+                        <MenuItem value={5}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <DungleonIcon /> Dungleon
+                            </Box>
+                        </MenuItem>
+                    </Select>
+                </FormControl>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                    <Button
+                        startIcon={<HelpIcon />}
+                        onClick={handleHelpOpen}
+                        size="small"
+                    >
+                        How to Play
+                    </Button>
                 </Box>
             </Box>
 

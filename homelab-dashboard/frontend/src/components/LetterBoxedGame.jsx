@@ -149,7 +149,7 @@ const LetterBoxedGrid = ({ letters }) => {
     );
 };
 
-const LetterBoxedResults = ({
+const LetterBoxedResults = React.memo(({
     solutions,
     lastGameData,
     isLoading,
@@ -234,7 +234,7 @@ const LetterBoxedResults = ({
             </CardContent>
         </Card>
     );
-};
+});
 
 const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, results, onLoadMore }) => {
     const [letterBoxedLetters, setLetterBoxedLetters] = useState('');
@@ -331,6 +331,10 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
         setLetterBoxedLetters('');
         onClear();
     }, [onClear]);
+
+    const handleCopyToClipboard = useCallback((text) => {
+        navigator.clipboard.writeText(text);
+    }, []);
 
     const isCustom = tempConfig.preset === 0;
 
@@ -443,7 +447,7 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                                             onChange={(e) => handleTempConfigChange('maxDepth', parseInt(e.target.value) || 0)}
                                             fullWidth
                                             disabled={!isCustom}
-                                            slotProps={{ htmlInput: { min: 1, max: 10 } }}
+                                            slotProps={{ htmlInput: { min: 1, max: 3 } }}
                                         />
                                     </Grid>
                                     <Grid size={6}>
@@ -513,7 +517,7 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                     lastGameData={results.gameData}
                     isLoading={isLoading}
                     onLoadMore={onLoadMore}
-                    onCopyToClipboard={(text) => navigator.clipboard.writeText(text)}
+                    onCopyToClipboard={handleCopyToClipboard}
                 />
             )}
         </>

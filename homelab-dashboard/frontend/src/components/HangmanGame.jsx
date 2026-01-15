@@ -27,6 +27,135 @@ import {
 } from '@mui/icons-material';
 import GameSettingsDialog from './GameSettingsDialog';
 
+const HangmanResults = React.memo(({ results, onCopyToClipboard }) => {
+    if (!results || (!results.letterSuggestions?.length && !results.possibleWords?.length)) {
+        return null;
+    }
+
+    return (
+        <Box sx={{ mt: 4 }}>
+            <Grid container spacing={3}>
+                {/* Possible Words */}
+                <Grid size={{ xs: 12, md: results.letterSuggestions?.length > 0 ? 6 : 12 }}>
+                    <Card sx={{ height: '100%' }}>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                <Box>
+                                    <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+                                        Possible Words ({results.possibleWordsCount || results.possibleWords.length})
+                                    </Typography>
+                                </Box>
+                                {results.possibleWords.length > 0 && (
+                                    <Button
+                                        variant="outlined"
+                                        size="small"
+                                        onClick={() => onCopyToClipboard(results.possibleWords.join('\n'))}
+                                        startIcon={<CopyIcon />}
+                                    >
+                                        Copy
+                                    </Button>
+                                )}
+                            </Box>
+
+                            <Box
+                                sx={{
+                                    maxHeight: 300,
+                                    overflowY: 'auto',
+                                    bgcolor: 'background.default',
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    borderRadius: 1
+                                }}
+                            >
+                                <Stack divider={<Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }} />}>
+                                    {results.possibleWords.map((word, index) => (
+                                        <Box
+                                            key={index}
+                                            sx={{
+                                                p: 1,
+                                                fontFamily: 'monospace',
+                                                fontSize: '1rem',
+                                                fontWeight: 'bold',
+                                                pl: 2
+                                            }}
+                                        >
+                                            {word}
+                                        </Box>
+                                    ))}
+                                </Stack>
+                            </Box>
+                            {results.possibleWords.length > 50 && (
+                                <Typography variant="body2" color="text.secondary" sx={{ mt: 1, fontStyle: 'italic' }}>
+                                    Results may be truncated.
+                                </Typography>
+                            )}
+                        </CardContent>
+                    </Card>
+                </Grid>
+
+                {/* Letter Suggestions */}
+                {results.letterSuggestions?.length > 0 && (
+                    <Grid size={{ xs: 12, md: results.possibleWords?.length > 0 ? 6 : 12 }}>
+                        <Card sx={{ height: '100%' }}>
+                            <CardContent>
+                                <Box sx={{ mb: 2 }}>
+                                    <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
+                                        Letter Suggestions
+                                    </Typography>
+                                </Box>
+
+                                <Box
+                                    sx={{
+                                        maxHeight: 300,
+                                        overflowY: 'auto',
+                                        bgcolor: 'background.default',
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        borderRadius: 1
+                                    }}
+                                >
+                                    <Grid container sx={{ p: 1, bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider', fontWeight: 'bold' }}>
+                                        <Grid size={{ xs: 2 }} sx={{ pl: 1 }}>Rank</Grid>
+                                        <Grid size={{ xs: 2 }} sx={{ textAlign: 'center' }}>Letter</Grid>
+                                        <Grid size={{ xs: 4 }} sx={{ textAlign: 'right' }}>ENT</Grid>
+                                        <Grid size={{ xs: 4 }} sx={{ textAlign: 'right', pr: 1 }}>In Word %</Grid>
+                                    </Grid>
+                                    <Stack divider={<Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }} />}>
+                                        {results.letterSuggestions.map((suggestion, index) => (
+                                            <Grid
+                                                container
+                                                key={index}
+                                                sx={{
+                                                    p: 1,
+                                                    alignItems: 'center',
+                                                    '&:hover': { bgcolor: 'action.hover' }
+                                                }}
+                                            >
+                                                <Grid size={{ xs: 2 }} sx={{ pl: 1 }}>
+                                                    {index + 1}
+                                                </Grid>
+                                                <Grid size={{ xs: 2 }} sx={{ textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                                                    {suggestion.letter}
+                                                </Grid>
+                                                <Grid size={{ xs: 4 }} sx={{ textAlign: 'right' }}>
+                                                    {suggestion.entropy !== null ? suggestion.entropy.toFixed(3) : '-'}
+                                                </Grid>
+                                                <Grid size={{ xs: 4 }} sx={{ textAlign: 'right', pr: 1 }}>
+                                                    {suggestion.probability ? `${(suggestion.probability * 100).toFixed(1)}%` : '-'}
+                                                </Grid>
+                                            </Grid>
+                                        ))}
+                                    </Stack>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                )}
+            </Grid>
+        </Box>
+    );
+});
+
 const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, results }) => {
     const [pattern, setPattern] = useState('????');
     const [excludedLetters, setExcludedLetters] = useState('');
@@ -42,9 +171,9 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
             label: 'Solver Mode',
             type: 'select',
             options: [
-                { value: 0, label: 'Fast (Depth 0)' },
-                { value: 1, label: 'Balanced (Depth 1)' },
-                { value: 2, label: 'High Accuracy (Depth 2)' }
+                { value: 0, label: '0: Fastest' },
+                { value: 1, label: '1: Balanced' },
+                { value: 2, label: '2: Deep' }
             ]
         },
         {
@@ -85,6 +214,10 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
         setExcludedLetters('');
         onClear();
     }, [onClear]);
+
+    const handleCopyToClipboard = useCallback((text) => {
+        navigator.clipboard.writeText(text);
+    }, []);
 
     // Get revealed and excluded letters for display
     const revealedLetters = [...new Set(pattern.replace(/[^A-Z]/g, '').split(''))];
@@ -233,128 +366,10 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
             </Card>
 
             {/* Results Section */}
-            {(results?.letterSuggestions && results.letterSuggestions.length > 0) || (results?.possibleWords && results.possibleWords.length > 0) ? (
-                <Box sx={{ mt: 4 }}>
-                    <Grid container spacing={3}>
-                        {/* Possible Words */}
-                        <Grid size={{ xs: 12, md: results?.letterSuggestions && results.letterSuggestions.length > 0 ? 6 : 12 }}>
-                            <Card sx={{ height: '100%' }}>
-                                <CardContent>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                        <Box>
-                                            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-                                                Possible Words ({results.possibleWordsCount || results.possibleWords.length})
-                                            </Typography>
-                                        </Box>
-                                        {results.possibleWords.length > 0 && (
-                                            <Button
-                                                variant="outlined"
-                                                size="small"
-                                                onClick={() => navigator.clipboard.writeText(results.possibleWords.join('\n'))}
-                                                startIcon={<CopyIcon />}
-                                            >
-                                                Copy
-                                            </Button>
-                                        )}
-                                    </Box>
-
-                                    <Box
-                                        sx={{
-                                            maxHeight: 300,
-                                            overflowY: 'auto',
-                                            bgcolor: 'background.default',
-                                            border: '1px solid',
-                                            borderColor: 'divider',
-                                            borderRadius: 1
-                                        }}
-                                    >
-                                        <Stack divider={<Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }} />}>
-                                            {results.possibleWords.map((word, index) => (
-                                                <Box
-                                                    key={index}
-                                                    sx={{
-                                                        p: 1,
-                                                        fontFamily: 'monospace',
-                                                        fontSize: '1rem',
-                                                        fontWeight: 'bold',
-                                                        pl: 2
-                                                    }}
-                                                >
-                                                    {word}
-                                                </Box>
-                                            ))}
-                                        </Stack>
-                                    </Box>
-                                    {results.possibleWords.length > 50 && (
-                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1, fontStyle: 'italic' }}>
-                                            Results may be truncated.
-                                        </Typography>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </Grid>
-
-                        {/* Letter Suggestions */}
-                        {results?.letterSuggestions && results.letterSuggestions.length > 0 && (
-                            <Grid size={{ xs: 12, md: results?.possibleWords && results.possibleWords.length > 0 ? 6 : 12 }}>
-                                <Card sx={{ height: '100%' }}>
-                                    <CardContent>
-                                        <Box sx={{ mb: 2 }}>
-                                            <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-                                                Letter Suggestions
-                                            </Typography>
-                                        </Box>
-
-                                        <Box
-                                            sx={{
-                                                maxHeight: 300,
-                                                overflowY: 'auto',
-                                                bgcolor: 'background.default',
-                                                border: '1px solid',
-                                                borderColor: 'divider',
-                                                borderRadius: 1
-                                            }}
-                                        >
-                                            <Grid container sx={{ p: 1, bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider', fontWeight: 'bold' }}>
-                                                <Grid size={{ xs: 2 }} sx={{ pl: 1 }}>Rank</Grid>
-                                                <Grid size={{ xs: 2 }} sx={{ textAlign: 'center' }}>Letter</Grid>
-                                                <Grid size={{ xs: 4 }} sx={{ textAlign: 'right' }}>ENT</Grid>
-                                                <Grid size={{ xs: 4 }} sx={{ textAlign: 'right', pr: 1 }}>In Word %</Grid>
-                                            </Grid>
-                                            <Stack divider={<Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }} />}>
-                                                {results.letterSuggestions.map((suggestion, index) => (
-                                                    <Grid
-                                                        container
-                                                        key={index}
-                                                        sx={{
-                                                            p: 1,
-                                                            alignItems: 'center',
-                                                            '&:hover': { bgcolor: 'action.hover' }
-                                                        }}
-                                                    >
-                                                        <Grid size={{ xs: 2 }} sx={{ pl: 1 }}>
-                                                            {index + 1}
-                                                        </Grid>
-                                                        <Grid size={{ xs: 2 }} sx={{ textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold' }}>
-                                                            {suggestion.letter}
-                                                        </Grid>
-                                                        <Grid size={{ xs: 4 }} sx={{ textAlign: 'right' }}>
-                                                            {suggestion.entropy !== null ? suggestion.entropy.toFixed(3) : '-'}
-                                                        </Grid>
-                                                        <Grid size={{ xs: 4 }} sx={{ textAlign: 'right', pr: 1 }}>
-                                                            {suggestion.probability ? `${(suggestion.probability * 100).toFixed(1)}%` : '-'}
-                                                        </Grid>
-                                                    </Grid>
-                                                ))}
-                                            </Stack>
-                                        </Box>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-                        )}
-                    </Grid>
-                </Box>
-            ) : null}
+            <HangmanResults
+                results={results}
+                onCopyToClipboard={handleCopyToClipboard}
+            />
         </>
     );
 };

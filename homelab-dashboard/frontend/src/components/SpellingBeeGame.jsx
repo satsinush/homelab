@@ -79,7 +79,7 @@ const SpellingBeeDisplay = ({ letters }) => {
     );
 };
 
-const SpellingBeeResults = ({ results, onCopy, onLoadMore, isLoading }) => {
+const SpellingBeeResults = React.memo(({ results, onCopy, onLoadMore, isLoading }) => {
     if (!results || !results.solutions || results.solutions.length === 0) return null;
 
     const { solutions, gameData } = results;
@@ -146,7 +146,7 @@ const SpellingBeeResults = ({ results, onCopy, onLoadMore, isLoading }) => {
             </CardContent>
         </Card>
     );
-};
+});
 
 const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, results, onLoadMore }) => {
     const [spellingBeeLetters, setSpellingBeeLetters] = useState('');
@@ -200,6 +200,10 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
         setSpellingBeeLetters('');
         onClear();
     }, [onClear]);
+
+    const handleCopy = useCallback((text) => {
+        navigator.clipboard.writeText(text);
+    }, []);
 
     return (
         <>
@@ -296,7 +300,7 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
             {results && (
                 <SpellingBeeResults
                     results={results}
-                    onCopy={(text) => navigator.clipboard.writeText(text)}
+                    onCopy={handleCopy}
                     onLoadMore={onLoadMore}
                     isLoading={isLoading}
                 />
