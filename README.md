@@ -29,7 +29,7 @@ This project bundles several open-source services, managed via `docker-compose`,
 
   * **🏠 Homelab Dashboard**: A custom web interface with:
       * 💻 LAN device scanning and WOL support
-      * 🧩 Word puzzle game solver
+      * 🧩 Word puzzle game solvers (Wordle, Mastermind, Hangman, Dungleon, Letter Boxed, Spelling Bee)
       * 📦 Host device package management (for *pacman*)
       * 🤖 An integrated AI chatbot with Ollama
   * **🔑 Authelia**: Single Sign-On (SSO) for securing services.

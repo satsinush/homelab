@@ -9,7 +9,7 @@ For a secure setup, we will configure SSH to use **key-based authentication only
 
 **Step 1: Set Up SSH Server**
 
-First, make sure the SSH server is installed an running.
+First, make sure the SSH server is installed and running.
 
 1. **On the server**, run this command to install the SSH service if you haven't already:
    ```shell
@@ -227,7 +227,7 @@ WireGuard uses public-key cryptography for security. We need to generate a priva
     AllowedIPs = 10.10.20.13/32
     ```
 
-    Make sure that you include the PostUp and PostDown rules as they are essential for making sure requests are forwarded using NAT depedning on the destination. If you don't have static routes set up on your router or devices, you can replace the rules with these to translate all packets, but you may lose functionality with programs such as *KDE Connect*.
+    Make sure that you include the PostUp and PostDown rules as they are essential for making sure requests are forwarded using NAT depending on the destination. If you don't have static routes set up on your router or devices, you can replace the rules with these to translate all packets, but you may lose functionality with programs such as *KDE Connect*.
 
     ```
     PostUp = iptables -t nat -A POSTROUTING -s 10.10.20.0/24 -o end0 -j MASQUERADE
