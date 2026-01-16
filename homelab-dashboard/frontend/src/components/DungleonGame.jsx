@@ -273,12 +273,12 @@ const DungleonResults = React.memo(({
                                                 </TableCell>
                                                 <TableCell align="right">
                                                     <Typography variant="body2">
-                                                        {formatRoundedNum(guess.probability * 100)}%
+                                                        {guess.probability !== null ? `${formatRoundedNum(guess.probability * 100)}%` : '-'}
                                                     </Typography>
                                                 </TableCell>
                                                 <TableCell align="right">
                                                     <Typography variant="body2">
-                                                        {guess.entropy !== null ? formatRoundedNum(guess.entropy) : 'N/A'}
+                                                        {guess.entropy !== null ? formatRoundedNum(guess.entropy) : '-'}
                                                     </Typography>
                                                 </TableCell>
                                             </TableRow>
@@ -360,7 +360,8 @@ const DungleonGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, show
         setCurrentPattern(prev => prev.slice(0, -1));
     }, []);
 
-    const handleSlotClick = useCallback((index) => {
+    const handleSlotClick = useCallback((e, index) => {
+        e.preventDefault();
         setCurrentPattern(prev => prev.filter((_, i) => i !== index));
     }, []);
 
@@ -414,11 +415,6 @@ const DungleonGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, show
     }, []);
 
     const handleSolve = useCallback(async () => {
-        if (guesses.length === 0 && solutions.length === 0) {
-            showError('Please add at least one guess or past solution');
-            return;
-        }
-
         await onSolve('dungleon', {
             guesses: guesses.map(g => ({
                 pattern: g.pattern,
@@ -524,7 +520,7 @@ const DungleonGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, show
                                     {Array.from({ length: 5 }).map((_, i) => (
                                         <Box
                                             key={i}
-                                            onClick={() => handleSlotClick(i)}
+                                            onContextMenu={(e) => handleSlotClick(e, i)}
                                             sx={{
                                                 width: 50,
                                                 height: 50,
@@ -734,7 +730,7 @@ const DungleonGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, show
                                 <Button
                                     variant="contained"
                                     onClick={handleSolve}
-                                    disabled={isLoading || gameStatus?.status !== 'available' || (guesses.length === 0 && solutions.length === 0)}
+                                    disabled={isLoading || gameStatus?.status !== 'available'}
                                     startIcon={isLoading ? <CircularProgress size={20} /> : <PlayIcon />}
                                     fullWidth
                                     size="large"

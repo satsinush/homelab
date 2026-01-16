@@ -122,7 +122,7 @@ const SpellingBeeResults = React.memo(({ results, onCopy, onLoadMore, isLoading 
                                     onClick={() => onCopy(solution)}
                                     sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
                                 >
-                                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+                                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
                                         {solution}
                                     </TableCell>
                                     <TableCell align="right">{solution.length}</TableCell>

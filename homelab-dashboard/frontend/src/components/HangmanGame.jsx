@@ -28,6 +28,11 @@ import {
 import GameSettingsDialog from './GameSettingsDialog';
 
 const HangmanResults = React.memo(({ results, onCopyToClipboard }) => {
+    const formatRoundedNum = (num) => {
+        if (!num) return '0.00';
+        if (num > 0 && num.toFixed(2) === '0.00') return '<0.01';
+        return `${num.toFixed(2)}`;
+    };
     if (!results || (!results.letterSuggestions?.length && !results.possibleWords?.length)) {
         return null;
     }
@@ -117,8 +122,8 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard }) => {
                                     <Grid container sx={{ p: 1, bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider', fontWeight: 'bold' }}>
                                         <Grid size={{ xs: 2 }} sx={{ pl: 1 }}>Rank</Grid>
                                         <Grid size={{ xs: 2 }} sx={{ textAlign: 'center' }}>Letter</Grid>
+                                        <Grid size={{ xs: 4 }} sx={{ textAlign: 'right', pr: 1 }}>Probability</Grid>
                                         <Grid size={{ xs: 4 }} sx={{ textAlign: 'right' }}>ENT</Grid>
-                                        <Grid size={{ xs: 4 }} sx={{ textAlign: 'right', pr: 1 }}>In Word %</Grid>
                                     </Grid>
                                     <Stack divider={<Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }} />}>
                                         {results.letterSuggestions.map((suggestion, index) => (
@@ -137,11 +142,11 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard }) => {
                                                 <Grid size={{ xs: 2 }} sx={{ textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold' }}>
                                                     {suggestion.letter}
                                                 </Grid>
-                                                <Grid size={{ xs: 4 }} sx={{ textAlign: 'right' }}>
-                                                    {suggestion.entropy !== null ? suggestion.entropy.toFixed(3) : '-'}
-                                                </Grid>
                                                 <Grid size={{ xs: 4 }} sx={{ textAlign: 'right', pr: 1 }}>
-                                                    {suggestion.probability ? `${(suggestion.probability * 100).toFixed(1)}%` : '-'}
+                                                    {suggestion.probability !== null ? `${formatRoundedNum(suggestion.probability * 100)}%` : '-'}
+                                                </Grid>
+                                                <Grid size={{ xs: 4 }} sx={{ textAlign: 'right' }}>
+                                                    {suggestion.entropy !== null ? formatRoundedNum(suggestion.entropy) : '-'}
                                                 </Grid>
                                             </Grid>
                                         ))}
@@ -157,7 +162,7 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard }) => {
 });
 
 const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, results }) => {
-    const [pattern, setPattern] = useState('????');
+    const [pattern, setPattern] = useState('');
     const [excludedLetters, setExcludedLetters] = useState('');
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [config, setConfig] = useState({
@@ -210,7 +215,7 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
     }, [pattern, excludedLetters, config, onSolve, showError]);
 
     const handleClear = useCallback(() => {
-        setPattern('????');
+        setPattern('');
         setExcludedLetters('');
         onClear();
     }, [onClear]);

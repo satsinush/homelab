@@ -47,18 +47,19 @@ const PEG_COLORS = [
     '#df312b', // Red - 0
     '#5cda3c', // Green - 1
     '#1e65ff', // Blue - 2
-    '#FFD700', // Yellow - 3
+    '#ffd700', // Yellow - 3
     '#e02f8e', // Magenta - 4
-    '#40E0D0', // Cyan - 5
-    '#FF8C00', // Orange - 6
-    '#8A2BE2', // Purple - 7
+    '#40e0d0', // Cyan - 5
+    '#ff8c00', // Orange - 6
+    '#8a2be2', // Purple - 7
     '#f1f1f1', // White - 8
-    '#1d1d1d'  // Black - 9
+    '#1d1d1d', // Black - 9
+    '#533519ff'  // Brown - 10
 ];
 
 const PEG_COLOR_NAMES = [
     'Red', 'Green', 'Blue', 'Yellow', 'Magenta',
-    'Cyan', 'Orange', 'Purple', 'White', 'Black'
+    'Cyan', 'Orange', 'Purple', 'White', 'Black', 'Brown'
 ];
 
 // Color characters for CLI (matches word_games CLI format)
@@ -72,7 +73,8 @@ const PEG_COLOR_CHARS = [
     'O', // Orange - 6
     'P', // Purple - 7
     'W', // White - 8
-    'K'  // Black - 9
+    'K', // Black - 9
+    'N'  // Brown - 10
 ];
 
 // Text colors for readability on each peg color
@@ -98,7 +100,8 @@ const PEG_TEXT_COLORS = [
     '#FFFFFF', // Orange
     '#FFFFFF', // Purple
     '#FFFFFF', // White
-    '#FFFFFF'  // Black
+    '#FFFFFF', // Black
+    '#FFFFFF'  // Brown
 ];
 
 // Color Palette Component with click selection
@@ -126,7 +129,7 @@ const ColorPalette = ({ enabledColors, setEnabledColors, onColorSelect, colorMap
                 Click a color to add it to the first open slot
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 1, sm: 1.5 }, justifyContent: 'center' }}>
-                {Array.from({ length: 10 }, (_, colorIndex) => (
+                {PEG_COLORS.map((_, colorIndex) => (
                     <Box key={colorIndex} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
                         <FormControlLabel
                             control={
@@ -163,9 +166,9 @@ const ColorPalette = ({ enabledColors, setEnabledColors, onColorSelect, colorMap
                                     border: `${enabledColors[colorIndex] ? '3px solid #fff' : '0px solid #fff'}`
                                 }
                             }}
-                            title={enabledColors[colorIndex] ? `Click ${PEG_COLOR_NAMES[colorIndex]} to add (${colorMapping.originalToMastermind[colorIndex] ?? colorIndex})` : `${PEG_COLOR_NAMES[colorIndex]} disabled`}
+                            title={enabledColors[colorIndex] ? `Click ${PEG_COLOR_NAMES[colorIndex]} to add (${PEG_COLOR_CHARS[colorIndex]})` : `${PEG_COLOR_NAMES[colorIndex]} disabled`}
                         >
-                            {enabledColors[colorIndex] ? (colorMapping.originalToMastermind[colorIndex] ?? colorIndex) : null}
+                            {enabledColors[colorIndex] ? PEG_COLOR_CHARS[colorIndex] : null}
                         </Box>
                         <Typography variant="caption" sx={{ fontSize: '0.7rem', textAlign: 'center' }}>
                             {PEG_COLOR_NAMES[colorIndex]}
@@ -215,9 +218,8 @@ const PatternSlots = ({ pattern, numPegs, onSlotClick, colorMapping }) => {
                                         border: hasColor ? '3px solid #ccc' : '3px dashed #999'
                                     }
                                 }}
-                                title={hasColor ? `${PEG_COLOR_NAMES[colorValue]} - Click to remove` : `Empty slot ${slotIndex + 1}`}
                             >
-                                {hasColor ? (colorMapping.originalToMastermind[colorValue] ?? colorValue) : ""}
+                                {hasColor ? PEG_COLOR_CHARS[colorValue] : ""}
                             </Box>
                         </Box>
                     );
@@ -236,26 +238,17 @@ const MastermindPatternDisplay = ({ pattern, size = 'small', colorMapping = null
         return <Typography variant="body2">-</Typography>;
     }
 
-    // Determine if pattern is color characters (new format) or numeric indices (old format)
-    const isColorCharFormat = /^[RGBYMCOPWK]+$/i.test(pattern.trim());
-
-    let pegValues;
-    if (isColorCharFormat) {
-        // New format: "RGBY" - convert chars to indices
-        pegValues = pattern.split('').map(char => {
-            const index = PEG_COLOR_CHARS.indexOf(char.toUpperCase());
-            return index !== -1 ? index : 0;
-        });
-    } else {
-        // Old format: "0 1 2 3" - space-separated indices
-        pegValues = pattern.split(' ').map(p => parseInt(p.trim(), 10));
-    }
+    // Always assume new format: "RGBY" - convert chars to indices
+    const pegValues = pattern.split('').map(char => {
+        const index = PEG_COLOR_CHARS.indexOf(char.toUpperCase());
+        return index !== -1 ? index : 0;
+    });
 
     return (
         <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
             {pegValues.map((colorIndex, index) => {
-                // Map mastermind indices back to original color indices if colorMapping is provided
-                const actualColorIndex = colorMapping?.mastermindToOriginal?.[colorIndex] ?? colorIndex;
+                // No mapping needed for global color characters
+                const actualColorIndex = colorIndex;
 
                 return (
                     <Tooltip key={index} title={`${PEG_COLOR_NAMES[actualColorIndex]} (${PEG_COLOR_CHARS[actualColorIndex]})`}>
@@ -460,12 +453,12 @@ const MastermindResults = React.memo(({
                                                 </TableCell>
                                                 <TableCell align="right">
                                                     <Typography variant="body2">
-                                                        {formatRoundedNum(guess.probability * 100)}%
+                                                        {guess.probability !== null ? `${formatRoundedNum(guess.probability * 100)}%` : '-'}
                                                     </Typography>
                                                 </TableCell>
                                                 <TableCell align="right">
                                                     <Typography variant="body2">
-                                                        {guess.entropy !== null ? formatRoundedNum(guess.entropy) : 'N/A'}
+                                                        {guess.entropy !== null ? formatRoundedNum(guess.entropy) : '-'}
                                                     </Typography>
                                                 </TableCell>
                                             </TableRow>
@@ -531,23 +524,35 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
         navigator.clipboard.writeText(text);
     }, []);
 
+    // Create mapping between original color indices and mastermind indices (0 to numColors-1)
+    const colorMapping = useMemo(() => {
+        const enabledIndices = Object.keys(enabledColors)
+            .filter(key => enabledColors[key])
+            .map(key => parseInt(key, 10))
+            .sort((a, b) => a - b);
+
+        const originalToMastermind = {};
+        const mastermindToOriginal = {};
+
+        enabledIndices.forEach((originalIndex, mastermindIndex) => {
+            originalToMastermind[originalIndex] = mastermindIndex;
+            mastermindToOriginal[mastermindIndex] = originalIndex;
+        });
+
+        return { originalToMastermind, mastermindToOriginal };
+    }, [enabledColors]);
+
     const fillPatternFromSelection = useCallback((pattern) => {
         if (!pattern) return;
 
         // Determine if pattern is color characters (new format) or numeric indices (old format)
         const isColorCharFormat = /^[RGBYMCOPWK]+$/i.test(pattern.trim());
 
-        let newPattern;
-        if (isColorCharFormat) {
-            // New format: "RGBY" - convert chars to indices
-            newPattern = pattern.split('').map(char => {
-                const index = PEG_COLOR_CHARS.indexOf(char.toUpperCase());
-                return index !== -1 ? index : null;
-            });
-        } else {
-            // Old format: "0 1 2 3" - space-separated indices
-            newPattern = pattern.split(' ').map(p => parseInt(p.trim(), 10));
-        }
+        // Always assume new format: "RGBY" - convert chars to indices
+        let newPattern = pattern.split('').map(char => {
+            const index = PEG_COLOR_CHARS.indexOf(char.toUpperCase());
+            return index !== -1 ? index : 0;
+        });
 
         setState(prev => ({
             ...prev,
@@ -565,24 +570,6 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
     // Calculate number of colors based on enabled toggles
     const numColors = useMemo(() => {
         return Object.values(enabledColors).filter(Boolean).length;
-    }, [enabledColors]);
-
-    // Create mapping between original color indices and mastermind indices (0 to numColors-1)
-    const colorMapping = useMemo(() => {
-        const enabledIndices = Object.keys(enabledColors)
-            .filter(key => enabledColors[key])
-            .map(key => parseInt(key, 10))
-            .sort((a, b) => a - b);
-
-        const originalToMastermind = {};
-        const mastermindToOriginal = {};
-
-        enabledIndices.forEach((originalIndex, mastermindIndex) => {
-            originalToMastermind[originalIndex] = mastermindIndex;
-            mastermindToOriginal[mastermindIndex] = originalIndex;
-        });
-
-        return { originalToMastermind, mastermindToOriginal };
     }, [enabledColors]);
 
     // Expose methods to parent component via ref
@@ -810,11 +797,6 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
     }, [setState]);
 
     const handleSolve = useCallback(async () => {
-        if (!state.guesses || state.guesses.length === 0) {
-            showError('Please add at least one guess with feedback');
-            return;
-        }
-
         // Build the colors string from enabled colors
         const enabledIndices = Object.keys(enabledColors)
             .filter(key => enabledColors[key])
@@ -950,7 +932,7 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
                                                                 '&:hover': { opacity: 0.8 }
                                                             }}
                                                         >
-                                                            {hasColor ? colorValue : ''}
+                                                            {hasColor ? PEG_COLOR_CHARS[colorValue] : ''}
                                                         </Box>
                                                     );
                                                 })}
@@ -1041,7 +1023,7 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
                                                         flexWrap: 'wrap'
                                                     }}>
                                                         {(guess.displayPattern || guess.pattern).split(' ').map((color, pegIndex) => (
-                                                            <Tooltip key={pegIndex} title={`${PEG_COLOR_NAMES[parseInt(color, 10)]} (${color})`}>
+                                                            <Tooltip key={pegIndex} title={`${PEG_COLOR_NAMES[parseInt(color, 10)]} (${PEG_COLOR_CHARS[parseInt(color, 10)]})`}>
                                                                 <Box
                                                                     sx={{
                                                                         width: { xs: 30, sm: 35 },
@@ -1059,7 +1041,7 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
                                                                         boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                                                                     }}
                                                                 >
-                                                                    {color}
+                                                                    {PEG_COLOR_CHARS[parseInt(color, 10)]}
                                                                 </Box>
                                                             </Tooltip>
                                                         ))}
@@ -1137,7 +1119,7 @@ const MastermindGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, sh
                                     <Button
                                         variant="contained"
                                         onClick={handleSolve}
-                                        disabled={isLoading || gameStatus?.status !== 'available' || !state.guesses || state.guesses.length === 0}
+                                        disabled={isLoading || gameStatus?.status !== 'available'}
                                         startIcon={isLoading ? <CircularProgress size={20} /> : <PlayIcon />}
                                         fullWidth
                                         size="large"

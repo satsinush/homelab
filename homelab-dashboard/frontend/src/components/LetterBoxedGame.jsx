@@ -438,67 +438,69 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
 
                                 <Divider />
 
-                                <Grid container spacing={2}>
-                                    <Grid size={6}>
-                                        <TextField
-                                            label="Max Depth"
-                                            type="number"
-                                            value={tempConfig.maxDepth}
-                                            onChange={(e) => handleTempConfigChange('maxDepth', parseInt(e.target.value) || 0)}
-                                            fullWidth
-                                            disabled={!isCustom}
-                                            slotProps={{ htmlInput: { min: 1, max: 3 } }}
-                                        />
+                                <Box >
+                                    <Grid container spacing={2} >
+                                        <Grid size={6}>
+                                            <TextField
+                                                label="Max Depth"
+                                                type="number"
+                                                value={tempConfig.maxDepth}
+                                                onChange={(e) => handleTempConfigChange('maxDepth', parseInt(e.target.value) || 0)}
+                                                fullWidth
+                                                disabled={!isCustom}
+                                                slotProps={{ htmlInput: { min: 1, max: 3 } }}
+                                            />
+                                        </Grid>
+                                        <Grid size={6}>
+                                            <TextField
+                                                label="Min Word Length"
+                                                type="number"
+                                                value={tempConfig.minWordLength}
+                                                onChange={(e) => handleTempConfigChange('minWordLength', parseInt(e.target.value) || 0)}
+                                                fullWidth
+                                                disabled={!isCustom}
+                                                slotProps={{ htmlInput: { min: 1, max: 20 } }}
+                                            />
+                                        </Grid>
+                                        <Grid size={6}>
+                                            <TextField
+                                                label="Min Unique Letters"
+                                                type="number"
+                                                value={tempConfig.minUniqueLetters}
+                                                onChange={(e) => handleTempConfigChange('minUniqueLetters', parseInt(e.target.value) || 0)}
+                                                fullWidth
+                                                disabled={!isCustom}
+                                                slotProps={{ htmlInput: { min: 1, max: 12 } }}
+                                            />
+                                        </Grid>
+                                        <Grid size={6}>
+                                            <FormControl fullWidth disabled={!isCustom}>
+                                                <InputLabel>Prune Redundant Paths</InputLabel>
+                                                <Select
+                                                    value={tempConfig.pruneRedundantPaths ? 1 : 0}
+                                                    label="Prune Redundant Paths"
+                                                    onChange={(e) => handleTempConfigChange('pruneRedundantPaths', e.target.value === 1)}
+                                                >
+                                                    <MenuItem value={1}>Yes</MenuItem>
+                                                    <MenuItem value={0}>No</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                        </Grid>
+                                        <Grid size={6}>
+                                            <FormControl fullWidth disabled={!isCustom}>
+                                                <InputLabel>Prune Dominated Classes</InputLabel>
+                                                <Select
+                                                    value={tempConfig.pruneDominatedClasses ? 1 : 0}
+                                                    label="Prune Dominated Classes"
+                                                    onChange={(e) => handleTempConfigChange('pruneDominatedClasses', e.target.value === 1)}
+                                                >
+                                                    <MenuItem value={1}>Yes</MenuItem>
+                                                    <MenuItem value={0}>No</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                        </Grid>
                                     </Grid>
-                                    <Grid size={6}>
-                                        <TextField
-                                            label="Min Word Length"
-                                            type="number"
-                                            value={tempConfig.minWordLength}
-                                            onChange={(e) => handleTempConfigChange('minWordLength', parseInt(e.target.value) || 0)}
-                                            fullWidth
-                                            disabled={!isCustom}
-                                            slotProps={{ htmlInput: { min: 1, max: 20 } }}
-                                        />
-                                    </Grid>
-                                    <Grid size={6}>
-                                        <TextField
-                                            label="Min Unique Letters"
-                                            type="number"
-                                            value={tempConfig.minUniqueLetters}
-                                            onChange={(e) => handleTempConfigChange('minUniqueLetters', parseInt(e.target.value) || 0)}
-                                            fullWidth
-                                            disabled={!isCustom}
-                                            slotProps={{ htmlInput: { min: 1, max: 12 } }}
-                                        />
-                                    </Grid>
-                                    <Grid size={6}>
-                                        <FormControl fullWidth disabled={!isCustom}>
-                                            <InputLabel>Prune Redundant Paths</InputLabel>
-                                            <Select
-                                                value={tempConfig.pruneRedundantPaths ? 1 : 0}
-                                                label="Prune Redundant Paths"
-                                                onChange={(e) => handleTempConfigChange('pruneRedundantPaths', e.target.value === 1)}
-                                            >
-                                                <MenuItem value={1}>Yes</MenuItem>
-                                                <MenuItem value={0}>No</MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                    </Grid>
-                                    <Grid size={6}>
-                                        <FormControl fullWidth disabled={!isCustom}>
-                                            <InputLabel>Prune Dominated Classes</InputLabel>
-                                            <Select
-                                                value={tempConfig.pruneDominatedClasses ? 1 : 0}
-                                                label="Prune Dominated Classes"
-                                                onChange={(e) => handleTempConfigChange('pruneDominatedClasses', e.target.value === 1)}
-                                            >
-                                                <MenuItem value={1}>Yes</MenuItem>
-                                                <MenuItem value={0}>No</MenuItem>
-                                            </Select>
-                                        </FormControl>
-                                    </Grid>
-                                </Grid>
+                                </Box>
                             </Stack>
                         </DialogContent>
                         <DialogActions>

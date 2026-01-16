@@ -169,7 +169,7 @@ const WordleResults = React.memo(({
                                     >
                                         <Grid container sx={{ p: 1, bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider', fontWeight: 'bold' }}>
                                             <Grid size={{ xs: 4 }} sx={{ pl: 1 }}>Word</Grid>
-                                            <Grid size={{ xs: 4 }} sx={{ textAlign: 'right' }}>Win %</Grid>
+                                            <Grid size={{ xs: 4 }} sx={{ textAlign: 'right' }}>Probability</Grid>
                                             <Grid size={{ xs: 4 }} sx={{ textAlign: 'right', pr: 1 }}>ENT</Grid>
                                         </Grid>
                                         <Stack divider={<Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }} />}>
@@ -189,10 +189,10 @@ const WordleResults = React.memo(({
                                                         {guess.word}
                                                     </Grid>
                                                     <Grid size={{ xs: 4 }} sx={{ textAlign: 'right' }}>
-                                                        {formatRoundedNum(guess.probability * 100)}%
+                                                        {guess.probability !== null ? `${formatRoundedNum(guess.probability * 100)}%` : '-'}
                                                     </Grid>
                                                     <Grid size={{ xs: 4 }} sx={{ textAlign: 'right', pr: 1 }}>
-                                                        {guess.entropy !== null ? formatRoundedNum(guess.entropy) : 'N/A'}
+                                                        {guess.entropy !== null ? formatRoundedNum(guess.entropy) : '-'}
                                                     </Grid>
                                                 </Grid>
                                             ))}
@@ -336,11 +336,6 @@ const WordleGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, showEr
     }, [wordleGuesses]);
 
     const handleSolve = useCallback(async () => {
-        if (wordleGuesses.length === 0) {
-            showError('Please add at least one guess with feedback');
-            return;
-        }
-
         await onSolve('wordle', {
             guesses: wordleGuesses,
             wordLength: config.wordLength,
@@ -599,7 +594,7 @@ const WordleGame = forwardRef(({ gameStatus, isLoading, onSolve, onClear, showEr
                                 <Button
                                     variant="contained"
                                     onClick={handleSolve}
-                                    disabled={isLoading || wordleGuesses.length === 0}
+                                    disabled={isLoading}
                                     startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
                                     fullWidth
                                     size="large"

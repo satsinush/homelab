@@ -443,14 +443,14 @@ class WordGamesController {
 
             // Handle colors: backend expects a string of characters (e.g. "RGBCMY")
             // If we get a count, we map it to the standard set.
-            const STANDARD_COLORS = "RGBCMYOPWK"; // Red, Green, Blue, Yellow, Magenta, Cyan, Orange, Purple, White, Black
+            const STANDARD_COLORS = "RGBCMYOPWKN"; // Red, Green, Blue, Yellow, Magenta, Cyan, Orange, Purple, White, Black, Brown
             let colorString = colors;
             let numColors = 0;
 
             if (!isNaN(parseInt(colors)) && String(colors).length < 3) {
                 // It's a number (count)
                 const count = parseInt(colors);
-                if (count < 1 || count > 10) return sendError(res, 400, 'Colors must be between 1 and 10');
+                if (count < 1 || count > 11) return sendError(res, 400, 'Colors must be between 1 and 11');
                 colorString = STANDARD_COLORS.substring(0, count);
                 numColors = count;
             } else {
@@ -480,7 +480,7 @@ class WordGamesController {
                 'mastermind',
                 `--pegs ${numPegs}`,
                 `--colors ${colorString}`,
-                `--duplicate ${allowDuplicates ? 1 : 0}`,
+                `--allow-duplicates ${allowDuplicates ? 1 : 0}`,
                 `--max-depth ${maxDepth}`,
                 `-o ${resultsFilename}`
             ];
