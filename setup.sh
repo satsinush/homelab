@@ -84,8 +84,13 @@ if [ ! -f .env ]; then
   echo "   Hashing OIDC secrets..."
   # Generate Argon2 hashed secrets for Authelia OIDC clients
   VAULTWARDEN_OIDC_HASHED=$(docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password "$VAULTWARDEN_OIDC_SECRET" | awk '{print $2}')
+  VAULTWARDEN_OIDC_HASHED="${VAULTWARDEN_OIDC_HASHED//$/\\$}"
+
   PORTAINER_OIDC_HASHED=$(docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password "$PORTAINER_OIDC_SECRET" | awk '{print $2}')
+  PORTAINER_OIDC_HASHED="${PORTAINER_OIDC_HASHED//$/\\$}"
+
   DASHBOARD_OIDC_HASHED=$(docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password "$DASHBOARD_OIDC_SECRET" | awk '{print $2}')
+  DASHBOARD_OIDC_HASHED="${DASHBOARD_OIDC_HASHED//$/\\$}"
 
   # Replace placeholders in the new .env file using specific placeholder names
   sed -i "s|<HOMELAB_API_SESSION_SECRET>|$HOMELAB_API_SESSION_SECRET|g" "$OUTPUT_FILE"

@@ -112,12 +112,16 @@ services:
     restart: on-failure
     volumes:
       - vaultwarden_data:/data
+      - ../volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+    extra_hosts:
+      - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
     networks:
       - homelab-net
     environment:
+      - SSL_CERT_FILE=/etc/ssl/certs/homelab-ca.crt
       - WEBSOCKET_ENABLED=true
       - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
-      - SIGNUPS_ALLOWED=true
+      - SIGNUPS_ALLOWED=false
       - DOMAIN=https://${VAULTWARDEN_WEB_HOSTNAME}
       - SMTP_SSL_CA_CERT=/etc/ssl/certs/homelab-ca.crt
       - SMTP_HOST=ntfy
@@ -126,6 +130,11 @@ services:
       - SMTP_FROM=vaultwarden@${HOMELAB_HOSTNAME}
       - SMTP_USERNAME=${HOMELAB_USERNAME}
       - SMTP_PASSWORD=${HOMELAB_PASSWORD}
+      - SSO_ENABLED=true
+      - SSO_CLIENT_ID=vaultwarden
+      - SSO_CLIENT_SECRET=${VAULTWARDEN_OIDC_SECRET}
+      - SSO_AUTHORITY=https://${AUTHELIA_WEB_HOSTNAME}
+      - SSO_SCOPES=openid email profile offline_access groups
     depends_on:
       ntfy:
         condition: service_healthy

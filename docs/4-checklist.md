@@ -5,7 +5,7 @@ Final configuration steps for individual services.
   * **📜 CA Certificate**
     * Install the generated `homelab-ca.crt` (found in [`./volumes/certificates`](../volumes/certificates/)) on all your client devices to avoid browser security warnings.
   * **🔐 Vaultwarden**
-    * Create your primary account. You **must** use the email provided to you by the setup script, otherwise ntfy will not create notifications for password reset emails and you may lose access to your account. Afterwards, you can optionally set `VAULTWARDEN_SIGNUPS_ALLOWED=false` in your `.env` and restart the container to disable public registration.
+    * Sign in with SSO using your homelab email address. You **must** use the email provided to you by the setup script, otherwise ntfy will not create notifications for password reset emails and you may lose access to your account.
     * [Vaultwarden Docs 🔗](https://github.com/dani-garcia/vaultwarden/blob/main/README.md)
   * **📈 Uptime Kuma**
     * Configure notifications to point to your `ntfy` service using the token from `NTFY_ADMIN_TOKENS` in the `.env` file.
