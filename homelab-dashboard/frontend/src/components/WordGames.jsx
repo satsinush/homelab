@@ -9,8 +9,11 @@ import {
     CircularProgress,
     Tooltip,
     IconButton,
-    Tabs,
-    Tab
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    Button
 } from '@mui/material';
 import {
     Games as GamesIcon,
@@ -19,7 +22,9 @@ import {
     ViewModule as LetterBoxedIcon,
     EmojiNature as Bee,
     HelpOutline as HelpIcon,
-    Psychology as MastermindIcon
+    Psychology as MastermindIcon,
+    TextFields as HangmanIcon,
+    Castle as DungleonIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/NotificationContext';
@@ -27,7 +32,8 @@ import LetterBoxedGame from './LetterBoxedGame';
 import SpellingBeeGame from './SpellingBeeGame';
 import WordleGame from './WordleGame';
 import MastermindGame from './MastermindGame';
-import GameResults from './GameResults';
+import HangmanGame from './HangmanGame';
+import DungleonGame from './DungleonGame';
 import GameHelpModal from './GameHelpModal';
 
 const WordGames = () => {
@@ -35,6 +41,18 @@ const WordGames = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [activeTab, setActiveTab] = useState(0);
     const [helpModalOpen, setHelpModalOpen] = useState(false);
+
+    // Game refs
+    const [wordleRef, setWordleRef] = useState(null);
+    const [mastermindRef, setMastermindRef] = useState(null);
+    const [hangmanRef, setHangmanRef] = useState(null);
+    const [dungleonRef, setDungleonRef] = useState(null);
+
+    // Game refs callbacks
+    const handleWordleRef = useCallback(node => setWordleRef(node), []);
+    const handleMastermindRef = useCallback(node => setMastermindRef(node), []);
+    const handleHangmanRef = useCallback(node => setHangmanRef(node), []);
+    const handleDungleonRef = useCallback(node => setDungleonRef(node), []);
 
     // Game results state - separate for each game
     const [letterBoxedResults, setLetterBoxedResults] = useState({
@@ -51,15 +69,20 @@ const WordGames = () => {
         gameData: null
     });
     const [mastermindResults, setMastermindResults] = useState({
-        possibleWords: [],
+        possiblePatterns: [],
         guessesWithEntropy: [],
         gameData: null
     });
-
-    // Ref to access MastermindGame component
-    const mastermindGameRef = useRef(null);
-    // Ref to access WordleGame component  
-    const wordleGameRef = useRef(null);
+    const [hangmanResults, setHangmanResults] = useState({
+        letterSuggestions: [],
+        possibleWords: [],
+        gameData: null
+    });
+    const [dungleonResults, setDungleonResults] = useState({
+        possiblePatterns: [],
+        guessesWithEntropy: [],
+        gameData: null
+    });
 
     const { showError, showSuccess } = useNotification();
 
@@ -100,7 +123,7 @@ const WordGames = () => {
                 response = await tryApiCall('/wordgames/letterboxed', {
                     method: 'POST',
                     data: gameData,
-                    timeout: 30000
+                    timeout: 300000
                 });
                 const newGameData = {
                     letters: response.data.letters,
@@ -125,7 +148,7 @@ const WordGames = () => {
                 response = await tryApiCall('/wordgames/spellingbee', {
                     method: 'POST',
                     data: gameData,
-                    timeout: 30000
+                    timeout: 300000
                 });
                 const newGameData = {
                     letters: response.data.letters,
@@ -149,22 +172,21 @@ const WordGames = () => {
                 response = await tryApiCall('/wordgames/wordle', {
                     method: 'POST',
                     data: gameData,
-                    timeout: 30000
+                    timeout: 300000
                 });
                 const newGameData = {
                     guesses: gameData.guesses,
+                    wordLength: gameData.wordLength,
                     maxDepth: gameData.maxDepth,
+                    excludeUncommonWords: gameData.excludeUncommonWords,
                     possibleWordsCount: response.data.possibleWordsCount,
                     guessesCount: response.data.guessesCount,
-                    actualPossibleWordsFound: response.data.actualPossibleWordsFound,
-                    actualGuessesFound: response.data.actualGuessesFound,
                     isLimitedPossible: response.data.isLimitedPossible,
                     isLimitedGuesses: response.data.isLimitedGuesses,
                     executionTime: response.data.executionTime,
                     start: response.data.start,
                     end: response.data.end,
-                    possibleFile: response.data.possibleFile,
-                    guessesFile: response.data.guessesFile
+                    resultsFile: response.data.resultsFile
                 };
                 setWordleResults({
                     possibleWords: response.data.possibleWords || [],
@@ -177,33 +199,83 @@ const WordGames = () => {
                 response = await tryApiCall('/wordgames/mastermind', {
                     method: 'POST',
                     data: gameData,
-                    timeout: 30000
+                    timeout: 300000
                 });
                 const newGameData = {
-                    guess: gameData.guess,
-                    numPegs: gameData.numPegs,
-                    numColors: gameData.numColors,
+                    guesses: gameData.guesses,
+                    pegs: gameData.pegs,
+                    colors: gameData.colors,
                     allowDuplicates: gameData.allowDuplicates,
                     maxDepth: gameData.maxDepth,
                     colorMapping: gameData.colorMapping, // Pass through color mapping
-                    possibleWordsCount: response.data.possibleWordsCount,
+                    possibleCount: response.data.possibleCount,
                     guessesCount: response.data.guessesCount,
-                    actualPossibleWordsFound: response.data.actualPossibleWordsFound,
-                    actualGuessesFound: response.data.actualGuessesFound,
                     isLimitedPossible: response.data.isLimitedPossible,
                     isLimitedGuesses: response.data.isLimitedGuesses,
                     executionTime: response.data.executionTime,
                     start: response.data.start,
                     end: response.data.end,
-                    possibleFile: response.data.possibleFile,
-                    guessesFile: response.data.guessesFile
+                    resultsFile: response.data.resultsFile
                 };
                 setMastermindResults({
-                    possibleWords: response.data.possibleWords || [],
+                    possiblePatterns: response.data.possiblePatterns || [],
                     guessesWithEntropy: response.data.guessesWithEntropy || [],
                     gameData: newGameData
                 });
-                const message = `Found ${response.data.possibleWordsCount} possible patterns and ${response.data.guessesCount} suggested guesses in ${response.data.executionTime}ms`;
+                const message = `Found ${response.data.possibleCount} possible patterns and ${response.data.guessesCount} suggested guesses in ${response.data.executionTime}ms`;
+                showSuccess(message);
+            } else if (gameType === 'hangman') {
+                response = await tryApiCall('/wordgames/hangman', {
+                    method: 'POST',
+                    data: gameData,
+                    timeout: 300000
+                });
+                const newGameData = {
+                    pattern: response.data.pattern,
+                    excludedLetters: response.data.excludedLetters,
+                    maxDepth: gameData.maxDepth,
+                    possibleWordsCount: response.data.possibleWordsCount,
+                    letterGuessesCount: response.data.letterGuessesCount,
+                    isLimited: response.data.isLimited,
+                    executionTime: response.data.executionTime,
+                    start: response.data.start,
+                    end: response.data.end,
+                    resultsFile: response.data.resultsFile
+                };
+                setHangmanResults({
+                    letterSuggestions: response.data.letterSuggestions || [],
+                    possibleWords: response.data.possibleWords || [],
+                    gameData: newGameData
+                });
+                const message = `Found ${response.data.possibleWordsCount} possible words and ${response.data.letterGuessesCount} letter suggestions in ${response.data.executionTime}ms`;
+                showSuccess(message);
+            } else if (gameType === 'dungleon') {
+                response = await tryApiCall('/wordgames/dungleon', {
+                    method: 'POST',
+                    data: gameData,
+                    timeout: 300000
+                });
+
+                const newGameData = {
+                    guesses: gameData.guesses,
+                    wordLength: gameData.wordLength,
+                    maxDepth: gameData.maxDepth,
+                    excludeUncommonWords: gameData.excludeUncommonWords,
+                    possibleWordsCount: response.data.possiblePatternsCount,
+                    guessesCount: response.data.guessesCount,
+                    isLimitedPossible: response.data.isLimitedPossible,
+                    isLimitedGuesses: response.data.isLimitedGuesses,
+                    executionTime: response.data.executionTime,
+                    start: response.data.start,
+                    end: response.data.end,
+                    resultsFile: response.data.resultsFile
+                };
+                setDungleonResults({
+                    possiblePatterns: response.data.possiblePatterns || [],
+                    guessesWithEntropy: response.data.guessesWithEntropy || [],
+                    gameData: newGameData
+                });
+                const message = `Found ${response.data.possiblePatternsCount} possible words and ${response.data.guessesCount} suggested guesses in ${response.data.executionTime}ms`;
                 showSuccess(message);
             }
         } catch (error) {
@@ -215,41 +287,53 @@ const WordGames = () => {
     }, [showError, showSuccess]);
 
     const handleClear = useCallback((gameType) => {
-        if (gameType === 'letterboxed' || gameType == 'all') {
+        if (gameType === 'letterboxed' || gameType === 'all') {
             setLetterBoxedResults({ solutions: [], gameData: null });
         }
-        if (gameType === 'spellingbee' || gameType == 'all') {
+        if (gameType === 'spellingbee' || gameType === 'all') {
             setSpellingBeeResults({ solutions: [], gameData: null });
         }
-        if (gameType === 'wordle' || gameType == 'all') {
+        if (gameType === 'wordle' || gameType === 'all') {
             setWordleResults({ possibleWords: [], guessesWithEntropy: [], gameData: null });
         }
-        if (gameType === 'mastermind' || gameType == 'all') {
-            setMastermindResults({ possibleWords: [], guessesWithEntropy: [], gameData: null });
+        if (gameType === 'mastermind' || gameType === 'all') {
+            setMastermindResults({ possiblePatterns: [], guessesWithEntropy: [], gameData: null });
+        }
+        if (gameType === 'hangman' || gameType === 'all') {
+            setHangmanResults({ letterSuggestions: [], possibleWords: [], gameData: null });
+        }
+        if (gameType === 'dungleon' || gameType === 'all') {
+            setDungleonResults({ possiblePatterns: [], guessesWithEntropy: [], gameData: null });
         }
     }, []);
 
     const handleSuggestedGuessSelect = useCallback((pattern) => {
         // Handle selecting a suggested guess for both wordle and mastermind
-        if (activeTab === 2 && wordleGameRef.current) {
+        if (activeTab === 2 && wordleRef) {
             // For Wordle, pattern is a word string
-            wordleGameRef.current.fillSuggestedGuess(pattern);
-        } else if (activeTab === 3 && mastermindGameRef.current) {
+            wordleRef.fillSuggestedGuess(pattern);
+        } else if (activeTab === 3 && mastermindRef) {
             // For Mastermind, pattern is a space-separated string of numbers
-            mastermindGameRef.current.fillSuggestedGuess(pattern);
+            mastermindRef.fillSuggestedGuess(pattern);
+        } else if (activeTab === 5 && dungleonRef) {
+            // For Dungleon, pattern is a word string
+            dungleonRef.fillSuggestedGuess(pattern);
         }
-    }, [activeTab]);
+    }, [activeTab, wordleRef, mastermindRef, dungleonRef]);
 
     const handlePossibleSolutionSelect = useCallback((solution) => {
         // Handle selecting a possible solution for both wordle and mastermind
-        if (activeTab === 2 && wordleGameRef.current) {
+        if (activeTab === 2 && wordleRef) {
             // For Wordle, solution is a word string
-            wordleGameRef.current.fillSuggestedGuess(solution);
-        } else if (activeTab === 3 && mastermindGameRef.current) {
+            wordleRef.fillSuggestedGuess(solution);
+        } else if (activeTab === 3 && mastermindRef) {
             // For Mastermind, solution is a space-separated string of numbers
-            mastermindGameRef.current.fillSuggestedGuess(solution);
+            mastermindRef.fillSuggestedGuess(solution);
+        } else if (activeTab === 5 && dungleonRef) {
+            // For Dungleon, solution is a word string
+            dungleonRef.fillSuggestedGuess(solution);
         }
-    }, [activeTab]);
+    }, [activeTab, wordleRef, mastermindRef, dungleonRef]);
 
     const handleLoadMore = useCallback(async (type) => {
         // Implementation for loading more results
@@ -267,6 +351,9 @@ const WordGames = () => {
         } else if (activeTab === 3) {
             gameData = mastermindResults.gameData;
             currentResults = mastermindResults;
+        } else if (activeTab === 5) { // Dungleon
+            gameData = dungleonResults.gameData;
+            currentResults = dungleonResults;
         }
 
         if (!gameData) return;
@@ -277,16 +364,16 @@ const WordGames = () => {
             let dataToSend = {};
             let currentCount = 0;
 
-            if (activeTab === 2 || activeTab === 3) { // Wordle or Mastermind
+            if (activeTab === 2 || activeTab === 3 || activeTab === 5) { // Wordle, Mastermind, or Dungleon
                 if (type === 'possible') {
                     currentCount = currentResults.possibleWords.length;
                     endpoint = '/wordgames/load';
                     dataToSend = {
                         start: currentCount,
                         end: currentCount + 100,
-                        gameMode: activeTab === 2 ? 'wordle' : 'mastermind',
+                        gameMode: activeTab === 2 ? 'wordle' : activeTab === 3 ? 'mastermind' : 'dungleon',
                         fileType: 'possible',
-                        filePath: gameData.possibleFile
+                        filePath: gameData.resultsFile
                     };
                 } else if (type === 'guesses') {
                     currentCount = currentResults.guessesWithEntropy.length;
@@ -294,9 +381,9 @@ const WordGames = () => {
                     dataToSend = {
                         start: currentCount,
                         end: currentCount + 100,
-                        gameMode: activeTab === 2 ? 'wordle' : 'mastermind',
+                        gameMode: activeTab === 2 ? 'wordle' : activeTab === 3 ? 'mastermind' : 'dungleon',
                         fileType: 'guesses',
-                        filePath: gameData.guessesFile
+                        filePath: gameData.resultsFile
                     };
                 }
 
@@ -307,26 +394,42 @@ const WordGames = () => {
 
                 if (type === 'possible') {
                     if (activeTab === 2) {
+                        const newSolutions = response.data.solutions || {};
                         setWordleResults(prev => ({
                             ...prev,
-                            possibleWords: [...prev.possibleWords, ...(response.data.solutions || [])]
+                            possibleWords: [...prev.possibleWords, ...(newSolutions.possibleWords || [])]
                         }));
-                    } else {
+                    } else if (activeTab === 3) {
+                        const newSolutions = response.data.solutions || {};
                         setMastermindResults(prev => ({
                             ...prev,
-                            possibleWords: [...prev.possibleWords, ...(response.data.solutions || [])]
+                            possiblePatterns: [...prev.possiblePatterns, ...(newSolutions.possiblePatterns || [])]
+                        }));
+                    } else if (activeTab === 5) {
+                        const newSolutions = response.data.solutions || {};
+                        setDungleonResults(prev => ({
+                            ...prev,
+                            possiblePatterns: [...prev.possiblePatterns, ...(newSolutions.possiblePatterns || [])]
                         }));
                     }
                 } else if (type === 'guesses') {
                     if (activeTab === 2) {
+                        const newSolutions = response.data.solutions || {};
                         setWordleResults(prev => ({
                             ...prev,
-                            guessesWithEntropy: [...prev.guessesWithEntropy, ...(response.data.solutions || [])]
+                            guessesWithEntropy: [...prev.guessesWithEntropy, ...(newSolutions.guessesWithEntropy || [])]
                         }));
-                    } else {
+                    } else if (activeTab === 3) {
+                        const newSolutions = response.data.solutions || {};
                         setMastermindResults(prev => ({
                             ...prev,
-                            guessesWithEntropy: [...prev.guessesWithEntropy, ...(response.data.solutions || [])]
+                            guessesWithEntropy: [...prev.guessesWithEntropy, ...(newSolutions.guessesWithEntropy || [])]
+                        }));
+                    } else if (activeTab === 5) {
+                        const newSolutions = response.data.solutions || {};
+                        setDungleonResults(prev => ({
+                            ...prev,
+                            guessesWithEntropy: [...prev.guessesWithEntropy, ...(newSolutions.guessesWithEntropy || [])]
                         }));
                     }
                 }
@@ -378,7 +481,8 @@ const WordGames = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [activeTab, letterBoxedResults, spellingBeeResults, wordleResults, mastermindResults, showError, showSuccess]); const copyToClipboard = useCallback((text) => {
+    }, [activeTab, letterBoxedResults, spellingBeeResults, wordleResults, mastermindResults, dungleonResults, showError, showSuccess]);
+    const copyToClipboard = useCallback((text) => {
         navigator.clipboard.writeText(text).then(() => {
             showSuccess('Copied to clipboard');
         }).catch(() => {
@@ -415,7 +519,7 @@ const WordGames = () => {
                         <Box sx={{ typography: 'h4', fontWeight: 600 }}>Word Games</Box>
                     </Box>
                     <Box sx={{ typography: 'body1', color: 'text.secondary' }}>
-                        Solve Letter Boxed, Spelling Bee, and Wordle puzzles
+                        Solve Letter Boxed, Spelling Bee, Wordle, Mastermind, and Hangman puzzles
                     </Box>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -441,56 +545,57 @@ const WordGames = () => {
                 </Alert>
             )}
 
-            {/* Game Tabs */}
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Tabs
+            {/* Game Selection Dropdown */}
+            <Box sx={{ mb: 3 }}>
+                <FormControl fullWidth variant="outlined">
+                    <InputLabel id="game-select-label">Select Game</InputLabel>
+                    <Select
+                        labelId="game-select-label"
+                        id="game-select"
                         value={activeTab}
-                        onChange={handleTabChange}
-                        variant="scrollable"
-                        scrollButtons="auto"
-                        allowScrollButtonsMobile
-                        sx={{
-                            flex: 1,
-                            '& .MuiTab-root': {
-                                minHeight: 72,
-                                textTransform: 'none',
-                                fontSize: { xs: '0.875rem', sm: '1rem' },
-                                fontWeight: 500,
-                                minWidth: { xs: 120, sm: 'auto' }
-                            }
-                        }}
+                        onChange={(e) => handleTabChange(e, e.target.value)}
+                        label="Select Game"
                     >
-                        <Tab
-                            icon={<LetterBoxedIcon />}
-                            label="Letter Boxed"
-                            iconPosition="top"
-                        />
-                        <Tab
-                            icon={<Bee />}
-                            label="Spelling Bee"
-                            iconPosition="top"
-                        />
-                        <Tab
-                            icon={<QuizIcon />}
-                            label="Wordle"
-                            iconPosition="top"
-                        />
-                        <Tab
-                            icon={<MastermindIcon />}
-                            label="Mastermind"
-                            iconPosition="top"
-                        />
-                    </Tabs>
-                    <Tooltip title="Help & Rules">
-                        <IconButton
-                            onClick={handleHelpOpen}
-                            color="primary"
-                            sx={{ ml: 1 }}
-                        >
-                            <HelpIcon />
-                        </IconButton>
-                    </Tooltip>
+                        <MenuItem value={0}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <LetterBoxedIcon /> Letter Boxed
+                            </Box>
+                        </MenuItem>
+                        <MenuItem value={1}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Bee /> Spelling Bee
+                            </Box>
+                        </MenuItem>
+                        <MenuItem value={2}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <QuizIcon /> Wordle
+                            </Box>
+                        </MenuItem>
+                        <MenuItem value={3}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <MastermindIcon /> Mastermind
+                            </Box>
+                        </MenuItem>
+                        <MenuItem value={4}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <HangmanIcon /> Hangman
+                            </Box>
+                        </MenuItem>
+                        <MenuItem value={5}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <DungleonIcon /> Dungleon
+                            </Box>
+                        </MenuItem>
+                    </Select>
+                </FormControl>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                    <Button
+                        startIcon={<HelpIcon />}
+                        onClick={handleHelpOpen}
+                        size="small"
+                    >
+                        How to Play
+                    </Button>
                 </Box>
             </Box>
 
@@ -504,6 +609,8 @@ const WordGames = () => {
                             onSolve={handleSolve}
                             onClear={() => handleClear('letterboxed')}
                             showError={showError}
+                            results={letterBoxedResults}
+                            onLoadMore={() => handleLoadMore('solutions')}
                         />
                     )}
                     {activeTab === 1 && (
@@ -513,26 +620,54 @@ const WordGames = () => {
                             onSolve={handleSolve}
                             onClear={() => handleClear('spellingbee')}
                             showError={showError}
+                            results={spellingBeeResults}
+                            onLoadMore={() => handleLoadMore('solutions')}
                         />
                     )}
                     {activeTab === 2 && (
                         <WordleGame
-                            ref={wordleGameRef}
+                            ref={handleWordleRef}
                             gameStatus={gameStatus}
                             isLoading={isLoading}
                             onSolve={handleSolve}
                             onClear={() => handleClear('wordle')}
                             showError={showError}
+                            results={wordleResults}
+                            onLoadMore={handleLoadMore}
                         />
                     )}
                     {activeTab === 3 && (
                         <MastermindGame
-                            ref={mastermindGameRef}
+                            ref={handleMastermindRef}
                             gameStatus={gameStatus}
                             isLoading={isLoading}
                             onSolve={handleSolve}
                             onClear={() => handleClear('mastermind')}
                             showError={showError}
+                            results={mastermindResults}
+                            onLoadMore={handleLoadMore}
+                        />
+                    )}
+                    {activeTab === 4 && (
+                        <HangmanGame
+                            gameStatus={gameStatus}
+                            isLoading={isLoading}
+                            onSolve={handleSolve}
+                            onClear={() => handleClear('hangman')}
+                            showError={showError}
+                            results={hangmanResults}
+                        />
+                    )}
+                    {activeTab === 5 && (
+                        <DungleonGame
+                            ref={handleDungleonRef}
+                            gameStatus={gameStatus}
+                            isLoading={isLoading}
+                            onSolve={handleSolve}
+                            onClear={() => handleClear('dungleon')}
+                            showError={showError}
+                            results={dungleonResults}
+                            onLoadMore={handleLoadMore}
                         />
                     )}
                 </Grid>
@@ -540,69 +675,14 @@ const WordGames = () => {
 
             {/* Results */}
             <Box sx={{ mt: 3 }}>
-                {activeTab === 0 && (
-                    <GameResults
-                        gameType="letterboxed"
-                        solutions={letterBoxedResults.solutions}
-                        possibleWords={[]}
-                        guessesWithEntropy={[]}
-                        lastGameData={letterBoxedResults.gameData}
-                        lastGameType="letterboxed"
-                        isLoading={isLoading}
-                        onLoadMore={handleLoadMore}
-                        onCopyToClipboard={copyToClipboard}
-                    />
-                )}
-                {activeTab === 1 && (
-                    <GameResults
-                        gameType="spellingbee"
-                        solutions={spellingBeeResults.solutions}
-                        possibleWords={[]}
-                        guessesWithEntropy={[]}
-                        lastGameData={spellingBeeResults.gameData}
-                        lastGameType="spellingbee"
-                        isLoading={isLoading}
-                        onLoadMore={handleLoadMore}
-                        onCopyToClipboard={copyToClipboard}
-                    />
-                )}
-                {activeTab === 2 && (
-                    <GameResults
-                        gameType="wordle"
-                        solutions={[]}
-                        possibleWords={wordleResults.possibleWords}
-                        guessesWithEntropy={wordleResults.guessesWithEntropy}
-                        lastGameData={wordleResults.gameData}
-                        lastGameType="wordle"
-                        isLoading={isLoading}
-                        onLoadMore={handleLoadMore}
-                        onCopyToClipboard={copyToClipboard}
-                        onSuggestedGuessSelect={handleSuggestedGuessSelect}
-                        onPossibleSolutionSelect={handlePossibleSolutionSelect}
-                    />
-                )}
-                {activeTab === 3 && (
-                    <GameResults
-                        gameType="mastermind"
-                        solutions={[]}
-                        possibleWords={mastermindResults.possibleWords}
-                        guessesWithEntropy={mastermindResults.guessesWithEntropy}
-                        lastGameData={mastermindResults.gameData}
-                        lastGameType="mastermind"
-                        isLoading={isLoading}
-                        onLoadMore={handleLoadMore}
-                        onCopyToClipboard={copyToClipboard}
-                        onSuggestedGuessSelect={handleSuggestedGuessSelect}
-                        onPossibleSolutionSelect={handlePossibleSolutionSelect}
-                    />
-                )}
+
             </Box>
 
             {/* Help Modal */}
             <GameHelpModal
                 open={helpModalOpen}
                 onClose={handleHelpClose}
-                gameType={activeTab === 0 ? 'letterboxed' : activeTab === 1 ? 'spellingbee' : activeTab === 2 ? 'wordle' : 'mastermind'}
+                gameType={activeTab === 0 ? 'letterboxed' : activeTab === 1 ? 'spellingbee' : activeTab === 2 ? 'wordle' : activeTab === 3 ? 'mastermind' : activeTab === 4 ? 'hangman' : 'dungleon'}
             />
         </Container>
     );

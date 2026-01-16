@@ -205,10 +205,73 @@ const GameHelpModal = ({ open, onClose, gameType }) => {
                             <Typography variant="h6" gutterBottom>Color Legend:</Typography>
                             <List dense>
                                 <ListItem>
-                                    <ListItemText primary="0=Red, 1=Green, 2=Blue, 3=Yellow, 4=Magenta" />
+                                    <ListItemText primary="R=Red, G=Green, B=Blue, Y=Yellow, M=Magenta" />
                                 </ListItem>
                                 <ListItem>
-                                    <ListItemText primary="5=Cyan, 6=Orange, 7=Purple, 8=White, 9=Black" />
+                                    <ListItemText primary="C=Cyan, O=Orange, P=Purple, W=White, K=Black" />
+                                </ListItem>
+                            </List>
+                        </Box>
+                    )
+                };
+
+            case 'hangman':
+                return {
+                    title: 'Hangman Solver Help',
+                    content: (
+                        <Box>
+                            <Typography variant="h6" gutterBottom>How to Use:</Typography>
+                            <List dense>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="Enter the known pattern"
+                                        secondary="Use ? for unknown letters, actual letters for known positions (e.g., 'h?ll?' for a 5-letter word starting with h)"
+                                    />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="Enter excluded letters"
+                                        secondary="Letters that have already been guessed wrong (e.g., 'xyz')"
+                                    />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="Set the solver depth"
+                                        secondary="Higher depth = more thorough analysis but slower"
+                                    />
+                                </ListItem>
+                            </List>
+
+                            <Divider sx={{ my: 2 }} />
+
+                            <Typography variant="h6" gutterBottom>Results:</Typography>
+                            <List dense>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="Best Letters"
+                                        secondary="The top letters to guess next, ranked by how many possible words they could reveal"
+                                    />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="Possible Words"
+                                        secondary="All words that match the current pattern and excluded letters"
+                                    />
+                                </ListItem>
+                            </List>
+
+                            <Divider sx={{ my: 2 }} />
+
+                            <Typography variant="h6" gutterBottom>Tips:</Typography>
+                            <List dense>
+                                <ListItem>
+                                    <ListItemText primary="Start with common vowels (e, a, i, o) and consonants (t, n, s, r)" />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText primary="Use depth 0 for quick results with many unknown letters" />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText primary="Increase depth when you have more letters revealed for better suggestions" />
                                 </ListItem>
                             </List>
                         </Box>

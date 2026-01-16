@@ -20,6 +20,12 @@ router.post('/wordgames/wordle', requireAuth('admin'), (req, res) => wordGamesCo
 // Mastermind solver endpoint
 router.post('/wordgames/mastermind', requireAuth('admin'), (req, res) => wordGamesController.solveMastermind(req, res));
 
+// Dungleon solver endpoint
+router.post('/wordgames/dungleon', requireAuth('admin'), (req, res) => wordGamesController.solveDungleon(req, res));
+
+// Hangman solver endpoint
+router.post('/wordgames/hangman', requireAuth('admin'), (req, res) => wordGamesController.solveHangman(req, res));
+
 // Load results from file (pagination) - supports all game types
 router.post('/wordgames/load', requireAuth('admin'), (req, res) => wordGamesController.loadResults(req, res));
 

@@ -29,7 +29,7 @@ This project bundles several open-source services, managed via `docker-compose`,
 
   * **🏠 Homelab Dashboard**: A custom web interface with:
       * 💻 LAN device scanning and WOL support
-      * 🧩 Word puzzle game solver
+      * 🧩 Word puzzle game solvers (Wordle, Mastermind, Hangman, Dungleon, Letter Boxed, Spelling Bee)
       * 📦 Host device package management (for *pacman*)
       * 🤖 An integrated AI chatbot with Ollama
   * **🔑 Authelia**: Single Sign-On (SSO) for securing services.
@@ -120,7 +120,7 @@ graph TD
 
 Deployment is a multi-stage process. Follow these steps sequentially to prepare your host, configure services, and launch your homelab stack.
 
-### 1\. 📂 Clone & Initialize
+### 0\. 📂 Clone & Initialize
 
 First, clone this repository and its submodules.
 
@@ -133,19 +133,19 @@ git submodule update
 
 For more info see the [GitHub Docs 🔗](https://docs.github.com/en/get-started/using-git)
 
-### 2\. 📋 Install Host Prerequisites
+### 1\. 📋 Install Host Prerequisites
 
 Before running any configuration scripts, install all base dependencies on your Arch Linux host, including Docker, UFW, and WireGuard tools.
 
 ➡️ **Follow the detailed instructions here:** **[1. Prerequisites](./docs/1-prerequisites.md)**
 
-### 3\. ⚙️ Configure and Harden Host
+### 2\. ⚙️ Configure and Harden Host
 
 This is the most critical security phase. You will configure SSH key access, set up the UFW firewall rules, and establish the WireGuard VPN tunnel.
 
 ➡️ **Follow the detailed instructions here:** **[2. Host Machine Configuration](./docs/2-host-config.md)**
 
-### 4\. 🚀 Deploy the Services
+### 3\. 🚀 Deploy the Services
 
 The final deployment involves configuring environment variables, setting up custom `systemd` services for automation, and launching the Docker stack.
 
@@ -161,25 +161,25 @@ The final deployment involves configuring environment variables, setting up cust
 
 Once the core stack is running, use these sections for ongoing maintenance and checks.
 
-#### 5\. ✅ Post-Installation Checklist
+#### 4\. ✅ Post-Installation Checklist
 
 Complete a final checklist for each service (e.g., installing the root CA certificate, setting up notifications in Uptime Kuma, and disabling public sign-ups for Vaultwarden).
 
 ➡️ **View the full checklist here:** **[4. Post Installation Checklist](./docs/4-checklist.md)**
 
-#### 6\. 💾 Backup and Restore
+#### 5\. 💾 Backup and Restore
 
 Learn how to manage and protect your data. This section covers running manual backups, checking the automated `systemd` backup timer, and performing a full system restoration from an archive.
 
 ➡️ **View the backup and restore guide here:** **[5. Backup and Restore](./docs/5-backup-restore.md)**
 
-#### 7\. 🧑‍💻 Development
+#### 6\. 🧑💻 Development
 
 If you plan to modify the Homelab Dashboard or Host API code, this guide explains how to use the `docker-compose.override.yml` file to launch a development environment with hot-reloading enabled.
 
 ➡️ **View the development guide here:** **[6. Development](./docs/6-development.md)**
 
-#### 8\. ❓ Troubleshooting
+#### 7\. ❓ Troubleshooting
 
 Find quick solutions for common deployment issues, including DNS resolution failures, browser security warnings, and container restarts.
 

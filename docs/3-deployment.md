@@ -5,7 +5,7 @@ Once the host is configured, follow these steps to deploy the services.
 ### 1\. 📝 Configure Environment
 
 1.  **Dynamic DNS**
-      * If you use a DDNS service, make sure to copy [`./ddclient/example.ddclient.conf`](./ddclient/example.ddclient.conf) to `./ddclient/ddclient.conf` and fill in your provider's details.
+      * If you use a DDNS service, make sure to copy [`./ddclient/example.ddclient.conf`](../ddclient/example.ddclient.conf) to `./ddclient/ddclient.conf` and fill in your provider's details.
       * [ddclient Docs 🔗](https://ddclient.net/)
 2.  **Environment Variables**
       * The `setup.sh` script will use `./.env.template` as a base to generate your final `.env` file. Carefully change any values you want to customize in the template **before** running the script.
@@ -74,7 +74,7 @@ sudo systemctl enable --now systemd-timesyncd
 timedatectl status
 ```
 
-> **ℹ️ Note**: If **`System clock synchronized`** shows **`no`**, you may need to edit `/etc/systemd/timesyncd.conf` to configure a reliable time source. Check [`./systemd/timesyncd.conf`](./systemd/timesyncd.conf) for an example. After editing, restart the service with `sudo systemctl restart systemd-timesyncd`.
+> **ℹ️ Note**: If **`System clock synchronized`** shows **`no`**, you may need to edit `/etc/systemd/timesyncd.conf` to configure a reliable time source. Check [`./systemd/timesyncd.conf`](../systemd/timesyncd.conf) for an example. After editing, restart the service with `sudo systemctl restart systemd-timesyncd`.
 
 -----
 

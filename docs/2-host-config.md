@@ -9,7 +9,7 @@ For a secure setup, we will configure SSH to use **key-based authentication only
 
 **Step 1: Set Up SSH Server**
 
-First, make sure the SSH server is installed an running.
+First, make sure the SSH server is installed and running.
 
 1. **On the server**, run this command to install the SSH service if you haven't already:
    ```shell
@@ -227,7 +227,7 @@ WireGuard uses public-key cryptography for security. We need to generate a priva
     AllowedIPs = 10.10.20.13/32
     ```
 
-    Make sure that you include the PostUp and PostDown rules as they are essential for making sure requests are forwarded using NAT depedning on the destination. If you don't have static routes set up on your router or devices, you can replace the rules with these to translate all packets, but you may lose functionality with programs such as *KDE Connect*.
+    Make sure that you include the PostUp and PostDown rules as they are essential for making sure requests are forwarded using NAT depending on the destination. If you don't have static routes set up on your router or devices, you can replace the rules with these to translate all packets, but you may lose functionality with programs such as *KDE Connect*.
 
     ```
     PostUp = iptables -t nat -A POSTROUTING -s 10.10.20.0/24 -o end0 -j MASQUERADE
@@ -267,9 +267,9 @@ sudo systemctl enable --now wg-quick@wg0
 
 ### 4\. DNS Configuration
 
-1.  **`dhcpcd.conf`**: Configure `/etc/dhcpcd.conf` to prevent the DHCP client from overwriting your custom DNS settings. See [`./dns/dhcpcd.conf`](./dns/dhcpcd.conf) as an example.
-2.  **`resolv.conf`**: Configure `/etc/resolv.conf` to prioritize the local Pi-hole resolver while providing a backup DNS for when Pi-hole is not running. See [`./dns/resolv.conf`](./dns/resolv.conf) as an example.
-3.  **`resolved.conf`**: Configure `/etc/systemd/resolved.conf` to disable the systemd stub listener on port 53. This is necessary to free up port 53 so that Pi-hole can use it to answer DNS queries. See [`./resolved.conf`](./resolved.conf) as an example.
+1.  **`dhcpcd.conf`**: Configure `/etc/dhcpcd.conf` to prevent the DHCP client from overwriting your custom DNS settings. See [`./dns/dhcpcd.conf`](../dns/dhcpcd.conf) as an example.
+2.  **`resolv.conf`**: Configure `/etc/resolv.conf` to prioritize the local Pi-hole resolver while providing a backup DNS for when Pi-hole is not running. See [`./dns/resolv.conf`](../dns/resolv.conf) as an example.
+3.  **`resolved.conf`**: Configure `/etc/systemd/resolved.conf` to disable the systemd stub listener on port 53. This is necessary to free up port 53 so that Pi-hole can use it to answer DNS queries. See [`./resolved.conf`](../resolved.conf) as an example.
 
 Apply changes with these commands.
 
@@ -285,5 +285,5 @@ sudo systemctl restart dhcpcd.service
 
 Follow these steps to add additional functionality to your shell.
 
-1.  **.bashrc**: Add the lines inside [`./bashrc/user.bashrc`](./bashrc/user.bashrc) and [`./bashrc/root.bashrc`](./bashrc/root.bashrc) to `~/.bashrc` and `/root/.bashrc` on the server respectively.
+1.  **.bashrc**: Add the lines inside [`./bashrc/user.bashrc`](../bashrc/user.bashrc) and [`./bashrc/root.bashrc`](../bashrc/root.bashrc) to `~/.bashrc` and `/root/.bashrc` on the server respectively.
     This will add configurations to color code your shell prompt, add helpful aliases, and set up a welcome message when you connect via SSH.

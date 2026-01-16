@@ -1,6 +1,6 @@
 ## 💾 Backup and Restore
 
-This project includes a powerful script, [`backup.sh`](./backup.sh), for both manual and automated backups. It archives all essential data—including local configurations, bind mounts (`./volumes`), and Docker named volumes—into a single, compressed `.tar.gz` file.
+This project includes a powerful script, [`backup.sh`](../backup.sh), for both manual and automated backups. It archives all essential data—including local configurations, bind mounts (`./volumes`), and Docker named volumes—into a single, compressed `.tar.gz` file.
 
 ### Creating a Backup
 
