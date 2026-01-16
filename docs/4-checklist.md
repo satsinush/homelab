@@ -3,7 +3,7 @@
 Final configuration steps for individual services.
 
   * **📜 CA Certificate**
-    * Install the generated `homelab-ca.crt` (found in [`./volumes/certificates`](./volumes/certificates/)) on all your client devices to avoid browser security warnings.
+    * Install the generated `homelab-ca.crt` (found in [`./volumes/certificates`](../volumes/certificates/)) on all your client devices to avoid browser security warnings.
   * **🔐 Vaultwarden**
     * Create your primary account. You **must** use the email provided to you by the setup script, otherwise ntfy will not create notifications for password reset emails and you may lose access to your account. Afterwards, you can optionally set `VAULTWARDEN_SIGNUPS_ALLOWED=false` in your `.env` and restart the container to disable public registration.
     * [Vaultwarden Docs 🔗](https://github.com/dani-garcia/vaultwarden/blob/main/README.md)
@@ -18,7 +18,7 @@ Final configuration steps for individual services.
       * `YOUR USERNAME` topic for password reset emails.
     * [Ntfy Docs 🔗](https://docs.ntfy.sh/)
   * **🖥️ RustDesk**
-    * Configure your clients by setting the **ID/Relay Server** to your host's IP/domain. The required public key is printed after running [`./setup.sh`](./setup.sh) or can be obtained by running this command: `docker cp rustdesk-id-server:/root/id_ed25519.pub - | tar -xO`
+    * Configure your clients by setting the **ID/Relay Server** to your host's IP/domain. The required public key is printed after running [`./setup.sh`](../setup.sh) or can be obtained by running this command: `docker cp rustdesk-id-server:/root/id_ed25519.pub - | tar -xO`
     * [RustDesk Docs 🔗](https://rustdesk.com/docs/)
   * **🚫 Pi-hole**
     * For best results, consider replacing the default adlists with a less strict list, such as the [Hagezi Pro list](https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt). Or if you want to block as much as possible use both.

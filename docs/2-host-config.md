@@ -267,9 +267,9 @@ sudo systemctl enable --now wg-quick@wg0
 
 ### 4\. DNS Configuration
 
-1.  **`dhcpcd.conf`**: Configure `/etc/dhcpcd.conf` to prevent the DHCP client from overwriting your custom DNS settings. See [`./dns/dhcpcd.conf`](./dns/dhcpcd.conf) as an example.
-2.  **`resolv.conf`**: Configure `/etc/resolv.conf` to prioritize the local Pi-hole resolver while providing a backup DNS for when Pi-hole is not running. See [`./dns/resolv.conf`](./dns/resolv.conf) as an example.
-3.  **`resolved.conf`**: Configure `/etc/systemd/resolved.conf` to disable the systemd stub listener on port 53. This is necessary to free up port 53 so that Pi-hole can use it to answer DNS queries. See [`./resolved.conf`](./resolved.conf) as an example.
+1.  **`dhcpcd.conf`**: Configure `/etc/dhcpcd.conf` to prevent the DHCP client from overwriting your custom DNS settings. See [`./dns/dhcpcd.conf`](../dns/dhcpcd.conf) as an example.
+2.  **`resolv.conf`**: Configure `/etc/resolv.conf` to prioritize the local Pi-hole resolver while providing a backup DNS for when Pi-hole is not running. See [`./dns/resolv.conf`](../dns/resolv.conf) as an example.
+3.  **`resolved.conf`**: Configure `/etc/systemd/resolved.conf` to disable the systemd stub listener on port 53. This is necessary to free up port 53 so that Pi-hole can use it to answer DNS queries. See [`./resolved.conf`](../resolved.conf) as an example.
 
 Apply changes with these commands.
 
@@ -285,5 +285,5 @@ sudo systemctl restart dhcpcd.service
 
 Follow these steps to add additional functionality to your shell.
 
-1.  **.bashrc**: Add the lines inside [`./bashrc/user.bashrc`](./bashrc/user.bashrc) and [`./bashrc/root.bashrc`](./bashrc/root.bashrc) to `~/.bashrc` and `/root/.bashrc` on the server respectively.
+1.  **.bashrc**: Add the lines inside [`./bashrc/user.bashrc`](../bashrc/user.bashrc) and [`./bashrc/root.bashrc`](../bashrc/root.bashrc) to `~/.bashrc` and `/root/.bashrc` on the server respectively.
     This will add configurations to color code your shell prompt, add helpful aliases, and set up a welcome message when you connect via SSH.
