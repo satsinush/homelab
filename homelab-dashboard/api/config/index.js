@@ -54,7 +54,7 @@ async function initializeOIDCClient() {
         try {            
             // Set up the OIDC configuration following official documentation
             const server = new URL(`https://${process.env.AUTHELIA_WEB_HOSTNAME}`);
-            const clientId = 'homelab-dashboard';
+            const clientId = 'homelab_dashboard';
             const clientSecret = process.env.DASHBOARD_OIDC_SECRET;
             
             oidcConfig = await client.discovery(

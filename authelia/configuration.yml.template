@@ -175,7 +175,7 @@ identity_providers:
         consent_mode: 'pre-configured'
         pre_configured_consent_duration: '1M'
 
-      - client_id: 'homelab-dashboard'
+      - client_id: 'homelab_dashboard'
         client_name: 'Homelab Dashboard'
         client_secret: '${DASHBOARD_OIDC_HASHED_SECRET}'
         public: false
