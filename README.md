@@ -32,6 +32,7 @@ This project bundles several open-source services, managed via `docker-compose`,
       * 🧩 Word puzzle game solvers (Wordle, Mastermind, Hangman, Dungleon, Letter Boxed, Spelling Bee)
       * 📦 Host device package management (for *pacman*)
       * 🤖 An integrated AI chatbot with Ollama
+  * **🔀 Traefik v3**: Cloud-native reverse proxy with automatic HTTPS (Let's Encrypt or self-signed).
   * **🔑 Authelia**: Single Sign-On (SSO) for securing services.
   * **📊 Netdata**: Real-time performance monitoring.
   * **📦 Portainer**: Docker container management UI.
@@ -41,6 +42,24 @@ This project bundles several open-source services, managed via `docker-compose`,
   * **🌐 ddclient**: Dynamic DNS client to keep your domain pointed to your IP.
   * **🖥️ RustDesk**: A self-hosted remote desktop solution.
   * **🔐 Vaultwarden**: Self-hosted password manager.
+
+### SSL Modes
+
+`setup.sh` supports two SSL modes that are selected interactively during the first run:
+
+| Mode | When to use | How it works |
+|------|-------------|--------------|
+| **Private (default)** | No public domain | OpenSSL generates a local CA and a wildcard server certificate. Import the CA cert once per client device. |
+| **Public (Let's Encrypt)** | You own a domain managed by Cloudflare | Traefik uses the ACME DNS-01 challenge to obtain a globally-trusted certificate — no open ports required. |
+
+#### Getting a Cloudflare DNS API Token (Public mode)
+
+1. Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com/).
+2. Go to **My Profile → API Tokens → Create Token**.
+3. Use the **Edit zone DNS** template (or create a custom token with the `Zone → DNS → Edit` permission scoped to your specific zone).
+4. Copy the token and provide it when `setup.sh` asks `Do you have a public domain with Cloudflare DNS? (y/n)`.
+
+> **Note:** The token is stored in `.env` as `CF_DNS_API_TOKEN` and is passed to the Traefik container at runtime. It is never committed to version control (`.env` is listed in `.gitignore`).
 
 ### Infrastructure Diagram
 
@@ -64,7 +83,7 @@ graph TD
             UFW[🛡️ UFW Firewall]
 
             subgraph Docker[🐳 Docker Network]
-                Nginx[🌐 NGINX Reverse Proxy]
+                Traefik[🔀 Traefik Reverse Proxy]
                 Authelia[🔑 Authelia SSO]
                 Vaultwarden[🔐 Vaultwarden]
                 Portainer[📦 Portainer]
@@ -90,18 +109,18 @@ graph TD
     UFW -->|DNS| Pihole
 
     %% Firewall routes
-    UFW -->|HTTP| Nginx
+    UFW -->|HTTP| Traefik
     UFW -->|Remote Access| Rustdesk --> LocalClient
 
     %% Proxy/Auth flows
-    Nginx --> Authelia
-    Nginx --> Vaultwarden
-    Nginx --> Ntfy
-    Nginx --> Portainer
-    Nginx --> Dashboard
-    Nginx --> Netdata
-    Nginx --> UptimeKuma
-    Nginx --> Ntfy
+    Traefik --> Authelia
+    Traefik --> Vaultwarden
+    Traefik --> Ntfy
+    Traefik --> Portainer
+    Traefik --> Dashboard
+    Traefik --> Netdata
+    Traefik --> UptimeKuma
+    Traefik --> Ntfy
 
     Authelia --> LLDAP
 

@@ -115,6 +115,22 @@ if [ ! -f .env ]; then
   sed -i "s|<PUID>|$PUID|g" "$OUTPUT_FILE"
   sed -i "s|<PGID>|$PGID|g" "$OUTPUT_FILE"
 
+  echo ""
+  echo "   SSL Certificate Mode:"
+  echo "   Traefik supports two modes:"
+  echo "     • Public  (y) — Let's Encrypt via Cloudflare DNS-01; requires a public domain"
+  echo "     •          (n) — Self-signed CA generated locally (no public domain needed)"
+  read -p "   Do you have a public domain with Cloudflare DNS? (y/n): " HAS_PUBLIC_DOMAIN
+
+  if [ "$HAS_PUBLIC_DOMAIN" = "y" ] || [ "$HAS_PUBLIC_DOMAIN" = "Y" ]; then
+    read -p "   Cloudflare DNS API token (DNS:Edit permission): " CF_DNS_API_TOKEN_INPUT
+    sed -i "s|TRAEFIK_CERT_RESOLVER=''|TRAEFIK_CERT_RESOLVER='letsencrypt'|g" "$OUTPUT_FILE"
+    sed -i "s|CF_DNS_API_TOKEN=''|CF_DNS_API_TOKEN='$CF_DNS_API_TOKEN_INPUT'|g" "$OUTPUT_FILE"
+    echo "   ✅ Let's Encrypt (Cloudflare DNS-01) mode configured"
+  else
+    echo "   ✅ Self-signed certificate mode configured"
+  fi
+
   echo "✅ Environment configuration created"
 else
   echo "✅ Environment configuration already exists"
@@ -163,6 +179,15 @@ declare -a SAN_DOMAINS=(
 # --- Ensure SSL directory exists ---
 mkdir -p "$CERTS_DIR"
 
+# --- Ensure Traefik ACME storage file exists (required even in private mode) ---
+TRAEFIK_DIR="./volumes/traefik"
+mkdir -p "$TRAEFIK_DIR"
+if [ ! -f "${TRAEFIK_DIR}/acme.json" ]; then
+  touch "${TRAEFIK_DIR}/acme.json"
+  chmod 600 "${TRAEFIK_DIR}/acme.json"
+  echo "   ✅ Traefik ACME storage file created"
+fi
+
 # --- Ensure Authelia private key exists ---
 AUTHELIA_DIR="./volumes/authelia"
 AUTHELIA_KEY="${AUTHELIA_DIR}/private.pem"
@@ -190,30 +215,36 @@ else
   echo "   ✅ Uptime Kuma database already exists"
 fi
 
-# Create Certificate Authority if needed
-if [ ! -f "$CA_KEY_OUT" ] || [ ! -f "$CA_CERT_OUT" ]; then
-    echo "   Creating Certificate Authority..."
-
-    # Generate the CA's private key
-    sudo openssl genrsa -out "${CA_KEY_OUT}" "${KEY_BITS}"
-
-    # Compute CA subject: prefer HOMELAB_USERNAME (from .env), then USERNAME (interactive), then system user
-    CA_SUBJECT="${HOMELAB_USERNAME} Homelab CA"
-
-    # Generate the CA's self-signed root certificate using the computed subject
-    sudo openssl req -x509 -new -nodes -key "${CA_KEY_OUT}" -sha256 -days "${CERT_DAYS}" \
-        -out "${CA_CERT_OUT}" \
-        -subj "/CN=${CA_SUBJECT}"
-    
-    echo "   ✅ Certificate Authority created"
-    echo "   ⚠️  Remember to add CA certificate to your devices' trust stores"
+# --- SSL Certificate generation ---
+# In Let's Encrypt mode Traefik handles certificates automatically; skip OpenSSL.
+if [ "${TRAEFIK_CERT_RESOLVER}" = "letsencrypt" ]; then
+  echo "   ✅ Let's Encrypt mode — Traefik will obtain certificates automatically"
+  echo "   ℹ️  Make sure CF_DNS_API_TOKEN is set correctly in .env"
 else
-    echo "   ✅ Certificate Authority already exists"
-fi
+  # Create Certificate Authority if needed
+  if [ ! -f "$CA_KEY_OUT" ] || [ ! -f "$CA_CERT_OUT" ]; then
+      echo "   Creating Certificate Authority..."
 
-# Generate server certificate
-echo "   Generating server certificate..."
-cat <<EOF > "$CONF_FILE"
+      # Generate the CA's private key
+      sudo openssl genrsa -out "${CA_KEY_OUT}" "${KEY_BITS}"
+
+      # Compute CA subject: prefer HOMELAB_USERNAME (from .env), then USERNAME (interactive), then system user
+      CA_SUBJECT="${HOMELAB_USERNAME} Homelab CA"
+
+      # Generate the CA's self-signed root certificate using the computed subject
+      sudo openssl req -x509 -new -nodes -key "${CA_KEY_OUT}" -sha256 -days "${CERT_DAYS}" \
+          -out "${CA_CERT_OUT}" \
+          -subj "/CN=${CA_SUBJECT}"
+      
+      echo "   ✅ Certificate Authority created"
+      echo "   ⚠️  Remember to add CA certificate to your devices' trust stores"
+  else
+      echo "   ✅ Certificate Authority already exists"
+  fi
+
+  # Generate server certificate
+  echo "   Generating server certificate..."
+  cat <<EOF > "$CONF_FILE"
 [req]
 default_bits = ${KEY_BITS}
 prompt = no
@@ -230,42 +261,47 @@ subjectAltName = @alt_names
 [alt_names]
 EOF
 
-# Dynamically add SAN domains to the config file
-for i in "${!SAN_DOMAINS[@]}"; do
-    echo "DNS.$((i+1)) = ${SAN_DOMAINS[$i]}" >> "$CONF_FILE"
-done
+  # Dynamically add SAN domains to the config file
+  for i in "${!SAN_DOMAINS[@]}"; do
+      echo "DNS.$((i+1)) = ${SAN_DOMAINS[$i]}" >> "$CONF_FILE"
+  done
 
-# Generate server private key and certificate
-sudo openssl genrsa -out "${KEY_OUT}" "${KEY_BITS}"
-sudo openssl req -new -key "${KEY_OUT}" -out "${CSR_OUT}" -config "${CONF_FILE}"
-sudo openssl x509 -req -in "${CSR_OUT}" \
-    -CA "${CA_CERT_OUT}" -CAkey "${CA_KEY_OUT}" -CAcreateserial \
-    -out "${CERT_OUT}" -days "${CERT_DAYS}" -sha256 \
-    -extfile "${CONF_FILE}" -extensions v3_req
+  # Generate server private key and certificate
+  sudo openssl genrsa -out "${KEY_OUT}" "${KEY_BITS}"
+  sudo openssl req -new -key "${KEY_OUT}" -out "${CSR_OUT}" -config "${CONF_FILE}"
+  sudo openssl x509 -req -in "${CSR_OUT}" \
+      -CA "${CA_CERT_OUT}" -CAkey "${CA_KEY_OUT}" -CAcreateserial \
+      -out "${CERT_OUT}" -days "${CERT_DAYS}" -sha256 \
+      -extfile "${CONF_FILE}" -extensions v3_req
 
-# Set secure permissions
-sudo chmod 644 "${KEY_OUT}"
-sudo chmod 644 "${CA_KEY_OUT}"
+  # Set secure permissions
+  sudo chmod 644 "${KEY_OUT}"
+  sudo chmod 644 "${CA_KEY_OUT}"
 
-# Try to install CA in system trust store
-if [ -f "${CA_CERT_OUT}" ]; then
-    if [ -d /etc/ca-certificates/trust-source/anchors ] && command -v trust >/dev/null 2>&1; then
-        sudo cp "${CA_CERT_OUT}" /etc/ca-certificates/trust-source/anchors/ && sudo trust extract-compat >/dev/null 2>&1 || true
-    elif command -v update-ca-certificates >/dev/null 2>&1; then
-        dest="/usr/local/share/ca-certificates/$(basename "${CA_CERT_OUT}")"
-        sudo cp "${CA_CERT_OUT}" "${dest}" && sudo update-ca-certificates >/dev/null 2>&1 || true
-    elif [ -d /etc/pki/ca-trust/source/anchors ] && command -v update-ca-trust >/dev/null 2>&1; then
-        sudo cp "${CA_CERT_OUT}" /etc/pki/ca-trust/source/anchors/ && sudo update-ca-trust extract >/dev/null 2>&1 || true
-    elif [ "$(uname)" = "Darwin" ] && command -v security >/dev/null 2>&1; then
-        sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "${CA_CERT_OUT}" >/dev/null 2>&1 || true
-    fi
+  # Create stable-named copies for Traefik's dynamic_conf.yml
+  sudo cp "${CERT_OUT}" "${CERTS_DIR}/homelab.crt"
+  sudo cp "${KEY_OUT}" "${CERTS_DIR}/homelab.key"
+
+  # Try to install CA in system trust store
+  if [ -f "${CA_CERT_OUT}" ]; then
+      if [ -d /etc/ca-certificates/trust-source/anchors ] && command -v trust >/dev/null 2>&1; then
+          sudo cp "${CA_CERT_OUT}" /etc/ca-certificates/trust-source/anchors/ && sudo trust extract-compat >/dev/null 2>&1 || true
+      elif command -v update-ca-certificates >/dev/null 2>&1; then
+          dest="/usr/local/share/ca-certificates/$(basename "${CA_CERT_OUT}")"
+          sudo cp "${CA_CERT_OUT}" "${dest}" && sudo update-ca-certificates >/dev/null 2>&1 || true
+      elif [ -d /etc/pki/ca-trust/source/anchors ] && command -v update-ca-trust >/dev/null 2>&1; then
+          sudo cp "${CA_CERT_OUT}" /etc/pki/ca-trust/source/anchors/ && sudo update-ca-trust extract >/dev/null 2>&1 || true
+      elif [ "$(uname)" = "Darwin" ] && command -v security >/dev/null 2>&1; then
+          sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "${CA_CERT_OUT}" >/dev/null 2>&1 || true
+      fi
+  fi
+
+  echo "   ✅ SSL certificates ready"
+
+  # --- Clean up temporary files ---
+  sudo rm "$CONF_FILE"
+  sudo rm "$CSR_OUT"
 fi
-
-echo "   ✅ SSL certificates ready"
-
-# --- Clean up temporary files ---
-sudo rm "$CONF_FILE"
-sudo rm "$CSR_OUT"
 
 
 echo ""
@@ -726,5 +762,11 @@ fi
 echo "🌐 Web Access:"
 echo "   https://${HOMELAB_HOSTNAME}"
 echo ""
-echo "⚠️  Remember to add the CA certificate to your devices' trust stores!"
-echo "   CA Certificate: ${CA_CERT_OUT}"
+if [ "${TRAEFIK_CERT_RESOLVER}" = "letsencrypt" ]; then
+  echo "🔒 SSL Mode: Let's Encrypt (Cloudflare DNS-01)"
+  echo "   Traefik will automatically obtain and renew certificates."
+else
+  echo "🔒 SSL Mode: Self-signed (private)"
+  echo "⚠️  Remember to add the CA certificate to your devices' trust stores!"
+  echo "   CA Certificate: ${CA_CERT_OUT}"
+fi

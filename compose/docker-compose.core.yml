@@ -1,32 +1,28 @@
 # compose/docker-compose.core.yml
 services:
-  nginx:
-    build:
-      context: ..
-      dockerfile: nginx/Dockerfile
-    container_name: nginx
+  traefik:
+    image: traefik:v3
+    container_name: traefik
     restart: on-failure
     ports:
       - "80:80"
       - "443:443"
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ../traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ../traefik/dynamic_conf.yml:/etc/traefik/dynamic_conf.yml:ro
       - ../volumes/certificates:/etc/ssl/homelab:ro
+      - ../volumes/traefik/acme.json:/etc/traefik/acme.json
     networks:
       homelab-net:
         ipv4_address: 10.10.30.100
     environment:
-      - HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
-      - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
-      - PIHOLE_WEB_HOSTNAME=${PIHOLE_WEB_HOSTNAME}
-      - NETDATA_WEB_HOSTNAME=${NETDATA_WEB_HOSTNAME}
-      - PORTAINER_WEB_HOSTNAME=${PORTAINER_WEB_HOSTNAME}
-      - VAULTWARDEN_WEB_HOSTNAME=${VAULTWARDEN_WEB_HOSTNAME}
-      - UPTIME_KUMA_WEB_HOSTNAME=${UPTIME_KUMA_WEB_HOSTNAME}
-      - NTFY_WEB_HOSTNAME=${NTFY_WEB_HOSTNAME}
-      - LLDAP_WEB_HOSTNAME=${LLDAP_WEB_HOSTNAME}
-      - AUTHELIA_WEB_HOSTNAME=${AUTHELIA_WEB_HOSTNAME}
+      # Cloudflare DNS API token — required when TRAEFIK_CERT_RESOLVER=letsencrypt
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
+      # ACME e-mail address — overrides the empty default in traefik.yml
+      - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL=${HOMELAB_USERNAME}@${HOMELAB_HOSTNAME}
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "--no-check-certificate", "https://localhost/healthz"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/ping"]
       interval: 1m
       timeout: 10s
       retries: 3

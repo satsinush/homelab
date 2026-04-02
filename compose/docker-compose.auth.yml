@@ -38,6 +38,13 @@ services:
         condition: service_healthy
     extra_hosts:
       - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authelia.rule=Host(`${AUTHELIA_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.authelia.entrypoints=websecure"
+      - "traefik.http.routers.authelia.tls=true"
+      - "traefik.http.routers.authelia.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.services.authelia.loadbalancer.server.port=9091"
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9091/api/health"]
       interval: 1m
@@ -74,6 +81,13 @@ services:
       - LLDAP_LDAP_BASE_DN=${LLDAP_LDAP_BASE_DN}
       - LLDAP_LDAP_USER_PASS=${LLDAP_LDAP_USER_PASS}
       - LLDAP_HTTP_URL=https://${LLDAP_WEB_HOSTNAME}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lldap.rule=Host(`${LLDAP_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.lldap.entrypoints=websecure"
+      - "traefik.http.routers.lldap.tls=true"
+      - "traefik.http.routers.lldap.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.services.lldap.loadbalancer.server.port=17170"
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:17170/health"]
       interval: 1m

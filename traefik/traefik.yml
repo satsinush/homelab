@@ -1,0 +1,61 @@
+# Traefik v3 Static Configuration
+
+log:
+  level: INFO
+
+accessLog: {}
+
+# Internal API / healthcheck endpoint (not published to host)
+api:
+  dashboard: false
+
+ping:
+  entryPoint: ping
+
+entryPoints:
+  # Internal-only ping endpoint for healthchecks
+  ping:
+    address: ":8082"
+
+  # HTTP — global redirect to HTTPS
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+
+  # HTTPS
+  websecure:
+    address: ":443"
+
+providers:
+  # Docker provider — discovers services by reading container labels
+  docker:
+    network: homelab-net
+    exposedByDefault: false
+    watch: true
+
+  # File provider — loads the Authelia middleware definition and the
+  # default (self-signed) TLS certificate for private / manual mode
+  file:
+    filename: /etc/traefik/dynamic_conf.yml
+    watch: true
+
+# Let's Encrypt ACME resolver using DNS-01 challenge (Cloudflare).
+# The API token is supplied via the CF_DNS_API_TOKEN environment variable.
+# The ACME e-mail is injected at runtime via
+#   TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL
+# so it does not need to be hard-coded here.
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      storage: /etc/traefik/acme.json
+      dnsChallenge:
+        provider: cloudflare
+        # Use public resolvers so Cloudflare propagation is verified correctly
+        resolvers:
+          - "1.1.1.1:53"
+          - "8.8.8.8:53"
