@@ -81,6 +81,16 @@ class UserController {
             req.session.oidc_code_verifier = code_verifier;
             req.session.oidc_state = state;
 
+            await new Promise((resolve, reject) => {
+                req.session.save((err) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve();
+                });
+            });
+
             // Build authorization URL parameters
             const redirect_uri = `https://${process.env.DASHBOARD_WEB_HOSTNAME}/api/users/sso-callback`;
             const scope = 'openid profile email groups offline_access homelab_dashboard';
@@ -176,6 +186,16 @@ class UserController {
             // Clean up OIDC session data
             delete req.session.oidc_state;
             delete req.session.oidc_code_verifier;
+
+            await new Promise((resolve, reject) => {
+                req.session.save((err) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve();
+                });
+            });
 
             console.log('OIDC authentication successful for', user.username);
             return res.redirect('/');

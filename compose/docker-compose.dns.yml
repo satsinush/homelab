@@ -13,7 +13,7 @@ services:
       - FTLCONF_dns_domain=${DNS_DOMAIN}
       - FTLCONF_dns_piholePTR=HOSTNAMEFQDN
       - FTLCONF_webserver_domain=${PIHOLE_WEB_HOSTNAME}
-      - FTLCONF_dns_listeningMode=ALL
+      - FTLCONF_dns_listeningMode=all
       - FTLCONF_webserver_port=80
       - DNSMASQ_LISTENING=all
       - FTLCONF_webserver_api_password=

@@ -70,3 +70,7 @@ For a completely clean restore, follow these steps:
 
   * The `./backups` directory should be added to your `.gitignore` file.
   * For true disaster recovery, you should regularly copy your backups to an off-site location (e.g., cloud storage, a separate NAS, or an external drive).
+
+
+## Next: 6\. 🧑💻 Development
+[Continue to the next section of the guide for detailed instructions on development tasks and contributing to the project.](./6-development.md)

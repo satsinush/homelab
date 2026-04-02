@@ -91,3 +91,6 @@ Execute the main setup script. It will prompt you to create a username and passw
 > **⚠️ Important**: The setup script creates a user-specific email address. You **must** use this email for services like Vaultwarden and Authelia to receive notifications via Ntfy, otherwise you risk not being able to reset your password if needed. Your notification topic in Ntfy is `YOUR USERNAME`.
 
 > **ℹ️ Tip**: You can run this script again at any time to recreate SSL certificates. The CA certificate will not be affected and all other settings will stay the same.
+
+## Next: 4\. ✅ Post-Installation Checklist
+[Continue to the next section of the guide for detailed instructions on post-installation tasks and final checks.](./4-checklist.md)
