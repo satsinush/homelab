@@ -124,10 +124,27 @@ if [ ! -f .env ]; then
 
   if [ "$HAS_PUBLIC_DOMAIN" = "y" ] || [ "$HAS_PUBLIC_DOMAIN" = "Y" ]; then
     read -p "   Cloudflare DNS API token (DNS:Edit permission): " CF_DNS_API_TOKEN_INPUT
+    echo ""
+    echo "   Let's Encrypt requires a valid e-mail address for certificate expiry notices."
+    echo "   💡 Tip: You can also use ${USERNAME}@<your-domain> and set up Cloudflare Email"
+    echo "      Routing to forward it to your real inbox (see README for instructions)."
+    while true; do
+      read -p "   ACME e-mail address: " ACME_EMAIL_INPUT
+      # Basic sanity check: must contain exactly one '@' and at least one '.' after it
+      if echo "$ACME_EMAIL_INPUT" | grep -qE '^[^@]+@[^@]+\.[^@]+$'; then
+        break
+      else
+        echo "   ⚠️  That doesn't look like a valid e-mail address. Please try again."
+      fi
+    done
     sed -i "s|TRAEFIK_CERT_RESOLVER=''|TRAEFIK_CERT_RESOLVER='letsencrypt'|g" "$OUTPUT_FILE"
     sed -i "s|CF_DNS_API_TOKEN=''|CF_DNS_API_TOKEN='$CF_DNS_API_TOKEN_INPUT'|g" "$OUTPUT_FILE"
+    sed -i "s|<acme-email>|$ACME_EMAIL_INPUT|g" "$OUTPUT_FILE"
     echo "   ✅ Let's Encrypt (Cloudflare DNS-01) mode configured"
   else
+    # Private mode: derive a local email from the username and homelab hostname.
+    # Let's Encrypt is not used here, so no real address is needed.
+    sed -i "s|<acme-email>|${USERNAME}@$(grep '^HOMELAB_HOSTNAME=' "$OUTPUT_FILE" | head -1 | cut -d= -f2- | tr -d "'")|g" "$OUTPUT_FILE"
     echo "   ✅ Self-signed certificate mode configured"
   fi
 

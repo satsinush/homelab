@@ -61,6 +61,25 @@ This project bundles several open-source services, managed via `docker-compose`,
 
 > **Note:** The token is stored in `.env` as `CF_DNS_API_TOKEN` and is passed to the Traefik container at runtime. It is never committed to version control (`.env` is listed in `.gitignore`).
 
+#### ACME Email Address (Public mode)
+
+Let's Encrypt requires a valid email address to send certificate expiry warnings. `setup.sh` will prompt you for this address and validates its format before writing it to `.env` as `ACME_EMAIL`.
+
+**Option A — Use your regular email** (simplest): just type your personal address when prompted.
+
+**Option B — Use `<username>@<your-domain>` with Cloudflare Email Routing** (keeps your real inbox private):
+
+Cloudflare's free [Email Routing](https://developers.cloudflare.com/email-routing/) service can forward any address at your domain to your real inbox with no mail server required.
+
+1. In the Cloudflare Dashboard, select your zone and go to **Email → Email Routing**.
+2. Click **Enable Email Routing** and follow the wizard to add the required MX / TXT DNS records.
+3. Under **Custom addresses**, click **Create address**:
+   - **Custom address:** `<your-username>` (e.g. `alice`)
+   - **Destination:** your real email address
+4. When `setup.sh` prompts for the ACME email, enter `<username>@<your-domain>` (e.g. `alice@example.com`).
+
+Cloudflare will forward any Let's Encrypt notifications sent to that address to your real inbox automatically.
+
 ### Infrastructure Diagram
 
 ```mermaid

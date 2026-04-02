@@ -19,8 +19,8 @@ services:
     environment:
       # Cloudflare DNS API token — required when TRAEFIK_CERT_RESOLVER=letsencrypt
       - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
-      # ACME e-mail address — overrides the empty default in traefik.yml
-      - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL=${HOMELAB_USERNAME}@${HOMELAB_HOSTNAME}
+      # ACME e-mail address for Let's Encrypt certificate expiry notifications
+      - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL=${ACME_EMAIL}
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/ping"]
       interval: 1m
