@@ -64,13 +64,22 @@ services:
       - NTFY_ADMIN_TOKENS=${NTFY_ADMIN_TOKENS}
     labels:
       - "traefik.enable=true"
-      # Primary dashboard route
-      - "traefik.http.routers.dashboard.rule=Host(`${DASHBOARD_WEB_HOSTNAME}`) || Host(`${HOMELAB_HOSTNAME}`)"
+      # Canonical dashboard route
+      - "traefik.http.routers.dashboard.rule=Host(`${DASHBOARD_WEB_HOSTNAME}`)"
       - "traefik.http.routers.dashboard.entrypoints=websecure"
       - "traefik.http.routers.dashboard.tls=true"
       - "traefik.http.routers.dashboard.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
       - "traefik.http.routers.dashboard.middlewares=authelia@file"
       - "traefik.http.services.dashboard.loadbalancer.server.port=5000"
+      - "traefik.http.routers.dashboard-redirect.rule=Host(`${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.dashboard-redirect.entrypoints=websecure"
+      - "traefik.http.routers.dashboard-redirect.tls=true"
+      - "traefik.http.routers.dashboard-redirect.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.routers.dashboard-redirect.middlewares=dashboard-redirect-to-canonical@docker"
+      - "traefik.http.routers.dashboard-redirect.service=dashboard"
+      - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.regex=^https?://${HOMELAB_HOSTNAME}(.*)"
+      - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.replacement=https://${DASHBOARD_WEB_HOSTNAME}$${1}"
+      - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.permanent=true"
     depends_on:
       authelia:
         condition: service_healthy

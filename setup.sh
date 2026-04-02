@@ -228,13 +228,19 @@ AUTHELIA_KEY="${AUTHELIA_DIR}/private.pem"
 mkdir -p "$AUTHELIA_DIR"
 if [ ! -f "${AUTHELIA_KEY}" ]; then
   echo "   Generating Authelia private key..."
-  touch "${AUTHELIA_KEY}"
-  sudo openssl genrsa -out "${AUTHELIA_KEY}" 4096
-  sudo chmod 600 "${AUTHELIA_KEY}"
+  openssl genrsa -out "${AUTHELIA_KEY}" 4096
+  chmod 600 "${AUTHELIA_KEY}"
   echo "   ✅ Authelia key created"
 else
   echo "   ✅ Authelia key already exists"
 fi
+
+# Ensure the current user can read the key so Docker build context includes it.
+if [ "$(stat -c %u "${AUTHELIA_KEY}")" -ne "$(id -u)" ]; then
+  echo "   Fixing Authelia key ownership for current user..."
+  sudo chown "$(id -u):$(id -g)" "${AUTHELIA_KEY}"
+fi
+chmod 600 "${AUTHELIA_KEY}"
 
 # Copy example-data/kuma.db to data/kuma.db if it doesn't already exist
 EXAMPLE_DB="./uptime-kuma/example-data/kuma.db"
