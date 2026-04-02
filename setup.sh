@@ -197,6 +197,8 @@ CA_CERT_OUT="${CERTS_DIR}/homelab-ca.crt"
 # Server Certificate files
 KEY_OUT="${CERTS_DIR}/${HOMELAB_HOSTNAME}.key"
 CERT_OUT="${CERTS_DIR}/${HOMELAB_HOSTNAME}.crt"
+FALLBACK_KEY_OUT="${CERTS_DIR}/homelab.key"
+FALLBACK_CERT_OUT="${CERTS_DIR}/homelab.crt"
 CSR_OUT="/tmp/${HOMELAB_HOSTNAME}.csr"
 CONF_FILE="/tmp/server_ssl_config.cnf"
 
@@ -212,6 +214,16 @@ declare -a SAN_DOMAINS=(
 
 # --- Ensure SSL directory exists ---
 mkdir -p "$CERTS_DIR"
+
+# Repair accidental directory/file path conflicts from previous runs.
+for cert_path in "$CA_CERT_OUT" "$CA_KEY_OUT" "$KEY_OUT" "$CERT_OUT" "$FALLBACK_KEY_OUT" "$FALLBACK_CERT_OUT"; do
+  if [ -d "$cert_path" ]; then
+    ts=$(date +%Y%m%d-%H%M%S)
+    echo "   ⚠️  Found directory where file expected: $cert_path"
+    mv "$cert_path" "${cert_path}.bak.${ts}"
+    echo "   ✅ Moved to ${cert_path}.bak.${ts}"
+  fi
+done
 
 # --- Ensure Traefik ACME storage file exists (required even in private mode) ---
 TRAEFIK_DIR="./volumes/traefik"
@@ -260,6 +272,19 @@ fi
 if [ "${TRAEFIK_CERT_RESOLVER}" = "letsencrypt" ]; then
   echo "   ✅ Let's Encrypt mode — Traefik will obtain certificates automatically"
   echo "   ℹ️  Make sure CF_DNS_API_TOKEN is set correctly in .env"
+
+  # Traefik dynamic config references a default TLS certificate for fallback.
+  # Ensure it exists even when ACME/Let's Encrypt mode is used.
+  if [ ! -s "$FALLBACK_CERT_OUT" ] || [ ! -s "$FALLBACK_KEY_OUT" ]; then
+    echo "   Generating fallback Traefik TLS certificate..."
+    openssl req -x509 -newkey rsa:2048 -sha256 -days 365 -nodes \
+      -keyout "$FALLBACK_KEY_OUT" \
+      -out "$FALLBACK_CERT_OUT" \
+      -subj "/CN=${HOMELAB_HOSTNAME}" >/dev/null 2>&1
+    chmod 600 "$FALLBACK_KEY_OUT"
+    chmod 644 "$FALLBACK_CERT_OUT"
+    echo "   ✅ Fallback Traefik TLS certificate ready"
+  fi
 else
   # Create Certificate Authority if needed
   if [ ! -f "$CA_KEY_OUT" ] || [ ! -f "$CA_CERT_OUT" ]; then
@@ -319,8 +344,8 @@ EOF
   sudo chmod 644 "${CA_KEY_OUT}"
 
   # Create stable-named copies for Traefik's dynamic_conf.yml
-  sudo cp "${CERT_OUT}" "${CERTS_DIR}/homelab.crt"
-  sudo cp "${KEY_OUT}" "${CERTS_DIR}/homelab.key"
+  sudo cp "${CERT_OUT}" "${FALLBACK_CERT_OUT}"
+  sudo cp "${KEY_OUT}" "${FALLBACK_KEY_OUT}"
 
   # Try to install CA in system trust store
   if [ -f "${CA_CERT_OUT}" ]; then
