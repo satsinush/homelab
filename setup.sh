@@ -140,11 +140,16 @@ if [ ! -f .env ]; then
     sed -i "s|TRAEFIK_CERT_RESOLVER=''|TRAEFIK_CERT_RESOLVER='letsencrypt'|g" "$OUTPUT_FILE"
     sed -i "s|CF_DNS_API_TOKEN=''|CF_DNS_API_TOKEN='$CF_DNS_API_TOKEN_INPUT'|g" "$OUTPUT_FILE"
     sed -i "s|<acme-email>|$ACME_EMAIL_INPUT|g" "$OUTPUT_FILE"
+    # Also export to the current shell so the cert-generation block below can read it
+    # without relying solely on the .env load that follows.
+    TRAEFIK_CERT_RESOLVER="letsencrypt"
     echo "   ✅ Let's Encrypt (Cloudflare DNS-01) mode configured"
   else
     # Private mode: derive a local email from the username and homelab hostname.
     # Let's Encrypt is not used here, so no real address is needed.
-    sed -i "s|<acme-email>|${USERNAME}@$(grep '^HOMELAB_HOSTNAME=' "$OUTPUT_FILE" | head -1 | cut -d= -f2- | tr -d "'")|g" "$OUTPUT_FILE"
+    HOMELAB_HOSTNAME_VALUE=$(grep '^HOMELAB_HOSTNAME=' "$OUTPUT_FILE" | head -1 | cut -d= -f2- | tr -d "'")
+    sed -i "s|<acme-email>|${USERNAME}@${HOMELAB_HOSTNAME_VALUE}|g" "$OUTPUT_FILE"
+    TRAEFIK_CERT_RESOLVER=""
     echo "   ✅ Self-signed certificate mode configured"
   fi
 
