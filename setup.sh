@@ -58,6 +58,15 @@ if [ ! -f .env ]; then
   read -p "                           PUID: " PUID
   read -p "                           PGID: " PGID
 
+  echo ""
+  echo "   Enter homelab hostname (e.g. homelab.home.arpa for a private local domain,"
+  echo "   or your-domain.com if you have a public domain with Cloudflare):"
+  read -p "              Homelab Hostname [homelab.home.arpa]: " HOMELAB_HOSTNAME_INPUT
+  HOMELAB_HOSTNAME_INPUT="${HOMELAB_HOSTNAME_INPUT:-homelab.home.arpa}"
+  # Derive DNS_DOMAIN (everything after the first label) and LLDAP Base DN
+  DNS_DOMAIN_INPUT="${HOMELAB_HOSTNAME_INPUT#*.}"
+  LLDAP_BASE_DN_INPUT=$(echo "$HOMELAB_HOSTNAME_INPUT" | sed 's/\./,dc=/g; s/^/dc=/')
+
   echo "   Generating security tokens..."
   # Generate bcrypt password
   BCRYPT_PASSWORD=$(htpasswd -nbBC 10 "" "$PASSWORD" | tr -d ':' )
@@ -114,6 +123,9 @@ if [ ! -f .env ]; then
   sed -i "s|<ip-address>|$IP_ADDRESS|g" "$OUTPUT_FILE"
   sed -i "s|<PUID>|$PUID|g" "$OUTPUT_FILE"
   sed -i "s|<PGID>|$PGID|g" "$OUTPUT_FILE"
+  sed -i "s|<homelab-hostname>|$HOMELAB_HOSTNAME_INPUT|g" "$OUTPUT_FILE"
+  sed -i "s|<dns-domain>|$DNS_DOMAIN_INPUT|g" "$OUTPUT_FILE"
+  sed -i "s|<lldap-base-dn>|$LLDAP_BASE_DN_INPUT|g" "$OUTPUT_FILE"
 
   echo ""
   echo "   SSL Certificate Mode:"
@@ -126,7 +138,7 @@ if [ ! -f .env ]; then
     read -p "   Cloudflare DNS API token (DNS:Edit permission): " CF_DNS_API_TOKEN_INPUT
     echo ""
     echo "   Let's Encrypt requires a valid e-mail address for certificate expiry notices."
-    echo "   💡 Tip: You can also use ${USERNAME}@<your-domain> and set up Cloudflare Email"
+    echo "   💡 Tip: You can also use ${USERNAME}@${HOMELAB_HOSTNAME_INPUT} and set up Cloudflare Email"
     echo "      Routing to forward it to your real inbox (see README for instructions)."
     while true; do
       read -p "   ACME e-mail address: " ACME_EMAIL_INPUT
@@ -147,8 +159,7 @@ if [ ! -f .env ]; then
   else
     # Private mode: derive a local email from the username and homelab hostname.
     # Let's Encrypt is not used here, so no real address is needed.
-    HOMELAB_HOSTNAME_VALUE=$(grep '^HOMELAB_HOSTNAME=' "$OUTPUT_FILE" | head -1 | cut -d= -f2- | tr -d "'")
-    sed -i "s|<acme-email>|${USERNAME}@${HOMELAB_HOSTNAME_VALUE}|g" "$OUTPUT_FILE"
+    sed -i "s|<acme-email>|${USERNAME}@${HOMELAB_HOSTNAME_INPUT}|g" "$OUTPUT_FILE"
     TRAEFIK_CERT_RESOLVER=""
     echo "   ✅ Self-signed certificate mode configured"
   fi
@@ -184,18 +195,11 @@ CONF_FILE="/tmp/server_ssl_config.cnf"
 # --- Certificate Details ---
 COMMON_NAME="${HOMELAB_HOSTNAME}"
 
-# List all Subject Alternative Names (SANs) for the server certificate.
+# Subject Alternative Names for the server certificate.
+# A wildcard covers all immediate subdomains; the bare hostname is listed explicitly.
 declare -a SAN_DOMAINS=(
+    "*.${HOMELAB_HOSTNAME}"
     "${HOMELAB_HOSTNAME}"
-    "${DASHBOARD_WEB_HOSTNAME}"
-    "${PIHOLE_WEB_HOSTNAME}"
-    "${NETDATA_WEB_HOSTNAME}"
-    "${PORTAINER_WEB_HOSTNAME}"
-    "${VAULTWARDEN_WEB_HOSTNAME}"
-    "${UPTIME_KUMA_WEB_HOSTNAME}"
-    "${NTFY_WEB_HOSTNAME}"
-    "${AUTHELIA_WEB_HOSTNAME}"
-    "${LLDAP_WEB_HOSTNAME}"
 )
 
 # --- Ensure SSL directory exists ---
