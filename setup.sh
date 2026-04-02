@@ -61,8 +61,16 @@ if [ ! -f .env ]; then
   echo ""
   echo "   Enter homelab hostname (e.g. homelab.home.arpa for a private local domain,"
   echo "   or your-domain.com if you have a public domain with Cloudflare):"
-  read -p "              Homelab Hostname [homelab.home.arpa]: " HOMELAB_HOSTNAME_INPUT
-  HOMELAB_HOSTNAME_INPUT="${HOMELAB_HOSTNAME_INPUT:-homelab.home.arpa}"
+  while true; do
+    read -p "              Homelab Hostname [homelab.home.arpa]: " HOMELAB_HOSTNAME_INPUT
+    HOMELAB_HOSTNAME_INPUT="${HOMELAB_HOSTNAME_INPUT:-homelab.home.arpa}"
+    # Must contain at least one dot (two labels minimum)
+    if echo "$HOMELAB_HOSTNAME_INPUT" | grep -qE '^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$'; then
+      break
+    else
+      echo "   ⚠️  That doesn't look like a valid hostname (e.g. homelab.home.arpa). Please try again."
+    fi
+  done
   # Derive DNS_DOMAIN (everything after the first label) and LLDAP Base DN
   DNS_DOMAIN_INPUT="${HOMELAB_HOSTNAME_INPUT#*.}"
   LLDAP_BASE_DN_INPUT=$(echo "$HOMELAB_HOSTNAME_INPUT" | sed 's/\./,dc=/g; s/^/dc=/')
@@ -142,8 +150,8 @@ if [ ! -f .env ]; then
     echo "      Routing to forward it to your real inbox (see README for instructions)."
     while true; do
       read -p "   ACME e-mail address: " ACME_EMAIL_INPUT
-      # Basic sanity check: must contain exactly one '@' and at least one '.' after it
-      if echo "$ACME_EMAIL_INPUT" | grep -qE '^[^@]+@[^@]+\.[^@]+$'; then
+      # local-part@domain: local-part is non-empty with no '@', domain has at least one label with a dot
+      if echo "$ACME_EMAIL_INPUT" | grep -qE '^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$'; then
         break
       else
         echo "   ⚠️  That doesn't look like a valid e-mail address. Please try again."
