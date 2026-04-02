@@ -13,7 +13,9 @@ ping:
   entryPoint: ping
 
 entryPoints:
-  # Internal-only ping endpoint for healthchecks
+  # Internal-only ping endpoint for container healthchecks.
+  # Port 8082 is NOT published to the host (only 80 and 443 are exposed in docker-compose),
+  # so it is only reachable within the homelab-net Docker network.
   ping:
     address: ":8082"
 

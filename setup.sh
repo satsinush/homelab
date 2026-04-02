@@ -119,7 +119,7 @@ if [ ! -f .env ]; then
   echo "   SSL Certificate Mode:"
   echo "   Traefik supports two modes:"
   echo "     • Public  (y) — Let's Encrypt via Cloudflare DNS-01; requires a public domain"
-  echo "     •          (n) — Self-signed CA generated locally (no public domain needed)"
+  echo "     • Private (n) — Self-signed CA generated locally (no public domain needed)"
   read -p "   Do you have a public domain with Cloudflare DNS? (y/n): " HAS_PUBLIC_DOMAIN
 
   if [ "$HAS_PUBLIC_DOMAIN" = "y" ] || [ "$HAS_PUBLIC_DOMAIN" = "Y" ]; then

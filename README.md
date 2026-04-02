@@ -120,7 +120,6 @@ graph TD
     Traefik --> Dashboard
     Traefik --> Netdata
     Traefik --> UptimeKuma
-    Traefik --> Ntfy
 
     Authelia --> LLDAP
 
