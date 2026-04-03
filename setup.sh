@@ -258,17 +258,17 @@ else
 fi
 
 # --- SSL Certificate generation ---
+# Ensure placeholder CA cert file exists so Docker doesn't create it as a directory when mounting.
+# This is needed for services like vaultwarden and uptime-kuma in both Let's Encrypt and self-signed modes.
+if [ ! -f "$CA_CERT_OUT" ]; then
+  touch "$CA_CERT_OUT"
+  chmod 644 "$CA_CERT_OUT"
+fi
+
 # In Let's Encrypt mode Traefik handles certificates automatically; skip OpenSSL.
 if [ "${TRAEFIK_CERT_RESOLVER}" = "letsencrypt" ]; then
   echo "   ✅ Let's Encrypt mode — Traefik will obtain certificates automatically"
   echo "   ℹ️  Make sure CF_DNS_API_TOKEN is set correctly in .env"
-
-  # Docker Compose will mount homelab-ca.crt if it exists as a file (not directory).
-  # Create an empty placeholder so Docker doesn't create it as a directory.
-  if [ ! -f "$CA_CERT_OUT" ]; then
-    touch "$CA_CERT_OUT"
-    chmod 644 "$CA_CERT_OUT"
-  fi
 
   # Traefik dynamic config references a default TLS certificate for fallback.
   # Ensure it exists even when ACME/Let's Encrypt mode is used.
