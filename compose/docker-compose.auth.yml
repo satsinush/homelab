@@ -31,7 +31,6 @@ services:
     networks:
       - homelab-net
     volumes:
-      - ../volumes/authelia/private.pem:/config/jwks/private.pem
       - authelia_data:/var/lib/authelia
     depends_on:
       lldap:
