@@ -215,16 +215,6 @@ declare -a SAN_DOMAINS=(
 # --- Ensure SSL directory exists ---
 mkdir -p "$CERTS_DIR"
 
-# Repair accidental directory/file path conflicts from previous runs.
-for cert_path in "$CA_CERT_OUT" "$CA_KEY_OUT" "$KEY_OUT" "$CERT_OUT" "$FALLBACK_KEY_OUT" "$FALLBACK_CERT_OUT"; do
-  if [ -d "$cert_path" ]; then
-    ts=$(date +%Y%m%d-%H%M%S)
-    echo "   ⚠️  Found directory where file expected: $cert_path"
-    mv "$cert_path" "${cert_path}.bak.${ts}"
-    echo "   ✅ Moved to ${cert_path}.bak.${ts}"
-  fi
-done
-
 # --- Ensure Traefik ACME storage file exists (required even in private mode) ---
 TRAEFIK_DIR="./volumes/traefik"
 mkdir -p "$TRAEFIK_DIR"
@@ -272,6 +262,13 @@ fi
 if [ "${TRAEFIK_CERT_RESOLVER}" = "letsencrypt" ]; then
   echo "   ✅ Let's Encrypt mode — Traefik will obtain certificates automatically"
   echo "   ℹ️  Make sure CF_DNS_API_TOKEN is set correctly in .env"
+
+  # Docker Compose will mount homelab-ca.crt if it exists as a file (not directory).
+  # Create an empty placeholder so Docker doesn't create it as a directory.
+  if [ ! -f "$CA_CERT_OUT" ]; then
+    touch "$CA_CERT_OUT"
+    chmod 644 "$CA_CERT_OUT"
+  fi
 
   # Traefik dynamic config references a default TLS certificate for fallback.
   # Ensure it exists even when ACME/Let's Encrypt mode is used.
