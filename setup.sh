@@ -59,11 +59,32 @@ if [ ! -f .env ]; then
   read -p "                           PGID: " PGID
 
   echo ""
-  echo "   Enter homelab hostname (e.g. homelab.home.arpa for a private local domain,"
-  echo "   or your-domain.com if you have a public domain with Cloudflare):"
+  echo "   SSL Certificate Mode:"
+  echo "   Traefik supports two modes:"
+  echo "     • Public  (y) — Let's Encrypt via Cloudflare DNS-01; requires a public domain"
+  echo "     • Private (n) — Self-signed CA generated locally (no public domain needed)"
   while true; do
-    read -p "              Homelab Hostname [homelab.home.arpa]: " HOMELAB_HOSTNAME_INPUT
-    HOMELAB_HOSTNAME_INPUT="${HOMELAB_HOSTNAME_INPUT:-homelab.home.arpa}"
+    read -p "   Do you have a public domain with Cloudflare DNS? (y/n): " HAS_PUBLIC_DOMAIN
+    if [ "$HAS_PUBLIC_DOMAIN" = "y" ] || [ "$HAS_PUBLIC_DOMAIN" = "Y" ] || [ "$HAS_PUBLIC_DOMAIN" = "n" ] || [ "$HAS_PUBLIC_DOMAIN" = "N" ]; then
+      break
+    else
+      echo "   ⚠️  Please answer with y or n."
+    fi
+  done
+
+  echo ""
+  if [ "$HAS_PUBLIC_DOMAIN" = "y" ] || [ "$HAS_PUBLIC_DOMAIN" = "Y" ]; then
+    echo "   Enter homelab hostname (public domain, e.g. homelab.your-domain.com):"
+  else
+    echo "   Enter homelab hostname (private local domain, e.g. homelab.home.arpa):"
+  fi
+  while true; do
+    if [ "$HAS_PUBLIC_DOMAIN" = "y" ] || [ "$HAS_PUBLIC_DOMAIN" = "Y" ]; then
+      read -p "              Homelab Hostname: " HOMELAB_HOSTNAME_INPUT
+    else
+      read -p "              Homelab Hostname [homelab.home.arpa]: " HOMELAB_HOSTNAME_INPUT
+      HOMELAB_HOSTNAME_INPUT="${HOMELAB_HOSTNAME_INPUT:-homelab.home.arpa}"
+    fi
     # Must contain at least one dot (two labels minimum)
     if echo "$HOMELAB_HOSTNAME_INPUT" | grep -qE '^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$'; then
       break
@@ -136,12 +157,6 @@ if [ ! -f .env ]; then
   sed -i "s|<lldap-base-dn>|$LLDAP_BASE_DN_INPUT|g" "$OUTPUT_FILE"
 
   echo ""
-  echo "   SSL Certificate Mode:"
-  echo "   Traefik supports two modes:"
-  echo "     • Public  (y) — Let's Encrypt via Cloudflare DNS-01; requires a public domain"
-  echo "     • Private (n) — Self-signed CA generated locally (no public domain needed)"
-  read -p "   Do you have a public domain with Cloudflare DNS? (y/n): " HAS_PUBLIC_DOMAIN
-
   if [ "$HAS_PUBLIC_DOMAIN" = "y" ] || [ "$HAS_PUBLIC_DOMAIN" = "Y" ]; then
     read -p "   Cloudflare DNS API token (DNS:Edit permission): " CF_DNS_API_TOKEN_INPUT
     echo ""
@@ -175,6 +190,11 @@ if [ ! -f .env ]; then
   echo "✅ Environment configuration created"
 else
   echo "✅ Environment configuration already exists"
+fi
+
+# Keep local secret material readable only by the current user.
+if [ -f .env ]; then
+  chmod 600 .env
 fi
 
 # Load environment variables from the .env file
@@ -660,7 +680,7 @@ done
 if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
     echo "   ❌ Failed to authenticate with LLDAP after 5 attempts"
     echo "   ⚠️  You'll need to manually create users and groups in LLDAP web interface"
-    echo "      Default login: admin / ${HOMELAB_PASSWORD}"
+    echo "      Default login: admin (password is in your .env file)"
 else
     echo "   Creating LLDAP groups..."
     
@@ -801,7 +821,6 @@ echo "=========================="
 echo ""
 echo "📋 Access Information:"
 echo "   Username: ${HOMELAB_USERNAME}"
-echo "   Password: ${HOMELAB_PASSWORD}"
 echo "   Email:    ${HOMELAB_USERNAME}@${HOMELAB_HOSTNAME}"
 echo ""
 
