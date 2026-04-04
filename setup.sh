@@ -107,8 +107,7 @@ if [ ! -f .env ]; then
   cp "$TEMPLATE_FILE" "$OUTPUT_FILE"
 
   # Generate secrets for replacement
-  # Load the generated variables from .env to the environment for the rest of the script
-  export $(grep -v '^#' .env | sed 's/\r$//' | xargs)
+
   
   # Also store the plaintext password since we just prompted for it
   mkdir -p ./volumes/secrets
@@ -123,6 +122,9 @@ if [ ! -f .env ]; then
   sed -i "s|<homelab-hostname>|$HOMELAB_HOSTNAME_INPUT|g" "$OUTPUT_FILE"
   sed -i "s|<dns-domain>|$DNS_DOMAIN_INPUT|g" "$OUTPUT_FILE"
   sed -i "s|<lldap-base-dn>|$LLDAP_BASE_DN_INPUT|g" "$OUTPUT_FILE"
+
+  # Load the generated variables from .env to the environment for the rest of the script
+  export $(grep -v '^#' .env | sed 's/\r$//' | xargs)
 
   echo ""
   if [ "$HAS_PUBLIC_DOMAIN" = "y" ] || [ "$HAS_PUBLIC_DOMAIN" = "Y" ]; then

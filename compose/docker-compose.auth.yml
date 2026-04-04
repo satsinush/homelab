@@ -58,6 +58,8 @@ services:
     networks:
       - homelab-net
     environment:
+      - UID=${PUID}
+      - GID=${PGID}
       - TZ=${TZ}
       - LLDAP_JWT_SECRET_FILE=/secrets/lldap_jwt_secret
       - LLDAP_LDAP_BASE_DN=${LLDAP_LDAP_BASE_DN}
