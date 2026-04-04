@@ -78,5 +78,10 @@ COPY ./word_games/resources ./word_games/resources/
 # 5. Set working directory to /app/api for running the server
 WORKDIR /app/api
 
-# The default command to run your Node.js server
+# Copy entrypoint
+COPY ./homelab-dashboard/api/entrypoint.sh /app/api/entrypoint.sh
+RUN chmod +x /app/api/entrypoint.sh
+
+# Set entrypoint and correct default command
+ENTRYPOINT ["/app/api/entrypoint.sh"]
 CMD ["npm", "start"]

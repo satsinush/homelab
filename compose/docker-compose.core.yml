@@ -13,12 +13,13 @@ services:
       - ../traefik/dynamic_conf.yml:/etc/traefik/dynamic_conf.yml:ro
       - ../volumes/certificates:/etc/ssl/homelab:ro
       - ../volumes/traefik/acme.json:/etc/traefik/acme.json
+      - ../volumes/secrets:/secrets:ro
     networks:
       homelab-net:
         ipv4_address: 10.10.30.100
     environment:
       # Cloudflare DNS API token — required when TRAEFIK_CERT_RESOLVER=letsencrypt
-      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
+      - CF_DNS_API_TOKEN_FILE=/secrets/cf_dns_api_token
       # ACME e-mail address for Let's Encrypt certificate expiry notifications
       - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL=${ACME_EMAIL}
     healthcheck:

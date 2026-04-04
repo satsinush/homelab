@@ -50,18 +50,16 @@ services:
       - dashboard_api_data:/app/api/data
       - dashboard_word_games_data:/app/word_games/data
       - ../volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+      - ../volumes/secrets:/secrets:ro
     networks:
       - homelab-net
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
     environment:
-      - HOMELAB_API_SESSION_SECRET=${HOMELAB_API_SESSION_SECRET}
       - AUTHELIA_WEB_HOSTNAME=${AUTHELIA_WEB_HOSTNAME}
       - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
-      - DASHBOARD_OIDC_SECRET=${DASHBOARD_OIDC_SECRET}
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
-      - NTFY_ADMIN_TOKENS=${NTFY_ADMIN_TOKENS}
     labels:
       - "traefik.enable=true"
       # Canonical dashboard route
@@ -126,12 +124,13 @@ services:
       start_period: 1m
 
   vaultwarden:
-    image: vaultwarden/server:latest
+    build: ../vaultwarden
     container_name: vaultwarden
     restart: on-failure
     volumes:
       - vaultwarden_data:/data
       - ../volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+      - ../volumes/secrets:/secrets:ro
     extra_hosts:
       - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
     networks:
@@ -139,7 +138,6 @@ services:
     environment:
       - SSL_CERT_FILE=/etc/ssl/certs/homelab-ca.crt
       - WEBSOCKET_ENABLED=true
-      - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
       - SIGNUPS_ALLOWED=false
       - DOMAIN=https://${VAULTWARDEN_WEB_HOSTNAME}
       - SMTP_SSL_CA_CERT=/etc/ssl/certs/homelab-ca.crt
@@ -148,10 +146,8 @@ services:
       - SMTP_SECURITY=off
       - SMTP_FROM=vaultwarden@${HOMELAB_HOSTNAME}
       - SMTP_USERNAME=${HOMELAB_USERNAME}
-      - SMTP_PASSWORD=${HOMELAB_PASSWORD}
       - SSO_ENABLED=true
       - SSO_CLIENT_ID=vaultwarden
-      - SSO_CLIENT_SECRET=${VAULTWARDEN_OIDC_SECRET}
       - SSO_AUTHORITY=https://${AUTHELIA_WEB_HOSTNAME}
       - SSO_SCOPES=openid email profile offline_access groups
     labels:
@@ -171,19 +167,18 @@ services:
       start_period: 1m
 
   ntfy:
-    image: binwiederhier/ntfy:latest
+    build: ../ntfy
     container_name: ntfy
     restart: on-failure
     volumes:
       - ntfy_data:/var/lib/ntfy
+      - ../volumes/secrets:/secrets:ro
     environment:
       - NTFY_BASE_URL=https://${NTFY_WEB_HOSTNAME}
       - NTFY_AUTH_FILE=/var/lib/ntfy/user.db
       - NTFY_CACHE_FILE=/var/lib/ntfy/cache.db
       - NTFY_ATTACHMENT_CACHE_DIR=/var/lib/ntfy/attachments
       - NTFY_AUTH_DEFAULT_ACCESS=deny-all
-      - NTFY_AUTH_USERS=${NTFY_ADMIN_USERS}
-      - NTFY_AUTH_TOKENS=${NTFY_ADMIN_TOKENS}
       - NTFY_BEHIND_PROXY=true
       - NTFY_ENABLE_LOGIN=true
       - NTFY_SMTP_SERVER_LISTEN=:25

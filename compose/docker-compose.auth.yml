@@ -1,37 +1,16 @@
 # compose/docker-compose.auth.yml
 services:
   authelia:
-    build:
-      context: ..
-      dockerfile: authelia/Dockerfile
-      args:
-        AUTHELIA_SESSION_SECRET: ${AUTHELIA_SESSION_SECRET}
-        AUTHELIA_STORAGE_ENCRYPTION_KEY: ${AUTHELIA_STORAGE_ENCRYPTION_KEY}
-        AUTHELIA_JWT_SECRET: ${AUTHELIA_JWT_SECRET}
-        LLDAP_LDAP_BASE_DN: ${LLDAP_LDAP_BASE_DN}
-        LLDAP_LDAP_USER_PASS: ${LLDAP_LDAP_USER_PASS}
-        AUTHELIA_WEB_HOSTNAME: ${AUTHELIA_WEB_HOSTNAME}
-        HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
-        VAULTWARDEN_OIDC_HASHED_SECRET: ${VAULTWARDEN_OIDC_HASHED_SECRET}
-        VAULTWARDEN_WEB_HOSTNAME: ${VAULTWARDEN_WEB_HOSTNAME}
-        AUTHELIA_HMAC_SECRET: ${AUTHELIA_HMAC_SECRET}
-        PORTAINER_WEB_HOSTNAME: ${PORTAINER_WEB_HOSTNAME}
-        PORTAINER_OIDC_HASHED_SECRET: ${PORTAINER_OIDC_HASHED_SECRET}
-        DASHBOARD_OIDC_HASHED_SECRET: ${DASHBOARD_OIDC_HASHED_SECRET}
-        DASHBOARD_WEB_HOSTNAME: ${DASHBOARD_WEB_HOSTNAME}
-        PIHOLE_WEB_HOSTNAME: ${PIHOLE_WEB_HOSTNAME}
-        NETDATA_WEB_HOSTNAME: ${NETDATA_WEB_HOSTNAME}
-        UPTIME_KUMA_WEB_HOSTNAME: ${UPTIME_KUMA_WEB_HOSTNAME}
-        NTFY_WEB_HOSTNAME: ${NTFY_WEB_HOSTNAME}
-        LLDAP_LDAP_USER_DN: ${LLDAP_LDAP_USER_DN}
-        HOMELAB_USERNAME: ${HOMELAB_USERNAME}
-        HOMELAB_PASSWORD: ${HOMELAB_PASSWORD}
+    image: authelia/authelia:latest
     container_name: authelia
     restart: on-failure
     networks:
       - homelab-net
     volumes:
       - authelia_data:/var/lib/authelia
+      - ../volumes/authelia/configuration.yml:/config/configuration.yml:ro
+      - ../volumes/secrets:/secrets:ro
+      - ../volumes/authelia/private.pem:/config/jwks/private.pem:ro
     depends_on:
       lldap:
         condition: service_healthy
@@ -75,13 +54,14 @@ services:
     restart: on-failure
     volumes:
       - lldap_data:/data
+      - ../volumes/secrets:/secrets:ro
     networks:
       - homelab-net
     environment:
       - TZ=${TZ}
-      - LLDAP_JWT_SECRET=${LLDAP_JWT_SECRET}
+      - LLDAP_JWT_SECRET_FILE=/secrets/lldap_jwt_secret
       - LLDAP_LDAP_BASE_DN=${LLDAP_LDAP_BASE_DN}
-      - LLDAP_LDAP_USER_PASS=${LLDAP_LDAP_USER_PASS}
+      - LLDAP_LDAP_USER_PASS_FILE=/secrets/lldap_ldap_user_pass
       - LLDAP_HTTP_URL=https://${LLDAP_WEB_HOSTNAME}
     labels:
       - "traefik.enable=true"

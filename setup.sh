@@ -107,48 +107,16 @@ if [ ! -f .env ]; then
   cp "$TEMPLATE_FILE" "$OUTPUT_FILE"
 
   # Generate secrets for replacement
-  HOMELAB_API_SESSION_SECRET=$(openssl rand -hex 64)
-  VAULTWARDEN_ADMIN_TOKEN=$(openssl rand -hex 64)
-  VAULTWARDEN_OIDC_SECRET=$(openssl rand -hex 64)
-  PORTAINER_OIDC_SECRET=$(openssl rand -hex 64)
-  DASHBOARD_OIDC_SECRET=$(openssl rand -hex 64)
-  LLDAP_JWT_SECRET=$(openssl rand -hex 64)
-  LLDAP_LDAP_USER_PASS=$(openssl rand -hex 16)
-  AUTHELIA_JWT_SECRET=$(openssl rand -hex 64)
-  AUTHELIA_SESSION_SECRET=$(openssl rand -hex 64)
-  AUTHELIA_STORAGE_ENCRYPTION_KEY=$(openssl rand -hex 64)
-  AUTHELIA_HMAC_SECRET=$(openssl rand -hex 64)
-
-  echo "   Hashing OIDC secrets..."
-  # Generate Argon2 hashed secrets for Authelia OIDC clients
-  VAULTWARDEN_OIDC_HASHED=$(docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password "$VAULTWARDEN_OIDC_SECRET" | awk '{print $2}')
-  VAULTWARDEN_OIDC_HASHED="${VAULTWARDEN_OIDC_HASHED//$/\\$}"
-
-  PORTAINER_OIDC_HASHED=$(docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password "$PORTAINER_OIDC_SECRET" | awk '{print $2}')
-  PORTAINER_OIDC_HASHED="${PORTAINER_OIDC_HASHED//$/\\$}"
-
-  DASHBOARD_OIDC_HASHED=$(docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password "$DASHBOARD_OIDC_SECRET" | awk '{print $2}')
-  DASHBOARD_OIDC_HASHED="${DASHBOARD_OIDC_HASHED//$/\\$}"
-
-  # Replace placeholders in the new .env file using specific placeholder names
-  sed -i "s|<HOMELAB_API_SESSION_SECRET>|$HOMELAB_API_SESSION_SECRET|g" "$OUTPUT_FILE"
-  sed -i "s|<VAULTWARDEN_ADMIN_TOKEN>|$VAULTWARDEN_ADMIN_TOKEN|g" "$OUTPUT_FILE"
-  sed -i "s|<VAULTWARDEN_OIDC_SECRET>|$VAULTWARDEN_OIDC_SECRET|g" "$OUTPUT_FILE"
-  sed -i "s|<VAULTWARDEN_OIDC_HASHED_SECRET>|$VAULTWARDEN_OIDC_HASHED|g" "$OUTPUT_FILE"
-  sed -i "s|<PORTAINER_OIDC_SECRET>|$PORTAINER_OIDC_SECRET|g" "$OUTPUT_FILE"
-  sed -i "s|<PORTAINER_OIDC_HASHED_SECRET>|$PORTAINER_OIDC_HASHED|g" "$OUTPUT_FILE"
-  sed -i "s|<DASHBOARD_OIDC_SECRET>|$DASHBOARD_OIDC_SECRET|g" "$OUTPUT_FILE"
-  sed -i "s|<DASHBOARD_OIDC_HASHED_SECRET>|$DASHBOARD_OIDC_HASHED|g" "$OUTPUT_FILE"
-  sed -i "s|<LLDAP_JWT_SECRET>|$LLDAP_JWT_SECRET|g" "$OUTPUT_FILE"
-  sed -i "s|<LLDAP_LDAP_USER_PASS>|$LLDAP_LDAP_USER_PASS|g" "$OUTPUT_FILE"
-  sed -i "s|<AUTHELIA_JWT_SECRET>|$AUTHELIA_JWT_SECRET|g" "$OUTPUT_FILE"
-  sed -i "s|<AUTHELIA_SESSION_SECRET>|$AUTHELIA_SESSION_SECRET|g" "$OUTPUT_FILE"
-  sed -i "s|<AUTHELIA_STORAGE_ENCRYPTION_KEY>|$AUTHELIA_STORAGE_ENCRYPTION_KEY|g" "$OUTPUT_FILE"
-  sed -i "s|<AUTHELIA_HMAC_SECRET>|$AUTHELIA_HMAC_SECRET|g" "$OUTPUT_FILE"
-  sed -i "s|<ntfy-encoded-password>|$BCRYPT_PASSWORD|g" "$OUTPUT_FILE"
+  # Load the generated variables from .env to the environment for the rest of the script
+  export $(grep -v '^#' .env | sed 's/\r$//' | xargs)
+  
+  # Also store the plaintext password since we just prompted for it
+  mkdir -p ./volumes/secrets
+  chmod 700 ./volumes/secrets
+  echo "$PASSWORD" > ./volumes/secrets/homelab_password
+  echo "${USERNAME}:${BCRYPT_PASSWORD}:admin" > ./volumes/secrets/ntfy_admin_users
+  
   sed -i "s|<username>|$USERNAME|g" "$OUTPUT_FILE"
-  sed -i "s|<password>|$PASSWORD|g" "$OUTPUT_FILE"
-  sed -i "s|<ntfy-token>|$NTFY_TOKEN|g" "$OUTPUT_FILE"
   sed -i "s|<ip-address>|$IP_ADDRESS|g" "$OUTPUT_FILE"
   sed -i "s|<PUID>|$PUID|g" "$OUTPUT_FILE"
   sed -i "s|<PGID>|$PGID|g" "$OUTPUT_FILE"
@@ -172,8 +140,9 @@ if [ ! -f .env ]; then
         echo "   ⚠️  That doesn't look like a valid e-mail address. Please try again."
       fi
     done
+    echo "$CF_DNS_API_TOKEN_INPUT" > ./volumes/secrets/cf_dns_api_token
+    chmod 600 ./volumes/secrets/cf_dns_api_token
     sed -i "s|TRAEFIK_CERT_RESOLVER=''|TRAEFIK_CERT_RESOLVER='letsencrypt'|g" "$OUTPUT_FILE"
-    sed -i "s|CF_DNS_API_TOKEN=''|CF_DNS_API_TOKEN='$CF_DNS_API_TOKEN_INPUT'|g" "$OUTPUT_FILE"
     sed -i "s|<acme-email>|$ACME_EMAIL_INPUT|g" "$OUTPUT_FILE"
     # Also export to the current shell so the cert-generation block below can read it
     # without relying solely on the .env load that follows.
@@ -192,14 +161,96 @@ else
   echo "✅ Environment configuration already exists"
 fi
 
-# Keep local secret material readable only by the current user.
-if [ -f .env ]; then
-  chmod 600 .env
-fi
-
 # Load environment variables from the .env file
 if [ -f .env ]; then
   export $(grep -v '^#' .env | sed 's/\r$//' | xargs)
+fi
+
+echo "   Ensuring secrets are generated natively..."
+mkdir -p ./volumes/secrets
+chmod 700 ./volumes/secrets
+
+# Helper to generate secret if missing or empty
+gen_secret() {
+  local file="./volumes/secrets/$1"
+  if [ ! -s "$file" ]; then
+    openssl rand -hex "$2" > "$file"
+    echo "     Generated $1"
+  fi
+}
+
+gen_secret homelab_api_session_secret 64
+gen_secret vaultwarden_admin_token 64
+gen_secret vaultwarden_oidc_secret 64
+gen_secret portainer_oidc_secret 64
+gen_secret dashboard_oidc_secret 64
+gen_secret lldap_jwt_secret 64
+gen_secret lldap_ldap_user_pass 16
+gen_secret authelia_jwt_secret 64
+gen_secret authelia_session_secret 64
+gen_secret authelia_storage_encryption_key 64
+gen_secret authelia_hmac_secret 64
+
+if [ ! -s ./volumes/secrets/homelab_password ]; then
+  echo "   ⚠️  homelab_password secret is missing from volumes/secrets!"
+  while true; do
+    read -p "   Please re-enter your homelab Password (min 12 characters): " PASSWORD
+    if [ ${#PASSWORD} -lt 12 ]; then
+      echo "   ⚠️  Password is too short. Please try again."
+    else
+      break
+    fi
+  done
+  echo "$PASSWORD" > ./volumes/secrets/homelab_password
+  
+  if command -v htpasswd &> /dev/null; then
+    BCRYPT_PASSWORD=$(htpasswd -nbBC 10 "" "$PASSWORD" | tr -d ':' )
+    echo "${HOMELAB_USERNAME:-andrew}:${BCRYPT_PASSWORD}:admin" > ./volumes/secrets/ntfy_admin_users
+  fi
+fi
+
+# Generate ntfy token if missing
+if [ ! -s ./volumes/secrets/ntfy_admin_tokens ]; then
+  echo "     Generating ntfy token..."
+  NTFY_TOKEN=$(docker run --rm binwiederhier/ntfy:latest token generate | tr -d '\r\n')
+  if [ -s ./volumes/secrets/homelab_password ]; then
+    echo "${HOMELAB_USERNAME:-andrew}:${NTFY_TOKEN}" > ./volumes/secrets/ntfy_admin_tokens
+  fi
+fi
+
+# Argon2 Hashes for OIDC clients - generate only if missing or empty
+if [ ! -s ./volumes/secrets/vaultwarden_oidc_hashed_secret ]; then
+  echo "     Hashing vaultwarden secret..."
+  VW_SEC=$(cat ./volumes/secrets/vaultwarden_oidc_secret)
+  docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password "$VW_SEC" | awk '{print $2}' | tr -d '\n' > ./volumes/secrets/vaultwarden_oidc_hashed_secret
+fi
+
+if [ ! -s ./volumes/secrets/portainer_oidc_hashed_secret ]; then
+  echo "     Hashing portainer secret..."
+  PORT_SEC=$(cat ./volumes/secrets/portainer_oidc_secret)
+  docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password "$PORT_SEC" | awk '{print $2}' | tr -d '\n' > ./volumes/secrets/portainer_oidc_hashed_secret
+fi
+
+if [ ! -s ./volumes/secrets/dashboard_oidc_hashed_secret ]; then
+  echo "     Hashing dashboard secret..."
+  DASH_SEC=$(cat ./volumes/secrets/dashboard_oidc_secret)
+  docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password "$DASH_SEC" | awk '{print $2}' | tr -d '\n' > ./volumes/secrets/dashboard_oidc_hashed_secret
+fi
+
+chmod 600 ./volumes/secrets/*
+
+# Load passwords directly into script environment since they are no longer in .env
+if [ -s ./volumes/secrets/homelab_password ]; then
+  export HOMELAB_PASSWORD=$(cat ./volumes/secrets/homelab_password)
+  export PORTAINER_ADMIN_PASSWORD=$(cat ./volumes/secrets/homelab_password)
+fi
+
+# Also export other variables needed by this script
+if [ -f ./volumes/secrets/lldap_ldap_user_pass ]; then
+  export LLDAP_LDAP_USER_PASS=$(cat ./volumes/secrets/lldap_ldap_user_pass)
+fi
+if [ -f ./volumes/secrets/portainer_oidc_secret ]; then
+  export PORTAINER_OIDC_SECRET=$(cat ./volumes/secrets/portainer_oidc_secret)
 fi
 
 echo ""
@@ -263,6 +314,36 @@ if [ "$(stat -c %u "${AUTHELIA_KEY}")" -ne "$(id -u)" ]; then
   sudo chown "$(id -u):$(id -g)" "${AUTHELIA_KEY}"
 fi
 chmod 600 "${AUTHELIA_KEY}"
+
+echo "   Rendering Authelia configuration..."
+# Export variables for envsubst
+export AUTHELIA_SESSION_SECRET=$(cat ./volumes/secrets/authelia_session_secret)
+export AUTHELIA_STORAGE_ENCRYPTION_KEY=$(cat ./volumes/secrets/authelia_storage_encryption_key)
+export AUTHELIA_JWT_SECRET=$(cat ./volumes/secrets/authelia_jwt_secret)
+export AUTHELIA_HMAC_SECRET=$(cat ./volumes/secrets/authelia_hmac_secret)
+export VAULTWARDEN_OIDC_HASHED_SECRET=$(cat ./volumes/secrets/vaultwarden_oidc_hashed_secret)
+export PORTAINER_OIDC_HASHED_SECRET=$(cat ./volumes/secrets/portainer_oidc_hashed_secret)
+export DASHBOARD_OIDC_HASHED_SECRET=$(cat ./volumes/secrets/dashboard_oidc_hashed_secret)
+
+envsubst < authelia/configuration.yml.template > ./volumes/authelia/configuration.yml.subst
+
+INDENTED_KEY_FILE="./volumes/authelia/indented_key.tmp"
+sed 's/^/          /' "${AUTHELIA_KEY}" > "$INDENTED_KEY_FILE"
+
+awk -v placeholder="JWKS_KEY_PLACEHOLDER" -v key_file="$INDENTED_KEY_FILE" '
+index($0, placeholder) {
+    while ((getline line < key_file) > 0) {
+        print line
+    }
+    close(key_file)
+    next
+}
+{ print }
+' ./volumes/authelia/configuration.yml.subst > ./volumes/authelia/configuration.yml
+
+chmod 600 ./volumes/authelia/configuration.yml
+rm -f "$INDENTED_KEY_FILE" ./volumes/authelia/configuration.yml.subst
+echo "   ✅ Authelia configuration rendered"
 
 # Copy example-data/kuma.db to data/kuma.db if it doesn't already exist
 EXAMPLE_DB="./uptime-kuma/example-data/kuma.db"
