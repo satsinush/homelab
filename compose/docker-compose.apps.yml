@@ -285,9 +285,6 @@ services:
       - "traefik.http.routers.uptime-kuma.entrypoints=websecure"
       - "traefik.http.routers.uptime-kuma.tls=true"
       - "traefik.http.routers.uptime-kuma.middlewares=authelia@file"
-      - "traefik.http.routers.uptime-kuma-status.rule=Host(`${UPTIME_KUMA_WEB_HOSTNAME}`) && PathPrefix(`/status/`)"
-      - "traefik.http.routers.uptime-kuma-status.entrypoints=websecure"
-      - "traefik.http.routers.uptime-kuma-status.tls=true"
       - "traefik.http.services.uptime-kuma.loadbalancer.server.port=3001"
     depends_on:
       ntfy:
