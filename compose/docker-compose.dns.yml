@@ -10,7 +10,7 @@ services:
     environment:
       - TZ=America/Chicago
       - FTLCONF_dns_upstreams=unbound#53
-      - FTLCONF_dns_domain=${DNS_DOMAIN}
+      - FTLCONF_dns_domain=${HOMELAB_HOSTNAME}
       - FTLCONF_dns_piholePTR=HOSTNAMEFQDN
       - FTLCONF_webserver_domain=${PIHOLE_WEB_HOSTNAME}
       - FTLCONF_dns_listeningMode=all
