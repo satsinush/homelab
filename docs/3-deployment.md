@@ -88,9 +88,46 @@ Execute the main setup script. It will prompt you to create a username and passw
 ./setup.sh
 ```
 
-> **⚠️ Important**: The setup script creates a user-specific email address. You **must** use this email for services like Vaultwarden and Authelia to receive notifications via Ntfy, otherwise you risk not being able to reset your password if needed. Your notification topic in Ntfy is `YOUR USERNAME`.
+> **⚠️ Important**: The setup script creates a user-specific email address. You **must** use this email for services like Vaultwarden and Authelia to receive notifications via Ntfy, otherwise you risk not being able to reset your password if needed. Your notification topic in Ntfy is `HOMELAB_USERNAME` which can be found in the `.env` file.
 
 > **ℹ️ Tip**: You can run this script again at any time to recreate SSL certificates. The CA certificate will not be affected and all other settings will stay the same.
+
+### SSL Modes
+
+`setup.sh` supports two SSL modes that are selected interactively during the first run:
+
+| Mode | When to use | How it works |
+|------|-------------|--------------|
+| **Private (default)** | No public domain | OpenSSL generates a local CA and a wildcard server certificate. Import the CA cert once per client device. |
+| **Public (Let's Encrypt)** | You own a domain managed by Cloudflare | Traefik uses the ACME DNS-01 challenge to obtain a globally-trusted certificate — no open ports required. |
+
+#### Getting a Cloudflare DNS API Token (Public mode)
+
+The recommended way to use Let's Encrypt with Traefik is via the DNS-01 challenge, which requires an API token from your DNS provider. This is a secure way that doesn't require port forwarding. If you use Cloudflare for your domain's DNS, follow these steps to create a suitable API token:
+
+1. Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com/).
+2. Go to **My Profile → API Tokens → Create Token**.
+3. Use the **Edit zone DNS** template (or create a custom token with the `Zone → DNS → Edit` permission scoped to your specific zone).
+4. Copy the token and provide it when `setup.sh` asks `Do you have a public domain with Cloudflare DNS? (y/n)`.
+
+#### ACME Email Address (Public mode)
+
+Let's Encrypt requires a valid email address to send certificate expiry warnings. `setup.sh` will prompt you for this address and validates its format.
+
+**Option A — Use your regular email** (simplest): just type your personal address when prompted.
+
+**Option B — Use `<username>@<your-domain>` with Cloudflare Email Routing** (keeps your real inbox private):
+
+Cloudflare's free [Email Routing](https://developers.cloudflare.com/email-routing/) service can forward any address at your domain to your real inbox with no mail server required.
+
+1. In the Cloudflare Dashboard, select your zone and go to **Email → Email Routing**.
+2. Click **Enable Email Routing** and follow the wizard to add the required MX / TXT DNS records.
+3. Under **Custom addresses**, click **Create address**:
+   - **Custom address:** `<your-username>` (e.g. `alice`)
+   - **Destination:** your real email address
+4. When `setup.sh` prompts for the ACME email, enter `<username>@<your-domain>` (e.g. `alice@example.com`).
+
+Cloudflare will forward any Let's Encrypt notifications sent to that address to your real inbox automatically.
 
 ## Next: 4\. ✅ Post-Installation Checklist
 [Continue to the next section of the guide for detailed instructions on post-installation tasks and final checks.](./4-checklist.md)

@@ -43,43 +43,6 @@ This project bundles several open-source services, managed via `docker-compose`,
   * **🖥️ RustDesk**: A self-hosted remote desktop solution.
   * **🔐 Vaultwarden**: Self-hosted password manager.
 
-### SSL Modes
-
-`setup.sh` supports two SSL modes that are selected interactively during the first run:
-
-| Mode | When to use | How it works |
-|------|-------------|--------------|
-| **Private (default)** | No public domain | OpenSSL generates a local CA and a wildcard server certificate. Import the CA cert once per client device. |
-| **Public (Let's Encrypt)** | You own a domain managed by Cloudflare | Traefik uses the ACME DNS-01 challenge to obtain a globally-trusted certificate — no open ports required. |
-
-#### Getting a Cloudflare DNS API Token (Public mode)
-
-1. Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com/).
-2. Go to **My Profile → API Tokens → Create Token**.
-3. Use the **Edit zone DNS** template (or create a custom token with the `Zone → DNS → Edit` permission scoped to your specific zone).
-4. Copy the token and provide it when `setup.sh` asks `Do you have a public domain with Cloudflare DNS? (y/n)`.
-
-> **Note:** The token is stored in `.env` as `CF_DNS_API_TOKEN` and is passed to the Traefik container at runtime. It is never committed to version control (`.env` is listed in `.gitignore`).
-
-#### ACME Email Address (Public mode)
-
-Let's Encrypt requires a valid email address to send certificate expiry warnings. `setup.sh` will prompt you for this address and validates its format before writing it to `.env` as `ACME_EMAIL`.
-
-**Option A — Use your regular email** (simplest): just type your personal address when prompted.
-
-**Option B — Use `<username>@<your-domain>` with Cloudflare Email Routing** (keeps your real inbox private):
-
-Cloudflare's free [Email Routing](https://developers.cloudflare.com/email-routing/) service can forward any address at your domain to your real inbox with no mail server required.
-
-1. In the Cloudflare Dashboard, select your zone and go to **Email → Email Routing**.
-2. Click **Enable Email Routing** and follow the wizard to add the required MX / TXT DNS records.
-3. Under **Custom addresses**, click **Create address**:
-   - **Custom address:** `<your-username>` (e.g. `alice`)
-   - **Destination:** your real email address
-4. When `setup.sh` prompts for the ACME email, enter `<username>@<your-domain>` (e.g. `alice@example.com`).
-
-Cloudflare will forward any Let's Encrypt notifications sent to that address to your real inbox automatically.
-
 ### Infrastructure Diagram
 
 ```mermaid
