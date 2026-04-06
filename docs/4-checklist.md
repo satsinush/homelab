@@ -35,3 +35,6 @@ Final configuration steps for individual services.
 ### 🎉 Congratulations!
 
 You've officially set up your homelab system! Check out the information below for more details on backing up your data, working on development, and troubleshooting issues.
+
+## Next: 5\. 💾 Backup and Restore
+[Continue to the next section of the guide for detailed instructions on backing up and restoring your homelab data.](./5-backup-restore.md)

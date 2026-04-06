@@ -10,19 +10,27 @@ services:
     environment:
       - TZ=America/Chicago
       - FTLCONF_dns_upstreams=unbound#53
-      - FTLCONF_dns_domain=${DNS_DOMAIN}
+      - FTLCONF_dns_domain=${HOMELAB_HOSTNAME}
       - FTLCONF_dns_piholePTR=HOSTNAMEFQDN
       - FTLCONF_webserver_domain=${PIHOLE_WEB_HOSTNAME}
-      - FTLCONF_dns_listeningMode=ALL
+      - FTLCONF_dns_listeningMode=all
       - FTLCONF_webserver_port=80
       - DNSMASQ_LISTENING=all
       - FTLCONF_webserver_api_password=
-      - FTLCONF_dns_hosts=${HOMELAB_IP_ADDRESS} ${HOMELAB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PIHOLE_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${NETDATA_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${DASHBOARD_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${PORTAINER_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${VAULTWARDEN_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${UPTIME_KUMA_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${NTFY_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${LLDAP_WEB_HOSTNAME};${HOMELAB_IP_ADDRESS} ${AUTHELIA_WEB_HOSTNAME};
+      - FTLCONF_misc_dnsmasq_lines=address=/.${HOMELAB_HOSTNAME}/${HOMELAB_IP_ADDRESS}
+      - FTLCONF_dns_hosts=${HOMELAB_IP_ADDRESS} ${HOMELAB_HOSTNAME};
     volumes:
       - pihole_data:/etc/pihole/
       - pihole_logs:/run/log/pihole/
     networks:
       - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pihole.rule=Host(`${PIHOLE_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.pihole.entrypoints=websecure"
+      - "traefik.http.routers.pihole.tls=true"
+      - "traefik.http.routers.pihole.middlewares=authelia@file"
+      - "traefik.http.services.pihole.loadbalancer.server.port=80"
     depends_on:
       unbound:
         condition: service_healthy

@@ -112,6 +112,7 @@ const config = {
     session: {
         secure: process.env.ENVIRONMENT === 'development' ? false : true, // Set to true in production with HTTPS
         httpOnly: true,
+        sameSite: 'lax',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     },
     netdata: {

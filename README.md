@@ -32,6 +32,7 @@ This project bundles several open-source services, managed via `docker-compose`,
       * 🧩 Word puzzle game solvers (Wordle, Mastermind, Hangman, Dungleon, Letter Boxed, Spelling Bee)
       * 📦 Host device package management (for *pacman*)
       * 🤖 An integrated AI chatbot with Ollama
+  * **🔀 Traefik v3**: Cloud-native reverse proxy with automatic HTTPS (Let's Encrypt or self-signed).
   * **🔑 Authelia**: Single Sign-On (SSO) for securing services.
   * **📊 Netdata**: Real-time performance monitoring.
   * **📦 Portainer**: Docker container management UI.
@@ -64,7 +65,7 @@ graph TD
             UFW[🛡️ UFW Firewall]
 
             subgraph Docker[🐳 Docker Network]
-                Nginx[🌐 NGINX Reverse Proxy]
+                Traefik[🔀 Traefik Reverse Proxy]
                 Authelia[🔑 Authelia SSO]
                 Vaultwarden[🔐 Vaultwarden]
                 Portainer[📦 Portainer]
@@ -90,18 +91,17 @@ graph TD
     UFW -->|DNS| Pihole
 
     %% Firewall routes
-    UFW -->|HTTP| Nginx
+    UFW -->|HTTP| Traefik
     UFW -->|Remote Access| Rustdesk --> LocalClient
 
     %% Proxy/Auth flows
-    Nginx --> Authelia
-    Nginx --> Vaultwarden
-    Nginx --> Ntfy
-    Nginx --> Portainer
-    Nginx --> Dashboard
-    Nginx --> Netdata
-    Nginx --> UptimeKuma
-    Nginx --> Ntfy
+    Traefik --> Authelia
+    Traefik --> Vaultwarden
+    Traefik --> Ntfy
+    Traefik --> Portainer
+    Traefik --> Dashboard
+    Traefik --> Netdata
+    Traefik --> UptimeKuma
 
     Authelia --> LLDAP
 

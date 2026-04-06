@@ -31,3 +31,7 @@ npm install
 # Start the dev server with nodemon
 npm run dev
 ```
+
+
+## Next: 7\. ❓ Troubleshooting
+[Continue to the next section of the guide for detailed instructions on troubleshooting common issues.](./7-troubleshooting.md)

@@ -21,3 +21,6 @@ sudo pacman -S \
 
   * After installing `lm_sensors`, run `sudo sensors-detect` to initialize sensor data for Netdata to use.
   * The `apache` package is needed for the `htpasswd` utility used by the setup script to create secure password hashes.
+
+## Next: 2\. ⚙️ Configure and Harden Host
+[Continue to the next section of the guide for detailed instructions on configuring and hardening your host machine.](./2-host-config.md)
