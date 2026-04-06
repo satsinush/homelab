@@ -50,18 +50,35 @@ services:
       - dashboard_api_data:/app/api/data
       - dashboard_word_games_data:/app/word_games/data
       - ../volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+      - ../volumes/secrets:/secrets:ro
     networks:
       - homelab-net
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
     environment:
-      - HOMELAB_API_SESSION_SECRET=${HOMELAB_API_SESSION_SECRET}
       - AUTHELIA_WEB_HOSTNAME=${AUTHELIA_WEB_HOSTNAME}
       - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
-      - DASHBOARD_OIDC_SECRET=${DASHBOARD_OIDC_SECRET}
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
-      - NTFY_ADMIN_TOKENS=${NTFY_ADMIN_TOKENS}
+    labels:
+      - "traefik.enable=true"
+      # Canonical dashboard route
+      - "traefik.http.routers.dashboard.rule=Host(`${DASHBOARD_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.routers.dashboard.tls.domains[0].main=${HOMELAB_HOSTNAME}"
+      - "traefik.http.routers.dashboard.tls.domains[0].sans=*.${HOMELAB_HOSTNAME}"
+      - "traefik.http.routers.dashboard.middlewares=authelia@file"
+      - "traefik.http.services.dashboard.loadbalancer.server.port=5000"
+      - "traefik.http.routers.dashboard-redirect.rule=Host(`${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.dashboard-redirect.entrypoints=websecure"
+      - "traefik.http.routers.dashboard-redirect.tls=true"
+      - "traefik.http.routers.dashboard-redirect.middlewares=dashboard-redirect-to-canonical@docker"
+      - "traefik.http.routers.dashboard-redirect.service=dashboard"
+      - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.regex=^https?://${HOMELAB_HOSTNAME}(.*)"
+      - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.replacement=https://${DASHBOARD_WEB_HOSTNAME}$${1}"
+      - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.permanent=true"
     depends_on:
       authelia:
         condition: service_healthy
@@ -107,12 +124,13 @@ services:
       start_period: 1m
 
   vaultwarden:
-    image: vaultwarden/server:latest
+    build: ../vaultwarden
     container_name: vaultwarden
     restart: on-failure
     volumes:
       - vaultwarden_data:/data
       - ../volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+      - ../volumes/secrets:/secrets:ro
     extra_hosts:
       - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
     networks:
@@ -120,7 +138,6 @@ services:
     environment:
       - SSL_CERT_FILE=/etc/ssl/certs/homelab-ca.crt
       - WEBSOCKET_ENABLED=true
-      - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
       - SIGNUPS_ALLOWED=false
       - DOMAIN=https://${VAULTWARDEN_WEB_HOSTNAME}
       - SMTP_SSL_CA_CERT=/etc/ssl/certs/homelab-ca.crt
@@ -129,12 +146,16 @@ services:
       - SMTP_SECURITY=off
       - SMTP_FROM=vaultwarden@${HOMELAB_HOSTNAME}
       - SMTP_USERNAME=${HOMELAB_USERNAME}
-      - SMTP_PASSWORD=${HOMELAB_PASSWORD}
       - SSO_ENABLED=true
       - SSO_CLIENT_ID=vaultwarden
-      - SSO_CLIENT_SECRET=${VAULTWARDEN_OIDC_SECRET}
       - SSO_AUTHORITY=https://${AUTHELIA_WEB_HOSTNAME}
       - SSO_SCOPES=openid email profile offline_access groups
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vaultwarden.rule=Host(`${VAULTWARDEN_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.vaultwarden.entrypoints=websecure"
+      - "traefik.http.routers.vaultwarden.tls=true"
+      - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
     depends_on:
       ntfy:
         condition: service_healthy
@@ -146,25 +167,30 @@ services:
       start_period: 1m
 
   ntfy:
-    image: binwiederhier/ntfy:latest
+    build: ../ntfy
     container_name: ntfy
     restart: on-failure
     volumes:
       - ntfy_data:/var/lib/ntfy
+      - ../volumes/secrets:/secrets:ro
     environment:
       - NTFY_BASE_URL=https://${NTFY_WEB_HOSTNAME}
       - NTFY_AUTH_FILE=/var/lib/ntfy/user.db
       - NTFY_CACHE_FILE=/var/lib/ntfy/cache.db
       - NTFY_ATTACHMENT_CACHE_DIR=/var/lib/ntfy/attachments
       - NTFY_AUTH_DEFAULT_ACCESS=deny-all
-      - NTFY_AUTH_USERS=${NTFY_ADMIN_USERS}
-      - NTFY_AUTH_TOKENS=${NTFY_ADMIN_TOKENS}
       - NTFY_BEHIND_PROXY=true
       - NTFY_ENABLE_LOGIN=true
       - NTFY_SMTP_SERVER_LISTEN=:25
       - NTFY_SMTP_SERVER_DOMAIN=${HOMELAB_HOSTNAME}
     networks:
       - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ntfy.rule=Host(`${NTFY_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.ntfy.entrypoints=websecure"
+      - "traefik.http.routers.ntfy.tls=true"
+      - "traefik.http.services.ntfy.loadbalancer.server.port=80"
     command: serve
     healthcheck:
       test: [ "CMD", "wget", "-q", "--spider", "http://localhost/v1/health" ]
@@ -196,6 +222,13 @@ services:
       - /run/dbus:/run/dbus:ro
     networks:
       - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.netdata.rule=Host(`${NETDATA_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.netdata.entrypoints=websecure"
+      - "traefik.http.routers.netdata.tls=true"
+      - "traefik.http.routers.netdata.middlewares=authelia@file"
+      - "traefik.http.services.netdata.loadbalancer.server.port=19999"
     healthcheck:
       test: [ "CMD", "curl", "-fs", "http://localhost:19999/api/v1/info" ]
       interval: 1m
@@ -215,6 +248,13 @@ services:
       - homelab-net
     extra_hosts:
       - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`${PORTAINER_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls=true"
+      - "traefik.http.routers.portainer.middlewares=authelia@file"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
     depends_on:
       authelia:
         condition: service_healthy
@@ -226,7 +266,7 @@ services:
       start_period: 1m
 
   uptime-kuma:
-    image: louislam/uptime-kuma:1
+    image: louislam/uptime-kuma:2
     container_name: uptime-kuma
     restart: on-failure
     extra_hosts:
@@ -239,6 +279,13 @@ services:
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
     networks:
       - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.uptime-kuma.rule=Host(`${UPTIME_KUMA_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.uptime-kuma.entrypoints=websecure"
+      - "traefik.http.routers.uptime-kuma.tls=true"
+      - "traefik.http.routers.uptime-kuma.middlewares=authelia@file"
+      - "traefik.http.services.uptime-kuma.loadbalancer.server.port=3001"
     depends_on:
       ntfy:
         condition: service_healthy

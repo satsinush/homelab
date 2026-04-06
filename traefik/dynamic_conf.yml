@@ -1,0 +1,32 @@
+# Traefik v3 Dynamic Configuration (File Provider)
+#
+# This file is hot-reloaded by Traefik whenever it changes.
+# It serves two purposes:
+#
+#   1. Define the Authelia forward-auth middleware so it can be referenced
+#      by any Docker-label router using "authelia@file".
+#
+#   2. Load the self-signed homelab certificate as the default TLS certificate
+#      for *private* mode (TRAEFIK_CERT_RESOLVER='').  In public/Let's Encrypt
+#      mode Traefik obtains certificates automatically and this default cert
+#      acts as a safe fallback only.
+
+http:
+  middlewares:
+    authelia:
+      forwardAuth:
+        # Authelia forward-auth endpoint (Traefik-native, v4.38+)
+        address: "http://authelia:9091/api/authz/forward-auth"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - "Remote-User"
+          - "Remote-Groups"
+          - "Remote-Name"
+          - "Remote-Emails"
+
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /etc/ssl/homelab/homelab.crt
+        keyFile: /etc/ssl/homelab/homelab.key
