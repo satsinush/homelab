@@ -50,13 +50,20 @@ if [ ! -f .env ]; then
     fi
   done
 
-  echo "   Enter host device IP address:"
-  read -p "                     IP Address: " IP_ADDRESS
-  echo
+  # echo "   Enter host device IP address:"
+  # read -p "                     IP Address: " IP_ADDRESS
+  # echo
 
-  echo "   Enter PUID and PGID for file permissions:"
-  read -p "                           PUID: " PUID
-  read -p "                           PGID: " PGID
+  IP_ADDRESS=$(hostname -I | awk '{print $1}')
+
+  # echo "   Enter PUID and PGID for file permissions:"
+  # read -p "                           PUID: " PUID
+  # read -p "                           PGID: " PGID
+
+  PUID=$(id -u)
+  PGID=$(id -g)
+  
+  TZ=$(timedatectl | grep "Time zone" | awk '{print $3}')
 
   echo ""
   echo "   SSL Certificate Mode:"
@@ -111,6 +118,7 @@ if [ ! -f .env ]; then
   
   # Also store the plaintext password since we just prompted for it
   mkdir -p ./volumes/secrets
+  mkdir -p ./volumes/dockge/stacks
   chmod 700 ./volumes/secrets
   echo "$PASSWORD" > ./volumes/secrets/homelab_password
   echo "${USERNAME}:${BCRYPT_PASSWORD}:admin" > ./volumes/secrets/ntfy_admin_users
@@ -122,7 +130,9 @@ if [ ! -f .env ]; then
   sed -i "s|<homelab-hostname>|$HOMELAB_HOSTNAME_INPUT|g" "$OUTPUT_FILE"
   sed -i "s|<dns-domain>|$DNS_DOMAIN_INPUT|g" "$OUTPUT_FILE"
   sed -i "s|<lldap-base-dn>|$LLDAP_BASE_DN_INPUT|g" "$OUTPUT_FILE"
-
+  sed -i "s|<project-root>|$(pwd)|g" "$OUTPUT_FILE"
+  sed -i "s|<timezone>|$TZ|g" "$OUTPUT_FILE"
+  
   # Load the generated variables from .env to the environment for the rest of the script
   export $(grep -v '^#' .env | sed 's/\r$//' | xargs)
 
@@ -470,7 +480,9 @@ fi
 
 
 echo ""
+echo ""
 echo "🐳 Starting Docker containers..."
+docker network create homelab-net --subnet 10.10.30.0/24 || true
 docker-compose up -d --build
 
 echo "   Waiting 10 seconds for services to initialize..."

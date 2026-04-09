@@ -9,11 +9,11 @@ services:
       - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ../traefik/traefik.yml:/etc/traefik/traefik.yml:ro
-      - ../traefik/dynamic_conf.yml:/etc/traefik/dynamic_conf.yml:ro
-      - ../volumes/certificates:/etc/ssl/homelab:ro
-      - ../volumes/traefik/acme.json:/etc/traefik/acme.json
-      - ../volumes/secrets:/secrets:ro
+      - ${PROJECT_ROOT}/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ${PROJECT_ROOT}/traefik/dynamic_conf.yml:/etc/traefik/dynamic_conf.yml:ro
+      - ${PROJECT_ROOT}/volumes/certificates:/etc/ssl/homelab:ro
+      - ${PROJECT_ROOT}/volumes/traefik/acme.json:/etc/traefik/acme.json
+      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
     networks:
       homelab-net:
         ipv4_address: 10.10.30.100
@@ -28,3 +28,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 1m
+
+networks:
+  homelab-net:
+    external: true

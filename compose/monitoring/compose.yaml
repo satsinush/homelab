@@ -1,0 +1,73 @@
+# compose/monitoring/compose.yaml
+services:
+  netdata:
+    image: netdata/netdata:latest
+    container_name: netdata
+    hostname: ${HOMELAB_HOSTNAME}
+    pid: host
+    restart: on-failure
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /var/log:/host/var/log:ro
+      - /run/dbus:/run/dbus:ro
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.netdata.rule=Host(`${NETDATA_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.netdata.entrypoints=websecure"
+      - "traefik.http.routers.netdata.tls=true"
+      - "traefik.http.routers.netdata.middlewares=authelia@file"
+      - "traefik.http.services.netdata.loadbalancer.server.port=19999"
+    healthcheck:
+      test: [ "CMD", "curl", "-fs", "http://localhost:19999/api/v1/info" ]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:2
+    container_name: uptime-kuma
+    restart: on-failure
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ${PROJECT_ROOT}/volumes/uptime-kuma/data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+    environment:
+      - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.uptime-kuma.rule=Host(`${UPTIME_KUMA_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.uptime-kuma.entrypoints=websecure"
+      - "traefik.http.routers.uptime-kuma.tls=true"
+      - "traefik.http.routers.uptime-kuma.middlewares=authelia@file"
+      - "traefik.http.services.uptime-kuma.loadbalancer.server.port=3001"
+    depends_on:
+      ntfy:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-fs", "http://localhost:3001" ]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+networks:
+  homelab-net:
+    external: true

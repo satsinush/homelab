@@ -1,0 +1,88 @@
+# compose/docker/compose.yaml
+services:
+  portainer:
+    build: ${PROJECT_ROOT}/portainer
+    container_name: portainer
+    restart: on-failure
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+    networks:
+      - homelab-net
+    extra_hosts:
+      - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`${PORTAINER_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls=true"
+      - "traefik.http.routers.portainer.middlewares=authelia@file"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+    depends_on:
+      authelia:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-fs", "http://localhost:9000/api/system/status" ]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+  dockge:
+    image: louislam/dockge:1
+    container_name: dockge
+    restart: on-failure
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - dockge_data:/app/data
+      - ${PROJECT_ROOT}:${PROJECT_ROOT}
+    environment:
+      - DOCKGE_STACKS_DIR=${PROJECT_ROOT}/volumes/dockge/stacks
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dockge.rule=Host(`${DOCKGE_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.dockge.entrypoints=websecure"
+      - "traefik.http.routers.dockge.tls=true"
+      - "traefik.http.routers.dockge.middlewares=authelia@file"
+      - "traefik.http.services.dockge.loadbalancer.server.port=5001"
+    healthcheck:
+      test: [ "CMD", "curl", "-fs", "http://localhost:5001" ]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+  dockhand:
+    image: fnsys/dockhand:latest
+    container_name: dockhand
+    restart: on-failure
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - dockhand_data:/app/data
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dockhand.rule=Host(`${DOCKHAND_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.dockhand.entrypoints=websecure"
+      - "traefik.http.routers.dockhand.tls=true"
+      - "traefik.http.routers.dockhand.middlewares=authelia@file"
+      - "traefik.http.services.dockhand.loadbalancer.server.port=3000"
+    healthcheck:
+      test: [ "CMD", "curl", "-fs", "http://localhost:3000" ]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+volumes:
+  portainer_data:
+  dockge_data:
+  dockhand_data:
+
+networks:
+  homelab-net:
+    external: true

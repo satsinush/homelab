@@ -8,9 +8,9 @@ services:
       - homelab-net
     volumes:
       - authelia_data:/var/lib/authelia
-      - ../volumes/authelia/configuration.yml:/config/configuration.yml:ro
-      - ../volumes/secrets:/secrets:ro
-      - ../volumes/authelia/private.pem:/config/jwks/private.pem:ro
+      - ${PROJECT_ROOT}/volumes/authelia/configuration.yml:/config/configuration.yml:ro
+      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
+      - ${PROJECT_ROOT}/volumes/authelia/private.pem:/config/jwks/private.pem:ro
     depends_on:
       lldap:
         condition: service_healthy
@@ -54,7 +54,7 @@ services:
     restart: on-failure
     volumes:
       - lldap_data:/data
-      - ../volumes/secrets:/secrets:ro
+      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
     networks:
       - homelab-net
     environment:
@@ -75,5 +75,13 @@ services:
       test: ["CMD", "curl", "-fs", "http://localhost:17170/health"]
       interval: 1m
       timeout: 10s
-      retries: 3
       start_period: 1m
+
+volumes:
+  authelia_data:
+  authelia_redis_data:
+  lldap_data:
+
+networks:
+  homelab-net:
+    external: true
