@@ -142,6 +142,40 @@ const Home = () => {
             color: 'white'
         },
         {
+            title: 'Dockge',
+            description: 'Compose-first Docker stack management',
+            url: `https://${import.meta.env.VITE_DOCKGE_WEB_HOSTNAME}`,
+            icon: (
+                <Avatar
+                    src={PortainerLogo}
+                    alt="Dockge"
+                    sx={{
+                        width: 32,
+                        height: 32,
+                        bgcolor: 'transparent',
+                    }}
+                />
+            ),
+            color: 'white'
+        },
+        {
+            title: 'Dockhand',
+            description: 'Modern Docker management and compose workflows',
+            url: `https://${import.meta.env.VITE_DOCKHAND_WEB_HOSTNAME}`,
+            icon: (
+                <Avatar
+                    src={PortainerLogo}
+                    alt="Dockhand"
+                    sx={{
+                        width: 32,
+                        height: 32,
+                        bgcolor: 'transparent',
+                    }}
+                />
+            ),
+            color: 'white'
+        },
+        {
             title: 'Vaultwarden',
             description: 'Self-hosted password management solution',
             url: `https://${import.meta.env.VITE_VAULTWARDEN_WEB_HOSTNAME}`,

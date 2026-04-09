@@ -7,21 +7,19 @@ BIND_MOUNT_DIR="volumes"
 # The directory where backup archives will be placed.
 BACKUP_ROOT_DIR="./backups"
 
-# The simple names of your named volumes from docker-compose.yml.
-NAMED_VOLUMES_TO_BACKUP=(
-  "dashboard_api_data"
-  "dashboard_word_games_data"
-  "ollama_data"
-  "pihole_data"
-  "pihole_logs"
-  "portainer_data"
-  "unbound_redis_data"
-  "vaultwarden_data"
-  "ntfy_data"
-  "authelia_data"
-  "authelia_redis_data"
-  "lldap_data"
-)
+# Dynamically discovered compose volume mappings are returned as:
+#   <volume_key>|<full_docker_volume_name>
+# Example:
+#   dashboard_api_data|homelab_dashboard_api_data
+get_compose_named_volume_mappings() {
+  local project_name="$1"
+
+  docker compose config --format json | jq -r --arg project "$project_name" '
+    (.volumes // {})
+    | to_entries[]
+    | "\(.key)|\(.value.name // ($project + "_" + .key))"
+  '
+}
 
 # --- For Automatic Backups ---
 # How many automated backups to keep.
@@ -44,6 +42,11 @@ backup_data() {
   
   PROJECT_NAME=$(docker compose config --format json | jq -r .name)
   echo "--> Detected project name: $PROJECT_NAME"
+
+  mapfile -t VOLUME_MAPPINGS < <(get_compose_named_volume_mappings "$PROJECT_NAME")
+  if [ "${#VOLUME_MAPPINGS[@]}" -eq 0 ]; then
+    echo "--> WARNING: No named volumes found in docker compose config."
+  fi
 
   TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
   
@@ -73,8 +76,9 @@ backup_data() {
   fi
 
   echo "--> Backing up named volumes..."
-  for volume in "${NAMED_VOLUMES_TO_BACKUP[@]}"; do
-    FULL_VOLUME_NAME="${PROJECT_NAME}_${volume}"
+  for mapping in "${VOLUME_MAPPINGS[@]}"; do
+    volume="${mapping%%|*}"
+    FULL_VOLUME_NAME="${mapping#*|}"
     if docker volume inspect "$FULL_VOLUME_NAME" &>/dev/null; then
       echo "      - Backing up volume: $FULL_VOLUME_NAME"
       docker run --rm \
@@ -133,6 +137,11 @@ restore_data() {
   PROJECT_NAME=$(docker compose config --format json | jq -r .name)
   echo "--> Detected project name: $PROJECT_NAME"
 
+  mapfile -t VOLUME_MAPPINGS < <(get_compose_named_volume_mappings "$PROJECT_NAME")
+  if [ "${#VOLUME_MAPPINGS[@]}" -eq 0 ]; then
+    echo "--> WARNING: No named volumes found in docker compose config."
+  fi
+
   echo "### Starting Homelab Restore ###"
   echo "This will stop services and overwrite data with the contents of '$BACKUP_ARCHIVE'."
   
@@ -159,8 +168,9 @@ restore_data() {
   fi
   
   echo "--> Restoring named volumes..."
-  for volume in "${NAMED_VOLUMES_TO_BACKUP[@]}"; do
-    FULL_VOLUME_NAME="${PROJECT_NAME}_${volume}"
+  for mapping in "${VOLUME_MAPPINGS[@]}"; do
+    volume="${mapping%%|*}"
+    FULL_VOLUME_NAME="${mapping#*|}"
     if [ -f "$BACKUP_DIR/${volume}.tar.gz" ]; then
       echo "      - Restoring volume: $FULL_VOLUME_NAME"
       docker run --rm \

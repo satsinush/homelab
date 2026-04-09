@@ -11,6 +11,8 @@ volumes:
   dashboard_api_data:
   dashboard_word_games_data:
   ollama_data:
+  dockge_data:
+  dockhand_data:
   pihole_data:
   pihole_logs:
   portainer_data:

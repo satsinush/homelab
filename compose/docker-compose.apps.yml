@@ -41,6 +41,8 @@ services:
         - VITE_PIHOLE_WEB_HOSTNAME=${VITE_PIHOLE_WEB_HOSTNAME}
         - VITE_NETDATA_WEB_HOSTNAME=${VITE_NETDATA_WEB_HOSTNAME}
         - VITE_PORTAINER_WEB_HOSTNAME=${VITE_PORTAINER_WEB_HOSTNAME}
+        - VITE_DOCKGE_WEB_HOSTNAME=${VITE_DOCKGE_WEB_HOSTNAME}
+        - VITE_DOCKHAND_WEB_HOSTNAME=${VITE_DOCKHAND_WEB_HOSTNAME}
         - VITE_VAULTWARDEN_WEB_HOSTNAME=${VITE_VAULTWARDEN_WEB_HOSTNAME}
         - VITE_UPTIME_KUMA_WEB_HOSTNAME=${VITE_UPTIME_KUMA_WEB_HOSTNAME}
         - VITE_NTFY_WEB_HOSTNAME=${VITE_NTFY_WEB_HOSTNAME}
@@ -260,6 +262,55 @@ services:
         condition: service_healthy
     healthcheck:
       test: [ "CMD", "curl", "-fs", "http://localhost:9000/api/system/status" ]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+  dockge:
+    image: louislam/dockge:1
+    container_name: dockge
+    restart: on-failure
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - dockge_data:/app/data
+      - ../compose:/opt/stacks
+    environment:
+      - DOCKGE_STACKS_DIR=/opt/stacks
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dockge.rule=Host(`${DOCKGE_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.dockge.entrypoints=websecure"
+      - "traefik.http.routers.dockge.tls=true"
+      - "traefik.http.routers.dockge.middlewares=authelia@file"
+      - "traefik.http.services.dockge.loadbalancer.server.port=5001"
+    healthcheck:
+      test: [ "CMD", "curl", "-fs", "http://localhost:5001" ]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+  dockhand:
+    image: fnsys/dockhand:latest
+    container_name: dockhand
+    restart: on-failure
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - dockhand_data:/app/data
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dockhand.rule=Host(`${DOCKHAND_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.dockhand.entrypoints=websecure"
+      - "traefik.http.routers.dockhand.tls=true"
+      - "traefik.http.routers.dockhand.middlewares=authelia@file"
+      - "traefik.http.services.dockhand.loadbalancer.server.port=3000"
+    healthcheck:
+      test: [ "CMD", "curl", "-fs", "http://localhost:3000" ]
       interval: 1m
       timeout: 10s
       retries: 3
