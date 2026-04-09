@@ -35,10 +35,11 @@ services:
     restart: on-failure
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - dockge_data:/app/data
-      - ${PROJECT_ROOT}:${PROJECT_ROOT}
+      - ${PROJECT_ROOT}/volumes/dockge/data:/app/data
+      - ${PROJECT_ROOT}/volumes/dockge/stacks:/app/stacks
     environment:
-      - DOCKGE_STACKS_DIR=${PROJECT_ROOT}/volumes/dockge/stacks
+      - DOCKGE_STACKS_DIR=/app/stacks
+      - DOCKGE_ENABLE_CONSOLE=true
     networks:
       - homelab-net
     labels:

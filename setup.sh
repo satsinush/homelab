@@ -357,17 +357,30 @@ chmod 600 ./volumes/authelia/configuration.yml
 rm -f "$INDENTED_KEY_FILE" ./volumes/authelia/configuration.yml.subst
 echo "   ✅ Authelia configuration rendered"
 
-# Copy example-data/kuma.db to data/kuma.db if it doesn't already exist
-EXAMPLE_DB="./uptime-kuma/example-data/kuma.db"
-TARGET_DB="./volumes/uptime-kuma/data/kuma.db"
+# Copy example-data/* to data/ if it doesn't already exist
+EXAMPLE_DATA="./uptime-kuma/example-data/"
+TARGET_DATA="./volumes/uptime-kuma/data/"
 
-if [ ! -f "$TARGET_DB" ]; then
+if [ ! -d "$TARGET_DATA" ]; then
   echo "   Setting up Uptime Kuma database..."
-  mkdir -p "$(dirname "$TARGET_DB")"
-  cp "$EXAMPLE_DB" "$TARGET_DB"
+  mkdir -p "$TARGET_DATA"
+  cp -r "$EXAMPLE_DATA"/. "$TARGET_DATA"
   echo "   ✅ Uptime Kuma database initialized"
 else
   echo "   ✅ Uptime Kuma database already exists"
+fi
+
+# Copy all files from ./dockge/example-data to ./volumes/dockge/data
+EXAMPLE_DATA="./dockge/example-data/"
+TARGET_DATA="./volumes/dockge/data/"
+
+if [ ! -d "$TARGET_DATA" ]; then
+  echo "   Setting up Dockge database..."
+  mkdir -p "$TARGET_DATA"
+  cp -r "$EXAMPLE_DATA"/. "$TARGET_DATA"
+  echo "   ✅ Dockge database initialized"
+else
+  echo "   ✅ Dockge database already exists"
 fi
 
 # --- SSL Certificate generation ---

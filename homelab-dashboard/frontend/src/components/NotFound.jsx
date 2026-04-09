@@ -3,7 +3,7 @@ import { Box, Typography, Button, Container, Paper } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { 
     Home as HomeIcon, 
-    SearchOff as SearchOffIcon 
+    SearchOff as SearchOffIcon
 } from '@mui/icons-material';
 
 const NotFound = () => {
@@ -32,7 +32,7 @@ const NotFound = () => {
                 <Button 
                     variant="contained" 
                     size="large" 
-                    startIcon={<DirectionsHomeIcon />}
+                    startIcon={<HomeIcon />}
                     onClick={() => navigate('/')}
                     sx={{ borderRadius: 2, px: 4, py: 1.5, textTransform: 'none', fontSize: '1.1rem' }}
                 >
