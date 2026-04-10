@@ -15,5 +15,7 @@ router.put('/settings', requireAuth('admin'), (req, res) => systemController.upd
 // System information endpoints
 router.get('/system', requireAuth('admin'), (req, res) => systemController.getSystemInfo(req, res));
 router.get('/packages', requireAuth('admin'), (req, res) => systemController.getPackages(req, res));
+router.get('/system/rustdesk-config', requireAuth('admin'), (req, res) => systemController.getRustDeskConfig(req, res));
+router.get('/system/updates/check', requireAuth('admin'), (req, res) => systemController.checkUpdates(req, res));
 
 module.exports = router;

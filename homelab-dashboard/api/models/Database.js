@@ -29,6 +29,7 @@ class DatabaseModel {
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS devices (
                 mac TEXT PRIMARY KEY,
+                rustdesk_id TEXT,
                 data TEXT NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP

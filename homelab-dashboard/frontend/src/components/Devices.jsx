@@ -58,7 +58,9 @@ import {
     ArrowUpward as ArrowUpIcon,
     ArrowDownward as ArrowDownIcon,
     Star as StarIcon,
-    StarBorder as StarBorderIcon
+    StarBorder as StarBorderIcon,
+    CastConnected as RustDeskIcon,
+    Warning as WarningIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/NotificationContext';
@@ -73,7 +75,7 @@ const DeviceDialog = React.memo(({
     onSave
 }) => {
     // Internal form state - completely isolated from parent component
-    const [deviceForm, setDeviceForm] = useState({ name: '', mac: '', description: '' });
+    const [deviceForm, setDeviceForm] = useState({ name: '', mac: '', description: '', rustdeskId: '' });
 
     // Update internal form when dialog opens with new data
     useEffect(() => {
@@ -81,7 +83,7 @@ const DeviceDialog = React.memo(({
             setDeviceForm(initialDeviceForm);
         } else if (!open) {
             // Reset form when dialog closes
-            setDeviceForm({ name: '', mac: '', description: '' });
+            setDeviceForm({ name: '', mac: '', description: '', rustdeskId: '' });
         }
     }, [open, initialDeviceForm]);
 
@@ -120,13 +122,15 @@ const DeviceDialog = React.memo(({
                         disabled={editingDevice}
                     />
                     <TextField
-                        label="Description"
-                        value={deviceForm.description}
-                        onChange={(e) => handleFormChange('description', e.target.value)}
-                        fullWidth
-                        multiline
-                        rows={2}
                         placeholder="e.g., Main Desktop Computer"
+                    />
+                    <TextField
+                        label="RustDesk ID"
+                        value={deviceForm.rustdeskId || ''}
+                        onChange={(e) => handleFormChange('rustdeskId', e.target.value)}
+                        fullWidth
+                        placeholder="e.g., 123456789"
+                        helperText="Required for one-click remote desktop access"
                     />
                 </Stack>
             </DialogContent>
@@ -150,7 +154,8 @@ const Devices = () => {
     // Device management states
     const [deviceDialog, setDeviceDialog] = useState(false);
     const [editingDevice, setEditingDevice] = useState(null);
-    const [initialDeviceForm, setInitialDeviceForm] = useState({ name: '', mac: '', description: '' });
+    const [initialDeviceForm, setInitialDeviceForm] = useState({ name: '', mac: '', description: '', rustdeskId: '' });
+    const [rustdeskConfig, setRustdeskConfig] = useState({ available: false, relayHost: '', publicKey: '' });
 
     // Filter and search states
     const [filterStatus, setFilterStatus] = useState('all');
@@ -171,7 +176,19 @@ const Devices = () => {
 
     useEffect(() => {
         fetchDevices();
+        fetchRustdeskConfig();
     }, []);
+
+    const fetchRustdeskConfig = async () => {
+        try {
+            const response = await tryApiCall('/system/rustdesk-config');
+            if (response.data) {
+                setRustdeskConfig(response.data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch RustDesk config:', err);
+        }
+    };
 
     const handleWakeOnLan = async (device) => {
         try {
@@ -185,6 +202,20 @@ const Devices = () => {
             // Use the specific error message from the API
             showError(err.message || 'Failed to send Wake-on-LAN!');
         }
+    };
+
+    const handleRustDeskConnect = (device) => {
+        if (!device.rustdeskId) return;
+
+        if (!rustdeskConfig.available) {
+            showError('RustDesk relay configuration is missing or public key is unavailable on the server.');
+            return;
+        }
+
+        const url = `rustdesk://${device.rustdeskId.replace(/\s+/g, '')}`;
+        
+        showSuccess(`Launching RustDesk connection to ${device.name || device.rustdeskId}...`);
+        window.location.href = url;
     };
 
     const handleRefreshAll = async () => {
@@ -242,13 +273,13 @@ const Devices = () => {
     const handleDialogClose = useCallback(() => {
         setDeviceDialog(false);
         setEditingDevice(null);
-        setInitialDeviceForm({ name: '', mac: '', description: '', isFavorite: false });
+        setInitialDeviceForm({ name: '', mac: '', description: '', rustdeskId: '', isFavorite: false });
     }, []);
 
     // Device management functions
     const handleAddDevice = () => {
         setEditingDevice(null);
-        setInitialDeviceForm({ name: '', mac: '', description: '' });
+        setInitialDeviceForm({ name: '', mac: '', description: '', rustdeskId: '' });
         setDeviceDialog(true);
     };
 
@@ -263,7 +294,8 @@ const Devices = () => {
         setInitialDeviceForm({
             name: device.name || '',
             mac: formatMacForDisplay(device.macNormalized || device.mac) || '',
-            description: device.description || ''
+            description: device.description || '',
+            rustdeskId: device.rustdeskId || ''
         });
         setDeviceDialog(true);
     };
@@ -318,7 +350,8 @@ const Devices = () => {
             const deviceData = {
                 name: deviceForm.name.trim(),
                 mac: normalizeMacForApi(deviceForm.mac.trim()),
-                description: deviceForm.description.trim()
+                description: deviceForm.description.trim(),
+                rustdeskId: deviceForm.rustdeskId?.trim() || ''
             };
 
             if (editingDevice) {
@@ -359,7 +392,7 @@ const Devices = () => {
 
             setDeviceDialog(false);
             setEditingDevice(null);
-            setInitialDeviceForm({ name: '', mac: '', description: '' });
+            setInitialDeviceForm({ name: '', mac: '', description: '', rustdeskId: '' });
 
         } catch (err) {
             showError(`Failed to save device: ${err.message}`);
@@ -581,6 +614,17 @@ const Devices = () => {
                                         >
                                             Wake Device
                                         </Button>
+                                        {device.rustdeskId && (
+                                            <Button
+                                                fullWidth
+                                                variant="contained"
+                                                startIcon={!rustdeskConfig.available ? <WarningIcon /> : <RustDeskIcon />}
+                                                onClick={() => handleRustDeskConnect(device)}
+                                                color={!rustdeskConfig.available ? "warning" : "secondary"}
+                                            >
+                                                Connect RustDesk
+                                            </Button>
+                                        )}
                                         {device.isFavorite && (
                                             <Button
                                                 fullWidth
@@ -683,6 +727,17 @@ const Devices = () => {
                                                 <PowerIcon />
                                             </IconButton>
                                         </Tooltip>
+                                        {device.rustdeskId && (
+                                            <Tooltip title={!rustdeskConfig.available ? "RustDesk Config Missing" : "Connect RustDesk"}>
+                                                <IconButton
+                                                    onClick={() => handleRustDeskConnect(device)}
+                                                    color={!rustdeskConfig.available ? "warning" : "secondary"}
+                                                    size="small"
+                                                >
+                                                    {!rustdeskConfig.available ? <WarningIcon /> : <RustDeskIcon />}
+                                                </IconButton>
+                                            </Tooltip>
+                                        )}
                                         {device.isFavorite && (
                                             <Tooltip title="Edit Device">
                                                 <IconButton

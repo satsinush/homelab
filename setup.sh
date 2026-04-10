@@ -932,11 +932,12 @@ echo "   Username: ${HOMELAB_USERNAME}"
 echo "   Email:    ${HOMELAB_USERNAME}@${HOMELAB_HOSTNAME}"
 echo ""
 
-# Print RustDesk public key if the container is running
+# Extract RustDesk public key for the dashboard if the container is running
 if [ "$(docker ps -q -f name=rustdesk-id-server)" ]; then
-  echo "🖥️  RustDesk Public Key:"
-  docker cp rustdesk-id-server:/root/id_ed25519.pub - | tar -xO | sed 's/^/   /'
-  echo ""
+  echo "🖥️  Extracting RustDesk Public Key to secrets..."
+  mkdir -p "${PROJECT_ROOT}/volumes/secrets"
+  docker cp rustdesk-id-server:/root/id_ed25519.pub "${PROJECT_ROOT}/volumes/secrets/rustdesk_public_key"
+  echo "   ✅ RustDesk Public Key extracted to volumes/secrets/rustdesk_public_key"
   echo ""
 fi
 

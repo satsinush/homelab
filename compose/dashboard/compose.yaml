@@ -31,7 +31,9 @@ services:
     environment:
       - AUTHELIA_WEB_HOSTNAME=${AUTHELIA_WEB_HOSTNAME}
       - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
+      - HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
+      - RUSTDESK_PUBKEY_PATH=/secrets/rustdesk_public_key
     labels:
       - "traefik.enable=true"
       # Canonical dashboard route

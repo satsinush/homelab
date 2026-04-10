@@ -1,4 +1,5 @@
 const Settings = require('../models/Settings');
+const fs = require('fs');
 const config = require('../config');
 const HostApiService = require('../services/hostApiService');
 const NetdataService = require('../services/netdataService');
@@ -96,6 +97,40 @@ class SystemController {
         } catch (error) {
             console.error('Get packages error:', error);
             return sendError(res, 500, 'Failed to retrieve package information', error.message);
+        }
+    }
+
+    // Get RustDesk configuration (relay host and public key)
+    async getRustDeskConfig(req, res) {
+        try {
+            const relayHost = config.homelabHostname;
+            let publicKey = null;
+            let errorFlag = false;
+
+            if (config.rustdeskPubKeyPath) {
+                try {
+                    if (fs.existsSync(config.rustdeskPubKeyPath)) {
+                        publicKey = fs.readFileSync(config.rustdeskPubKeyPath, 'utf8').trim();
+                    } else {
+                        console.warn(`RustDesk public key file not found at: ${config.rustdeskPubKeyPath}`);
+                        errorFlag = true;
+                    }
+                } catch (readError) {
+                    console.error('Error reading RustDesk public key:', readError);
+                    errorFlag = true;
+                }
+            } else {
+                errorFlag = true;
+            }
+
+            return sendSuccess(res, {
+                relayHost: relayHost,
+                publicKey: publicKey,
+                available: !errorFlag && !!publicKey
+            });
+        } catch (error) {
+            console.error('Get RustDesk config error:', error);
+            return sendError(res, 500, 'Failed to retrieve RustDesk configuration', error.message);
         }
     }
 
