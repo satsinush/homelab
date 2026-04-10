@@ -15,6 +15,7 @@ import WordGames from './components/WordGames';
 import PackageManager from './components/PackageManager';
 import Settings from './components/Settings';
 import Profile from './components/Profile';
+import NotFound from './components/NotFound';
 import './App.css';
 
 function AppContent() {
@@ -70,6 +71,7 @@ function AppContent() {
                 <Route path="/packages" element={<PackageManager />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </Box>
           </Box>

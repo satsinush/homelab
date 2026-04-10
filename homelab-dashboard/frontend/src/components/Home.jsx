@@ -39,6 +39,9 @@ import UptimeKumaLogo from '../assets/uptime_kuma_logo.png';
 import NtfyLogo from '../assets/ntfy_logo.png';
 import AutheliaLogo from '../assets/authelia_logo.png';
 import AuthIcon from '../assets/auth_icon.png';
+import DockgeLogo from '../assets/dockge_logo.png';
+import DockhandLogo from '../assets/dockhand_logo.png';
+import UsersIcon from '../assets/users_icon.png';
 
 const Home = () => {
     const navigate = useNavigate();
@@ -46,14 +49,14 @@ const Home = () => {
 
     const quickLinks = [
         {
-            title: 'System Monitor',
+            title: 'System',
             description: 'View real-time system resources, uptime, and performance metrics',
             icon: <DashboardIcon />,
             path: '/system',
             color: 'primary'
         },
         {
-            title: 'Device Management',
+            title: 'Devices',
             description: 'Manage Wake-on-LAN devices and network equipment',
             icon: <DevicesIcon />,
             path: '/devices',
@@ -74,7 +77,7 @@ const Home = () => {
             color: 'warning'
         },
         {
-            title: 'Package Manager',
+            title: 'Packages',
             description: 'Install, update, and manage system packages',
             icon: <PackagesIcon />,
             path: '/packages',
@@ -142,6 +145,40 @@ const Home = () => {
             color: 'white'
         },
         {
+            title: 'Dockge',
+            description: 'Compose-first Docker stack management',
+            url: `https://${import.meta.env.VITE_DOCKGE_WEB_HOSTNAME}`,
+            icon: (
+                <Avatar
+                    src={DockgeLogo}
+                    alt="Dockge"
+                    sx={{
+                        width: 32,
+                        height: 32,
+                        bgcolor: 'transparent',
+                    }}
+                />
+            ),
+            color: 'white'
+        },
+        {
+            title: 'Dockhand',
+            description: 'Modern Docker management and compose workflows',
+            url: `https://${import.meta.env.VITE_DOCKHAND_WEB_HOSTNAME}`,
+            icon: (
+                <Avatar
+                    src={DockhandLogo}
+                    alt="Dockhand"
+                    sx={{
+                        width: 32,
+                        height: 32,
+                        bgcolor: 'transparent',
+                    }}
+                />
+            ),
+            color: 'white'
+        },
+        {
             title: 'Vaultwarden',
             description: 'Self-hosted password management solution',
             url: `https://${import.meta.env.VITE_VAULTWARDEN_WEB_HOSTNAME}`,
@@ -198,7 +235,7 @@ const Home = () => {
             url: `https://${import.meta.env.VITE_LLDAP_WEB_HOSTNAME}`,
             icon: (
                 <Avatar
-                    src={AuthIcon}
+                    src={UsersIcon}
                     alt="LLDAP"
                     sx={{
                         width: 32,
@@ -257,10 +294,12 @@ const Home = () => {
                     {quickLinks.map((link) => (
                         <Grid size={{ xs: 12, sm: 6, md: 3 }} key={link.path}>
                             <Card
+                                onClick={() => navigate(link.path)}
                                 sx={{
                                     height: '100%',
                                     display: 'flex',
                                     flexDirection: 'column',
+                                    cursor: 'pointer',
                                     transition: 'transform 0.2s',
                                     '&:hover': {
                                         transform: 'translateY(-4px)',
@@ -290,7 +329,10 @@ const Home = () => {
                                     <Button
                                         size="small"
                                         color={link.color}
-                                        onClick={() => navigate(link.path)}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigate(link.path);
+                                        }}
                                         sx={{ ml: 'auto' }}
                                     >
                                         Open
@@ -311,10 +353,12 @@ const Home = () => {
                     {externalServices.map((service, index) => (
                         <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
                             <Card
+                                onClick={() => window.location.href = service.url}
                                 sx={{
                                     height: '100%',
                                     display: 'flex',
                                     flexDirection: 'column',
+                                    cursor: 'pointer',
                                     transition: 'transform 0.2s',
                                     '&:hover': {
                                         transform: 'translateY(-4px)',
@@ -346,9 +390,7 @@ const Home = () => {
                                         size="small"
                                         color={service.color}
                                         href={service.url}
-                                        // target="_blank"  <-- REMOVED
-                                        // rel="noopener noreferrer" <-- REMOVED (optional but good practice)
-                                        // endIcon={<ExternalLinkIcon />} // You might also want to remove this icon
+                                        onClick={(e) => e.stopPropagation()}
                                         sx={{ ml: 'auto' }}
                                     >
                                         Open

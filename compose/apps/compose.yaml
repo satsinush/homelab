@@ -1,0 +1,151 @@
+# compose/apps/compose.yaml
+services:
+  rustdesk-id-server:
+    image: rustdesk/rustdesk-server:latest
+    container_name: rustdesk-id-server
+    command: hbbs -r rustdesk-relay-server:21119 -k _
+    volumes:
+      - rustdesk_data:/root
+    networks:
+      - homelab-net
+    ports:
+      - "21115:21115"
+      - "21116:21116"
+      - "21116:21116/udp"
+      - "21118:21118"
+    restart: unless-stopped
+    depends_on:
+      - rustdesk-relay-server
+
+  rustdesk-relay-server:
+    image: rustdesk/rustdesk-server:latest
+    container_name: rustdesk-relay-server
+    command: hbbr -k _
+    volumes:
+      - rustdesk_data:/root
+    networks:
+      - homelab-net
+    ports:
+      - "21117:21117"
+      - "21119:21119"
+    restart: unless-stopped
+
+  ddclient:
+    image: linuxserver/ddclient:latest
+    container_name: ddclient
+    restart: on-failure
+    environment:
+      - TZ=${TZ}
+      - PUID=${PUID}
+      - PGID=${PGID}
+    networks:
+      - homelab-net
+    volumes:
+      - ${PROJECT_ROOT}/ddclient/ddclient.conf:/config/ddclient.conf
+    healthcheck:
+      test: [ "CMD", "pgrep", "ddclient" ]
+      interval: 5m
+      timeout: 10s
+      retries: 2
+      start_period: 1m
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: on-failure
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - homelab-net
+    healthcheck:
+      test: [ "CMD", "ollama", "list" ]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+  vaultwarden:
+    build: ${PROJECT_ROOT}/vaultwarden
+    container_name: vaultwarden
+    restart: on-failure
+    volumes:
+      - vaultwarden_data:/data
+      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
+    extra_hosts:
+      - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
+    networks:
+      - homelab-net
+    environment:
+      - SSL_CERT_FILE=/etc/ssl/certs/homelab-ca.crt
+      - WEBSOCKET_ENABLED=true
+      - SIGNUPS_ALLOWED=false
+      - DOMAIN=https://${VAULTWARDEN_WEB_HOSTNAME}
+      - SMTP_SSL_CA_CERT=/etc/ssl/certs/homelab-ca.crt
+      - SMTP_HOST=ntfy
+      - SMTP_PORT=25
+      - SMTP_SECURITY=off
+      - SMTP_FROM=vaultwarden@${HOMELAB_HOSTNAME}
+      - SMTP_USERNAME=${HOMELAB_USERNAME}
+      - SSO_ENABLED=true
+      - SSO_CLIENT_ID=vaultwarden
+      - SSO_AUTHORITY=https://${AUTHELIA_WEB_HOSTNAME}
+      - SSO_SCOPES=openid email profile offline_access groups
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vaultwarden.rule=Host(`${VAULTWARDEN_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.vaultwarden.entrypoints=websecure"
+      - "traefik.http.routers.vaultwarden.tls=true"
+      - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
+    depends_on:
+      ntfy:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-fs", "http://localhost:80/alive" ]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+  ntfy:
+    build: ${PROJECT_ROOT}/ntfy
+    container_name: ntfy
+    restart: on-failure
+    volumes:
+      - ntfy_data:/var/lib/ntfy
+      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
+    environment:
+      - NTFY_BASE_URL=https://${NTFY_WEB_HOSTNAME}
+      - NTFY_AUTH_FILE=/var/lib/ntfy/user.db
+      - NTFY_CACHE_FILE=/var/lib/ntfy/cache.db
+      - NTFY_ATTACHMENT_CACHE_DIR=/var/lib/ntfy/attachments
+      - NTFY_AUTH_DEFAULT_ACCESS=deny-all
+      - NTFY_BEHIND_PROXY=true
+      - NTFY_ENABLE_LOGIN=true
+      - NTFY_SMTP_SERVER_LISTEN=:25
+      - NTFY_SMTP_SERVER_DOMAIN=${HOMELAB_HOSTNAME}
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ntfy.rule=Host(`${NTFY_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.ntfy.entrypoints=websecure"
+      - "traefik.http.routers.ntfy.tls=true"
+      - "traefik.http.services.ntfy.loadbalancer.server.port=80"
+    command: serve
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost/v1/health" ]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+volumes:
+  ollama_data:
+  rustdesk_data:
+  vaultwarden_data:
+  ntfy_data:
+
+networks:
+  homelab-net:
+    external: true

@@ -120,7 +120,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }) => {
                         fontWeight: 600,
                         color: 'text.primary'
                     }}>
-                        Homelab Admin
+                        Homelab Dashboard
                     </Typography>
                 </Box>
             </Box>

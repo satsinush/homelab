@@ -46,9 +46,9 @@ services:
     container_name: unbound
     restart: on-failure
     volumes:
-      - ../unbound/unbound.conf:/etc/unbound/custom.conf.d/unbound.conf:ro
-      - ../unbound/cachedb.conf:/etc/unbound/custom.conf.d/cachedb.conf:ro
-      - ../unbound/root.hints:/etc/unbound/root.hints:ro
+      - ${PROJECT_ROOT}/unbound/unbound.conf:/etc/unbound/custom.conf.d/unbound.conf:ro
+      - ${PROJECT_ROOT}/unbound/cachedb.conf:/etc/unbound/custom.conf.d/cachedb.conf:ro
+      - ${PROJECT_ROOT}/unbound/root.hints:/etc/unbound/root.hints:ro
     networks:
       - homelab-net
     depends_on:
@@ -73,5 +73,13 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
-      retries: 3
       start_period: 30s
+
+volumes:
+  pihole_data:
+  pihole_logs:
+  unbound_redis_data:
+
+networks:
+  homelab-net:
+    external: true

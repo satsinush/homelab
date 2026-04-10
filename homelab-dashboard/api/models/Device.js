@@ -20,6 +20,7 @@ class Device {
                 return {
                     ...deviceData,
                     mac: row.mac, // Ensure MAC is always set from the key
+                    rustdeskId: row.rustdesk_id,
                     createdAt: row.created_at,
                     updatedAt: row.updated_at
                 };
@@ -50,6 +51,7 @@ class Device {
                     parsedDevices.push({
                         ...deviceData,
                         mac: device.mac, // Ensure MAC is always set from the key
+                        rustdeskId: device.rustdesk_id,
                         createdAt: device.created_at,
                         updatedAt: device.updated_at
                     });
@@ -84,20 +86,22 @@ class Device {
             // Check if device exists
             const existingDevice = this.findByMac(deviceData.mac);
             
-            // Prepare data without MAC (since it's the primary key)
+            // Prepare data without MAC or RustDesk ID (since they have their own columns)
             const dataToStore = { ...deviceData };
+            const rustdeskId = dataToStore.rustdeskId || null;
             delete dataToStore.mac;
+            delete dataToStore.rustdeskId;
             delete dataToStore.createdAt;
             delete dataToStore.updatedAt;
             
             if (existingDevice) {
                 // Update existing device
-                const stmt = this.db.prepare('UPDATE devices SET data = ?, updated_at = ? WHERE mac = ?');
-                stmt.run(JSON.stringify(dataToStore), now, deviceData.mac);
+                const stmt = this.db.prepare('UPDATE devices SET rustdesk_id = ?, data = ?, updated_at = ? WHERE mac = ?');
+                stmt.run(rustdeskId, JSON.stringify(dataToStore), now, deviceData.mac);
             } else {
                 // Insert new device
-                const stmt = this.db.prepare('INSERT INTO devices (mac, data, created_at, updated_at) VALUES (?, ?, ?, ?)');
-                stmt.run(deviceData.mac, JSON.stringify(dataToStore), now, now);
+                const stmt = this.db.prepare('INSERT INTO devices (mac, rustdesk_id, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?)');
+                stmt.run(deviceData.mac, rustdeskId, JSON.stringify(dataToStore), now, now);
             }
             
             return deviceData.mac; // Return MAC instead of numeric ID

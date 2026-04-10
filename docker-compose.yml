@@ -1,29 +1,9 @@
 # docker-compose.yml
-networks:
-  homelab-net:
-    name: homelab-net
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 10.10.30.0/24
-
-volumes:
-  dashboard_api_data:
-  dashboard_word_games_data:
-  ollama_data:
-  pihole_data:
-  pihole_logs:
-  portainer_data:
-  unbound_redis_data:
-  vaultwarden_data:
-  ntfy_data:
-  authelia_data:
-  authelia_redis_data:
-  lldap_data:
-  rustdesk_data:
-
 include:
-  - ./compose/docker-compose.core.yml
-  - ./compose/docker-compose.dns.yml
-  - ./compose/docker-compose.auth.yml
-  - ./compose/docker-compose.apps.yml
+  - ./compose/core/compose.yaml
+  - ./compose/dns/compose.yaml
+  - ./compose/auth/compose.yaml
+  - ./compose/monitoring/compose.yaml
+  - ./compose/dashboard/compose.yaml
+  - ./compose/docker/compose.yaml
+  - ./compose/apps/compose.yaml

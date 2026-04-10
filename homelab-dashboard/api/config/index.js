@@ -44,30 +44,30 @@ async function initializeOIDCClient() {
     if (initializationPromise) {
         return initializationPromise;
     }
-    
+
     // If already initialized, return the config
     if (oidcConfig) {
         return oidcConfig;
     }
-    
+
     initializationPromise = (async () => {
-        try {            
+        try {
             // Set up the OIDC configuration following official documentation
             const server = new URL(`https://${process.env.AUTHELIA_WEB_HOSTNAME}`);
             const clientId = 'homelab_dashboard';
             const clientSecret = process.env.DASHBOARD_OIDC_SECRET;
-            
+
             oidcConfig = await client.discovery(
                 server,
                 clientId,
                 undefined, // clientMetadata
                 client.ClientSecretBasic(clientSecret)
             );
-            
+
             console.log('OIDC Configuration initialized successfully');
-            
+
             return oidcConfig;
-            
+
         } catch (error) {
             console.error('Failed to initialize OIDC client:', error);
             console.error('Error details:', error.message);
@@ -76,7 +76,7 @@ async function initializeOIDCClient() {
             throw error;
         }
     })();
-    
+
     return initializationPromise;
 }
 
@@ -133,6 +133,8 @@ const config = {
     },
     dashBoardWebHostname: process.env.DASHBOARD_WEB_HOSTNAME,
     autheliaWebHostname: process.env.AUTHELIA_WEB_HOSTNAME,
+    homelabHostname: process.env.HOMELAB_HOSTNAME,
+    rustdeskPubKeyPath: process.env.RUSTDESK_PUBKEY_PATH,
     defaultSettings: DEFAULT_SETTINGS,
     getOIDCConfig: getOIDCConfig,
     oidcLib: client

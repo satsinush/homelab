@@ -50,13 +50,20 @@ if [ ! -f .env ]; then
     fi
   done
 
-  echo "   Enter host device IP address:"
-  read -p "                     IP Address: " IP_ADDRESS
-  echo
+  # echo "   Enter host device IP address:"
+  # read -p "                     IP Address: " IP_ADDRESS
+  # echo
 
-  echo "   Enter PUID and PGID for file permissions:"
-  read -p "                           PUID: " PUID
-  read -p "                           PGID: " PGID
+  IP_ADDRESS=$(ip route get 1 | awk '{print $7;exit}')
+
+  # echo "   Enter PUID and PGID for file permissions:"
+  # read -p "                           PUID: " PUID
+  # read -p "                           PGID: " PGID
+
+  PUID=$(id -u)
+  PGID=$(id -g)
+  
+  TZ=$(timedatectl | grep "Time zone" | awk '{print $3}')
 
   echo ""
   echo "   SSL Certificate Mode:"
@@ -111,6 +118,7 @@ if [ ! -f .env ]; then
   
   # Also store the plaintext password since we just prompted for it
   mkdir -p ./volumes/secrets
+  mkdir -p ./volumes/dockge/stacks
   chmod 700 ./volumes/secrets
   echo "$PASSWORD" > ./volumes/secrets/homelab_password
   echo "${USERNAME}:${BCRYPT_PASSWORD}:admin" > ./volumes/secrets/ntfy_admin_users
@@ -122,7 +130,9 @@ if [ ! -f .env ]; then
   sed -i "s|<homelab-hostname>|$HOMELAB_HOSTNAME_INPUT|g" "$OUTPUT_FILE"
   sed -i "s|<dns-domain>|$DNS_DOMAIN_INPUT|g" "$OUTPUT_FILE"
   sed -i "s|<lldap-base-dn>|$LLDAP_BASE_DN_INPUT|g" "$OUTPUT_FILE"
-
+  sed -i "s|<project-root>|$(pwd)|g" "$OUTPUT_FILE"
+  sed -i "s|<timezone>|$TZ|g" "$OUTPUT_FILE"
+  
   # Load the generated variables from .env to the environment for the rest of the script
   export $(grep -v '^#' .env | sed 's/\r$//' | xargs)
 
@@ -347,17 +357,30 @@ chmod 600 ./volumes/authelia/configuration.yml
 rm -f "$INDENTED_KEY_FILE" ./volumes/authelia/configuration.yml.subst
 echo "   ✅ Authelia configuration rendered"
 
-# Copy example-data/kuma.db to data/kuma.db if it doesn't already exist
-EXAMPLE_DB="./uptime-kuma/example-data/kuma.db"
-TARGET_DB="./volumes/uptime-kuma/data/kuma.db"
+# Copy example-data/* to data/ if it doesn't already exist
+EXAMPLE_DATA="./uptime-kuma/example-data/"
+TARGET_DATA="./volumes/uptime-kuma/data/"
 
-if [ ! -f "$TARGET_DB" ]; then
+if [ ! -d "$TARGET_DATA" ]; then
   echo "   Setting up Uptime Kuma database..."
-  mkdir -p "$(dirname "$TARGET_DB")"
-  cp "$EXAMPLE_DB" "$TARGET_DB"
+  mkdir -p "$TARGET_DATA"
+  cp -r "$EXAMPLE_DATA"/. "$TARGET_DATA"
   echo "   ✅ Uptime Kuma database initialized"
 else
   echo "   ✅ Uptime Kuma database already exists"
+fi
+
+# Copy all files from ./dockge/example-data to ./volumes/dockge/data
+EXAMPLE_DATA="./dockge/example-data/"
+TARGET_DATA="./volumes/dockge/data/"
+
+if [ ! -d "$TARGET_DATA" ]; then
+  echo "   Setting up Dockge database..."
+  mkdir -p "$TARGET_DATA"
+  cp -r "$EXAMPLE_DATA"/. "$TARGET_DATA"
+  echo "   ✅ Dockge database initialized"
+else
+  echo "   ✅ Dockge database already exists"
 fi
 
 # --- SSL Certificate generation ---
@@ -470,7 +493,9 @@ fi
 
 
 echo ""
+echo ""
 echo "🐳 Starting Docker containers..."
+docker network create homelab-net --subnet 10.10.30.0/24 || true
 docker-compose up -d --build
 
 echo "   Waiting 10 seconds for services to initialize..."
@@ -907,11 +932,12 @@ echo "   Username: ${HOMELAB_USERNAME}"
 echo "   Email:    ${HOMELAB_USERNAME}@${HOMELAB_HOSTNAME}"
 echo ""
 
-# Print RustDesk public key if the container is running
+# Extract RustDesk public key for the dashboard if the container is running
 if [ "$(docker ps -q -f name=rustdesk-id-server)" ]; then
-  echo "🖥️  RustDesk Public Key:"
-  docker cp rustdesk-id-server:/root/id_ed25519.pub - | tar -xO | sed 's/^/   /'
-  echo ""
+  echo "🖥️  Extracting RustDesk Public Key to secrets..."
+  mkdir -p "${PROJECT_ROOT}/volumes/secrets"
+  docker cp rustdesk-id-server:/root/id_ed25519.pub "${PROJECT_ROOT}/volumes/secrets/rustdesk_public_key"
+  echo "   ✅ RustDesk Public Key extracted to volumes/secrets/rustdesk_public_key"
   echo ""
 fi
 

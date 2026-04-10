@@ -338,7 +338,7 @@ class DeviceController {
                 return sendError(res, 400, 'Invalid request body');
             }
 
-            const { name, mac, description } = req.body;
+            const { name, mac, description, rustdeskId } = req.body;
             
             // Validate input at controller level
             let validatedName, validatedMac, validatedDescription;
@@ -367,7 +367,8 @@ class DeviceController {
                 ip: null,
                 lastSeen: null,
                 lastScanned: null,
-                scanMethod: 'manual'
+                scanMethod: 'manual',
+                rustdeskId: rustdeskId?.replace(/\s+/g, '') || ''
             };
             
             this.deviceModel.save(newDevice);
@@ -400,7 +401,7 @@ class DeviceController {
             }
 
             const { mac: paramMac } = req.params;
-            const { name, mac, description } = req.body;
+            const { name, mac, description, rustdeskId } = req.body;
 
             if (!paramMac || typeof paramMac !== 'string' || !paramMac.trim()) {
                 return sendError(res, 400, 'MAC address parameter is required');
@@ -447,6 +448,7 @@ class DeviceController {
                 name: validatedName,
                 mac: validatedMac,
                 description: validatedDescription,
+                rustdeskId: rustdeskId?.replace(/\s+/g, '') || '',
                 isFavorite: true // Always keep as favorite
             };
 

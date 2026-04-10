@@ -1,0 +1,84 @@
+# compose/dashboard/compose.yaml
+services:
+  homelab-dashboard:
+    container_name: homelab-dashboard
+    restart: on-failure
+    build:
+      context: ${PROJECT_ROOT}
+      dockerfile: homelab-dashboard/api/Dockerfile
+      args:
+        - VITE_DASHBOARD_WEB_HOSTNAME=${VITE_DASHBOARD_WEB_HOSTNAME}
+        - VITE_PIHOLE_WEB_HOSTNAME=${VITE_PIHOLE_WEB_HOSTNAME}
+        - VITE_NETDATA_WEB_HOSTNAME=${VITE_NETDATA_WEB_HOSTNAME}
+        - VITE_PORTAINER_WEB_HOSTNAME=${VITE_PORTAINER_WEB_HOSTNAME}
+        - VITE_DOCKGE_WEB_HOSTNAME=${VITE_DOCKGE_WEB_HOSTNAME}
+        - VITE_DOCKHAND_WEB_HOSTNAME=${VITE_DOCKHAND_WEB_HOSTNAME}
+        - VITE_VAULTWARDEN_WEB_HOSTNAME=${VITE_VAULTWARDEN_WEB_HOSTNAME}
+        - VITE_UPTIME_KUMA_WEB_HOSTNAME=${VITE_UPTIME_KUMA_WEB_HOSTNAME}
+        - VITE_NTFY_WEB_HOSTNAME=${VITE_NTFY_WEB_HOSTNAME}
+        - VITE_LLDAP_WEB_HOSTNAME=${VITE_LLDAP_WEB_HOSTNAME}
+        - VITE_AUTHELIA_WEB_HOSTNAME=${VITE_AUTHELIA_WEB_HOSTNAME}
+    volumes:
+      - dashboard_api_data:/app/api/data
+      - dashboard_word_games_data:/app/word_games/data
+      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
+    networks:
+      - homelab-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
+    environment:
+      - AUTHELIA_WEB_HOSTNAME=${AUTHELIA_WEB_HOSTNAME}
+      - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
+      - HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
+      - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
+      - RUSTDESK_PUBKEY_PATH=/secrets/rustdesk_public_key
+    labels:
+      - "traefik.enable=true"
+      # Canonical dashboard route
+      - "traefik.http.routers.dashboard.rule=Host(`${DASHBOARD_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.routers.dashboard.tls.domains[0].main=${HOMELAB_HOSTNAME}"
+      - "traefik.http.routers.dashboard.tls.domains[0].sans=*.${HOMELAB_HOSTNAME}"
+      - "traefik.http.routers.dashboard.middlewares=authelia@file"
+      - "traefik.http.services.dashboard.loadbalancer.server.port=5000"
+      - "traefik.http.routers.dashboard-redirect.rule=Host(`${HOMELAB_HOSTNAME}`) || HostRegexp(`^[0-9.]+$`)"
+      - "traefik.http.routers.dashboard-redirect.entrypoints=websecure"
+      - "traefik.http.routers.dashboard-redirect.tls=true"
+      - "traefik.http.routers.dashboard-redirect.middlewares=dashboard-redirect-to-canonical@docker"
+      - "traefik.http.routers.dashboard-redirect.service=dashboard"
+      - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.regex=^https?://(?:${HOMELAB_HOSTNAME}|[0-9.]+)(.*)"
+      - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.replacement=https://${DASHBOARD_WEB_HOSTNAME}$${1}"
+      - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.permanent=true"
+      # Catch-All Router for unknown subdomains (Lowest Priority) - Redirects to canonical dashboard
+      - "traefik.http.routers.dashboard-catchall.rule=HostRegexp(`^.+\\.${HOMELAB_HOSTNAME}$$`)"
+      - "traefik.http.routers.dashboard-catchall.entrypoints=websecure"
+      - "traefik.http.routers.dashboard-catchall.tls=true"
+      - "traefik.http.routers.dashboard-catchall.priority=1"
+      - "traefik.http.routers.dashboard-catchall.middlewares=dashboard-catchall-redirect@docker"
+      - "traefik.http.routers.dashboard-catchall.service=dashboard"
+      
+      # Middleware to redirect any host to canonical dashboard
+      - "traefik.http.middlewares.dashboard-catchall-redirect.redirectregex.regex=^https?://[^/]+(.*)"
+      - "traefik.http.middlewares.dashboard-catchall-redirect.redirectregex.replacement=https://${DASHBOARD_WEB_HOSTNAME}$${1}"
+      - "traefik.http.middlewares.dashboard-catchall-redirect.redirectregex.permanent=true"
+    depends_on:
+      authelia:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:5000" ]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+volumes:
+  dashboard_api_data:
+  dashboard_word_games_data:
+
+networks:
+  homelab-net:
+    external: true
