@@ -54,7 +54,7 @@ if [ ! -f .env ]; then
   # read -p "                     IP Address: " IP_ADDRESS
   # echo
 
-  IP_ADDRESS=$(hostname -I | awk '{print $1}')
+  IP_ADDRESS=$(ip route get 1 | awk '{print $7;exit}')
 
   # echo "   Enter PUID and PGID for file permissions:"
   # read -p "                           PUID: " PUID
