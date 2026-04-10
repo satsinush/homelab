@@ -43,20 +43,26 @@ services:
       - "traefik.http.routers.dashboard.tls.domains[0].sans=*.${HOMELAB_HOSTNAME}"
       - "traefik.http.routers.dashboard.middlewares=authelia@file"
       - "traefik.http.services.dashboard.loadbalancer.server.port=5000"
-      - "traefik.http.routers.dashboard-redirect.rule=Host(`${HOMELAB_HOSTNAME}`) || Host(`${HOMELAB_IP_ADDRESS}`)"
+      - "traefik.http.routers.dashboard-redirect.rule=Host(`${HOMELAB_HOSTNAME}`) || HostRegexp(`^[0-9.]+$`)"
       - "traefik.http.routers.dashboard-redirect.entrypoints=websecure"
       - "traefik.http.routers.dashboard-redirect.tls=true"
       - "traefik.http.routers.dashboard-redirect.middlewares=dashboard-redirect-to-canonical@docker"
       - "traefik.http.routers.dashboard-redirect.service=dashboard"
-      - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.regex=^https?://(?:${HOMELAB_HOSTNAME}|${HOMELAB_IP_ADDRESS})(.*)"
+      - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.regex=^https?://(?:${HOMELAB_HOSTNAME}|[0-9.]+)(.*)"
       - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.replacement=https://${DASHBOARD_WEB_HOSTNAME}$${1}"
       - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.permanent=true"
-      # Catch-All Router for unknown subdomains (Lowest Priority)
-      - "traefik.http.routers.dashboard-catchall.rule=HostRegexp(`{subdomain:.+}.${HOMELAB_HOSTNAME}`)"
+      # Catch-All Router for unknown subdomains (Lowest Priority) - Redirects to canonical dashboard
+      - "traefik.http.routers.dashboard-catchall.rule=HostRegexp(`^.+\\.${HOMELAB_HOSTNAME}$$`)"
       - "traefik.http.routers.dashboard-catchall.entrypoints=websecure"
       - "traefik.http.routers.dashboard-catchall.tls=true"
       - "traefik.http.routers.dashboard-catchall.priority=1"
+      - "traefik.http.routers.dashboard-catchall.middlewares=dashboard-catchall-redirect@docker"
       - "traefik.http.routers.dashboard-catchall.service=dashboard"
+      
+      # Middleware to redirect any host to canonical dashboard
+      - "traefik.http.middlewares.dashboard-catchall-redirect.redirectregex.regex=^https?://[^/]+(.*)"
+      - "traefik.http.middlewares.dashboard-catchall-redirect.redirectregex.replacement=https://${DASHBOARD_WEB_HOSTNAME}$${1}"
+      - "traefik.http.middlewares.dashboard-catchall-redirect.redirectregex.permanent=true"
     depends_on:
       authelia:
         condition: service_healthy
