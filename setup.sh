@@ -819,13 +819,13 @@ echo "⚙️  Configuring Portainer..."
 echo "   Initializing admin user..."
 docker exec portainer curl -s -k -X POST \
   -H "Content-Type: application/json" \
-  -d "{\"username\": \"${PORTAINER_ADMIN_USERNAME}\", \"password\": \"${PORTAINER_ADMIN_PASSWORD}\"}" \
+  -d "{\"username\": \"${HOMELAB_USERNAME}\", \"password\": \"${PORTAINER_ADMIN_PASSWORD}\"}" \
   "http://localhost:9000/api/users/admin/init" >/dev/null 2>&1
 
 echo "   Getting authentication token..."
 TOKEN=$(docker exec portainer curl -s -k -X POST \
   -H "Content-Type: application/json" \
-  -d "{\"username\": \"${PORTAINER_ADMIN_USERNAME}\", \"password\": \"${PORTAINER_ADMIN_PASSWORD}\"}" \
+  -d "{\"username\": \"${HOMELAB_USERNAME}\", \"password\": \"${PORTAINER_ADMIN_PASSWORD}\"}" \
   "http://localhost:9000/api/auth" | jq -r .jwt)
 
 if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
