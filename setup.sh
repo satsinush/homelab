@@ -499,8 +499,24 @@ docker network create homelab-net --subnet 10.10.30.0/24 || true
 docker compose build
 docker compose up -d
 
-echo "   Waiting 10 seconds for services to initialize..."
-sleep 10
+echo "   Waiting 9 seconds for services to initialize..."
+sleep 1
+echo "   Waiting 8 seconds for services to initialize..."
+sleep 1
+echo "   Waiting 7 seconds for services to initialize..."
+sleep 1
+echo "   Waiting 6 seconds for services to initialize..."
+sleep 1
+echo "   Waiting 5 seconds for services to initialize..."
+sleep 1
+echo "   Waiting 4 seconds for services to initialize..."
+sleep 1
+echo "   Waiting 3 seconds for services to initialize..."
+sleep 1
+echo "   Waiting 2 seconds for services to initialize..."
+sleep 1
+echo "   Waiting 1 second for services to initialize..."
+sleep 1
 echo "✅ Docker containers started"
 
 echo ""
