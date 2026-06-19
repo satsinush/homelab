@@ -18,9 +18,11 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/passwd:/host/etc/passwd:ro
       - /etc/group:/host/etc/group:ro
-      - /etc/localtime:/etc/localtime:ro
+      #- /etc/localtime:/etc/localtime:ro
       - /var/log:/host/var/log:ro
       - /run/dbus:/run/dbus:ro
+    environment:
+      - TZ=${TZ}
     networks:
       - homelab-net
     labels:
