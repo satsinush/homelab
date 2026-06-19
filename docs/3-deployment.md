@@ -38,13 +38,20 @@ WorkingDirectory=/home/USERNAME/homelab
 ExecStart=/home/USERNAME/homelab/backup.sh backup --auto
 
 User=USERNAME
-Group=USERNAME
+Group=GROUP
 WorkingDirectory=/home/USERNAME/homelab/homelab-dashboard/host-api
 ```
 
 #### **Step 3: Reload Daemon and Enable Services**
 
-First, tell `systemd` to re-read its configuration to detect the new files.
+First, let's build the necessary components.
+
+```shell
+cd ~/homelab/homelab-dashboard/host-api
+npm install
+```
+
+Next, tell `systemd` to re-read its configuration to detect the new files.
 
 ```shell
 sudo systemctl daemon-reload
@@ -64,7 +71,7 @@ sudo systemctl status pacman-sync.timer
 sudo systemctl status homelab-backup.timer
 ```
 
-Finally, ensure the system's time synchronization service is active, as accurate time is crucial for many services.
+Then, ensure the system's time synchronization service is active, as accurate time is crucial for many services.
 
 ```shell
 # Enable and start the time sync service
@@ -79,6 +86,14 @@ timedatectl status
 -----
 
   * [Systemd Docs 🔗](https://wiki.archlinux.org/title/Systemd#Basic_systemctl_usage)
+
+Finally, start the docker service and add your user to the docker group.
+
+```shell
+sudo systemctl enable --now docker.socket docker.service
+sudo usermod -aG docker $USER
+newgrp docker
+```
 
 ### 3\. ⚡ Run the Setup Script
 

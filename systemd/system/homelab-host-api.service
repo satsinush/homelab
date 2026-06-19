@@ -7,7 +7,7 @@ After=network.target
 [Service]
 # User and group under which the service will run.
 User=USERNAME
-Group=USERNAME
+Group=GROUP
 
 # The working directory for the service
 WorkingDirectory=/home/USERNAME/homelab/homelab-dashboard/host-api
@@ -15,7 +15,7 @@ WorkingDirectory=/home/USERNAME/homelab/homelab-dashboard/host-api
 # The command to execute to start the service
 # Replace 'node' with the full path if necessary (e.g., /usr/bin/node)
 # This assumes 'node' is in your PATH.
-ExecStart=/bin/sh -c 'npm install && node server.js'
+ExecStart=/usr/bin/node server.js
 
 # Restart the service if it crashes
 Restart=always

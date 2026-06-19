@@ -78,11 +78,6 @@ alias dcomp='docker compose'     # Quick access to compose
 alias ports='sudo ss -tulanp'    # Show all open ports and what process is using them
 alias myip='curl ifconfig.me'    # Get your external public IP quickly
 
-# Ask for confirmation before overwriting/deleting more than 3 files
-alias cp='cp -I'
-alias mv='mv -I'
-alias rm='rm -I'
-
 # Make directory and enter it immediately
 mkcd () {
   mkdir -p "$1"

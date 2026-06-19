@@ -138,7 +138,7 @@ if [ ! -f .env ]; then
 
   echo ""
   if [ "$HAS_PUBLIC_DOMAIN" = "y" ] || [ "$HAS_PUBLIC_DOMAIN" = "Y" ]; then
-    read -p "   Cloudflare DNS API token (DNS:Edit permission): " CF_DNS_API_TOKEN_INPUT
+    read -p "   Cloudflare DNS API token (Zone.Zone:Read, Zone.DNS:Edit): " CF_DNS_API_TOKEN_INPUT
     echo ""
     echo "   Let's Encrypt requires a valid e-mail address for certificate expiry notices."
     echo "   💡 Tip: You can also use ${USERNAME}@${HOMELAB_HOSTNAME_INPUT} and set up Cloudflare Email"
