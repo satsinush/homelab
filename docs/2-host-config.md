@@ -177,27 +177,29 @@ sudo firewall-cmd --permanent --zone=docker --add-rich-rule='rule family="ipv4" 
 To manage isolated routing paths between our custom interface zones, we use explicit firewalld **Policies**.
 
 ```shell
-# 1. Enable Masquerading (NAT) on the public interface so VPN/Container traffic can reach the internet
+# 1. Enable Masquerading (NAT) on BOTH the public and local interfaces so traffic can masquerade out cleanly
 sudo firewall-cmd --permanent --zone=public --add-masquerade
+sudo firewall-cmd --permanent --zone=local --add-masquerade
 
-# 2. Create a policy allowing VPN clients to route out to any network destination (Internet/LAN)
-sudo firewall-cmd --permanent --new-policy=vpn-to-any
-sudo firewall-cmd --permanent --policy=vpn-to-any --add-ingress-zone=public
-sudo firewall-cmd --permanent --policy=vpn-to-any --add-egress-zone=ANY
-sudo firewall-cmd --permanent --policy=vpn-to-any --set-target=ACCEPT
+# 2. Explicitly grant VPN clients landing on 'public' permission to forward packets 
+# out through your physical home gateway interface sitting in the 'local' zone
+sudo firewall-cmd --permanent --new-policy=vpn-to-lan
+sudo firewall-cmd --permanent --policy=vpn-to-lan --add-ingress-zone=public
+sudo firewall-cmd --permanent --policy=vpn-to-lan --add-egress-zone=local
+sudo firewall-cmd --permanent --policy=vpn-to-lan --set-target=ACCEPT
 
-# 3. Create a policy allowing physical LAN devices to explicitly initialize connections to VPN peers
+# 3. Create a policy allowing physical LAN devices to explicitly initialize connections back to VPN peers
 sudo firewall-cmd --permanent --new-policy=lan-to-vpn
 sudo firewall-cmd --permanent --policy=lan-to-vpn --add-ingress-zone=local
 sudo firewall-cmd --permanent --policy=lan-to-vpn --add-egress-zone=public
 sudo firewall-cmd --permanent --policy=lan-to-vpn --set-target=ACCEPT
 
 # 4. Create an inter-zone policy explicitly allowing your isolated Docker subnets 
-# to forward tracking packets out through your public WAN/VPN physical interfaces. 
-# This guarantees BuildKit sandboxes can pass traffic with firewalld fully active.
+# to forward tracking packets out through your public WAN/VPN physical interfaces.
 sudo firewall-cmd --permanent --new-policy=docker-to-any
 sudo firewall-cmd --permanent --policy=docker-to-any --add-ingress-zone=docker
-sudo firewall-cmd --permanent --policy=docker-to-any --add-egress-zone=ANY
+sudo firewall-cmd --permanent --policy=docker-to-any --add-egress-zone=local
+sudo firewall-cmd --permanent --policy=docker-to-any --add-egress-zone=public
 sudo firewall-cmd --permanent --policy=docker-to-any --set-target=ACCEPT
 ```
 

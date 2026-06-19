@@ -130,7 +130,7 @@ if shopt -q login_shell && [[ -n "$SSH_CONNECTION" ]]; then
     echo
     echo "--------------------------------------------------"
     echo
-    echo "  Hostname: $(hostname)"
+    echo "  Hostname: $(hostnamectl hostname)"
     echo "  Local IP: $LOCAL_IP"
     echo "  Uptime:   $(uptime -p)"
     echo -e "  Updates Available: $UPDATES $UPDATE_COLOR$UPDATE_MESSAGE$NC"
