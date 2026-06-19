@@ -18,7 +18,7 @@ First, make sure the SSH server is installed and running.
 
 2. Start and enable the service:
    ```shell
-   sudo systemctl enable sshd
+   sudo systemctl enable --now sshd
    ```
 
 **Step 2: Set Up SSH Key Authentication**
@@ -43,6 +43,10 @@ Next, ensure you can log in using an SSH key instead of a password.
 Now, we'll edit the SSH server configuration file on the server.
 
 1.  Open the configuration file `/etc/ssh/sshd_config`
+
+    ```shell
+    sudo nano /etc/ssh/sshd_config
+    ```
 
 2.  Make the following changes to improve security:
       * **(Optional)** Change the port from `22` to `2222`. This helps avoid automated scans.
@@ -288,6 +292,15 @@ Follow these steps to add additional functionality to your shell.
 1.  **.bashrc**: Add the lines inside [`./bashrc/user.bashrc`](../bashrc/user.bashrc) and [`./bashrc/root.bashrc`](../bashrc/root.bashrc) to `~/.bashrc` and `/root/.bashrc` on the server respectively.
     This will add configurations to color code your shell prompt, add helpful aliases, and set up a welcome message when you connect via SSH.
 
+2. **.bash_profile**: Add this to `~/.bash_profile` (or `/root/.bash_profile` for root):
+
+```bash
+#
+# ~/.bash_profile
+#
+
+[[ -f ~/.bashrc ]] && . ~/.bashrc
+```
 
 ## Next: 3\. 🚀 Deploy the Services
 [Continue to the next section of the guide for detailed instructions on deploying the homelab services.](./3-deployment.md)

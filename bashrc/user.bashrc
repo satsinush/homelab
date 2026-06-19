@@ -56,6 +56,9 @@ if [ -x /usr/bin/dircolors ]; then
     alias egrep='egrep --color=auto'
 fi
 
+# Add a space after sudo to avoid issues with command history
+alias sudo='sudo '
+
 # Navigation shortcuts
 alias ll='ls -alF'
 alias la='ls -A'
