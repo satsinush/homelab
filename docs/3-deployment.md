@@ -95,7 +95,7 @@ sudo usermod -aG docker $USER
 newgrp docker
 ```
 
-Also configure Docker to use a MTU of 1420 to match the WireGuard configuration.
+<!-- Also configure Docker to use a MTU of 1420 to match the WireGuard configuration and set the DNS servers to Cloudflare's 1.1.1.1 and Google's 8.8.8.8.
 
 ```shell
 sudo mkdir -p /etc/docker
@@ -105,14 +105,15 @@ sudo nano /etc/docker/daemon.json
 Add the following content to the file:
 ```json
 {
-  "mtu": 1420
+  "mtu": 1420,
+  "dns": ["1.1.1.1", "8.8.8.8"]
 }
 ```
 
 Then restart the Docker service:
 ```shell
 sudo systemctl restart docker
-```
+``` -->
 
 ### 3\. ⚡ Run the Setup Script
 

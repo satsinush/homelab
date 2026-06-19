@@ -66,6 +66,11 @@ WORKDIR /app
 # 1. Copy API package files and install dependencies
 COPY ./homelab-dashboard/api/package*.json ./api/
 WORKDIR /app/api
+
+RUN apk add --no-cache --virtual .build-deps python3 make g++ \
+    && npm install \
+    && apk del .build-deps
+
 RUN npm install
 
 # 2. Copy API source code

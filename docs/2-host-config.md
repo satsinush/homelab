@@ -116,7 +116,6 @@ sudo firewall-cmd --permanent --zone=local --add-interface=end0
 sudo firewall-cmd --permanent --zone=local --add-source=10.10.10.0/24
 
 # Set up the isolated docker zone for our container bridge
-sudo firewall-cmd --permanent --zone=docker --add-interface=br-homelab-net
 sudo firewall-cmd --permanent --zone=docker --add-source=10.10.30.0/24
 ```
 
@@ -166,6 +165,10 @@ sudo firewall-cmd --permanent --zone=local --add-rich-rule='rule family="ipv4" s
 # Allow containers to resolve queries via host DNS (Pi-hole) and hit the custom host instrumentation API
 sudo firewall-cmd --permanent --zone=docker --add-service=dns
 sudo firewall-cmd --permanent --zone=docker --add-rich-rule='rule family="ipv4" source address="10.10.30.0/24" port port="5001" protocol="tcp" accept'
+
+# Force firewalld to allow containers to pass out to public DNS mirrors (UDP 53).
+# This prevents BuildKit from throwing a 'DNS: transient error (exit code 4)' during 'apk update' tasks.
+sudo firewall-cmd --permanent --zone=docker --add-rich-rule='rule family="ipv4" source address="10.10.30.0/24" destination address="0.0.0.0/0" port port="53" protocol="udp" accept'
 ```
 
 **Step 5: Establish Forwarding and Routing Policies**
@@ -173,7 +176,7 @@ sudo firewall-cmd --permanent --zone=docker --add-rich-rule='rule family="ipv4" 
 To manage isolated routing paths between our custom interface zones, we use explicit firewalld **Policies**.
 
 ```shell
-# 1. Enable Masquerading (NAT) on the public interface so VPN traffic can reach the internet
+# 1. Enable Masquerading (NAT) on the public interface so VPN/Container traffic can reach the internet
 sudo firewall-cmd --permanent --zone=public --add-masquerade
 
 # 2. Create a policy allowing VPN clients to route out to any network destination (Internet/LAN)
@@ -187,6 +190,14 @@ sudo firewall-cmd --permanent --new-policy=lan-to-vpn
 sudo firewall-cmd --permanent --policy=lan-to-vpn --add-ingress-zone=local
 sudo firewall-cmd --permanent --policy=lan-to-vpn --add-egress-zone=public
 sudo firewall-cmd --permanent --policy=lan-to-vpn --set-target=ACCEPT
+
+# 4. Create an inter-zone policy explicitly allowing your isolated Docker subnets 
+# to forward tracking packets out through your public WAN/VPN physical interfaces. 
+# This guarantees BuildKit sandboxes can pass traffic with firewalld fully active.
+sudo firewall-cmd --permanent --new-policy=docker-to-any
+sudo firewall-cmd --permanent --policy=docker-to-any --add-ingress-zone=docker
+sudo firewall-cmd --permanent --policy=docker-to-any --add-egress-zone=ANY
+sudo firewall-cmd --permanent --policy=docker-to-any --set-target=ACCEPT
 ```
 
 **Step 6: Apply and Validate Settings**
