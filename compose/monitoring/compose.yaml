@@ -21,10 +21,13 @@ services:
       #- /etc/localtime:/etc/localtime:ro
       - /var/log:/host/var/log:ro
       - /run/dbus:/run/dbus:ro
+      - /dev/block:/host/dev/block:ro
     environment:
       - TZ=${TZ}
     networks:
       - homelab-net
+    devices:
+      - "/dev/nvme0:/dev/nvme0:rw"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.netdata.rule=Host(`${NETDATA_WEB_HOSTNAME}`)"
