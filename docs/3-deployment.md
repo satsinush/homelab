@@ -95,6 +95,25 @@ sudo usermod -aG docker $USER
 newgrp docker
 ```
 
+Also configure Docker to use a MTU of 1420 to match the WireGuard configuration.
+
+```shell
+sudo mkdir -p /etc/docker
+sudo nano /etc/docker/daemon.json
+```
+
+Add the following content to the file:
+```json
+{
+  "mtu": 1420
+}
+```
+
+Then restart the Docker service:
+```shell
+sudo systemctl restart docker
+```
+
 ### 3\. ⚡ Run the Setup Script
 
 Execute the main setup script. It will prompt you to create a username and password and automatically configure and initialize all the services.

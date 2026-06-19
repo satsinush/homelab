@@ -496,7 +496,7 @@ echo ""
 echo ""
 echo "🐳 Starting Docker containers..."
 docker network create homelab-net --subnet 10.10.30.0/24 || true
-docker-compose up -d --build
+docker-compose up -d --build --no-cache
 
 echo "   Waiting 10 seconds for services to initialize..."
 sleep 10
