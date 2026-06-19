@@ -99,21 +99,26 @@ sudo systemctl enable --now firewalld
 
 **Step 2: Assign Interfaces to Zones**
 
-We will isolate our network segments by dropping them into distinct, explicit firewalld zones to avoid weak default configurations:
+We will isolate our network segments by dropping them into distinct, explicit firewalld zones to achieve strict, zero-trust boundary controls:
 
 * `local`: For our trusted home physical LAN network.
-* `public`: For the public-facing internet gateway and WireGuard endpoint tracking.
+* `vpn`: For authenticated remote WireGuard tunnels and clients.
 * `docker`: For our isolated container communication loop.
 
 ```shell
 # Create the custom zones first
 sudo firewall-cmd --permanent --new-zone=local
+sudo firewall-cmd --permanent --new-zone=vpn
 sudo firewall-cmd --permanent --new-zone=docker
 sudo firewall-cmd --reload
 
 # Assign the physical LAN interface and subnet to the local zone
 sudo firewall-cmd --permanent --zone=local --add-interface=end0
 sudo firewall-cmd --permanent --zone=local --add-source=10.10.10.0/24
+
+# Assign the WireGuard interface and subnet to the dedicated vpn zone
+sudo firewall-cmd --permanent --zone=vpn --add-interface=wg0
+sudo firewall-cmd --permanent --zone=vpn --add-source=10.10.20.0/24
 
 # Set up the isolated docker zone for our container bridge
 sudo firewall-cmd --permanent --zone=docker --add-source=10.10.30.0/24
@@ -136,15 +141,11 @@ sudo firewall-cmd --permanent --service=rustdesk --add-port=21114-21119/tcp
 sudo firewall-cmd --permanent --service=rustdesk --add-port=21116/udp
 ```
 
-**Step 4: Configure Rules for the Local, Public, and Docker Zones**
+**Step 4: Configure Rules for the Local, VPN, and Docker Zones**
 
-Now, open access paths specifically for your defined subnets using strict zero-trust isolation boundaries.
+Now, open access paths specifically for your defined subnets using strict zone isolation. Because the `vpn` zone is explicitly limited to your authenticated tunnel peers, you do not need complex rich rules to allow access to host services.
 
 ```shell
-# --- PUBLIC ZONE (The Internet Endpoint) ---
-# Allow incoming WireGuard handshakes from anywhere on the internet
-sudo firewall-cmd --permanent --zone=public --add-port=51820/udp
-
 # --- LOCAL ZONE RULES (Physical LAN Clients) ---
 # Allow full SSH, Web traffic, DNS queries, and RustDesk from native home devices
 sudo firewall-cmd --permanent --zone=local --add-service=ssh-custom
@@ -154,13 +155,13 @@ sudo firewall-cmd --permanent --zone=local --add-service=dns
 sudo firewall-cmd --permanent --zone=local --add-service=rustdesk
 sudo firewall-cmd --permanent --zone=local --add-port=51820/udp
 
-# --- INTER-ZONE RICH RULES (VPN Client Access to Local Host Space) ---
-# Allow WireGuard clients (10.10.20.0/24) landing on 'public' to securely cross into local services
-sudo firewall-cmd --permanent --zone=local --add-rich-rule='rule family="ipv4" source address="10.10.20.0/24" service name="ssh-custom" accept'
-sudo firewall-cmd --permanent --zone=local --add-rich-rule='rule family="ipv4" source address="10.10.20.0/24" service name="http" accept'
-sudo firewall-cmd --permanent --zone=local --add-rich-rule='rule family="ipv4" source address="10.10.20.0/24" service name="https" accept'
-sudo firewall-cmd --permanent --zone=local --add-rich-rule='rule family="ipv4" source address="10.10.20.0/24" service name="dns" accept'
-sudo firewall-cmd --permanent --zone=local --add-rich-rule='rule family="ipv4" source address="10.10.20.0/24" service name="rustdesk" accept'
+# --- VPN ZONE RULES (Authenticated Remote Tunnels) ---
+# Allow WireGuard clients arriving on wg0 to access host-level services directly
+sudo firewall-cmd --permanent --zone=vpn --add-service=ssh-custom
+sudo firewall-cmd --permanent --zone=vpn --add-service=http
+sudo firewall-cmd --permanent --zone=vpn --add-service=https
+sudo firewall-cmd --permanent --zone=vpn --add-service=dns
+sudo firewall-cmd --permanent --zone=vpn --add-service=rustdesk
 
 # --- DOCKER ZONE RULES (Container Leashes) ---
 # Allow containers to resolve queries via host DNS (Pi-hole) and hit the custom host instrumentation API
@@ -177,29 +178,29 @@ sudo firewall-cmd --permanent --zone=docker --add-rich-rule='rule family="ipv4" 
 To manage isolated routing paths between our custom interface zones, we use explicit firewalld **Policies**.
 
 ```shell
-# 1. Enable Masquerading (NAT) on BOTH the public and local interfaces so traffic can masquerade out cleanly
-sudo firewall-cmd --permanent --zone=public --add-masquerade
+# 1. Enable Masquerading (NAT) on our exit zones so traffic can masquerade out cleanly
 sudo firewall-cmd --permanent --zone=local --add-masquerade
+sudo firewall-cmd --permanent --zone=vpn --add-masquerade
 
-# 2. Explicitly grant VPN clients landing on 'public' permission to forward packets 
+# 2. Explicitly grant VPN clients landing on 'vpn' permission to forward packets 
 # out through your physical home gateway interface sitting in the 'local' zone
 sudo firewall-cmd --permanent --new-policy=vpn-to-lan
-sudo firewall-cmd --permanent --policy=vpn-to-lan --add-ingress-zone=public
+sudo firewall-cmd --permanent --policy=vpn-to-lan --add-ingress-zone=vpn
 sudo firewall-cmd --permanent --policy=vpn-to-lan --add-egress-zone=local
 sudo firewall-cmd --permanent --policy=vpn-to-lan --set-target=ACCEPT
 
 # 3. Create a policy allowing physical LAN devices to explicitly initialize connections back to VPN peers
 sudo firewall-cmd --permanent --new-policy=lan-to-vpn
 sudo firewall-cmd --permanent --policy=lan-to-vpn --add-ingress-zone=local
-sudo firewall-cmd --permanent --policy=lan-to-vpn --add-egress-zone=public
+sudo firewall-cmd --permanent --policy=lan-to-vpn --add-egress-zone=vpn
 sudo firewall-cmd --permanent --policy=lan-to-vpn --set-target=ACCEPT
 
 # 4. Create an inter-zone policy explicitly allowing your isolated Docker subnets 
-# to forward tracking packets out through your public WAN/VPN physical interfaces.
+# to forward tracking packets out through your public WAN/LAN interfaces.
 sudo firewall-cmd --permanent --new-policy=docker-to-any
 sudo firewall-cmd --permanent --policy=docker-to-any --add-ingress-zone=docker
 sudo firewall-cmd --permanent --policy=docker-to-any --add-egress-zone=local
-sudo firewall-cmd --permanent --policy=docker-to-any --add-egress-zone=public
+sudo firewall-cmd --permanent --policy=docker-to-any --add-egress-zone=vpn
 sudo firewall-cmd --permanent --policy=docker-to-any --set-target=ACCEPT
 ```
 
@@ -214,10 +215,9 @@ sudo firewall-cmd --reload
 # Output active run-time configurations for verification
 sudo firewall-cmd --get-active-zones
 sudo firewall-cmd --zone=local --list-all
+sudo firewall-cmd --zone=vpn --list-all
 sudo firewall-cmd --zone=docker --list-all
 ```
-
----
 
 ### 3. 🔒 WireGuard VPN Setup
 
