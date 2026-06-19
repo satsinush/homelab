@@ -152,6 +152,7 @@ sudo firewall-cmd --permanent --zone=local --add-service=http
 sudo firewall-cmd --permanent --zone=local --add-service=https
 sudo firewall-cmd --permanent --zone=local --add-service=dns
 sudo firewall-cmd --permanent --zone=local --add-service=rustdesk
+sudo firewall-cmd --permanent --zone=local --add-port=51820/udp
 
 # --- INTER-ZONE RICH RULES (VPN Client Access to Local Host Space) ---
 # Allow WireGuard clients (10.10.20.0/24) landing on 'public' to securely cross into local services
