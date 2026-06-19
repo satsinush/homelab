@@ -50,7 +50,7 @@ WORKDIR /build
 COPY ./word_games/CMakeLists.txt ./
 COPY ./word_games/CMakePresets.json ./
 COPY ./word_games/src ./src/
-# COPY ./word_games/resources ./resources/
+COPY ./word_games/resources ./resources/
 # Configure and build using mingw-core preset (add -static flag for Alpine compatibility)
 RUN cmake --preset mingw-core -DCMAKE_CXX_FLAGS="-static" \
     && cmake --build --preset mingw-core --target p++
@@ -70,8 +70,6 @@ WORKDIR /app/api
 RUN apk add --no-cache --virtual .build-deps python3 make g++ py3-setuptools \
     && npm install \
     && apk del .build-deps
-
-RUN npm install
 
 # 2. Copy API source code
 COPY ./homelab-dashboard/api/ .
