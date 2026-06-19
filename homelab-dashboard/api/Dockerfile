@@ -50,7 +50,7 @@ WORKDIR /build
 COPY ./word_games/CMakeLists.txt ./
 COPY ./word_games/CMakePresets.json ./
 COPY ./word_games/src ./src/
-COPY ./word_games/resources ./resources/
+COPY ./word_games/resources ./resources
 # Configure and build using mingw-core preset (add -static flag for Alpine compatibility)
 RUN cmake --preset mingw-core -DCMAKE_CXX_FLAGS="-static" \
     && cmake --build --preset mingw-core --target p++
@@ -80,7 +80,7 @@ COPY --from=react-builder /frontend/dist ./frontend/dist/
 
 # 4. Copy word_games binary and words.bin into /app/word_games
 COPY --from=cpp-builder /build/build/mingw-core/word_games ./word_games/
-# COPY ./word_games/resources ./word_games/resources/
+# COPY ./word_games/resources ./word_games/resources
 
 # 5. Set working directory to /app/api for running the server
 WORKDIR /app/api
