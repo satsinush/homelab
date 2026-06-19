@@ -24,8 +24,3 @@
 Dockerfile
 .dockerignore
 docker-compose.yml
-
-word_games/scripts/word_lists/
-word_games/resources/*.bin
-word_games/resources/*.txt
-word_games/build/

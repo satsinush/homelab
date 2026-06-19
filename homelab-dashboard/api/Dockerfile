@@ -80,6 +80,7 @@ COPY --from=react-builder /frontend/dist ./frontend/dist/
 
 # 4. Copy word_games binary and words.bin into /app/word_games
 COPY --from=cpp-builder /build/build/mingw-core/word_games ./word_games/
+COPY --from=cpp-builder /build/build/mingw-core/data ./data/
 COPY ./word_games/resources ./word_games/resources/
 
 # 5. Set working directory to /app/api for running the server
