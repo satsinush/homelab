@@ -67,7 +67,7 @@ WORKDIR /app
 COPY ./homelab-dashboard/api/package*.json ./api/
 WORKDIR /app/api
 
-RUN apk add --no-cache --virtual .build-deps python3 make g++ \
+RUN apk add --no-cache --virtual .build-deps python3 make g++ py3-setuptools \
     && npm install \
     && apk del .build-deps
 
