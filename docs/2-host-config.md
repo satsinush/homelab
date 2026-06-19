@@ -75,199 +75,243 @@ Now, we'll edit the SSH server configuration file on the server.
 
 * **Docs:** [OpenSSH Wiki 🔗](https://wiki.archlinux.org/title/OpenSSH)
 
-### 2\. Firewall (UFW) Setup 🛡️
+### 2. Firewall (firewalld) Setup 🛡️
 
-These instructions configure the Uncomplicated Firewall (UFW) to secure the server. This assumes your LAN interface is `end0` and WireGuard is set up as `wg0`. These will need to be replaced if they are different on your device.
+These instructions configure **firewalld** to secure the server. This assumes your primary physical LAN interface is `end0`, your WireGuard interface is `wg0`, and your custom Docker bridge network interface is `br-homelab-net`.
 
 **Prerequisites:**
 
-  * LAN Subnet: `10.10.10.0/24` (on `end0` interface)
-  * VPN Subnet: `10.10.20.0/24` (on `wg0` interface)
-  * Docker subnet: `10.10.30.0/24` (on `br-homelab-net` interface)
+* LAN Subnet: `10.10.10.0/24` (associated with the `end0` interface)
+* VPN Subnet: `10.10.20.0/24` (associated with the `wg0` interface)
+* Docker Subnet: `10.10.30.0/24` (associated with the `br-homelab-net` interface)
 
-> **ℹ️ Note**: Adjust these values in the commands below if your network is different.
+**Step 1: Install and Initialize firewalld**
 
-**Step 1: Set Default Policies**
-
-First, set the firewall's default behavior: block all incoming and forwarded traffic, but allow all outgoing traffic.
+First, ensure the tool is installed, active, and configured to start automatically at boot.
 
 ```shell
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw default deny routed
+# Install firewalld natively from core repositories
+sudo pacman -S firewalld --needed --noconfirm
+
+# Start and enable the daemon immediately
+sudo systemctl enable --now firewalld
 ```
 
-**Step 2: Configure Before Rules**
+**Step 2: Assign Interfaces to Zones**
 
-For traffic to be routed correctly between the LAN and Docker networks, specific rules must be configured in the firewall. Follow these steps to ensure the UFW `before.rules` are properly configured.
+We will isolate our network segments by dropping them into distinct, explicit firewalld zones to avoid weak default configurations:
 
-  * Copy the provided `before.rules` file to the UFW directory, and adjust any values as needed.
-    ```shell
-    sudo cp ./ufw/before.rules /etc/ufw/before.rules
-    ```
-
-    Specifically, make sure you have these lines under the `*filter` section:
-    ```ini
-    # START DOCKER RULES
-
-    # Allow traffic for established connections (essential for return traffic)
-    -A ufw-before-forward -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-
-    # Allow new traffic to be forwarded from any Docker bridge to the main NIC.
-    # IMPORTANT: Replace 'end0' with your server's main network interface (e.g., eth0)
-    -A ufw-before-forward -i br-homelab-net -o end0 -j ACCEPT
-
-    # END DOCKER RULES
-    ```
-
-**Step 3: Add Firewall Rules**
-
-Run the following commands to allow access for your specific applications and enable forwarding between the LAN and VPN.
+* `local`: For our trusted home physical LAN network.
+* `public`: For the public-facing internet gateway and WireGuard endpoint tracking.
+* `docker`: For our isolated container communication loop.
 
 ```shell
-# --- CORE ACCESS ---
-# Allow WireGuard VPN connections from anywhere
-sudo ufw allow 51820/udp
+# Create the custom zones first
+sudo firewall-cmd --permanent --new-zone=local
+sudo firewall-cmd --permanent --new-zone=docker
+sudo firewall-cmd --reload
 
-# Allow SSH from LAN and VPN
-sudo ufw allow from 10.10.10.0/24 to any port 2222 proto tcp
-sudo ufw allow from 10.10.20.0/24 to any port 2222 proto tcp
+# Assign the physical LAN interface and subnet to the local zone
+sudo firewall-cmd --permanent --zone=local --add-interface=end0
+sudo firewall-cmd --permanent --zone=local --add-source=10.10.10.0/24
 
-
-# --- SERVICE ACCESS ---
-# Allow Web (HTTP/S) from LAN and VPN
-sudo ufw allow from 10.10.10.0/24 to any port 80,443 proto tcp
-sudo ufw allow from 10.10.20.0/24 to any port 80,443 proto tcp
-
-# Allow DNS (Pi-hole) from LAN, VPN, and Docker
-sudo ufw allow from 10.10.10.0/24 to any port 53
-sudo ufw allow from 10.10.20.0/24 to any port 53
-sudo ufw allow from 10.10.30.0/24 to any port 53
-
-# Allow RustDesk from LAN and VPN
-sudo ufw allow from 10.10.10.0/24 to any port 21114:21119 proto tcp
-sudo ufw allow from 10.10.10.0/24 to any port 21116 proto udp
-sudo ufw allow from 10.10.20.0/24 to any port 21114:21119 proto tcp
-sudo ufw allow from 10.10.20.0/24 to any port 21116 proto udp
-
-# Allow Homelab Host API from Docker
-sudo ufw allow from 10.10.30.0/24 to any port 5001 proto tcp
-
-# --- FORWARDING RULES ---
-# Allow traffic from VPN clients to be forwarded to anywhere (ensures VPN devices have internet access)
-sudo ufw route allow in on wg0 out on end0 from 10.10.20.0/24 to 0.0.0.0/0
-
-# Allow traffic from LAN devices to be forwarded to VPN clients
-sudo ufw route allow in on end0 out on wg0 from 10.10.10.0/24 to 10.10.20.0/24
-
-# Allow traffic from VPN devices to be forwarded to other VPN clients
-sudo ufw route allow in on wg0 out on wg0 from 10.10.20.0/24 to 10.10.20.0/24
+# Set up the isolated docker zone for our container bridge
+sudo firewall-cmd --permanent --zone=docker --add-interface=br-homelab-net
+sudo firewall-cmd --permanent --zone=docker --add-source=10.10.30.0/24
 ```
 
-> **ℹ️ Note**: For LAN-to-VPN forwarding to work, you must add a **static route** on your main network router. The route should direct traffic for the `10.10.20.0/24` network to this server's LAN IP address. This is only required if you need LAN devices to initiate connections and connect directly to VPN devices.
+**Step 3: Define Custom System Definitions**
 
-**Step 4: Enable Firewall**
-
-Finally, enable UFW and check the status to confirm the rules are active.
+Since we changed our default SSH port to `2222`, let's create custom definitions for our services so the firewall rules remain clean and scannable.
 
 ```shell
-# Enable the firewall (will prompt 'y/n')
-sudo ufw enable
+# Create a modified SSH entry tracking port 2222
+sudo firewall-cmd --permanent --new-service=ssh-custom
+sudo firewall-cmd --permanent --service=ssh-custom --set-description="Custom SSH Port for Homelab Access"
+sudo firewall-cmd --permanent --service=ssh-custom --add-port=2222/tcp
 
-# Check the status
-sudo ufw status verbose
+# Create a service entry tracking RustDesk relay loops
+sudo firewall-cmd --permanent --new-service=rustdesk
+sudo firewall-cmd --permanent --service=rustdesk --set-description="RustDesk Self-Hosted Remote Desktop"
+sudo firewall-cmd --permanent --service=rustdesk --add-port=21114-21119/tcp
+sudo firewall-cmd --permanent --service=rustdesk --add-port=21116/udp
 ```
 
-### 3\. 🔒 WireGuard VPN Setup
+**Step 4: Configure Rules for the Local, Public, and Docker Zones**
 
-This guide will set up a WireGuard VPN, allowing secure remote access to your server and local network.
+Now, open access paths specifically for your defined subnets using strict zero-trust isolation boundaries.
+
+```shell
+# --- PUBLIC ZONE (The Internet Endpoint) ---
+# Allow incoming WireGuard handshakes from anywhere on the internet
+sudo firewall-cmd --permanent --zone=public --add-port=51820/udp
+
+# --- LOCAL ZONE RULES (Physical LAN Clients) ---
+# Allow full SSH, Web traffic, DNS queries, and RustDesk from native home devices
+sudo firewall-cmd --permanent --zone=local --add-service=ssh-custom
+sudo firewall-cmd --permanent --zone=local --add-service=http
+sudo firewall-cmd --permanent --zone=local --add-service=https
+sudo firewall-cmd --permanent --zone=local --add-service=dns
+sudo firewall-cmd --permanent --zone=local --add-service=rustdesk
+
+# --- INTER-ZONE RICH RULES (VPN Client Access to Local Host Space) ---
+# Allow WireGuard clients (10.10.20.0/24) landing on 'public' to securely cross into local services
+sudo firewall-cmd --permanent --zone=local --add-rich-rule='rule family="ipv4" source address="10.10.20.0/24" service name="ssh-custom" accept'
+sudo firewall-cmd --permanent --zone=local --add-rich-rule='rule family="ipv4" source address="10.10.20.0/24" service name="http" accept'
+sudo firewall-cmd --permanent --zone=local --add-rich-rule='rule family="ipv4" source address="10.10.20.0/24" service name="https" accept'
+sudo firewall-cmd --permanent --zone=local --add-rich-rule='rule family="ipv4" source address="10.10.20.0/24" service name="dns" accept'
+sudo firewall-cmd --permanent --zone=local --add-rich-rule='rule family="ipv4" source address="10.10.20.0/24" service name="rustdesk" accept'
+
+# --- DOCKER ZONE RULES (Container Leashes) ---
+# Allow containers to resolve queries via host DNS (Pi-hole) and hit the custom host instrumentation API
+sudo firewall-cmd --permanent --zone=docker --add-service=dns
+sudo firewall-cmd --permanent --zone=docker --add-rich-rule='rule family="ipv4" source address="10.10.30.0/24" port port="5001" protocol="tcp" accept'
+```
+
+**Step 5: Establish Forwarding and Routing Policies**
+
+To manage isolated routing paths between our custom interface zones, we use explicit firewalld **Policies**.
+
+```shell
+# 1. Enable Masquerading (NAT) on the public interface so VPN traffic can reach the internet
+sudo firewall-cmd --permanent --zone=public --add-masquerade
+
+# 2. Create a policy allowing VPN clients to route out to any network destination (Internet/LAN)
+sudo firewall-cmd --permanent --new-policy=vpn-to-any
+sudo firewall-cmd --permanent --policy=vpn-to-any --add-ingress-zone=public
+sudo firewall-cmd --permanent --policy=vpn-to-any --add-egress-zone=ANY
+sudo firewall-cmd --permanent --policy=vpn-to-any --set-target=ACCEPT
+
+# 3. Create a policy allowing physical LAN devices to explicitly initialize connections to VPN peers
+sudo firewall-cmd --permanent --new-policy=lan-to-vpn
+sudo firewall-cmd --permanent --policy=lan-to-vpn --add-ingress-zone=local
+sudo firewall-cmd --permanent --policy=lan-to-vpn --add-egress-zone=public
+sudo firewall-cmd --permanent --policy=lan-to-vpn --set-target=ACCEPT
+```
+
+**Step 6: Apply and Validate Settings**
+
+Reload the running configurations into the kernel memory and inspect your work:
+
+```shell
+# Force firewalld to parse all changes into production tables
+sudo firewall-cmd --reload
+
+# Output active run-time configurations for verification
+sudo firewall-cmd --get-active-zones
+sudo firewall-cmd --zone=local --list-all
+sudo firewall-cmd --zone=docker --list-all
+```
+
+---
+
+### 3. 🔒 WireGuard VPN Setup
+
+This guide sets up a WireGuard VPN, allowing secure remote access to your server and local network assets.
 
 **Step 1: Generate Keys**
 
-WireGuard uses public-key cryptography for security. We need to generate a private and public key for the server and for each client (peer) that will connect.
+WireGuard uses public-key cryptography for security. We need to generate a private and public key for the server and for each client (peer) that connects.
 
-1.  Navigate to the WireGuard directory and set secure permissions:
-    ```shell
-    sudo -i
-    cd /etc/wireguard
-    umask 077
-    ```
-2.  Generate the server's key pair:
-    ```shell
-    wg genkey | tee server.private | wg pubkey > server.public
-    ```
-3.  Generate a key pair for each client (e.g., for "my-phone"). Repeat this for every device you want to connect:
-    ```shell
-    wg genkey | tee my-phone.private | wg pubkey > my-phone.public
-    ```
-4.  View the keys when you need them with `cat <filename>` (e.g. `cat server.public`)
+1. Navigate to the WireGuard directory and set secure file permissions:
+
+```shell
+sudo -i
+cd /etc/wireguard
+umask 077
+```
+
+2. Generate the server's cryptographic key pair:
+
+```shell
+wg genkey | tee server.private | wg pubkey > server.public
+```
+
+3. Generate a key pair for each client (e.g., for `my-phone`). Repeat this step for every external device you intend to provision:
+
+```shell
+wg genkey | tee my-phone.private | wg pubkey > my-phone.public
+```
+
+4. View your keys whenever needed using `cat`:
+
+```shell
+cat server.public
+```
 
 **Step 2: Configure the Server**
 
-1.  Copy the example config file:
+Because **firewalld** gracefully manages NAT masquerading and forward topologies dynamically at the kernel layer via the policies we built in Section 2, **you no longer need to clog your WireGuard configs with volatile, manual `iptables` rules.**
 
-    ```shell
-    sudo cp ./wireguard/wg0.conf /etc/wireguard/wg0.conf
-    ```
-
-2.  Edit the server configuration file (`sudo nano /etc/wireguard/wg0.conf`). Use the keys you just generated to fill in the placeholders.
-
-    **Example `wg0.conf`:**
-
-    ```
-    [Interface]
-    # Server's private key (from server.private)
-    PrivateKey = <PASTE_SERVER_PRIVATE_KEY>
-    Address = 10.10.20.1/24
-    ListenPort = 51820
-    PostUp = iptables -t nat -A POSTROUTING -s 10.10.20.0/24 -d 10.10.10.0/24 -o end0 -j RETURN; iptables -t nat -A POSTROUTING -s 10.10.20.0/24 -o end0 -j MASQUERADE
-    PostDown = iptables -t nat -D POSTROUTING -s 10.10.20.0/24 -o end0 -j MASQUERADE; iptables -t nat -D POSTROUTING -s 10.10.20.0/24 -d 10.10.10.0/24 -o end0 -j RETURN
-
-    # --- PEER 1: MY-PHONE ---
-    [Peer]
-    # Client's public key (from my-phone.public)
-    PublicKey = <PASTE_MY-PHONE_PUBLIC_KEY>
-    # The IP address this client will use on the VPN
-    AllowedIPs = 10.10.20.13/32
-    ```
-
-    Make sure that you include the PostUp and PostDown rules as they are essential for making sure requests are forwarded using NAT depending on the destination. If you don't have static routes set up on your router or devices, you can replace the rules with these to translate all packets, but you may lose functionality with programs such as *KDE Connect*.
-
-    ```
-    PostUp = iptables -t nat -A POSTROUTING -s 10.10.20.0/24 -o end0 -j MASQUERADE
-    PostDown = iptables -t nat -D POSTROUTING -s 10.10.20.0/24 -o end0 -j MASQUERADE
-    ```
-
-    > **ℹ️ Tip**: It's good practice to align the client's VPN IP with its LAN IP. For example, a PC at `10.10.10.13` on the LAN could be assigned `10.10.20.13` on the VPN.
-
-**Step 3: Enable IP Forwarding**
-
-To allow VPN clients to access your LAN, the server must be able to forward network packets.
-
-  * Create a sysctl configuration file to make this setting permanent:
-    ```shell
-    echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/40-ipv4-forward.conf
-    ```
-
-**Step 4: Configure Your Router**
-
-1.  **Port Forwarding:** In your internet router's settings, forward **UDP port 51820** to the LAN IP address of your server (e.g., `10.10.10.10`).
-2.  **Static IP/DHCP Reservation:** Ensure your server always has the same LAN IP address by setting a DHCP reservation or a static IP in your router's settings. Do this for other devices you want to have a static IP as well.
-3.  **Static Routing:** Make sure your router is set to forward all routes for your VPN subnet (e.g., `10.10.20.0/24`) to your server as the next hop. If your router doesn't support static routing and you don't set static routes on each of your devices, make sure to see the notes above about the NAT translation rules for WireGuard.
-
-**Step 5: Start and Enable the Service**
-
-Apply the IP forwarding rule and start the WireGuard service.
+1. Initialize your configuration file layout:
 
 ```shell
-# Reloads all kernel parameters from /etc/sysctl.d/
+sudo nano /etc/wireguard/wg0.conf
+```
+
+2. Populate the parameters using the keys you generated:
+
+**Example `wg0.conf`:**
+
+```ini
+[Interface]
+# Server's private cryptographic key (from server.private)
+PrivateKey = <PASTE_SERVER_PRIVATE_KEY>
+Address = 10.10.20.1/24
+ListenPort = 51820
+
+# --- PEER 1: MY-PHONE ---
+[Peer]
+# Client's public cryptographic verification key (from my-phone.public)
+PublicKey = <PASTE_MY-PHONE_PUBLIC_KEY>
+# The permanent internal IP allocated to this specific client
+AllowedIPs = 10.10.20.13/32
+```
+
+> **ℹ️ Tip**: It is excellent administration practice to align your client's VPN IP configuration with its physical LAN reservation profile. For example, a laptop that sits at `10.10.10.13` while on the home Wi-Fi should be assigned `10.10.20.13` when hitting the encrypted tunnel matrix.
+
+**Step 3: Enable Kernel IP Forwarding**
+
+For network traffic to transition smoothly between your VPN clients, local interfaces, and outside internet nodes, the underlying Linux system must have packet routing authorized.
+
+* Commit a permanent kernel parameter configuration baseline:
+
+```shell
+echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/40-ipv4-forward.conf
+```
+
+**Step 4: Configure Your Network Router**
+
+1. **Port Forwarding:** Inside your master edge router's interface configuration panel, forward **UDP port 51820** straight to the fixed local static IP address of this server (e.g., `10.10.10.10`).
+2. **DHCP Reservation:** Lock down your server's MAC address to a permanent lease layout inside your home router so its primary routing pathing coordinates can never shift on a reboot cycle.
+3. **Static Routing:** Add a static network route entry to your primary router instructing it to point all traffic bound for the VPN client subnet (`10.10.20.0/24`) straight to this server's LAN IP address (`10.10.10.10`) as the definitive next-hop node.
+
+**Step 5: Associate the Dynamic WireGuard Interface to Firewalld**
+
+We want firewalld to automatically catch the `wg0` interface when it initializes and map it to our secure policies.
+
+```shell
+# Instruct firewalld to permanently treat wg0 and its subnet as part of the public gateway zone
+sudo firewall-cmd --permanent --zone=public --add-interface=wg0
+sudo firewall-cmd --permanent --zone=public --add-source=10.10.20.0/24
+sudo firewall-cmd --reload
+```
+
+**Step 6: Start and Enable the Service Engine**
+
+Apply the core kernel settings and initialize your runtime interface:
+
+```shell
+# Force the system to reload network parameter hooks from sysctl configuration files
 sudo sysctl --system
 
-# Starts the WireGuard interface and enables it to start on boot
+# Start your newly optimized interface and set it to execute on system boot
 sudo systemctl enable --now wg-quick@wg0
 ```
 
 * **Docs:** [WireGuard Quickstart 🔗](https://www.wireguard.com/quickstart/)
+
+---
 
 ### 4\. DNS Configuration
 
