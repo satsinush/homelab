@@ -23,7 +23,6 @@ services:
       - dashboard_word_games_data:/app/word_games/data
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
       - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
-      - ${PROJECT_ROOT}/word_games/resources:/app/word_games/resources
     networks:
       - homelab-net
     extra_hosts:
