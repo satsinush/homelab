@@ -495,7 +495,7 @@ fi
 echo ""
 echo ""
 echo "🐳 Starting Docker containers..."
-docker network create homelab-net --subnet 10.10.30.0/24 || true
+docker network create homelab-net --subnet 10.10.30.0/24 -o com.docker.network.driver.mtu=1420 || true
 docker compose build --no-cache
 docker compose up -d
 
