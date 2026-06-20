@@ -82,11 +82,10 @@ services:
       - SIGNUPS_ALLOWED=false
       - DOMAIN=https://${VAULTWARDEN_WEB_HOSTNAME}
       - SMTP_SSL_CA_CERT=/etc/ssl/certs/homelab-ca.crt
-      - SMTP_HOST=ntfy
-      - SMTP_PORT=25
+      - SMTP_HOST=apprise-api
+      - SMTP_PORT=8025
       - SMTP_SECURITY=off
       - SMTP_FROM=vaultwarden@${HOMELAB_HOSTNAME}
-      - SMTP_USERNAME=${HOMELAB_USERNAME}
       - SSO_ENABLED=true
       - SSO_CLIENT_ID=vaultwarden
       - SSO_AUTHORITY=https://${AUTHENTIK_WEB_HOSTNAME}/application/o/vaultwarden/
@@ -98,7 +97,7 @@ services:
       - "traefik.http.routers.vaultwarden.tls=true"
       - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
     depends_on:
-      ntfy:
+      apprise-api:
         condition: service_healthy
     healthcheck:
       test: [ "CMD", "curl", "-fs", "http://localhost:80/alive" ]
@@ -107,44 +106,80 @@ services:
       retries: 3
       start_period: 1m
 
-  ntfy:
-    build: ${PROJECT_ROOT}/ntfy
-    container_name: ntfy
-    restart: on-failure
+  matrix-synapse:
+    image: docker.io/matrixdotorg/synapse:latest
+    container_name: matrix-synapse
+    restart: unless-stopped
     volumes:
-      - ntfy_data:/var/lib/ntfy
+      - ${PROJECT_ROOT}/volumes/matrix/data:/data
       - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
+      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
     environment:
-      - NTFY_BASE_URL=https://${NTFY_WEB_HOSTNAME}
-      - NTFY_AUTH_FILE=/var/lib/ntfy/user.db
-      - NTFY_CACHE_FILE=/var/lib/ntfy/cache.db
-      - NTFY_ATTACHMENT_CACHE_DIR=/var/lib/ntfy/attachments
-      - NTFY_AUTH_DEFAULT_ACCESS=deny-all
-      - NTFY_BEHIND_PROXY=true
-      - NTFY_ENABLE_LOGIN=true
-      - NTFY_SMTP_SERVER_LISTEN=:25
-      - NTFY_SMTP_SERVER_DOMAIN=${HOMELAB_HOSTNAME}
+      - SSL_CERT_FILE=/etc/ssl/certs/homelab-ca.crt
     networks:
       - homelab-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.ntfy.rule=Host(`${NTFY_WEB_HOSTNAME}`)"
-      - "traefik.http.routers.ntfy.entrypoints=websecure"
-      - "traefik.http.routers.ntfy.tls=true"
-      - "traefik.http.services.ntfy.loadbalancer.server.port=80"
-    command: serve
+      - "traefik.http.routers.matrix.rule=Host(`matrix.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.matrix.entrypoints=websecure"
+      - "traefik.http.routers.matrix.tls=true"
+      - "traefik.http.routers.matrix.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.services.matrix.loadbalancer.server.port=8008"
     healthcheck:
-      test: [ "CMD", "wget", "-q", "--spider", "http://localhost/v1/health" ]
-      interval: 1m
-      timeout: 10s
+      test: ["CMD", "curl", "-f", "http://localhost:8008/_matrix/client/versions"]
+      interval: 30s
+      timeout: 5s
       retries: 3
-      start_period: 1m
+      start_period: 15s
+
+  element-web:
+    image: docker.io/vectorim/element-web:latest
+    container_name: element-web
+    restart: unless-stopped
+    volumes:
+      - ${PROJECT_ROOT}/volumes/element/config.json:/app/config.json
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.element.rule=Host(`chat.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.element.entrypoints=websecure"
+      - "traefik.http.routers.element.tls=true"
+      - "traefik.http.routers.element.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.services.element.loadbalancer.server.port=80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  apprise-api:
+    build: ${PROJECT_ROOT}/apprise
+    container_name: apprise-api
+    restart: unless-stopped
+    volumes:
+      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
+      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+    environment:
+      - HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
+      - SSL_CERT_FILE=/etc/ssl/certs/homelab-ca.crt
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/homelab-ca.crt
+      - CURL_CA_BUNDLE=/etc/ssl/certs/homelab-ca.crt
+      - PYTHONUNBUFFERED=1
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "8025"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   ollama_data:
   rustdesk_data:
   vaultwarden_data:
-  ntfy_data:
 
 networks:
   homelab-net:

@@ -54,13 +54,11 @@ services:
       HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
       AUTHENTIK_WEB_HOSTNAME: ${AUTHENTIK_WEB_HOSTNAME}
       HOMELAB_USERNAME: ${HOMELAB_USERNAME}
-      AUTHENTIK_EMAIL__HOST: ntfy
-      AUTHENTIK_EMAIL__PORT: 25
+      AUTHENTIK_EMAIL__HOST: apprise-api
+      AUTHENTIK_EMAIL__PORT: 8025
       AUTHENTIK_EMAIL__USE_TLS: "false"
       AUTHENTIK_EMAIL__USE_SSL: "false"
       AUTHENTIK_EMAIL__FROM: authentik@${HOMELAB_HOSTNAME}
-      AUTHENTIK_EMAIL__USERNAME: ${HOMELAB_USERNAME}
-      AUTHENTIK_EMAIL__PASSWORD: "file:///secrets/homelab_password"
     volumes:
       - ${PROJECT_ROOT}/volumes/authentik/media:/media
       - ${PROJECT_ROOT}/volumes/authentik/templates:/templates
@@ -107,13 +105,11 @@ services:
       HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
       AUTHENTIK_WEB_HOSTNAME: ${AUTHENTIK_WEB_HOSTNAME}
       HOMELAB_USERNAME: ${HOMELAB_USERNAME}
-      AUTHENTIK_EMAIL__HOST: ntfy
-      AUTHENTIK_EMAIL__PORT: 25
+      AUTHENTIK_EMAIL__HOST: apprise-api
+      AUTHENTIK_EMAIL__PORT: 8025
       AUTHENTIK_EMAIL__USE_TLS: "false"
       AUTHENTIK_EMAIL__USE_SSL: "false"
       AUTHENTIK_EMAIL__FROM: authentik@${HOMELAB_HOSTNAME}
-      AUTHENTIK_EMAIL__USERNAME: ${HOMELAB_USERNAME}
-      AUTHENTIK_EMAIL__PASSWORD: "file:///secrets/homelab_password"
     user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

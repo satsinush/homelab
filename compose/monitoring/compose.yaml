@@ -63,9 +63,6 @@ services:
       - "traefik.http.routers.uptime-kuma.tls=true"
       - "traefik.http.routers.uptime-kuma.middlewares=authentik-auth@file"
       - "traefik.http.services.uptime-kuma.loadbalancer.server.port=3001"
-    depends_on:
-      ntfy:
-        condition: service_healthy
     healthcheck:
       test: [ "CMD", "curl", "-fs", "http://localhost:3001" ]
       interval: 1m

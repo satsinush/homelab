@@ -196,11 +196,12 @@ gen_secret vaultwarden_admin_token 64
 gen_secret vaultwarden_oidc_secret 64
 gen_secret portainer_oidc_secret 64
 gen_secret dashboard_oidc_secret 64
+gen_secret matrix_oidc_secret 64
 gen_secret authentik_secret_key 50
 gen_secret authentik_pg_pass 32
 
 # Ensure secrets are removed from the .env file as they are now loaded from volume-mounted files
-for secret_name in authentik_secret_key authentik_pg_pass portainer_oidc_secret vaultwarden_oidc_secret dashboard_oidc_secret; do
+for secret_name in authentik_secret_key authentik_pg_pass portainer_oidc_secret vaultwarden_oidc_secret dashboard_oidc_secret matrix_oidc_secret; do
   env_name=$(echo "$secret_name" | tr 'a-z' 'A-Z')
   if grep -q "^${env_name}=" .env; then
     # Use sed to safely remove the line
@@ -208,6 +209,7 @@ for secret_name in authentik_secret_key authentik_pg_pass portainer_oidc_secret 
     echo "     Removed ${env_name} from .env"
   fi
 done
+
 
 if [ ! -s ./volumes/secrets/homelab_password ]; then
   echo "   ⚠️  homelab_password secret is missing from volumes/secrets!"
@@ -296,6 +298,52 @@ fi
 # --- Ensure Authentik blueprints directory exists and copy from source control ---
 mkdir -p ./volumes/authentik/blueprints
 cp ./authentik/blueprints/homelab.yaml ./volumes/authentik/blueprints/homelab.yaml
+
+# --- Ensure Matrix, Element, and Apprise directories exist ---
+echo "💬 Setting up Matrix homeserver, Element, and Apprise..."
+mkdir -p ./volumes/matrix/data
+mkdir -p ./volumes/element
+mkdir -p ./volumes/apprise/config
+
+# Generate Synapse base configuration if homeserver.yaml is missing
+if [ ! -f ./volumes/matrix/data/homeserver.yaml ]; then
+  echo "   Generating base homeserver.yaml..."
+  # Run docker synapse config generator
+  docker run --rm \
+    -v "$(pwd)/volumes/matrix/data:/data" \
+    -e SYNAPSE_SERVER_NAME="matrix.${HOMELAB_HOSTNAME}" \
+    -e SYNAPSE_REPORT_STATS=no \
+    docker.io/matrixdotorg/synapse:latest generate
+  
+  # Configure homeserver.yaml for OIDC and federation whitelist
+  echo "   Applying custom OIDC configuration to homeserver.yaml..."
+  MATRIX_OIDC_SECRET_VAL=$(cat ./volumes/secrets/matrix_oidc_secret)
+  
+  # Run a root helper container to modify the permissions-locked config file
+  docker run --rm \
+    -u root \
+    -v "$(pwd)/volumes/matrix/data:/data" \
+    -v "$(pwd)/matrix:/template:ro" \
+    docker.io/library/alpine:latest sh -c '
+      # Substitute variables in the template and append to homeserver.yaml
+      sed -e "s|AUTHENTIK_WEB_HOSTNAME|'"${AUTHENTIK_WEB_HOSTNAME:-auth.${HOMELAB_HOSTNAME}}"'|g" \
+          -e "s|MATRIX_OIDC_SECRET|'"${MATRIX_OIDC_SECRET_VAL}"'|g" \
+          /template/homeserver_oidc.yaml.template >> /data/homeserver.yaml
+      
+      # Disable public federation
+      sed -i "s/# federation_domain_whitelist:/federation_domain_whitelist: []/g" /data/homeserver.yaml
+    '
+  echo "   Homeserver base setup completed."
+fi
+
+# Template Element-Web config.json
+sed "s/HOMELAB_HOSTNAME/${HOMELAB_HOSTNAME}/g" ./element/config.json.template > ./volumes/element/config.json
+echo "   ✅ Element-Web config ready"
+
+
+
+
+
 
 # Copy example-data/* to data/ if it doesn't already exist
 EXAMPLE_DATA="./uptime-kuma/example-data/"
@@ -437,6 +485,7 @@ echo ""
 echo "🐳 Starting Docker containers..."
 chmod +x ./homelab-dashboard/api/entrypoint.sh
 docker network create homelab-net --subnet 10.10.30.0/24 || true
+touch ./volumes/secrets/matrix_bot_token
 docker compose build
 docker compose up -d
 
@@ -572,6 +621,53 @@ echo "   Initializing admin user..."
 dashboard_login "${HOMELAB_USERNAME}" "${HOMELAB_PASSWORD}"
 
 echo ""
+echo "🤖 Setting up Matrix Apprise Bot..."
+BOT_PASSWORD=$(cat ./volumes/secrets/homelab_password)
+
+# Wait for Synapse to be healthy
+echo "   Waiting for Synapse server to initialize..."
+for i in {1..30}; do
+  if docker exec matrix-synapse wget -qO- http://localhost:8008/_matrix/client/versions >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
+# Register bot natively if it doesn'\''t exist
+if ! docker exec matrix-synapse register_new_matrix_user -c /data/homeserver.yaml -u bot -p "$BOT_PASSWORD" --admin http://localhost:8008 >/dev/null 2>&1; then
+  echo "   Matrix Bot user registration checked."
+fi
+
+# Fetch access token using python inside synapse container
+echo "   Retrieving Matrix Bot access token..."
+BOT_TOKEN=$(docker exec matrix-synapse python3 -c '
+import urllib.request, json
+data = json.dumps({"type": "m.login.password", "user": "@bot:matrix.'"${HOMELAB_HOSTNAME}"'", "password": "'"${BOT_PASSWORD}"'"}).encode("utf-8")
+req = urllib.request.Request("http://localhost:8008/_matrix/client/v3/login", data=data, headers={"Content-Type": "application/json"})
+try:
+    res = urllib.request.urlopen(req)
+    print(json.loads(res.read().decode())["access_token"])
+except Exception as e:
+    import sys
+    print("error", file=sys.stderr)
+' 2>/dev/null)
+
+if [ -n "$BOT_TOKEN" ] && [ "$BOT_TOKEN" != "error" ]; then
+  BOT_TOKEN=$(echo "$BOT_TOKEN" | tr -d '\r\n')
+  echo "   ✅ Successfully obtained Bot Access Token"
+  
+  # Write bot token to secrets volume
+  echo "${BOT_TOKEN}" > ./volumes/secrets/matrix_bot_token
+  chmod 600 ./volumes/secrets/matrix_bot_token
+  
+  # Restart apprise-api to apply changes
+  docker restart apprise-api >/dev/null
+  echo "   ✅ Custom SMTP gateway configured and reloaded"
+else
+  echo "   ❌ Failed to retrieve Matrix Bot access token"
+fi
+
+echo ""
 echo "🎉 Homelab Setup Complete!"
 echo "=========================="
 echo ""
@@ -589,16 +685,12 @@ if [ "$(docker ps -q -f name=rustdesk-id-server)" ]; then
   echo ""
 fi
 
-# Print ntfy token if available
-if [ ! -z "${NTFY_ADMIN_TOKENS}" ]; then
-  echo "📱 Ntfy Token:"
-  # Split the string by ":" and print the second field (the token)
-  echo "   $(echo "${NTFY_ADMIN_TOKENS}" | cut -d ':' -f2)"
-  echo ""
-fi
 
 echo "🌐 Web Access:"
-echo "   https://${HOMELAB_HOSTNAME}"
+echo "   Dashboard:  https://${DASHBOARD_WEB_HOSTNAME:-dashboard.${HOMELAB_HOSTNAME}}"
+echo "   Chat:       https://${CHAT_WEB_HOSTNAME:-chat.${HOMELAB_HOSTNAME}}"
+echo "   Auth:       https://${AUTHENTIK_WEB_HOSTNAME:-auth.${HOMELAB_HOSTNAME}}"
+echo "   Vault:      https://${VAULTWARDEN_WEB_HOSTNAME:-vaultwarden.${HOMELAB_HOSTNAME}}"
 echo ""
 if [ "${TRAEFIK_CERT_RESOLVER}" = "letsencrypt" ]; then
   echo "🔒 SSL Mode: Let's Encrypt (Cloudflare DNS-01)"

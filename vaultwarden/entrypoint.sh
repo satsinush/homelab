@@ -6,7 +6,7 @@ echo "[entrypoint] Injecting Vaultwarden secrets from /secrets..."
 if [ -f /secrets/vaultwarden_admin_token ]; then
   export ADMIN_TOKEN=$(cat /secrets/vaultwarden_admin_token)
 fi
-if [ -f /secrets/homelab_password ]; then
+if [ -f /secrets/homelab_password ] && [ -n "${SMTP_USERNAME}" ]; then
   export SMTP_PASSWORD=$(cat /secrets/homelab_password)
 fi
 if [ -f /secrets/vaultwarden_oidc_secret ]; then

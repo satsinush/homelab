@@ -26,7 +26,6 @@ services:
       - VITE_PORTAINER_WEB_HOSTNAME=${VITE_PORTAINER_WEB_HOSTNAME}
       - VITE_VAULTWARDEN_WEB_HOSTNAME=${VITE_VAULTWARDEN_WEB_HOSTNAME}
       - VITE_UPTIME_KUMA_WEB_HOSTNAME=${VITE_UPTIME_KUMA_WEB_HOSTNAME}
-      - VITE_NTFY_WEB_HOSTNAME=${VITE_NTFY_WEB_HOSTNAME}
       - VITE_AUTHENTIK_WEB_HOSTNAME=${VITE_AUTHENTIK_WEB_HOSTNAME}
 
   pihole:
@@ -53,9 +52,14 @@ services:
     ports:
       - "3001:3001"
 
-  ntfy:
+  matrix-synapse:
     ports:
-      - "8081:80"
+      - "8008:8008"
+
+  element-web:
+    ports:
+      - "8082:80"
+
 
   authentik-server:
     ports:
