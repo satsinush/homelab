@@ -230,30 +230,13 @@ const Home = () => {
             color: 'white'
         },
         {
-            title: 'LLDAP',
-            description: 'Self-hosted LDAP service',
-            url: `https://${import.meta.env.VITE_LLDAP_WEB_HOSTNAME}`,
+            title: 'Authentik',
+            description: 'Self-hosted authentication and identity provider',
+            url: `https://${import.meta.env.VITE_AUTHENTIK_WEB_HOSTNAME}`,
             icon: (
                 <Avatar
-                    src={UsersIcon}
-                    alt="LLDAP"
-                    sx={{
-                        width: 32,
-                        height: 32,
-                        bgcolor: 'transparent',
-                    }}
-                />
-            ),
-            color: 'white'
-        },
-        {
-            title: 'Authelia',
-            description: 'Self-hosted authentication and authorization service',
-            url: `https://${import.meta.env.VITE_AUTHELIA_WEB_HOSTNAME}`,
-            icon: (
-                <Avatar
-                    src={AutheliaLogo}
-                    alt="Authelia"
+                    src={AuthIcon}
+                    alt="Authentik"
                     sx={{
                         width: 32,
                         height: 32,

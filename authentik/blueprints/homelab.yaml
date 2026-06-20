@@ -1,0 +1,319 @@
+version: 1
+metadata:
+  name: "Homelab Bootstrap"
+entries:
+  # =================================================================
+  # Groups
+  # =================================================================
+  - model: authentik_core.group
+    identifiers:
+      name: homelab_admins
+    attrs:
+      name: homelab_admins
+      is_superuser: true
+
+  - model: authentik_core.group
+    identifiers:
+      name: homelab_users
+    attrs:
+      name: homelab_users
+      is_superuser: false
+
+  # =================================================================
+  # OIDC Providers & Applications
+  # =================================================================
+  # Portainer
+  - model: authentik_providers_oauth2.oauth2provider
+    id: portainer
+    identifiers:
+      name: portainer
+    attrs:
+      name: portainer
+      client_id: portainer
+      client_secret: !File /secrets/portainer_oidc_secret
+      client_type: confidential
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      redirect_uris:
+        - url: !Format ["https://portainer.%s", !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+
+  - model: authentik_core.application
+    identifiers:
+      slug: portainer
+    attrs:
+      name: Portainer
+      slug: portainer
+      provider: !KeyOf portainer
+
+  # Vaultwarden
+  - model: authentik_providers_oauth2.oauth2provider
+    id: vaultwarden
+    identifiers:
+      name: vaultwarden
+    attrs:
+      name: vaultwarden
+      client_id: vaultwarden
+      client_secret: !File /secrets/vaultwarden_oidc_secret
+      client_type: confidential
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      redirect_uris:
+        - url: !Format ["https://vaultwarden.%s/identity/connect/oidc-signin", !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+
+  - model: authentik_core.application
+    identifiers:
+      slug: vaultwarden
+    attrs:
+      name: Vaultwarden
+      slug: vaultwarden
+      provider: !KeyOf vaultwarden
+
+  # Homelab Dashboard
+  - model: authentik_providers_oauth2.oauth2provider
+    id: homelab_dashboard
+    identifiers:
+      name: homelab_dashboard
+    attrs:
+      name: homelab_dashboard
+      client_id: homelab_dashboard
+      client_secret: !File /secrets/dashboard_oidc_secret
+      client_type: confidential
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      redirect_uris:
+        - url: !Format ["https://dashboard.%s/api/users/sso-callback", !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+
+  - model: authentik_core.application
+    identifiers:
+      slug: homelab-dashboard
+    attrs:
+      name: Homelab Dashboard
+      slug: homelab-dashboard
+      provider: !KeyOf homelab_dashboard
+
+  # =================================================================
+  # Proxy Providers for Traefik Forward-Auth
+  # =================================================================
+  # Dashboard Proxy
+  - model: authentik_providers_proxy.proxyprovider
+    id: dashboard-proxy
+    identifiers:
+      name: dashboard-proxy
+    attrs:
+      name: dashboard-proxy
+      mode: forward_single
+      external_host: !Format ["https://dashboard.%s", !Env HOMELAB_HOSTNAME]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+
+  - model: authentik_core.application
+    identifiers:
+      slug: dashboard-app
+    attrs:
+      name: Dashboard App Proxy
+      slug: dashboard-app
+      provider: !KeyOf dashboard-proxy
+
+  # Pi-hole Proxy
+  - model: authentik_providers_proxy.proxyprovider
+    id: pihole-proxy
+    identifiers:
+      name: pihole-proxy
+    attrs:
+      name: pihole-proxy
+      mode: forward_single
+      external_host: !Format ["https://pihole.%s", !Env HOMELAB_HOSTNAME]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+
+  - model: authentik_core.application
+    identifiers:
+      slug: pihole-app
+    attrs:
+      name: Pi-hole Proxy
+      slug: pihole-app
+      provider: !KeyOf pihole-proxy
+
+  # Netdata Proxy
+  - model: authentik_providers_proxy.proxyprovider
+    id: netdata-proxy
+    identifiers:
+      name: netdata-proxy
+    attrs:
+      name: netdata-proxy
+      mode: forward_single
+      external_host: !Format ["https://netdata.%s", !Env HOMELAB_HOSTNAME]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+
+  - model: authentik_core.application
+    identifiers:
+      slug: netdata-app
+    attrs:
+      name: Netdata Proxy
+      slug: netdata-app
+      provider: !KeyOf netdata-proxy
+
+  # Uptime Kuma Proxy
+  - model: authentik_providers_proxy.proxyprovider
+    id: uptime-kuma-proxy
+    identifiers:
+      name: uptime-kuma-proxy
+    attrs:
+      name: uptime-kuma-proxy
+      mode: forward_single
+      external_host: !Format ["https://uptime-kuma.%s", !Env HOMELAB_HOSTNAME]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+
+  - model: authentik_core.application
+    identifiers:
+      slug: uptime-kuma-app
+    attrs:
+      name: Uptime Kuma Proxy
+      slug: uptime-kuma-app
+      provider: !KeyOf uptime-kuma-proxy
+
+  # Dockge Proxy
+  - model: authentik_providers_proxy.proxyprovider
+    id: dockge-proxy
+    identifiers:
+      name: dockge-proxy
+    attrs:
+      name: dockge-proxy
+      mode: forward_single
+      external_host: !Format ["https://dockge.%s", !Env HOMELAB_HOSTNAME]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+
+  - model: authentik_core.application
+    identifiers:
+      slug: dockge-app
+    attrs:
+      name: Dockge Proxy
+      slug: dockge-app
+      provider: !KeyOf dockge-proxy
+
+  # Dockhand Proxy
+  - model: authentik_providers_proxy.proxyprovider
+    id: dockhand-proxy
+    identifiers:
+      name: dockhand-proxy
+    attrs:
+      name: dockhand-proxy
+      mode: forward_single
+      external_host: !Format ["https://dockhand.%s", !Env HOMELAB_HOSTNAME]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+
+  - model: authentik_core.application
+    identifiers:
+      slug: dockhand-app
+    attrs:
+      name: Dockhand Proxy
+      slug: dockhand-app
+      provider: !KeyOf dockhand-proxy
+
+  # Vaultwarden Admin Proxy
+  - model: authentik_providers_proxy.proxyprovider
+    id: vaultwarden-admin-proxy
+    identifiers:
+      name: vaultwarden-admin-proxy
+    attrs:
+      name: vaultwarden-admin-proxy
+      mode: forward_single
+      external_host: !Format ["https://vaultwarden.%s/admin", !Env HOMELAB_HOSTNAME]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+
+  - model: authentik_core.application
+    identifiers:
+      slug: vaultwarden-admin-app
+    attrs:
+      name: Vaultwarden Admin Proxy
+      slug: vaultwarden-admin-app
+      provider: !KeyOf vaultwarden-admin-proxy
+
+  # =================================================================
+  # Access Policies (Bind Groups to Admin Applications)
+  # =================================================================
+  # Pi-hole
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, pihole-app]]
+      group: !Find [authentik_core.group, [name, homelab_admins]]
+    attrs:
+      order: 0
+
+  # Netdata
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, netdata-app]]
+      group: !Find [authentik_core.group, [name, homelab_admins]]
+    attrs:
+      order: 0
+
+  # Uptime Kuma
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, uptime-kuma-app]]
+      group: !Find [authentik_core.group, [name, homelab_admins]]
+    attrs:
+      order: 0
+
+  # Dockge
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, dockge-app]]
+      group: !Find [authentik_core.group, [name, homelab_admins]]
+    attrs:
+      order: 0
+
+  # Dockhand
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, dockhand-app]]
+      group: !Find [authentik_core.group, [name, homelab_admins]]
+    attrs:
+      order: 0
+
+  # Vaultwarden Admin
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, vaultwarden-admin-app]]
+      group: !Find [authentik_core.group, [name, homelab_admins]]
+    attrs:
+      order: 0
+
+  # =================================================================
+  # Outpost Association
+  # =================================================================
+  - model: authentik_outposts.outpost
+    identifiers:
+      name: "authentik Embedded Outpost"
+    attrs:
+      config:
+        authentik_host: !Format ["https://%s/", !Env AUTHENTIK_WEB_HOSTNAME]
+      providers:
+        - !Find [authentik_providers_proxy.proxyprovider, [name, dashboard-proxy]]
+        - !Find [authentik_providers_proxy.proxyprovider, [name, pihole-proxy]]
+        - !Find [authentik_providers_proxy.proxyprovider, [name, netdata-proxy]]
+        - !Find [authentik_providers_proxy.proxyprovider, [name, uptime-kuma-proxy]]
+        - !Find [authentik_providers_proxy.proxyprovider, [name, dockge-proxy]]
+        - !Find [authentik_providers_proxy.proxyprovider, [name, dockhand-proxy]]
+        - !Find [authentik_providers_proxy.proxyprovider, [name, vaultwarden-admin-proxy]]

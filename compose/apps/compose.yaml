@@ -73,7 +73,7 @@ services:
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
       - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
     extra_hosts:
-      - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
+      - "${AUTHENTIK_WEB_HOSTNAME}:10.10.30.100"
     networks:
       - homelab-net
     environment:
@@ -89,7 +89,7 @@ services:
       - SMTP_USERNAME=${HOMELAB_USERNAME}
       - SSO_ENABLED=true
       - SSO_CLIENT_ID=vaultwarden
-      - SSO_AUTHORITY=https://${AUTHELIA_WEB_HOSTNAME}
+      - SSO_AUTHORITY=https://${AUTHENTIK_WEB_HOSTNAME}/application/o/vaultwarden/
       - SSO_SCOPES=openid email profile offline_access groups
     labels:
       - "traefik.enable=true"

@@ -16,8 +16,7 @@ services:
         - VITE_VAULTWARDEN_WEB_HOSTNAME=${VITE_VAULTWARDEN_WEB_HOSTNAME}
         - VITE_UPTIME_KUMA_WEB_HOSTNAME=${VITE_UPTIME_KUMA_WEB_HOSTNAME}
         - VITE_NTFY_WEB_HOSTNAME=${VITE_NTFY_WEB_HOSTNAME}
-        - VITE_LLDAP_WEB_HOSTNAME=${VITE_LLDAP_WEB_HOSTNAME}
-        - VITE_AUTHELIA_WEB_HOSTNAME=${VITE_AUTHELIA_WEB_HOSTNAME}
+        - VITE_AUTHENTIK_WEB_HOSTNAME=${VITE_AUTHENTIK_WEB_HOSTNAME}
     volumes:
       - dashboard_api_data:/app/api/data
       - dashboard_word_games_data:/app/word_games/data
@@ -27,9 +26,9 @@ services:
       - homelab-net
     extra_hosts:
       - "host.docker.internal:host-gateway"
-      - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
+      - "${AUTHENTIK_WEB_HOSTNAME}:10.10.30.100"
     environment:
-      - AUTHELIA_WEB_HOSTNAME=${AUTHELIA_WEB_HOSTNAME}
+      - AUTHENTIK_WEB_HOSTNAME=${AUTHENTIK_WEB_HOSTNAME}
       - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
       - HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
@@ -43,7 +42,7 @@ services:
       - "traefik.http.routers.dashboard.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
       - "traefik.http.routers.dashboard.tls.domains[0].main=${HOMELAB_HOSTNAME}"
       - "traefik.http.routers.dashboard.tls.domains[0].sans=*.${HOMELAB_HOSTNAME}"
-      - "traefik.http.routers.dashboard.middlewares=authelia@file"
+      - "traefik.http.routers.dashboard.middlewares=authentik-auth@file"
       - "traefik.http.services.dashboard.loadbalancer.server.port=5000"
       - "traefik.http.routers.dashboard-redirect.rule=Host(`${HOMELAB_HOSTNAME}`) || HostRegexp(`^[0-9.]+$`)"
       - "traefik.http.routers.dashboard-redirect.entrypoints=websecure"
@@ -65,9 +64,6 @@ services:
       - "traefik.http.middlewares.dashboard-catchall-redirect.redirectregex.regex=^https?://[^/]+(.*)"
       - "traefik.http.middlewares.dashboard-catchall-redirect.redirectregex.replacement=https://${DASHBOARD_WEB_HOSTNAME}$${1}"
       - "traefik.http.middlewares.dashboard-catchall-redirect.redirectregex.permanent=true"
-    depends_on:
-      authelia:
-        condition: service_healthy
     healthcheck:
       test: [ "CMD", "wget", "-q", "--spider", "http://localhost:5000" ]
       interval: 1m

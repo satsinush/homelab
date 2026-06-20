@@ -26,14 +26,14 @@ services:
       - TZ=${TZ}
     networks:
       - homelab-net
-    devices:
-      - "/dev/nvme0:/dev/nvme0:rw"
+    # devices:
+    #   - "/dev/nvme0:/dev/nvme0:rw"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.netdata.rule=Host(`${NETDATA_WEB_HOSTNAME}`)"
       - "traefik.http.routers.netdata.entrypoints=websecure"
       - "traefik.http.routers.netdata.tls=true"
-      - "traefik.http.routers.netdata.middlewares=authelia@file"
+      - "traefik.http.routers.netdata.middlewares=authentik-auth@file"
       - "traefik.http.services.netdata.loadbalancer.server.port=19999"
     healthcheck:
       test: [ "CMD", "curl", "-fs", "http://localhost:19999/api/v1/info" ]
@@ -61,7 +61,7 @@ services:
       - "traefik.http.routers.uptime-kuma.rule=Host(`${UPTIME_KUMA_WEB_HOSTNAME}`)"
       - "traefik.http.routers.uptime-kuma.entrypoints=websecure"
       - "traefik.http.routers.uptime-kuma.tls=true"
-      - "traefik.http.routers.uptime-kuma.middlewares=authelia@file"
+      - "traefik.http.routers.uptime-kuma.middlewares=authentik-auth@file"
       - "traefik.http.services.uptime-kuma.loadbalancer.server.port=3001"
     depends_on:
       ntfy:

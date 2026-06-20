@@ -68,7 +68,7 @@ class UserController {
             if (!oidcConfig) {
                 return res.status(500).json({ 
                     error: 'OIDC configuration failed to initialize',
-                    message: 'Authelia may not be available. Please try again later.'
+                    message: 'Authentik may not be available. Please try again later.'
                 });
             }
 
@@ -113,7 +113,7 @@ class UserController {
             if (error.message && error.message.includes('discovery')) {
                 return res.status(503).json({ 
                     error: 'SSO service unavailable',
-                    message: 'Authelia is not available. Please try local login or try again later.'
+                    message: 'Authentik is not available. Please try local login or try again later.'
                 });
             }
             res.status(500).json({ error: 'Failed to initiate SSO login' });
@@ -131,7 +131,7 @@ class UserController {
             if (!oidcConfig) {
                 return res.status(500).json({ 
                     error: 'OIDC configuration failed to initialize',
-                    message: 'Authelia may not be available. Please try again later.'
+                    message: 'Authentik may not be available. Please try again later.'
                 });
             }
 
@@ -158,11 +158,12 @@ class UserController {
 
             console.log('Token exchange successful');
             
-            // Get user info using the access token
+            // Get user info using the access token and dynamic endpoint from discovery
+            const userinfoEndpoint = oidcConfig.serverMetadata().userinfo_endpoint;
             const protectedResourceResponse = await client.fetchProtectedResource(
                 oidcConfig,
                 tokens.access_token,
-                new URL(`https://${process.env.AUTHELIA_WEB_HOSTNAME}/api/oidc/userinfo`),
+                new URL(userinfoEndpoint),
                 'GET'
             );
             
@@ -228,12 +229,28 @@ class UserController {
                 if (isSSO) {
                     console.log('SSO user logout - returning redirect URL');
                     const APP_URL = `https://${process.env.DASHBOARD_WEB_HOSTNAME}`;
-                    const logoutUrl = `https://${process.env.AUTHELIA_WEB_HOSTNAME}/logout?rd=${encodeURIComponent(APP_URL)}`;
-                    return sendSuccess(res, { 
-                        message: 'SSO logout initiated',
-                        redirect: logoutUrl,
-                        isSSO: true
-                    });
+                    
+                    (async () => {
+                        let logoutUrl;
+                        try {
+                            const oidcConfig = await config.getOIDCConfig();
+                            const endSessionUrl = oidcConfig?.serverMetadata()?.end_session_endpoint;
+                            if (endSessionUrl) {
+                                logoutUrl = `${endSessionUrl}?post_logout_redirect_uri=${encodeURIComponent(APP_URL)}`;
+                            }
+                        } catch (e) {
+                            console.error('Failed to get dynamic end_session_endpoint for logout:', e);
+                        }
+                        if (!logoutUrl) {
+                            logoutUrl = `https://${process.env.AUTHENTIK_WEB_HOSTNAME}/application/o/homelab-dashboard/end-session/?post_logout_redirect_uri=${encodeURIComponent(APP_URL)}`;
+                        }
+                        
+                        return sendSuccess(res, { 
+                            message: 'SSO logout initiated',
+                            redirect: logoutUrl,
+                            isSSO: true
+                        });
+                    })();
                 } else {
                     // Local user, send JSON response for API clients
                     console.log('Local user logout - sending success response');

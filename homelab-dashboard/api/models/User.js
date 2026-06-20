@@ -96,13 +96,12 @@ class User {
             const username = ssoProfile.preferred_username || ssoProfile.name; // Use preferred_username first, fallback to name
             const email = ssoProfile.email || null; // Authelia provides email directly
             
-            // Use custom claims for role mapping instead of groups
+            // Use groups for role mapping
             let userGroups = [];            
-            if (ssoProfile.homelab_role) {
-                // Use the custom homelab_role claim from Authelia
-                if (ssoProfile.homelab_role === 'admin') {
+            if (ssoProfile.groups) {
+                if (ssoProfile.groups.includes('homelab_admins')) {
                     userGroups = ['admin'];
-                } else if (ssoProfile.homelab_role === 'user') {
+                } else if (ssoProfile.groups.includes('homelab_users')) {
                     userGroups = ['user'];
                 }
             }

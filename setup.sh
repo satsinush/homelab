@@ -196,12 +196,18 @@ gen_secret vaultwarden_admin_token 64
 gen_secret vaultwarden_oidc_secret 64
 gen_secret portainer_oidc_secret 64
 gen_secret dashboard_oidc_secret 64
-gen_secret lldap_jwt_secret 64
-gen_secret lldap_ldap_user_pass 16
-gen_secret authelia_jwt_secret 64
-gen_secret authelia_session_secret 64
-gen_secret authelia_storage_encryption_key 64
-gen_secret authelia_hmac_secret 64
+gen_secret authentik_secret_key 50
+gen_secret authentik_pg_pass 32
+
+# Ensure secrets are removed from the .env file as they are now loaded from volume-mounted files
+for secret_name in authentik_secret_key authentik_pg_pass portainer_oidc_secret vaultwarden_oidc_secret dashboard_oidc_secret; do
+  env_name=$(echo "$secret_name" | tr 'a-z' 'A-Z')
+  if grep -q "^${env_name}=" .env; then
+    # Use sed to safely remove the line
+    sed -i "/^${env_name}=/d" .env
+    echo "     Removed ${env_name} from .env"
+  fi
+done
 
 if [ ! -s ./volumes/secrets/homelab_password ]; then
   echo "   ⚠️  homelab_password secret is missing from volumes/secrets!"
@@ -230,39 +236,19 @@ if [ ! -s ./volumes/secrets/ntfy_admin_tokens ]; then
   fi
 fi
 
-# Argon2 Hashes for OIDC clients - generate only if missing or empty
-if [ ! -s ./volumes/secrets/vaultwarden_oidc_hashed_secret ]; then
-  echo "     Hashing vaultwarden secret..."
-  VW_SEC=$(cat ./volumes/secrets/vaultwarden_oidc_secret)
-  docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password "$VW_SEC" | awk '{print $2}' | tr -d '\n' > ./volumes/secrets/vaultwarden_oidc_hashed_secret
-fi
-
-if [ ! -s ./volumes/secrets/portainer_oidc_hashed_secret ]; then
-  echo "     Hashing portainer secret..."
-  PORT_SEC=$(cat ./volumes/secrets/portainer_oidc_secret)
-  docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password "$PORT_SEC" | awk '{print $2}' | tr -d '\n' > ./volumes/secrets/portainer_oidc_hashed_secret
-fi
-
-if [ ! -s ./volumes/secrets/dashboard_oidc_hashed_secret ]; then
-  echo "     Hashing dashboard secret..."
-  DASH_SEC=$(cat ./volumes/secrets/dashboard_oidc_secret)
-  docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password "$DASH_SEC" | awk '{print $2}' | tr -d '\n' > ./volumes/secrets/dashboard_oidc_hashed_secret
-fi
-
 chmod 600 ./volumes/secrets/*
 
-# Load passwords directly into script environment since they are no longer in .env
-if [ -s ./volumes/secrets/homelab_password ]; then
-  export HOMELAB_PASSWORD=$(cat ./volumes/secrets/homelab_password)
-  export PORTAINER_ADMIN_PASSWORD=$(cat ./volumes/secrets/homelab_password)
-fi
+# Export all secrets from files in volumes/secrets as uppercase env variables
+for f in ./volumes/secrets/*; do
+  if [ -f "$f" ]; then
+    varname=$(basename "$f" | tr 'a-z' 'A-Z')
+    export "$varname"="$(cat "$f")"
+  fi
+done
 
-# Also export other variables needed by this script
-if [ -f ./volumes/secrets/lldap_ldap_user_pass ]; then
-  export LLDAP_LDAP_USER_PASS=$(cat ./volumes/secrets/lldap_ldap_user_pass)
-fi
-if [ -f ./volumes/secrets/portainer_oidc_secret ]; then
-  export PORTAINER_OIDC_SECRET=$(cat ./volumes/secrets/portainer_oidc_secret)
+# Set additional variables needed by the script
+if [ -n "${HOMELAB_PASSWORD:-}" ]; then
+  export PORTAINER_ADMIN_PASSWORD="$HOMELAB_PASSWORD"
 fi
 
 echo ""
@@ -307,55 +293,9 @@ if [ ! -f "${TRAEFIK_DIR}/acme.json" ]; then
   echo "   ✅ Traefik ACME storage file created"
 fi
 
-# --- Ensure Authelia private key exists ---
-AUTHELIA_DIR="./volumes/authelia"
-AUTHELIA_KEY="${AUTHELIA_DIR}/private.pem"
-mkdir -p "$AUTHELIA_DIR"
-if [ ! -f "${AUTHELIA_KEY}" ]; then
-  echo "   Generating Authelia private key..."
-  openssl genrsa -out "${AUTHELIA_KEY}" 4096
-  chmod 600 "${AUTHELIA_KEY}"
-  echo "   ✅ Authelia key created"
-else
-  echo "   ✅ Authelia key already exists"
-fi
-
-# Ensure the current user can read the key so Docker build context includes it.
-if [ "$(stat -c %u "${AUTHELIA_KEY}")" -ne "$(id -u)" ]; then
-  echo "   Fixing Authelia key ownership for current user..."
-  sudo chown "$(id -u):$(id -g)" "${AUTHELIA_KEY}"
-fi
-chmod 600 "${AUTHELIA_KEY}"
-
-echo "   Rendering Authelia configuration..."
-# Export variables for envsubst
-export AUTHELIA_SESSION_SECRET=$(cat ./volumes/secrets/authelia_session_secret)
-export AUTHELIA_STORAGE_ENCRYPTION_KEY=$(cat ./volumes/secrets/authelia_storage_encryption_key)
-export AUTHELIA_JWT_SECRET=$(cat ./volumes/secrets/authelia_jwt_secret)
-export AUTHELIA_HMAC_SECRET=$(cat ./volumes/secrets/authelia_hmac_secret)
-export VAULTWARDEN_OIDC_HASHED_SECRET=$(cat ./volumes/secrets/vaultwarden_oidc_hashed_secret)
-export PORTAINER_OIDC_HASHED_SECRET=$(cat ./volumes/secrets/portainer_oidc_hashed_secret)
-export DASHBOARD_OIDC_HASHED_SECRET=$(cat ./volumes/secrets/dashboard_oidc_hashed_secret)
-
-envsubst < authelia/configuration.yml.template > ./volumes/authelia/configuration.yml.subst
-
-INDENTED_KEY_FILE="./volumes/authelia/indented_key.tmp"
-sed 's/^/          /' "${AUTHELIA_KEY}" > "$INDENTED_KEY_FILE"
-
-awk -v placeholder="JWKS_KEY_PLACEHOLDER" -v key_file="$INDENTED_KEY_FILE" '
-index($0, placeholder) {
-    while ((getline line < key_file) > 0) {
-        print line
-    }
-    close(key_file)
-    next
-}
-{ print }
-' ./volumes/authelia/configuration.yml.subst > ./volumes/authelia/configuration.yml
-
-chmod 600 ./volumes/authelia/configuration.yml
-rm -f "$INDENTED_KEY_FILE" ./volumes/authelia/configuration.yml.subst
-echo "   ✅ Authelia configuration rendered"
+# --- Ensure Authentik blueprints directory exists and copy from source control ---
+mkdir -p ./volumes/authentik/blueprints
+cp ./authentik/blueprints/homelab.yaml ./volumes/authentik/blueprints/homelab.yaml
 
 # Copy example-data/* to data/ if it doesn't already exist
 EXAMPLE_DATA="./uptime-kuma/example-data/"
@@ -495,6 +435,7 @@ fi
 echo ""
 echo ""
 echo "🐳 Starting Docker containers..."
+chmod +x ./homelab-dashboard/api/entrypoint.sh
 docker network create homelab-net --subnet 10.10.30.0/24 || true
 docker compose build
 docker compose up -d
@@ -519,317 +460,7 @@ echo "   Waiting 1 second for services to initialize..."
 sleep 1
 echo "✅ Docker containers started"
 
-echo ""
-echo "👥 Setting up LLDAP users and groups..."
 
-# Function to get LLDAP JWT token
-get_lldap_token() {
-    local response=$(docker exec lldap curl -s -X POST \
-        -H "Content-Type: application/json" \
-        -d "{\"username\": \"admin\", \"password\": \"${LLDAP_LDAP_USER_PASS}\"}" \
-        "http://localhost:17170/auth/simple/login" 2>/dev/null)
-    
-    if [ $? -eq 0 ] && [ ! -z "$response" ]; then
-        echo "$response" | jq -r '.token' 2>/dev/null
-    else
-        echo ""
-    fi
-}
-
-# Function to check if group exists
-group_exists() {
-    local group_name="$1"
-    local token="$2"
-    
-    local query='{"query":"query { groups { displayName } }"}'
-    local response=$(docker exec lldap curl -s -X POST \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $token" \
-        -d "$query" \
-        "http://localhost:17170/api/graphql" 2>/dev/null)
-    
-    if echo "$response" | jq -r '.data.groups[].displayName' 2>/dev/null | grep -q "^${group_name}$"; then
-        return 0  # Group exists
-    else
-        return 1  # Group doesn't exist
-    fi
-}
-
-# Function to check if user exists
-user_exists() {
-    local username="$1"
-    local token="$2"
-    
-    local query='{"query":"query { users { id } }"}'
-    local response=$(docker exec lldap curl -s -X POST \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $token" \
-        -d "$query" \
-        "http://localhost:17170/api/graphql" 2>/dev/null)
-    
-    if echo "$response" | jq -r '.data.users[].id' 2>/dev/null | grep -q "^${username}$"; then
-        return 0  # User exists
-    else
-        return 1  # User doesn't exist
-    fi
-}
-
-# Function to check if user is in group
-user_in_group() {
-    local username="$1"
-    local group_name="$2"
-    local token="$3"
-    
-    local group_id=$(get_group_id "$group_name" "$token")
-    if [ -z "$group_id" ] || [ "$group_id" = "null" ]; then
-        return 1  # Group doesn't exist
-    fi
-    
-    local query='{"query":"query { user(userId: \"'$username'\") { groups { id } } }"}'
-    local response=$(docker exec lldap curl -s -X POST \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $token" \
-        -d "$query" \
-        "http://localhost:17170/api/graphql" 2>/dev/null)
-    
-    if echo "$response" | jq -r '.data.user.groups[].id' 2>/dev/null | grep -q "^${group_id}$"; then
-        return 0  # User is in group
-    else
-        return 1  # User is not in group
-    fi
-}
-
-# Function to create LLDAP group (GraphQL)
-create_lldap_group() {
-    local group_name="$1"
-    local display_name="$2"
-    local token="$3"
-    
-    # Check if group already exists
-    if group_exists "$display_name" "$token"; then
-        echo "     ✅ Group $group_name already exists"
-        return 0
-    fi
-    
-    echo "     Creating group: $group_name"
-    local query='{"query":"mutation { createGroup(name: \"'$display_name'\") { id displayName } }"}'
-    local response=$(docker exec lldap curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $token" \
-        -d "$query" \
-        "http://localhost:17170/api/graphql")
-    
-    local http_code=$(echo "$response" | grep "HTTP_CODE:" | cut -d: -f2)
-    local body=$(echo "$response" | sed '/HTTP_CODE:/d')
-    
-    if [ "$http_code" = "200" ]; then
-        local group_id=$(echo "$body" | jq -r '.data.createGroup.id' 2>/dev/null)
-        if [ "$group_id" != "null" ] && [ ! -z "$group_id" ]; then
-            echo "     ✅ Group $group_name created"
-        else
-            echo "     ❌ Failed to create group $group_name"
-        fi
-    else
-        echo "     ❌ Failed to create group $group_name (HTTP: $http_code)"
-    fi
-}
-
-# Function to create LLDAP user (GraphQL)
-create_lldap_user() {
-    local username="$1"
-    local email="$2"
-    local display_name="$3"
-    local password="$4"
-    local token="$5"
-    
-    # Check if user already exists
-    if user_exists "$username" "$token"; then
-        echo "     ✅ User $username already exists"
-        # Still try to update password for existing user
-        set_user_password "$username" "$password" "$token" >/dev/null 2>&1
-        return 0
-    fi
-    
-    echo "     Creating user: $username"
-    local query='{"query":"mutation { createUser(user: { id: \"'$username'\", email: \"'$email'\", displayName: \"'$display_name'\" }) { id displayName } }"}'
-    local response=$(docker exec lldap curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $token" \
-        -d "$query" \
-        "http://localhost:17170/api/graphql")
-    
-    local http_code=$(echo "$response" | grep "HTTP_CODE:" | cut -d: -f2)
-    local body=$(echo "$response" | sed '/HTTP_CODE:/d')
-    
-    if [ "$http_code" = "200" ]; then
-        local user_id=$(echo "$body" | jq -r '.data.createUser.id' 2>/dev/null)
-        if [ "$user_id" != "null" ] && [ ! -z "$user_id" ]; then
-            echo "     ✅ User $username created"
-            # Set password for the user
-            set_user_password "$username" "$password" "$token" >/dev/null 2>&1
-        else
-            echo "     ❌ Failed to create user $username"
-        fi
-    else
-        echo "     ❌ Failed to create user $username (HTTP: $http_code)"
-    fi
-}
-
-# Function to set user password using the correct LLDAP tool
-set_user_password() {
-  local username="$1"
-  local password="$2"
-  local token="$3"
-
-  echo "    Setting password for user: $username"
-
-  # Prefer token if provided and not "null"
-  local use_token=0
-  if [ -n "$token" ] && [ "$token" != "null" ]; then
-    use_token=1
-  fi
-
-  if [ $use_token -eq 1 ]; then
-    echo "    Using token to authenticate to lldap_set_password..."
-    local cli_result
-    cli_result=$(docker exec lldap /app/lldap_set_password \
-      --base-url "http://localhost:17170" \
-      --username "$username" \
-      --password "$password" \
-      --token "$token" 2>&1)
-    local cli_exit_code=$?
-  else
-    echo "    Token not available, falling back to admin password authentication..."
-    if [ -z "${LLDAP_LDAP_USER_PASS:-}" ]; then
-      echo "    ❌ Admin password not configured (LLLDAP_LDAP_USER_PASS is empty). Cannot set password."
-      return 1
-    fi
-    local cli_result
-    cli_result=$(docker exec lldap /app/lldap_set_password \
-      --base-url "http://localhost:17170" \
-      --username "$username" \
-      --password "$password" \
-      --admin-password "$LLDAP_LDAP_USER_PASS" 2>&1)
-    local cli_exit_code=$?
-  fi
-
-  if [ "$cli_exit_code" -eq 0 ]; then
-    echo "    ✅ Password set successfully"
-    return 0
-  else
-    echo "    ❌ Failed to set password"
-    echo "    Error: $cli_result"
-    echo ""
-    echo "    ⚠️  Password must be set manually in LLDAP web interface:"
-    echo "       1. Open: https://${LLDAP_WEB_HOSTNAME}"
-    echo "       2. Login as: admin / ${LLDAP_LDAP_USER_PASS}"
-    echo "       3. Navigate to Users section"
-    echo "       4. Edit user: $username"
-    echo "       5. Set password to: $password"
-    echo "       6. Save changes"
-    return 1
-  fi
-}
-
-# Function to get group ID by name
-get_group_id() {
-    local group_name="$1"
-    local token="$2"
-    
-    local query='{"query":"query { groups { id displayName } }"}'
-    local response=$(docker exec lldap curl -s -X POST \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $token" \
-        -d "$query" \
-        "http://localhost:17170/api/graphql" 2>/dev/null)
-    
-    echo "$response" | jq -r ".data.groups[] | select(.displayName == \"$group_name\") | .id" 2>/dev/null
-}
-
-# Function to add user to group (GraphQL)
-add_user_to_group() {
-    local username="$1"
-    local group_name="$2"
-    local token="$3"
-    
-    echo "     Adding $username to group: $group_name"
-    
-    # Check if user is already in the group
-    if user_in_group "$username" "$group_name" "$token"; then
-        echo "     ✅ $username already in $group_name"
-        return 0
-    fi
-    
-    # Get group ID first
-    local group_id=$(get_group_id "$group_name" "$token")
-    if [ -z "$group_id" ] || [ "$group_id" = "null" ]; then
-        echo "     ❌ Could not find group $group_name"
-        return
-    fi
-    
-    local query='{"query":"mutation { addUserToGroup(userId: \"'$username'\", groupId: '$group_id') { ok } }"}'
-    local response=$(docker exec lldap curl -s -w "\nHTTP_CODE:%{http_code}" -X POST \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $token" \
-        -d "$query" \
-        "http://localhost:17170/api/graphql")
-    
-    local http_code=$(echo "$response" | grep "HTTP_CODE:" | cut -d: -f2)
-    local body=$(echo "$response" | sed '/HTTP_CODE:/d')
-    
-    if [ "$http_code" -eq 200 ]; then
-        local success=$(echo "$body" | jq -r '.data.addUserToGroup.ok' 2>/dev/null)
-        if [ "$success" = "true" ]; then
-            echo "     ✅ Added $username to $group_name"
-        else
-            echo "     ❌ Failed to add $username to $group_name"
-        fi
-    else
-        echo "     ❌ Failed to add $username to $group_name (HTTP: $http_code)"
-    fi
-}
-
-# Retry mechanism for getting token
-echo "   Authenticating with LLDAP..."
-for i in {1..5}; do
-    TOKEN=$(get_lldap_token)
-    if [ ! -z "$TOKEN" ] && [ "$TOKEN" != "null" ]; then
-        echo "   ✅ LLDAP authentication successful"
-        break
-    else
-        echo "   ⏳ Attempt $i/5: Waiting for LLDAP to be ready..."
-        sleep 10
-    fi
-done
-
-if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
-    echo "   ❌ Failed to authenticate with LLDAP after 5 attempts"
-    echo "   ⚠️  You'll need to manually create users and groups in LLDAP web interface"
-    echo "      Default login: admin (password is in your .env file)"
-else
-    echo "   Creating LLDAP groups..."
-    
-    # Create required groups - simplified to just two groups
-    create_lldap_group "homelab_admins" "homelab_admins" "$TOKEN"
-    create_lldap_group "homelab_users" "homelab_users" "$TOKEN"
-    
-    echo "👤 Creating personal user account..."
-    
-    # Create your personal user account
-    create_lldap_user "$HOMELAB_USERNAME" \
-                      "$HOMELAB_USERNAME@$HOMELAB_HOSTNAME" \
-                      "$HOMELAB_USERNAME" \
-                      "$HOMELAB_PASSWORD" \
-                      "$TOKEN"
-    
-    echo "   Adding user to admin groups..."
-    
-    # Add user to admin groups (using display names since that's what we need to look up)
-    add_user_to_group "$HOMELAB_USERNAME" "lldap_admin" "$TOKEN"
-    add_user_to_group "$HOMELAB_USERNAME" "homelab_admins" "$TOKEN"
-    
-    echo "   ✅ LLDAP setup complete"
-fi
 
 echo ""
 echo "⚙️  Configuring Portainer..."
@@ -863,11 +494,11 @@ RESPONSE=$(docker exec -i portainer curl -s -k -w "\n%{http_code}" -X PUT \
     "OAuthAutoCreateUsers": true,
     "ClientID": "portainer",
     "ClientSecret": "${PORTAINER_OIDC_SECRET}",
-    "AccessTokenURI": "https://${AUTHELIA_WEB_HOSTNAME}/api/oidc/token",
-    "AuthorizationURI": "https://${AUTHELIA_WEB_HOSTNAME}/api/oidc/authorization",
-    "ResourceURI": "https://${AUTHELIA_WEB_HOSTNAME}/api/oidc/userinfo",
+    "AccessTokenURI": "https://${AUTHENTIK_WEB_HOSTNAME}/application/o/portainer/token/",
+    "AuthorizationURI": "https://${AUTHENTIK_WEB_HOSTNAME}/application/o/portainer/authorize/",
+    "ResourceURI": "https://${AUTHENTIK_WEB_HOSTNAME}/application/o/portainer/userinfo/",
     "RedirectURI": "https://${PORTAINER_WEB_HOSTNAME}",
-    "LogoutURI": "https://${AUTHELIA_WEB_HOSTNAME}/logout",
+    "LogoutURI": "https://${AUTHENTIK_WEB_HOSTNAME}/application/o/portainer/end-session/",
     "UserIdentifier": "preferred_username",
     "Scopes": "openid profile email groups"
   }

@@ -53,7 +53,7 @@ async function initializeOIDCClient() {
     initializationPromise = (async () => {
         try {
             // Set up the OIDC configuration following official documentation
-            const server = new URL(`https://${process.env.AUTHELIA_WEB_HOSTNAME}`);
+            const server = new URL(`https://${process.env.AUTHENTIK_WEB_HOSTNAME}/application/o/homelab-dashboard/`);
             const clientId = 'homelab_dashboard';
             const clientSecret = process.env.DASHBOARD_OIDC_SECRET;
 
@@ -132,7 +132,7 @@ const config = {
         }
     },
     dashBoardWebHostname: process.env.DASHBOARD_WEB_HOSTNAME,
-    autheliaWebHostname: process.env.AUTHELIA_WEB_HOSTNAME,
+    authentikWebHostname: process.env.AUTHENTIK_WEB_HOSTNAME,
     homelabHostname: process.env.HOMELAB_HOSTNAME,
     rustdeskPubKeyPath: process.env.RUSTDESK_PUBKEY_PATH,
     defaultSettings: DEFAULT_SETTINGS,

@@ -1,86 +1,122 @@
-# compose/docker-compose.auth.yml
+# compose/auth/compose.yaml
 services:
-  authelia:
-    image: authelia/authelia:latest
-    container_name: authelia
-    restart: on-failure
-    networks:
-      - homelab-net
-    volumes:
-      - authelia_data:/var/lib/authelia
-      - ${PROJECT_ROOT}/volumes/authelia/configuration.yml:/config/configuration.yml:ro
-      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
-      - ${PROJECT_ROOT}/volumes/authelia/private.pem:/config/jwks/private.pem:ro
-    depends_on:
-      lldap:
-        condition: service_healthy
-      authelia-redis:
-        condition: service_healthy
-      ntfy:
-        condition: service_healthy
-    extra_hosts:
-      - "${AUTHELIA_WEB_HOSTNAME}:10.10.30.100"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.authelia.rule=Host(`${AUTHELIA_WEB_HOSTNAME}`)"
-      - "traefik.http.routers.authelia.entrypoints=websecure"
-      - "traefik.http.routers.authelia.tls=true"
-      - "traefik.http.services.authelia.loadbalancer.server.port=9091"
+  authentik-postgres:
+    image: docker.io/library/postgres:16-alpine
+    container_name: authentik-postgres
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9091/api/health"]
-      interval: 1m
-      timeout: 10s
-      retries: 3
-      start_period: 1m
-
-  authelia-redis:
-    image: redis:7-alpine
-    container_name: authelia-redis
-    restart: on-failure
-    volumes:
-      - authelia_redis_data:/data
-    networks:
-      - homelab-net
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      start_period: 20s
       interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  lldap:
-    image: lldap/lldap:latest
-    container_name: lldap
-    restart: on-failure
+      retries: 5
+      timeout: 5s
     volumes:
-      - lldap_data:/data
+      - authentik_db:/var/lib/postgresql/data
+      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
+    environment:
+      POSTGRES_PASSWORD_FILE: /secrets/authentik_pg_pass
+      POSTGRES_USER: ${AUTHENTIK_PG_USER:-authentik}
+      POSTGRES_DB: ${AUTHENTIK_PG_DB:-authentik}
+    networks:
+      - homelab-net
+
+  authentik-redis:
+    image: docker.io/library/redis:7-alpine
+    container_name: authentik-redis
+    command: --save 60 1 --loglevel warning
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 3s
+    volumes:
+      - authentik_redis:/data
+    networks:
+      - homelab-net
+
+  authentik-server:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.3}
+    container_name: authentik-server
+    restart: unless-stopped
+    command: server
+    environment:
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: "file:///secrets/authentik_pg_pass"
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_PG_DB:-authentik}
+      AUTHENTIK_SECRET_KEY: "file:///secrets/authentik_secret_key"
+      AUTHENTIK_BOOTSTRAP_PASSWORD: "file:///secrets/homelab_password"
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${HOMELAB_USERNAME}@${HOMELAB_HOSTNAME}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+      HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
+      AUTHENTIK_WEB_HOSTNAME: ${AUTHENTIK_WEB_HOSTNAME}
+    volumes:
+      - ${PROJECT_ROOT}/volumes/authentik/media:/media
+      - ${PROJECT_ROOT}/volumes/authentik/templates:/templates
+      - ${PROJECT_ROOT}/volumes/authentik/blueprints:/blueprints/custom
       - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
     networks:
       - homelab-net
-    environment:
-      - UID=${PUID}
-      - GID=${PGID}
-      - TZ=${TZ}
-      - LLDAP_JWT_SECRET_FILE=/secrets/lldap_jwt_secret
-      - LLDAP_LDAP_BASE_DN=${LLDAP_LDAP_BASE_DN}
-      - LLDAP_LDAP_USER_PASS_FILE=/secrets/lldap_ldap_user_pass
-      - LLDAP_HTTP_URL=https://${LLDAP_WEB_HOSTNAME}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.lldap.rule=Host(`${LLDAP_WEB_HOSTNAME}`)"
-      - "traefik.http.routers.lldap.entrypoints=websecure"
-      - "traefik.http.routers.lldap.tls=true"
-      - "traefik.http.services.lldap.loadbalancer.server.port=17170"
-    healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:17170/health"]
-      interval: 1m
-      timeout: 10s
-      start_period: 1m
+      - "traefik.http.routers.authentik.rule=Host(`${AUTHENTIK_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.authentik.entrypoints=websecure"
+      - "traefik.http.routers.authentik.tls=true"
+      - "traefik.http.routers.authentik.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.routers.authentik.tls.domains[0].main=${HOMELAB_HOSTNAME}"
+      - "traefik.http.routers.authentik.tls.domains[0].sans=*.${HOMELAB_HOSTNAME}"
+      - "traefik.http.services.authentik.loadbalancer.server.port=9000"
+      - "traefik.http.routers.authentik-outpost.rule=HostRegexp('^.+\\.${HOMELAB_HOSTNAME}$$') && PathPrefix('/outpost.goauthentik.io/')"
+      - "traefik.http.routers.authentik-outpost.entrypoints=websecure"
+      - "traefik.http.routers.authentik-outpost.tls=true"
+      - "traefik.http.routers.authentik-outpost.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.routers.authentik-outpost.priority=100"
+      - "traefik.http.routers.authentik-outpost.service=authentik"
+    depends_on:
+      authentik-postgres:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
+
+  authentik-worker:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.3}
+    container_name: authentik-worker
+    restart: unless-stopped
+    command: worker
+    environment:
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: "file:///secrets/authentik_pg_pass"
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_PG_DB:-authentik}
+      AUTHENTIK_SECRET_KEY: "file:///secrets/authentik_secret_key"
+      AUTHENTIK_BOOTSTRAP_PASSWORD: "file:///secrets/homelab_password"
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${HOMELAB_USERNAME}@${HOMELAB_HOSTNAME}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+      HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
+      AUTHENTIK_WEB_HOSTNAME: ${AUTHENTIK_WEB_HOSTNAME}
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PROJECT_ROOT}/volumes/authentik/media:/media
+      - ${PROJECT_ROOT}/volumes/authentik/certs:/certs
+      - ${PROJECT_ROOT}/volumes/authentik/templates:/templates
+      - ${PROJECT_ROOT}/volumes/authentik/blueprints:/blueprints/custom
+      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
+    networks:
+      - homelab-net
+    depends_on:
+      authentik-postgres:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
 
 volumes:
-  authelia_data:
-  authelia_redis_data:
-  lldap_data:
+  authentik_db:
+  authentik_redis:
 
 networks:
   homelab-net:
