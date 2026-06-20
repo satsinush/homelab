@@ -53,6 +53,20 @@ entries:
             "groups": [g.name for g in request.user.ak_groups.all()]
         }
 
+  - model: authentik_providers_oauth2.scopemapping
+    id: scope-email
+    identifiers:
+      scope_name: email
+    attrs:
+      name: "custom-scope-email"
+      scope_name: email
+      description: "SSO Email"
+      expression: |
+        return {
+            "email": request.user.email,
+            "email_verified": True
+        }
+
   # OIDC Providers & Applications
   # =================================================================
   # Portainer
@@ -76,7 +90,7 @@ entries:
           matching_mode: strict
       property_mappings:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
-        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
+        - !KeyOf scope-email
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
         - !KeyOf scope-groups
 
@@ -109,7 +123,7 @@ entries:
           matching_mode: strict
       property_mappings:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
-        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
+        - !KeyOf scope-email
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
         - !KeyOf scope-groups
 
@@ -142,7 +156,7 @@ entries:
           matching_mode: strict
       property_mappings:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
-        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
+        - !KeyOf scope-email
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
         - !KeyOf scope-groups
 
