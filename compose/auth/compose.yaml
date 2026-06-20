@@ -53,6 +53,7 @@ services:
       AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
       HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
       AUTHENTIK_WEB_HOSTNAME: ${AUTHENTIK_WEB_HOSTNAME}
+      HOMELAB_USERNAME: ${HOMELAB_USERNAME}
     volumes:
       - ${PROJECT_ROOT}/volumes/authentik/media:/media
       - ${PROJECT_ROOT}/volumes/authentik/templates:/templates
@@ -98,6 +99,7 @@ services:
       AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
       HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
       AUTHENTIK_WEB_HOSTNAME: ${AUTHENTIK_WEB_HOSTNAME}
+      HOMELAB_USERNAME: ${HOMELAB_USERNAME}
     user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

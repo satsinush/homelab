@@ -93,7 +93,7 @@ class UserController {
 
             // Build authorization URL parameters
             const redirect_uri = `https://${process.env.DASHBOARD_WEB_HOSTNAME}/api/users/sso-callback`;
-            const scope = 'openid profile email groups homelab_dashboard';
+            const scope = 'openid profile email groups';
             
             const parameters = {
                 redirect_uri,

@@ -20,6 +20,40 @@ entries:
       is_superuser: false
 
   # =================================================================
+  # Admin User
+  # =================================================================
+  - model: authentik_core.user
+    id: default-admin
+    identifiers:
+      username: !Env HOMELAB_USERNAME
+    attrs:
+      username: !Env HOMELAB_USERNAME
+      name: !Env HOMELAB_USERNAME
+      email: !Format ["%s@%s", !Env HOMELAB_USERNAME, !Env HOMELAB_HOSTNAME]
+      is_active: true
+      is_superuser: true
+      password: !File /secrets/homelab_password
+      groups:
+        - !Find [authentik_core.group, [name, homelab_admins]]
+
+  # =================================================================
+  # =================================================================
+  # Custom Scope Mappings
+  # =================================================================
+  - model: authentik_providers_oauth2.scopemapping
+    id: scope-groups
+    identifiers:
+      scope_name: groups
+    attrs:
+      name: "custom-scope-groups"
+      scope_name: groups
+      description: "SSO Groups"
+      expression: |
+        return {
+            "groups": [g.name for g in request.user.ak_groups.all()]
+        }
+
+
   # OIDC Providers & Applications
   # =================================================================
   # Portainer
@@ -34,6 +68,10 @@ entries:
       client_type: confidential
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      grant_types:
+        - authorization_code
+        - refresh_token
       redirect_uris:
         - url: !Format ["https://portainer.%s", !Env HOMELAB_HOSTNAME]
           matching_mode: strict
@@ -41,6 +79,7 @@ entries:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !KeyOf scope-groups
 
   - model: authentik_core.application
     identifiers:
@@ -62,6 +101,10 @@ entries:
       client_type: confidential
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      grant_types:
+        - authorization_code
+        - refresh_token
       redirect_uris:
         - url: !Format ["https://vaultwarden.%s/identity/connect/oidc-signin", !Env HOMELAB_HOSTNAME]
           matching_mode: strict
@@ -69,6 +112,7 @@ entries:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !KeyOf scope-groups
 
   - model: authentik_core.application
     identifiers:
@@ -90,6 +134,10 @@ entries:
       client_type: confidential
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      grant_types:
+        - authorization_code
+        - refresh_token
       redirect_uris:
         - url: !Format ["https://dashboard.%s/api/users/sso-callback", !Env HOMELAB_HOSTNAME]
           matching_mode: strict
@@ -97,6 +145,7 @@ entries:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !KeyOf scope-groups
 
   - model: authentik_core.application
     identifiers:
@@ -109,25 +158,6 @@ entries:
   # =================================================================
   # Proxy Providers for Traefik Forward-Auth
   # =================================================================
-  # Dashboard Proxy
-  - model: authentik_providers_proxy.proxyprovider
-    id: dashboard-proxy
-    identifiers:
-      name: dashboard-proxy
-    attrs:
-      name: dashboard-proxy
-      mode: forward_single
-      external_host: !Format ["https://dashboard.%s", !Env HOMELAB_HOSTNAME]
-      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
-      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
-
-  - model: authentik_core.application
-    identifiers:
-      slug: dashboard-app
-    attrs:
-      name: Dashboard App Proxy
-      slug: dashboard-app
-      provider: !KeyOf dashboard-proxy
 
   # Pi-hole Proxy
   - model: authentik_providers_proxy.proxyprovider
@@ -229,25 +259,6 @@ entries:
       slug: dockhand-app
       provider: !KeyOf dockhand-proxy
 
-  # Vaultwarden Admin Proxy
-  - model: authentik_providers_proxy.proxyprovider
-    id: vaultwarden-admin-proxy
-    identifiers:
-      name: vaultwarden-admin-proxy
-    attrs:
-      name: vaultwarden-admin-proxy
-      mode: forward_single
-      external_host: !Format ["https://vaultwarden.%s/admin", !Env HOMELAB_HOSTNAME]
-      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
-      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
-
-  - model: authentik_core.application
-    identifiers:
-      slug: vaultwarden-admin-app
-    attrs:
-      name: Vaultwarden Admin Proxy
-      slug: vaultwarden-admin-app
-      provider: !KeyOf vaultwarden-admin-proxy
 
   # =================================================================
   # Access Policies (Bind Groups to Admin Applications)
@@ -292,13 +303,6 @@ entries:
     attrs:
       order: 0
 
-  # Vaultwarden Admin
-  - model: authentik_policies.policybinding
-    identifiers:
-      target: !Find [authentik_core.application, [slug, vaultwarden-admin-app]]
-      group: !Find [authentik_core.group, [name, homelab_admins]]
-    attrs:
-      order: 0
 
   # =================================================================
   # Outpost Association
@@ -310,10 +314,8 @@ entries:
       config:
         authentik_host: !Format ["https://%s/", !Env AUTHENTIK_WEB_HOSTNAME]
       providers:
-        - !Find [authentik_providers_proxy.proxyprovider, [name, dashboard-proxy]]
         - !Find [authentik_providers_proxy.proxyprovider, [name, pihole-proxy]]
         - !Find [authentik_providers_proxy.proxyprovider, [name, netdata-proxy]]
         - !Find [authentik_providers_proxy.proxyprovider, [name, uptime-kuma-proxy]]
         - !Find [authentik_providers_proxy.proxyprovider, [name, dockge-proxy]]
         - !Find [authentik_providers_proxy.proxyprovider, [name, dockhand-proxy]]
-        - !Find [authentik_providers_proxy.proxyprovider, [name, vaultwarden-admin-proxy]]

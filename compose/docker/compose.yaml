@@ -17,7 +17,6 @@ services:
       - "traefik.http.routers.portainer.rule=Host(`${PORTAINER_WEB_HOSTNAME}`)"
       - "traefik.http.routers.portainer.entrypoints=websecure"
       - "traefik.http.routers.portainer.tls=true"
-      - "traefik.http.routers.portainer.middlewares=authentik-auth@file"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
     healthcheck:
       test: [ "CMD", "curl", "-fs", "http://localhost:9000/api/system/status" ]
