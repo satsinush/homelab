@@ -21,7 +21,7 @@ This happens because your browser doesn't trust your self-generated Certificate 
 
 ### A webpage is behaving strangely, not updating, or I'm in a login loop
 
-This is almost always caused by your browser's cache or old cookies, especially with an SSO system like Authelia.
+This is almost always caused by your browser's cache or old cookies, especially with an SSO system like Authentik.
 
   * **1. Force Refresh:** The quickest fix is to bypass the cache with a hard refresh. Press **`Ctrl+F5`** (or **`Cmd+Shift+R`** on Mac).
   * **2. Clear Site Data:** If a hard refresh doesn't work, clear the cookies and site data for the specific domain in your browser's settings and try again.

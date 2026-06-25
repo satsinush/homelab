@@ -68,7 +68,7 @@ export const AuthProvider = ({ children }) => {
             // Check if this is an SSO logout that requires a redirect
             if (result.data && result.data.redirect) {
                 console.log('SSO logout - redirecting to:', result.data.redirect);
-                // Redirect the browser window to Authelia logout
+                // Redirect the browser window to Authentik logout
                 window.location.href = result.data.redirect;
                 return; // Don't clear user state yet, let the redirect handle it
             } else {

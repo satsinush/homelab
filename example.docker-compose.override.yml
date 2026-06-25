@@ -52,13 +52,9 @@ services:
     ports:
       - "3001:3001"
 
-  matrix-synapse:
+  gotify:
     ports:
-      - "8008:8008"
-
-  element-web:
-    ports:
-      - "8082:80"
+      - "8083:80"
 
 
   authentik-server:

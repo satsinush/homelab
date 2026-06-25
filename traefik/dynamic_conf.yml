@@ -3,8 +3,8 @@
 # This file is hot-reloaded by Traefik whenever it changes.
 # It serves two purposes:
 #
-#   1. Define the Authelia forward-auth middleware so it can be referenced
-#      by any Docker-label router using "authelia@file".
+#   1. Define the Authentik forward-auth middleware so it can be referenced
+#      by any Docker-label router using "authentik-auth@file".
 #
 #   2. Load the self-signed homelab certificate as the default TLS certificate
 #      for *private* mode (TRAEFIK_CERT_RESOLVER='').  In public/Let's Encrypt

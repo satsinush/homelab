@@ -1,10 +1,10 @@
 const SystemController = require('../controllers/systemController');
-const NtfyService = require('./ntfyService');
+const AppriseService = require('./appriseService');
 
 class PackageUpdateChecker {
     constructor() {
         this.systemController = new SystemController();
-        this.notificationService = new NtfyService();
+        this.notificationService = new AppriseService();
         this.intervalId = null;
         this.isRunning = false;
         this.lastNotificationTime = null;

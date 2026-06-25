@@ -112,7 +112,35 @@ const initializeServer = async () => {
         const deviceController = new DeviceController();
         const packageUpdateChecker = new PackageUpdateChecker();
         
-        // No default user creation - first login will create the initial user
+        // Bootstrap admin user if no users exist
+        try {
+            if (await userModel.isFirstUser()) {
+                const fs = require('fs');
+                const bootstrapUsername = process.env.HOMELAB_USERNAME;
+                let bootstrapPassword = process.env.HOMELAB_PASSWORD;
+                
+                // Try reading password from secrets if not in environment
+                if (!bootstrapPassword && process.env.HOMELAB_PASSWORD_FILE) {
+                    try {
+                        const secretsPath = process.env.HOMELAB_PASSWORD_FILE;
+                        if (fs.existsSync(secretsPath)) {
+                            bootstrapPassword = fs.readFileSync(secretsPath, 'utf8').trim();
+                        }
+                    } catch (err) {
+                        console.log(`Could not read password from file ${process.env.HOMELAB_PASSWORD_FILE}:`, err.message);
+                    }
+                }
+                
+                if (bootstrapUsername && bootstrapPassword) {
+                    console.log(`Bootstrapping admin user: ${bootstrapUsername}`);
+                    await userModel.createFirstUser(bootstrapUsername, bootstrapPassword);
+                } else {
+                    console.log('Admin user bootstrap skipped: credentials not provided in env or secrets');
+                }
+            }
+        } catch (bootstrapError) {
+            console.error('Failed to bootstrap admin user:', bootstrapError);
+        }
                 
         // Start server
         app.listen(config.port, async () => {

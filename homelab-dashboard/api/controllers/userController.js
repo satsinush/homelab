@@ -100,7 +100,7 @@ class UserController {
                 scope,
                 code_challenge,
                 code_challenge_method: 'S256',
-                state // Always include state parameter for Authelia
+                state // Always include state parameter for OIDC
             };
 
             const redirectTo = client.buildAuthorizationUrl(oidcConfig, parameters);

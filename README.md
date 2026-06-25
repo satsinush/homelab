@@ -33,11 +33,11 @@ This project bundles several open-source services, managed via `docker-compose`,
       * 📦 Host device package management (for *pacman*)
       * 🤖 An integrated AI chatbot with Ollama
   * **🔀 Traefik v3**: Cloud-native reverse proxy with automatic HTTPS (Let's Encrypt or self-signed).
-  * **🔑 Authelia**: Single Sign-On (SSO) for securing services.
+  * **🔑 Authentik**: Single Sign-On (SSO) and Identity Provider for securing services.
   * **📊 Netdata**: Real-time performance monitoring.
   * **📦 Portainer**: Docker container management UI.
   * **📈 Uptime Kuma**: Service monitoring and status pages.
-  * **🔔 Ntfy**: Push notifications for alerts.
+  * **🔔 Apprise**: Unified HTTP and SMTP notification gateway routing alerts to Matrix.
   * **🚫 Pi-hole & Unbound**: Network-wide ad-blocking and recursive DNS.
   * **🌐 ddclient**: Dynamic DNS client to keep your domain pointed to your IP.
   * **🖥️ RustDesk**: A self-hosted remote desktop solution.
@@ -66,15 +66,14 @@ graph TD
 
             subgraph Docker[🐳 Docker Network]
                 Traefik[🔀 Traefik Reverse Proxy]
-                Authelia[🔑 Authelia SSO]
+                Authentik[🔑 Authentik SSO]
                 Vaultwarden[🔐 Vaultwarden]
                 Portainer[📦 Portainer]
                 Dashboard[🏠 Homelab Dashboard]
                 Ollama[🤖 Ollama AI]
                 Netdata[📊 Netdata Monitoring]
                 UptimeKuma[📈 Uptime Kuma]
-                Ntfy[🔔 ntfy Notifications]
-                LLDAP[👥 LLDAP]
+                Apprise[🔔 Apprise Gateway]
                 Pihole[🚫 Pi-hole DNS]
                 Unbound[🔎 Unbound DNS Resolver]
                 Rustdesk[🖥️ RustDesk ID & Relay]
@@ -95,25 +94,22 @@ graph TD
     UFW -->|Remote Access| Rustdesk --> LocalClient
 
     %% Proxy/Auth flows
-    Traefik --> Authelia
+    Traefik --> Authentik
     Traefik --> Vaultwarden
-    Traefik --> Ntfy
     Traefik --> Portainer
     Traefik --> Dashboard
     Traefik --> Netdata
     Traefik --> UptimeKuma
 
-    Authelia --> LLDAP
-
     %% Dashboard flows
     Dashboard --> Ollama
     Dashboard --> Netdata
     Dashboard -->|WOL| LocalClient
-    Dashboard --> Ntfy
+    Dashboard --> Apprise
 
     %% Notifications
-    UptimeKuma --> Ntfy
-    Vaultwarden --> Ntfy
+    UptimeKuma --> Apprise
+    Vaultwarden --> Apprise
 ```
 
 ## 🚀 Quick Start Guide

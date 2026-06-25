@@ -36,8 +36,6 @@ import PiHoleLogo from '../assets/pi_hole_logo.png';
 import PortainerLogo from '../assets/portainer_logo.jpg';
 import VaultwardenLogo from '../assets/vaultwarden_logo.png';
 import UptimeKumaLogo from '../assets/uptime_kuma_logo.png';
-import NtfyLogo from '../assets/ntfy_logo.png';
-import AutheliaLogo from '../assets/authelia_logo.png';
 import AuthIcon from '../assets/auth_icon.png';
 import DockgeLogo from '../assets/dockge_logo.png';
 import DockhandLogo from '../assets/dockhand_logo.png';
@@ -212,23 +210,7 @@ const Home = () => {
             ),
             color: 'white'
         },
-        {
-            title: 'Ntfy',
-            description: 'Self-hosted push notification service',
-            url: `https://${import.meta.env.VITE_NTFY_WEB_HOSTNAME}`,
-            icon: (
-                <Avatar
-                    src={NtfyLogo}
-                    alt="Ntfy"
-                    sx={{
-                        width: 32,
-                        height: 32,
-                        bgcolor: 'transparent',
-                    }}
-                />
-            ),
-            color: 'white'
-        },
+
         {
             title: 'Authentik',
             description: 'Self-hosted authentication and identity provider',

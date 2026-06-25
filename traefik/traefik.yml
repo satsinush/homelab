@@ -40,7 +40,7 @@ providers:
     exposedByDefault: false
     watch: true
 
-  # File provider — loads the Authelia middleware definition and the
+  # File provider — loads the Authentik middleware definition and the
   # default (self-signed) TLS certificate for private / manual mode
   file:
     filename: /etc/traefik/dynamic_conf.yml

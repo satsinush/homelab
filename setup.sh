@@ -99,16 +99,10 @@ if [ ! -f .env ]; then
       echo "   ⚠️  That doesn't look like a valid hostname (e.g. homelab.home.arpa). Please try again."
     fi
   done
-  # Derive DNS_DOMAIN (everything after the first label) and LLDAP Base DN
+  # Derive DNS_DOMAIN (everything after the first label)
   DNS_DOMAIN_INPUT="${HOMELAB_HOSTNAME_INPUT#*.}"
-  LLDAP_BASE_DN_INPUT=$(echo "$HOMELAB_HOSTNAME_INPUT" | sed 's/\./,dc=/g; s/^/dc=/')
 
   echo "   Generating security tokens..."
-  # Generate bcrypt password
-  BCRYPT_PASSWORD=$(htpasswd -nbBC 10 "" "$PASSWORD" | tr -d ':' )
-
-  # Generate the ntfy token using the ntfy docker image (assumes docker is installed)
-  NTFY_TOKEN=$(docker run --rm binwiederhier/ntfy:latest token generate | tr -d '\r\n')
 
   # Create the new .env file
   cp "$TEMPLATE_FILE" "$OUTPUT_FILE"
@@ -121,7 +115,6 @@ if [ ! -f .env ]; then
   mkdir -p ./volumes/dockge/stacks
   chmod 700 ./volumes/secrets
   echo "$PASSWORD" > ./volumes/secrets/homelab_password
-  echo "${USERNAME}:${BCRYPT_PASSWORD}:admin" > ./volumes/secrets/ntfy_admin_users
   
   sed -i "s|<username>|$USERNAME|g" "$OUTPUT_FILE"
   sed -i "s|<ip-address>|$IP_ADDRESS|g" "$OUTPUT_FILE"
@@ -129,7 +122,6 @@ if [ ! -f .env ]; then
   sed -i "s|<PGID>|$PGID|g" "$OUTPUT_FILE"
   sed -i "s|<homelab-hostname>|$HOMELAB_HOSTNAME_INPUT|g" "$OUTPUT_FILE"
   sed -i "s|<dns-domain>|$DNS_DOMAIN_INPUT|g" "$OUTPUT_FILE"
-  sed -i "s|<lldap-base-dn>|$LLDAP_BASE_DN_INPUT|g" "$OUTPUT_FILE"
   sed -i "s|<project-root>|$(pwd)|g" "$OUTPUT_FILE"
   sed -i "s|<timezone>|$TZ|g" "$OUTPUT_FILE"
   
@@ -196,12 +188,13 @@ gen_secret vaultwarden_admin_token 64
 gen_secret vaultwarden_oidc_secret 64
 gen_secret portainer_oidc_secret 64
 gen_secret dashboard_oidc_secret 64
-gen_secret matrix_oidc_secret 64
+gen_secret gotify_admin_password 32
+gen_secret portainer_admin_password 32
 gen_secret authentik_secret_key 50
 gen_secret authentik_pg_pass 32
 
 # Ensure secrets are removed from the .env file as they are now loaded from volume-mounted files
-for secret_name in authentik_secret_key authentik_pg_pass portainer_oidc_secret vaultwarden_oidc_secret dashboard_oidc_secret matrix_oidc_secret; do
+for secret_name in authentik_secret_key authentik_pg_pass portainer_oidc_secret vaultwarden_oidc_secret dashboard_oidc_secret gotify_admin_password portainer_admin_password; do
   env_name=$(echo "$secret_name" | tr 'a-z' 'A-Z')
   if grep -q "^${env_name}=" .env; then
     # Use sed to safely remove the line
@@ -221,21 +214,6 @@ if [ ! -s ./volumes/secrets/homelab_password ]; then
       break
     fi
   done
-  echo "$PASSWORD" > ./volumes/secrets/homelab_password
-  
-  if command -v htpasswd &> /dev/null; then
-    BCRYPT_PASSWORD=$(htpasswd -nbBC 10 "" "$PASSWORD" | tr -d ':' )
-    echo "${HOMELAB_USERNAME:-andrew}:${BCRYPT_PASSWORD}:admin" > ./volumes/secrets/ntfy_admin_users
-  fi
-fi
-
-# Generate ntfy token if missing
-if [ ! -s ./volumes/secrets/ntfy_admin_tokens ]; then
-  echo "     Generating ntfy token..."
-  NTFY_TOKEN=$(docker run --rm binwiederhier/ntfy:latest token generate | tr -d '\r\n')
-  if [ -s ./volumes/secrets/homelab_password ]; then
-    echo "${HOMELAB_USERNAME:-andrew}:${NTFY_TOKEN}" > ./volumes/secrets/ntfy_admin_tokens
-  fi
 fi
 
 chmod 600 ./volumes/secrets/*
@@ -248,10 +226,7 @@ for f in ./volumes/secrets/*; do
   fi
 done
 
-# Set additional variables needed by the script
-if [ -n "${HOMELAB_PASSWORD:-}" ]; then
-  export PORTAINER_ADMIN_PASSWORD="$HOMELAB_PASSWORD"
-fi
+# Additional variables will be dynamically loaded from the volumes/secrets folder
 
 echo ""
 echo "🔐 Setting up certificates and keys..."
@@ -299,46 +274,9 @@ fi
 mkdir -p ./volumes/authentik/blueprints
 cp ./authentik/blueprints/homelab.yaml ./volumes/authentik/blueprints/homelab.yaml
 
-# --- Ensure Matrix, Element, and Apprise directories exist ---
-echo "💬 Setting up Matrix homeserver, Element, and Apprise..."
-mkdir -p ./volumes/matrix/data
-mkdir -p ./volumes/element
+# --- Ensure Apprise directory exists ---
+echo "💬 Setting up Apprise alert gateway..."
 mkdir -p ./volumes/apprise/config
-
-# Generate Synapse base configuration if homeserver.yaml is missing
-if [ ! -f ./volumes/matrix/data/homeserver.yaml ]; then
-  echo "   Generating base homeserver.yaml..."
-  # Run docker synapse config generator
-  docker run --rm \
-    -v "$(pwd)/volumes/matrix/data:/data" \
-    -e SYNAPSE_SERVER_NAME="matrix.${HOMELAB_HOSTNAME}" \
-    -e SYNAPSE_REPORT_STATS=no \
-    docker.io/matrixdotorg/synapse:latest generate
-  
-  # Configure homeserver.yaml for OIDC and federation whitelist
-  echo "   Applying custom OIDC configuration to homeserver.yaml..."
-  MATRIX_OIDC_SECRET_VAL=$(cat ./volumes/secrets/matrix_oidc_secret)
-  
-  # Run a root helper container to modify the permissions-locked config file
-  docker run --rm \
-    -u root \
-    -v "$(pwd)/volumes/matrix/data:/data" \
-    -v "$(pwd)/matrix:/template:ro" \
-    docker.io/library/alpine:latest sh -c '
-      # Substitute variables in the template and append to homeserver.yaml
-      sed -e "s|AUTHENTIK_WEB_HOSTNAME|'"${AUTHENTIK_WEB_HOSTNAME:-auth.${HOMELAB_HOSTNAME}}"'|g" \
-          -e "s|MATRIX_OIDC_SECRET|'"${MATRIX_OIDC_SECRET_VAL}"'|g" \
-          /template/homeserver_oidc.yaml.template >> /data/homeserver.yaml
-      
-      # Disable public federation
-      sed -i "s/# federation_domain_whitelist:/federation_domain_whitelist: []/g" /data/homeserver.yaml
-    '
-  echo "   Homeserver base setup completed."
-fi
-
-# Template Element-Web config.json
-sed "s/HOMELAB_HOSTNAME/${HOMELAB_HOSTNAME}/g" ./element/config.json.template > ./volumes/element/config.json
-echo "   ✅ Element-Web config ready"
 
 
 
@@ -621,50 +559,57 @@ echo "   Initializing admin user..."
 dashboard_login "${HOMELAB_USERNAME}" "${HOMELAB_PASSWORD}"
 
 echo ""
-echo "🤖 Setting up Matrix Apprise Bot..."
-BOT_PASSWORD=$(cat ./volumes/secrets/homelab_password)
+echo "🔔 Setting up Gotify server & Apprise yaml integration..."
 
-# Wait for Synapse to be healthy
-echo "   Waiting for Synapse server to initialize..."
-for i in {1..30}; do
-  if docker exec matrix-synapse wget -qO- http://localhost:8008/_matrix/client/versions >/dev/null 2>&1; then
+# Wait for Gotify container to be healthy
+echo "   Waiting for Gotify to initialize..."
+for i in {1..60}; do
+  if curl -s http://localhost:8083/version >/dev/null 2>&1; then
     break
   fi
-  sleep 1
+  sleep 2
 done
 
-# Register bot natively if it doesn'\''t exist
-if ! docker exec matrix-synapse register_new_matrix_user -c /data/homeserver.yaml -u bot -p "$BOT_PASSWORD" --admin http://localhost:8008 >/dev/null 2>&1; then
-  echo "   Matrix Bot user registration checked."
-fi
+if curl -s http://localhost:8083/version >/dev/null 2>&1; then
+  echo "   Gotify is up. Configuring..."
+  GOTIFY_PASS=$(cat ./volumes/secrets/gotify_admin_password)
 
-# Fetch access token using python inside synapse container
-echo "   Retrieving Matrix Bot access token..."
-BOT_TOKEN=$(docker exec matrix-synapse python3 -c '
-import urllib.request, json
-data = json.dumps({"type": "m.login.password", "user": "@bot:matrix.'"${HOMELAB_HOSTNAME}"'", "password": "'"${BOT_PASSWORD}"'"}).encode("utf-8")
-req = urllib.request.Request("http://localhost:8008/_matrix/client/v3/login", data=data, headers={"Content-Type": "application/json"})
+  # 1. Update the default admin password from admin to gotify_admin_password
+  curl -s -X POST -u admin:admin -H "Content-Type: application/json" \
+    -d "{\"password\":\"$GOTIFY_PASS\"}" \
+    "http://localhost:8083/current/user/password" >/dev/null
+
+  # 2. Create the default application for Apprise
+  APP_RES=$(curl -s -X POST -u "admin:$GOTIFY_PASS" -H "Content-Type: application/json" \
+    -d '{"name":"Homelab Alert Gateway","description":"Gateway for all homelab services"}' \
+    "http://localhost:8083/application")
+
+  # Extract the token using python3
+  GOTIFY_TOKEN=$(echo "$APP_RES" | python3 -c '
+import sys, json
 try:
-    res = urllib.request.urlopen(req)
-    print(json.loads(res.read().decode())["access_token"])
-except Exception as e:
-    import sys
-    print("error", file=sys.stderr)
+    print(json.load(sys.stdin)["token"])
+except Exception:
+    pass
 ' 2>/dev/null)
 
-if [ -n "$BOT_TOKEN" ] && [ "$BOT_TOKEN" != "error" ]; then
-  BOT_TOKEN=$(echo "$BOT_TOKEN" | tr -d '\r\n')
-  echo "   ✅ Successfully obtained Bot Access Token"
-  
-  # Write bot token to secrets volume
-  echo "${BOT_TOKEN}" > ./volumes/secrets/matrix_bot_token
-  chmod 600 ./volumes/secrets/matrix_bot_token
-  
-  # Restart apprise-api to apply changes
-  docker restart apprise-api >/dev/null
-  echo "   ✅ Custom SMTP gateway configured and reloaded"
+  if [ -n "$GOTIFY_TOKEN" ]; then
+    echo "   ✅ Created Gotify Application. Token generated."
+    
+    # 3. Copy and substitute template apprise.yaml
+    mkdir -p ./volumes/apprise/config
+    sed -e "s|GOTIFY_TOKEN|${GOTIFY_TOKEN}|g" \
+        ./apprise/apprise.yaml > ./volumes/apprise/config/apprise.yaml
+    echo "   ✅ Generated apprise.yaml configuration"
+    
+    # Restart apprise-api to apply changes
+    docker restart apprise-api >/dev/null
+    echo "   ✅ SMTP/HTTP notification gateway reloaded"
+  else
+    echo "   ❌ Failed to create Gotify application token"
+  fi
 else
-  echo "   ❌ Failed to retrieve Matrix Bot access token"
+  echo "   ❌ Gotify was not healthy, skipping configuration"
 fi
 
 echo ""
@@ -688,7 +633,8 @@ fi
 
 echo "🌐 Web Access:"
 echo "   Dashboard:  https://${DASHBOARD_WEB_HOSTNAME:-dashboard.${HOMELAB_HOSTNAME}}"
-echo "   Chat:       https://${CHAT_WEB_HOSTNAME:-chat.${HOMELAB_HOSTNAME}}"
+echo "   Gotify:     https://${GOTIFY_WEB_HOSTNAME:-gotify.${HOMELAB_HOSTNAME}} (User: admin / Pass: $(cat ./volumes/secrets/gotify_admin_password))"
+echo "   Portainer:  https://${PORTAINER_WEB_HOSTNAME:-portainer.${HOMELAB_HOSTNAME}} (Fallback User: ${HOMELAB_USERNAME} / Pass: $(cat ./volumes/secrets/portainer_admin_password))"
 echo "   Auth:       https://${AUTHENTIK_WEB_HOSTNAME:-auth.${HOMELAB_HOSTNAME}}"
 echo "   Vault:      https://${VAULTWARDEN_WEB_HOSTNAME:-vaultwarden.${HOMELAB_HOSTNAME}}"
 echo ""

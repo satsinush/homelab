@@ -16,31 +16,24 @@ Final configuration steps for individual services.
     * You can test if the ad-blocking service is working by going here [AdBlock Tester](https://adblock-tester.com).
     * [Pi-hole Docs 🔗](https://docs.pi-hole.net/)
   * **🔐 Vaultwarden**
-    * Sign in with SSO using your homelab email address. You **must** use the email provided to you by the setup script, otherwise ntfy will not create notifications for password reset emails and you may lose access to your account. If prompted for an SSO identifier, you can use any string.
+    * Sign in with SSO using your homelab email address. You **must** use the email address provided to you by the setup script, which routes directly to your Matrix account via the Apprise SMTP gateway. If prompted for an SSO identifier, you can use any string.
     * [Vaultwarden Docs 🔗](https://github.com/dani-garcia/vaultwarden/blob/main/README.md)
   * **📈 Uptime Kuma**
-    * Configure notifications to point to your `ntfy` service using the token from `./volumes/secrets/ntfy_admin_tokens`. The file will contain `user:token`. You will only need to use the token part of the line.
+    * Configure notifications by adding a Webhook notification pointing to the Apprise gateway: `http://apprise-api:8000/alerts/uptime-kuma`. This will route status alerts directly to Matrix (admin room or DM).
     * [Uptime Kuma Docs 🔗](https://github.com/louislam/uptime-kuma/wiki)
   * **📦 Dockhand**
     * Configure your Docker containers to use the `dockhand` service for managing and monitoring your Docker environment.
-    * Configure notifications to point to your `ntfy` service using the token from `./volumes/secrets/ntfy_admin_tokens`. The file will contain `user:token`. You will only need to use the token part of the line. Use the `ntfy://ntfy/dockhand?auth=<YOUR_NTFY_TOKEN>` Apprise URL.
+    * Configure notifications by sending alerts to the Apprise HTTP gateway: `http://apprise-api:8000/alerts/dockhand`.
     * [Dockhand Docs 🔗](https://github.com/dockhand/dockhand)
   * **📦 Portainer**
     * You can sign into Portainer using either SSO or your local homelab username and password.
-  * **🔔 Ntfy**
-    * Set the URL to your ntfy domain and log into ntfy with your homelab username and password.
-    * Subscribe to the following topics:
-      * `homelab-dashboard` topic for package updates.
-      * `uptime-kuma` topic for service alerts.
-      * `dockhand` topic for Docker-related notifications.
-      * `YOUR USERNAME` topic for password reset emails.
-    * [Ntfy Docs 🔗](https://docs.ntfy.sh/)
+  * **💬 Matrix / Element**
+    * Access Element-Web at `https://element.<your-hostname>` and log in using SSO.
+    * You will receive notifications from the `homelab` bot user (`@homelab:matrix.<your-hostname>`) for system alerts, package updates, and SMTP-relayed emails (like Vaultwarden password resets).
+    * (Optional) Create private rooms for admin or general alerts, invite the `@homelab` bot, and set `MATRIX_ADMIN_ALERTS_ROOM` or `MATRIX_GENERAL_ALERTS_ROOM` in your `.env` to route alerts there.
   * **🖥️ RustDesk**
     * Configure your clients by setting the **ID/Relay Server** to your host's IP/domain. The required public key is printed after running [`./setup.sh`](../setup.sh) or can be obtained by running this command: `docker cp rustdesk-id-server:/root/id_ed25519.pub - | tar -xO`
     * [RustDesk Docs 🔗](https://rustdesk.com/docs/)
-  * **🔑 Authelia**
-    * If you need to recover an account, you can retrieve email verification codes by subscribing to your `YOUR USERNAME` topic in ntfy.
-      * [Authelia Docs 🔗](https://www.authelia.com/integration/prologue/get-started/)
 
 ### 🎉 Congratulations!
 

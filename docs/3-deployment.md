@@ -103,7 +103,7 @@ Execute the main setup script. It will prompt you to create a username and passw
 ./setup.sh
 ```
 
-> **⚠️ Important**: The setup script creates a user-specific email address. You **must** use this email for services like Vaultwarden and Authelia to receive notifications via Ntfy, otherwise you risk not being able to reset your password if needed. Your notification topic in Ntfy is `HOMELAB_USERNAME` which can be found in the `.env` file.
+> **⚠️ Important**: The setup script creates a user-specific email address. You **must** use this email for services like Vaultwarden to receive notifications via Matrix, otherwise you risk not being able to reset your password if needed. The Apprise SMTP gateway will automatically route these emails to your Matrix account (`@<username>`).
 
 > **ℹ️ Tip**: You can run this script again at any time to recreate SSL certificates. The CA certificate will not be affected and all other settings will stay the same.
 

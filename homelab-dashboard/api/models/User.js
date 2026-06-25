@@ -91,10 +91,10 @@ class User {
     // Create or update SSO user
     async createOrUpdateSSOUser(ssoProfile) {
         try {
-            // Extract user info from Authelia OIDC profile
+            // Extract user info from Authentik OIDC profile
             const ssoId = ssoProfile.sub; // 'sub' is the standard OIDC user identifier
             const username = ssoProfile.preferred_username || ssoProfile.name; // Use preferred_username first, fallback to name
-            const email = ssoProfile.email || null; // Authelia provides email directly
+            const email = ssoProfile.email || null; // Authentik provides email directly
             
             // Use groups for role mapping
             let userGroups = [];            
@@ -112,13 +112,13 @@ class User {
             user = ssoUserStmt.get(ssoId);
 
             if (user) {
-                // Update existing SSO user - always sync roles from LDAP/Authelia
+                // Update existing SSO user - always sync roles from Authentik
                 console.log(`Updating existing SSO user: ${username}`);
                 console.log(`Previous groups: ${JSON.stringify(JSON.parse(user.groups))}`);
                 console.log(`New groups from SSO: ${JSON.stringify(userGroups)}`);
                 
-                // Always update groups to match what LDAP/Authelia provides
-                // This ensures role revocations in LDAP are reflected in the dashboard
+                // Always update groups to match what Authentik provides
+                // This ensures role revocations in Authentik are reflected in the dashboard
                 const updateStmt = this.db.prepare(`
                     UPDATE users 
                     SET username = ?, email = ?, groups = ?, last_login = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
@@ -146,8 +146,8 @@ class User {
                     console.log(`Previous local user groups: ${JSON.stringify(JSON.parse(localUser.groups))}`);
                     console.log(`New groups from SSO: ${JSON.stringify(userGroups)}`);
                     
-                    // Always update groups to match what LDAP/Authelia provides
-                    // This ensures role changes in LDAP are reflected for linked local users
+                    // Always update groups to match what Authentik provides
+                    // This ensures role changes in Authentik are reflected for linked local users
                     const updateStmt = this.db.prepare(`
                         UPDATE users 
                         SET email = ?, groups = ?, sso_id = ?, last_login = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 

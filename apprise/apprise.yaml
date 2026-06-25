@@ -1,0 +1,7 @@
+# Apprise Configuration File
+# This file maps alert tags to target notification endpoints.
+
+urls:
+  # Send all standard alert tags to Gotify
+  - gotify://gotify/GOTIFY_TOKEN:
+      - tags: general, admin, uptime-kuma, vaultwarden, dashboard, dockge, email

@@ -168,41 +168,6 @@ entries:
       slug: homelab-dashboard
       provider: !KeyOf homelab_dashboard
 
-  # Matrix Synapse
-  - model: authentik_providers_oauth2.oauth2provider
-    id: matrix
-    identifiers:
-      name: matrix
-    attrs:
-      name: matrix
-      client_id: matrix
-      client_secret: !File /secrets/matrix_oidc_secret
-      client_type: confidential
-      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
-      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
-      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
-      grant_types:
-        - authorization_code
-        - refresh_token
-      redirect_uris:
-        - url: !Format ["https://matrix.%s/_matrix/client/r0/login/sso/redirect/authentik", !Env HOMELAB_HOSTNAME]
-          matching_mode: strict
-        - url: !Format ["https://matrix.%s/_synapse/client/oidc/callback", !Env HOMELAB_HOSTNAME]
-          matching_mode: strict
-      property_mappings:
-        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
-        - !KeyOf scope-email
-        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
-
-  - model: authentik_core.application
-    identifiers:
-      slug: matrix
-    attrs:
-      name: Matrix Chat
-      slug: matrix
-      provider: !KeyOf matrix
-
-
   # =================================================================
   # Proxy Providers for Traefik Forward-Auth
   # =================================================================
@@ -223,7 +188,7 @@ entries:
     identifiers:
       slug: pihole-app
     attrs:
-      name: Pi-hole Proxy
+      name: Pi-hole
       slug: pihole-app
       provider: !KeyOf pihole-proxy
 
@@ -243,7 +208,7 @@ entries:
     identifiers:
       slug: netdata-app
     attrs:
-      name: Netdata Proxy
+      name: Netdata
       slug: netdata-app
       provider: !KeyOf netdata-proxy
 
@@ -263,7 +228,7 @@ entries:
     identifiers:
       slug: uptime-kuma-app
     attrs:
-      name: Uptime Kuma Proxy
+      name: Uptime Kuma
       slug: uptime-kuma-app
       provider: !KeyOf uptime-kuma-proxy
 
@@ -283,7 +248,7 @@ entries:
     identifiers:
       slug: dockge-app
     attrs:
-      name: Dockge Proxy
+      name: Dockge
       slug: dockge-app
       provider: !KeyOf dockge-proxy
 
@@ -303,7 +268,7 @@ entries:
     identifiers:
       slug: dockhand-app
     attrs:
-      name: Dockhand Proxy
+      name: Dockhand
       slug: dockhand-app
       provider: !KeyOf dockhand-proxy
 
@@ -350,6 +315,9 @@ entries:
       group: !Find [authentik_core.group, [name, homelab_admins]]
     attrs:
       order: 0
+
+
+
 
 
   # =================================================================

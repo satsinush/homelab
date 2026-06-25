@@ -124,12 +124,8 @@ const config = {
     hostApi: {
         url: `http://host.docker.internal:5001`
     },
-    ntfy: {
-        url: 'http://ntfy:80',
-        adminToken: process.env.NTFY_ADMIN_TOKENS,
-        topics: {
-            dashboard: 'homelab-dashboard'
-        }
+    apprise: {
+        url: 'http://apprise-api:8000'
     },
     dashBoardWebHostname: process.env.DASHBOARD_WEB_HOSTNAME,
     authentikWebHostname: process.env.AUTHENTIK_WEB_HOSTNAME,
