@@ -274,6 +274,10 @@ fi
 mkdir -p ./volumes/authentik/blueprints
 cp ./authentik/blueprints/homelab.yaml ./volumes/authentik/blueprints/homelab.yaml
 
+# --- Ensure Authentik media directory exists and copy logo/favicon ---
+mkdir -p ./volumes/authentik/media/public
+cp ./homelab-dashboard/frontend/public/homelab-icon.svg ./volumes/authentik/media/public/homelab-icon.svg
+
 # --- Ensure Apprise directory exists ---
 echo "💬 Setting up Apprise alert gateway..."
 mkdir -p ./volumes/apprise/config

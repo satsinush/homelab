@@ -335,3 +335,103 @@ entries:
         - !Find [authentik_providers_proxy.proxyprovider, [name, uptime-kuma-proxy]]
         - !Find [authentik_providers_proxy.proxyprovider, [name, dockge-proxy]]
         - !Find [authentik_providers_proxy.proxyprovider, [name, dockhand-proxy]]
+
+  # Brand styling to match dark dashboard theme
+  - model: authentik_brands.brand
+    identifiers:
+      default: true
+    attrs:
+      branding_title: "Homelab"
+      default: true
+      branding_logo: "homelab-icon.svg"
+      branding_favicon: "homelab-icon.svg"
+      branding_custom_css: |
+        /* Custom CSS to match Homelab Dashboard Dark Theme */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --pf-global--FontFamily--sans-serif: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+            --pf-global--BackgroundColor--100: #0f172a !important;
+            --pf-global--BackgroundColor--200: #1e293b !important;
+            
+            /* Primary brand/button colors */
+            --pf-global--primary-color--100: #60a5fa !important;
+            --pf-global--primary-color--200: #3b82f6 !important;
+            --pf-global--link--Color: #60a5fa !important;
+            --pf-global--link--Color--hover: #93c5fd !important;
+            
+            /* Text colors */
+            --pf-global--Color--100: #f1f5f9 !important;
+            --pf-global--Color--200: #cbd5e1 !important;
+            
+            /* Login container details */
+            --pf-c-login__main--BackgroundColor: #1e293b !important;
+            --pf-v5-c-login__main--BackgroundColor: #1e293b !important;
+        }
+
+        body, html {
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+            background-color: #0f172a !important;
+            color: #f1f5f9 !important;
+        }
+
+        /* Brand logo styling */
+        .pf-c-brand, .pf-v5-c-brand {
+            height: 48px !important;
+            width: auto !important;
+            filter: drop-shadow(0 2px 8px rgba(59, 130, 246, 0.3)) !important;
+        }
+
+        /* Background image/pattern - match the dark dashboard style */
+        .pf-c-page, .pf-v5-c-page, .pf-c-login, .pf-v5-c-login {
+            background-color: #0f172a !important;
+            background-image: radial-gradient(circle at 10% 20%, rgba(96, 165, 250, 0.05) 0%, transparent 40%), 
+                              radial-gradient(circle at 90% 80%, rgba(52, 211, 153, 0.03) 0%, transparent 40%) !important;
+        }
+
+        /* Login main box glassmorphism and styling */
+        .pf-c-login__main, .pf-v5-c-login__main {
+            background-color: #1e293b !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 
+                        0 8px 10px -6px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        /* Inputs styling */
+        .pf-c-form-control, .pf-v5-c-form-control {
+            background-color: #0f172a !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            color: #f1f5f9 !important;
+            border-radius: 6px !important;
+        }
+
+        .pf-c-form-control:focus, .pf-v5-c-form-control:focus {
+            border-bottom-color: #60a5fa !important;
+            --pf-c-form-control--Focus--border-bottom-color: #60a5fa !important;
+        }
+
+        /* Button styling */
+        .pf-c-button.pf-m-primary, .pf-v5-c-button.pf-m-primary {
+            background-color: #60a5fa !important;
+            color: #0f172a !important;
+            font-weight: 600 !important;
+            border-radius: 8px !important;
+            border: none !important;
+            transition: background-color 0.2s ease-in-out !important;
+        }
+
+        .pf-c-button.pf-m-primary:hover, .pf-v5-c-button.pf-m-primary:hover {
+            background-color: #3b82f6 !important;
+            color: #ffffff !important;
+        }
+
+        /* Title text */
+        .pf-c-title, .pf-v5-c-title, h1, h2 {
+            color: #f1f5f9 !important;
+        }
+
+        /* Footer / helpers */
+        .pf-c-login__footer-list-item-link, .pf-v5-c-login__footer-list-item-link {
+            color: #cbd5e1 !important;
+        }

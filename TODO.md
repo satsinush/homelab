@@ -1,8 +1,11 @@
 - Set up custom login page
+- change to authentik.hostname
+- shouldn't have to sign in for dashboard 404 page
 - better homelab dashboard bootstrap and roles
 - Set up notifications
 - Move user/api setup out of setup.sh?
 - remove ability to sign in with username/password for dashboard/element? Keep ability in dashboard but have it disabled with env var and hidden from the UI
+- make setup.sh into setup.py
 - Pcie gen 3?
 - set up .well-known/openid-configuration?
 - Add actual user groups for access to certain sites
@@ -10,7 +13,7 @@
 - Fix .env.template
 - Add next cloud
 - Add obsidian sync (desktop client and WebDAV for mobile)
-- Standardize mounts / COPY / named volumes
+- Standardize mounts / COPY / named volumes, use :ro mounts more maybe?
 - Add cloud backup for containers (mega.nz, rclone)
 - Refactor to typescript
 - Better hiding pages in dashboard
@@ -20,3 +23,4 @@
 - fail2ban?
 - Obsidian LiveSync?
 - Don't create .env until all required variables have been provided?
+- make sure all apps are in dashboard and authentik
