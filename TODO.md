@@ -1,8 +1,4 @@
-- Set up custom login page
-- change to authentik.hostname
 - shouldn't have to sign in for dashboard 404 page
-- better homelab dashboard bootstrap and roles
-- Set up notifications
 - Move user/api setup out of setup.sh?
 - remove ability to sign in with username/password for dashboard/element? Keep ability in dashboard but have it disabled with env var and hidden from the UI
 - make setup.sh into setup.py

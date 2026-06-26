@@ -690,7 +690,7 @@ echo "🌐 Web Access:"
 echo "   Dashboard:  https://${DASHBOARD_WEB_HOSTNAME:-dashboard.${HOMELAB_HOSTNAME}}"
 echo "   Gotify:     https://${GOTIFY_WEB_HOSTNAME:-gotify.${HOMELAB_HOSTNAME}} (User: admin / Pass: $(cat ./volumes/secrets/gotify_admin_password))"
 echo "   Portainer:  https://${PORTAINER_WEB_HOSTNAME:-portainer.${HOMELAB_HOSTNAME}} (Fallback User: admin / Pass: $(cat ./volumes/secrets/portainer_admin_password))"
-echo "   Auth:       https://${AUTHENTIK_WEB_HOSTNAME:-auth.${HOMELAB_HOSTNAME}}"
+echo "   Auth:       https://${AUTHENTIK_WEB_HOSTNAME:-authentik.${HOMELAB_HOSTNAME}}"
 echo "   Vault:      https://${VAULTWARDEN_WEB_HOSTNAME:-vaultwarden.${HOMELAB_HOSTNAME}}"
 echo ""
 if [ "${TRAEFIK_CERT_RESOLVER}" = "letsencrypt" ]; then
