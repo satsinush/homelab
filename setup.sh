@@ -451,16 +451,39 @@ echo "✅ Docker containers started"
 
 echo ""
 echo "⚙️  Configuring Portainer..."
-echo "   Initializing admin user..."
-docker exec portainer curl -s -k -X POST \
-  -H "Content-Type: application/json" \
-  -d "{\"username\": \"${HOMELAB_USERNAME}\", \"password\": \"${PORTAINER_ADMIN_PASSWORD}\"}" \
-  "http://localhost:9000/api/users/admin/init" >/dev/null 2>&1
+PORTAINER_ADMIN_PASSWORD=$(cat ./volumes/secrets/portainer_admin_password)
+ADMIN_EXISTS=$(docker exec portainer curl -s -k -o /dev/null -w "%{http_code}" "http://localhost:9000/api/users/admin/check" 2>/dev/null || echo "404")
+
+if [ "$ADMIN_EXISTS" -eq 404 ]; then
+  echo "   Extracting setup token..."
+  SETUP_TOKEN=""
+  for i in {1..30}; do
+    SETUP_TOKEN=$(docker logs portainer 2>&1 | grep "setup_token" | awk -F 'setup_token=' '{print $2}' | sed 's/\x1b\[[0-9;]*m//g' | tr -d '\r\n')
+    if [ -n "$SETUP_TOKEN" ]; then
+      break
+    fi
+    sleep 1
+  done
+
+  if [ -z "$SETUP_TOKEN" ]; then
+    echo "   ❌ Failed to extract Portainer setup token from logs"
+    exit 1
+  fi
+
+  echo "   Initializing admin user..."
+  docker exec portainer curl -s -k -X POST \
+    -H "Content-Type: application/json" \
+    -H "X-Setup-Token: ${SETUP_TOKEN}" \
+    -d "{\"username\": \"admin\", \"password\": \"${PORTAINER_ADMIN_PASSWORD}\"}" \
+    "http://localhost:9000/api/users/admin/init" >/dev/null 2>&1
+else
+  echo "   Admin user already initialized."
+fi
 
 echo "   Getting authentication token..."
 TOKEN=$(docker exec portainer curl -s -k -X POST \
   -H "Content-Type: application/json" \
-  -d "{\"username\": \"${HOMELAB_USERNAME}\", \"password\": \"${PORTAINER_ADMIN_PASSWORD}\"}" \
+  -d "{\"username\": \"admin\", \"password\": \"${PORTAINER_ADMIN_PASSWORD}\"}" \
   "http://localhost:9000/api/auth" | jq -r .jwt)
 
 if [ -z "$TOKEN" ] || [ "$TOKEN" == "null" ]; then
@@ -576,25 +599,53 @@ if curl -s http://localhost:8083/version >/dev/null 2>&1; then
 
   # 1. Update the default admin password from admin to gotify_admin_password
   curl -s -X POST -u admin:admin -H "Content-Type: application/json" \
-    -d "{\"password\":\"$GOTIFY_PASS\"}" \
+    -d "{\"pass\":\"$GOTIFY_PASS\"}" \
     "http://localhost:8083/current/user/password" >/dev/null
 
-  # 2. Create the default application for Apprise
-  APP_RES=$(curl -s -X POST -u "admin:$GOTIFY_PASS" -H "Content-Type: application/json" \
-    -d '{"name":"Homelab Alert Gateway","description":"Gateway for all homelab services"}' \
-    "http://localhost:8083/application")
-
-  # Extract the token using python3
-  GOTIFY_TOKEN=$(echo "$APP_RES" | python3 -c '
+  # 2. Check if the default application for Apprise already exists
+  APPS_LIST=$(curl -s -X GET -u "admin:$GOTIFY_PASS" "http://localhost:8083/application")
+  GOTIFY_TOKEN_AND_ID=$(echo "$APPS_LIST" | python3 -c '
 import sys, json
 try:
-    print(json.load(sys.stdin)["token"])
+    apps = json.load(sys.stdin)
+    if isinstance(apps, list):
+        for app in apps:
+            if app.get("name") == "Homelab Alert Gateway":
+                print(app.get("token"), app.get("id"))
+                break
 except Exception:
     pass
 ' 2>/dev/null)
+  read -r GOTIFY_TOKEN GOTIFY_ID <<< "$GOTIFY_TOKEN_AND_ID" || true
+
+  if [ -z "$GOTIFY_TOKEN" ]; then
+    # Create the default application for Apprise
+    APP_RES=$(curl -s -X POST -u "admin:$GOTIFY_PASS" -H "Content-Type: application/json" \
+      -d '{"name":"Homelab Alert Gateway","description":"Gateway for all homelab services"}' \
+      "http://localhost:8083/application")
+
+    # Extract the token and ID using python3
+    GOTIFY_TOKEN_AND_ID=$(echo "$APP_RES" | python3 -c '
+import sys, json
+try:
+    app = json.load(sys.stdin)
+    print(app.get("token"), app.get("id"))
+except Exception:
+    pass
+' 2>/dev/null)
+    read -r GOTIFY_TOKEN GOTIFY_ID <<< "$GOTIFY_TOKEN_AND_ID" || true
+  fi
 
   if [ -n "$GOTIFY_TOKEN" ]; then
     echo "   ✅ Created Gotify Application. Token generated."
+
+    # Upload application icon
+    if [ -f "./gotify/homelab-icon.png" ] && [ -n "$GOTIFY_ID" ]; then
+      curl -s -X POST -u "admin:$GOTIFY_PASS" \
+        -F "file=@./gotify/homelab-icon.png" \
+        "http://localhost:8083/application/${GOTIFY_ID}/image" >/dev/null
+      echo "   ✅ Uploaded Gotify Application icon."
+    fi
     
     # 3. Copy and substitute template apprise.yaml
     mkdir -p ./volumes/apprise/config
@@ -634,7 +685,7 @@ fi
 echo "🌐 Web Access:"
 echo "   Dashboard:  https://${DASHBOARD_WEB_HOSTNAME:-dashboard.${HOMELAB_HOSTNAME}}"
 echo "   Gotify:     https://${GOTIFY_WEB_HOSTNAME:-gotify.${HOMELAB_HOSTNAME}} (User: admin / Pass: $(cat ./volumes/secrets/gotify_admin_password))"
-echo "   Portainer:  https://${PORTAINER_WEB_HOSTNAME:-portainer.${HOMELAB_HOSTNAME}} (Fallback User: ${HOMELAB_USERNAME} / Pass: $(cat ./volumes/secrets/portainer_admin_password))"
+echo "   Portainer:  https://${PORTAINER_WEB_HOSTNAME:-portainer.${HOMELAB_HOSTNAME}} (Fallback User: admin / Pass: $(cat ./volumes/secrets/portainer_admin_password))"
 echo "   Auth:       https://${AUTHENTIK_WEB_HOSTNAME:-auth.${HOMELAB_HOSTNAME}}"
 echo "   Vault:      https://${VAULTWARDEN_WEB_HOSTNAME:-vaultwarden.${HOMELAB_HOSTNAME}}"
 echo ""

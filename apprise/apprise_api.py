@@ -15,47 +15,30 @@ logger = logging.getLogger("apprise_gateway")
 
 class AppriseSMTPHandler:
     async def handle_DATA(self, server, session, envelope):
-        rcpt_tos = envelope.rcpt_tos
-        data = envelope.content
-
         # Parse email content
-        message = BytesParser(policy=default).parsebytes(data)
+        message = BytesParser(policy=default).parsebytes(envelope.content)
         subject = message.get('subject', 'No Subject')
         body = message.get_body(preferencelist=('plain', 'html'))
         body_content = body.get_content() if body else str(message)
 
-        # Route to each recipient
-        for rcpt in rcpt_tos:
-            if '@' in rcpt:
-                username = rcpt.split('@')[0]
-            else:
-                username = rcpt
-            
-            # Skip system users or service names
-            if username.lower() in ['vaultwarden', 'authentik', 'bot', 'homelab']:
-                continue
+        # Format sender, recipient, and subject information
+        sender = envelope.mail_from
+        recipients = ", ".join(envelope.rcpt_tos)
+        full_body = f"From: {sender}\nTo: {recipients}\nSubject: {subject}\n\n{body_content}"
 
-            # Build tag list for routing
-            tags = ['email', username]
-            if username.lower() == 'admin':
-                tags.append('admin')
-            else:
-                tags.append('general')
+        logger.info(f"Routing SMTP message from {sender} to {recipients}: {subject}")
+        
+        ap = apprise.Apprise()
+        try:
+            config = apprise.AppriseConfig()
+            config.add('/config/apprise.yaml')
+            ap.add(config)
+        except Exception as e:
+            logger.error(f"Failed to load config for SMTP: {e}")
+            return '250 OK'
 
-            logger.info(f"Routing SMTP message for recipient '{rcpt}' with tags {tags}")
-            
-            ap = apprise.Apprise()
-            try:
-                config = apprise.AppriseConfig()
-                config.add('/config/apprise.yaml')
-                ap.add(config)
-            except Exception as e:
-                logger.error(f"Failed to load config for SMTP: {e}")
-                continue
-
-            success = ap.notify(body=body_content, title=subject, tag=tags)
-            logger.info(f"Apprise SMTP notification status: {success}")
-
+        success = ap.notify(body=full_body, title="Homelab Email Alert")
+        logger.info(f"Apprise SMTP notification status: {success}")
         return '250 OK'
 
 
@@ -77,7 +60,7 @@ async def handle_alert(request):
     except Exception as e:
         logger.warning(f"Could not read raw body text: {e}")
 
-    # Determine service (prioritize request body, then query params, then URL match path)
+    # Determine service
     service = data.get('service') or request.query.get('service') or request.match_info.get('service') or 'general'
     logger.info(f"Received alert request for service: {service}")
 
@@ -85,42 +68,7 @@ async def handle_alert(request):
     title = data.get('title') or data.get('subject') or f"Homelab {service.capitalize()} Alert"
     message = data.get('message') or data.get('msg') or data.get('text') or body_text or "No alert message details provided."
 
-    # Parse Uptime Kuma specific formats
-    if 'heartbeat' in data and 'monitor' in data:
-        monitor = data.get('monitor')
-        if isinstance(monitor, dict):
-            monitor_name = monitor.get('name', 'Unknown')
-        else:
-            monitor_name = 'Test / Unknown'
-        msg = data.get('msg', '')
-        title = f"Uptime Kuma: {monitor_name}"
-        message = msg
-
-    # Determine if alert is admin-only
-    admin_only_val = data.get('admin_only') or request.query.get('admin_only')
-    is_admin_only = False
-    if admin_only_val is not None:
-        if isinstance(admin_only_val, bool):
-            is_admin_only = admin_only_val
-        elif str(admin_only_val).lower() in ['true', '1', 'yes']:
-            is_admin_only = True
-
-    # 3. Determine tags
-    tags = [service]
-    if is_admin_only:
-        tags.append('admin')
-    else:
-        tags.append('general')
-
-    # Allow custom tag query overrides (e.g. ?tag=custom or ?tags=admin,custom)
-    query_tags = request.query.get('tags') or request.query.get('tag')
-    if query_tags:
-        for t in query_tags.split(','):
-            t_clean = t.strip()
-            if t_clean:
-                tags.append(t_clean)
-
-    logger.info(f"Routing HTTP alert for service '{service}' with tags {tags}")
+    logger.info(f"Routing HTTP alert for service '{service}'")
 
     ap = apprise.Apprise()
     try:
@@ -131,9 +79,7 @@ async def handle_alert(request):
         logger.error(f"Failed to load config for HTTP alert: {e}")
         return web.Response(text="Configuration error", status=500)
 
-    # Note: tag=tags uses "OR" matching by default in Apprise.
-    # It will notify any URL that matches any of the tags in the list.
-    success = ap.notify(body=message, title=title, tag=tags)
+    success = ap.notify(body=message, title=title)
     logger.info(f"Apprise notification status: {success}")
     
     if success:
