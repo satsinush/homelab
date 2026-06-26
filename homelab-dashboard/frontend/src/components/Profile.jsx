@@ -170,12 +170,18 @@ const Profile = () => {
                                         </Alert>
                                     )}
 
+                                    {user?.is_sso_user && (
+                                        <Alert severity="info">
+                                            Profile credentials are managed via Authentik SSO
+                                        </Alert>
+                                    )}
+
                                     <TextField
                                         fullWidth
                                         label="Username"
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
-                                        disabled={loading}
+                                        disabled={loading || user?.is_sso_user}
                                         slotProps={{
                                             input: {
                                                 startAdornment: (
@@ -372,18 +378,20 @@ const Profile = () => {
                         )}
 
                         {/* Submit Button */}
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-                            <Button
-                                type="submit"
-                                variant="contained"
-                                size="large"
-                                disabled={loading}
-                                startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
-                                sx={{ minWidth: 150 }}
-                            >
-                                {loading ? 'Updating...' : 'Update Profile'}
-                            </Button>
-                        </Box>
+                        {!user?.is_sso_user && (
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                                <Button
+                                    type="submit"
+                                    variant="contained"
+                                    size="large"
+                                    disabled={loading}
+                                    startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
+                                    sx={{ minWidth: 150 }}
+                                >
+                                    {loading ? 'Updating...' : 'Update Profile'}
+                                </Button>
+                            </Box>
+                        )}
                     </Stack>
                 </form>
             </Paper>

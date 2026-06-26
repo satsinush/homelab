@@ -1,5 +1,5 @@
 // src/components/Settings.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     Box,
     Card,
@@ -40,6 +40,98 @@ import {
 import { tryApiCall } from '../utils/api';
 import { useThemeMode } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
+import { useAuth } from '../contexts/AuthContext';
+
+const UsersPanel = ({ currentUser }) => {
+    const [usersList, setUsersList] = useState([]);
+    const [usersLoading, setUsersLoading] = useState(true);
+    const { showSuccess, showError, showDeleteConfirmation } = useNotification();
+
+    const fetchUsers = useCallback(async () => {
+        setUsersLoading(true);
+        try {
+            const result = await tryApiCall('/users');
+            setUsersList(result.data.users || []);
+        } catch (err) {
+            showError(`Failed to load users: ${err.message}`);
+        } finally {
+            setUsersLoading(false);
+        }
+    }, [showError]);
+
+    useEffect(() => {
+        fetchUsers();
+    }, [fetchUsers]);
+
+    const handleDeleteUser = (userToDelete) => {
+        showDeleteConfirmation({
+            title: `Delete User`,
+            message: `Are you sure you want to permanently delete user "${userToDelete.username}"? This will remove all of their settings and chats.`,
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            confirmColor: 'error',
+            onConfirm: async () => {
+                try {
+                    await tryApiCall(`/users/${userToDelete.id}`, {
+                        method: 'DELETE'
+                    });
+                    showSuccess(`User "${userToDelete.username}" deleted successfully`);
+                    fetchUsers();
+                } catch (err) {
+                    showError(`Failed to delete user: ${err.message}`);
+                }
+            }
+        });
+    };
+
+    if (usersLoading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                <CircularProgress size={24} />
+            </Box>
+        );
+    }
+
+    return (
+        <Card sx={{ mt: 2 }}>
+            <CardContent>
+                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Users Management</Typography>
+                <List>
+                    {usersList.map((u) => (
+                        <React.Fragment key={u.id}>
+                            <ListItem
+                                secondaryAction={
+                                    u.id !== currentUser?.id && (
+                                        <Button
+                                            variant="outlined"
+                                            color="error"
+                                            size="small"
+                                            onClick={() => handleDeleteUser(u)}
+                                        >
+                                            Delete
+                                        </Button>
+                                    )
+                                }
+                            >
+                                <ListItemText
+                                    primary={u.username}
+                                    primaryTypographyProps={{ fontWeight: 600 }}
+                                    secondary={
+                                        <>
+                                            {u.email && `${u.email} • `}
+                                            {u.is_sso_user ? 'SSO User' : 'Local User'} • Groups: {u.groups}
+                                        </>
+                                    }
+                                />
+                            </ListItem>
+                            <Divider component="li" />
+                        </React.Fragment>
+                    ))}
+                </List>
+            </CardContent>
+        </Card>
+    );
+};
 
 const Settings = () => {
     const [settings, setSettings] = useState(null);
@@ -47,7 +139,32 @@ const Settings = () => {
     const [autoSaving, setAutoSaving] = useState(false);
     const [tabValue, setTabValue] = useState(0);
     const { themeMode, setThemeMode, actualMode } = useThemeMode();
-    const { showSuccess, showError } = useNotification();    // Auto-save debounced function
+    const { showSuccess, showError } = useNotification();
+    const { user } = useAuth();
+    const isAdmin = user?.groups?.includes('admin');
+
+    const tabsList = useMemo(() => {
+        const list = [];
+        if (isAdmin) {
+            list.push({ id: 'server', label: 'Server', icon: <ServerIcon /> });
+        }
+        list.push({ id: 'device', label: 'Device', icon: <DevicesIcon /> });
+        if (isAdmin) {
+            list.push({ id: 'users', label: 'Users', icon: <UserIcon /> });
+        }
+        return list;
+    }, [isAdmin]);
+
+    // Adjust tabValue if it gets out of bounds
+    useEffect(() => {
+        if (tabValue >= tabsList.length) {
+            setTabValue(0);
+        }
+    }, [tabsList, tabValue]);
+
+    const currentTabId = tabsList[tabValue]?.id || 'device';
+
+    // Auto-save debounced function
     const debouncedSave = useCallback(
         debounce(async (settingsToSave) => {
             setAutoSaving(true);
@@ -84,31 +201,21 @@ const Settings = () => {
             try {
                 const result = await tryApiCall('/settings');
                 setSettings(result.data.settings);
-                setLoading(false);
             } catch (err) {
-                showError(`Failed to load settings: ${err.message}`);
+                // Non-admins can still use the Device tab (theme) even if settings load fails
+                if (isAdmin) {
+                    showError(`Failed to load settings: ${err.message}`);
+                }
+                // Set empty defaults so the page can still render
+                setSettings({ scanTimeout: 30000, cacheTimeout: 300000 });
+            } finally {
                 setLoading(false);
             }
         };
 
         fetchSettings();
-    }, [showError]);
+    }, [showError, isAdmin]);
 
-    const handleSaveSettings = async () => {
-        setAutoSaving(true);
-
-        try {
-            await tryApiCall('/settings', {
-                method: 'PUT',
-                data: settings
-            });
-            showSuccess('Settings saved successfully');
-        } catch (err) {
-            showError(`Failed to save settings: ${err.message}`);
-        } finally {
-            setAutoSaving(false);
-        }
-    };
 
     const handleSettingChange = (key, value) => {
         const newSettings = {
@@ -117,16 +224,15 @@ const Settings = () => {
         };
         setSettings(newSettings);
 
-        // Auto-save after change
-        debouncedSave(newSettings);
+        // Only admins can save server settings
+        if (isAdmin) {
+            debouncedSave(newSettings);
+        }
     };
+
 
     const handleTabChange = (event, newValue) => {
         setTabValue(newValue);
-    };
-
-    const clearMessages = () => {
-        // No longer needed with notification system
     };
 
     if (loading) {
@@ -171,56 +277,32 @@ const Settings = () => {
                                 }
                             }}
                         >
-                            <Tab
-                                icon={<ServerIcon />}
-                                iconPosition="start"
-                                label="Server"
-                                id="settings-tab-0"
-                                aria-controls="settings-tabpanel-0"
-                                sx={{
-                                    minWidth: { xs: 'auto', sm: 120 },
-                                    '& .MuiTab-iconWrapper': {
-                                        display: { xs: 'none', sm: 'block' }
-                                    }
-                                }}
-                            />
-                            <Tab
-                                icon={<DevicesIcon />}
-                                iconPosition="start"
-                                label="Device"
-                                id="settings-tab-1"
-                                aria-controls="settings-tabpanel-1"
-                                sx={{
-                                    minWidth: { xs: 'auto', sm: 120 },
-                                    '& .MuiTab-iconWrapper': {
-                                        display: { xs: 'none', sm: 'block' }
-                                    }
-                                }}
-                            />
-                            <Tab
-                                icon={<UserIcon />}
-                                iconPosition="start"
-                                label="User"
-                                id="settings-tab-2"
-                                aria-controls="settings-tabpanel-2"
-                                sx={{
-                                    minWidth: { xs: 'auto', sm: 120 },
-                                    '& .MuiTab-iconWrapper': {
-                                        display: { xs: 'none', sm: 'block' }
-                                    }
-                                }}
-                            />
+                            {tabsList.map((t, idx) => (
+                                <Tab
+                                    key={t.id}
+                                    icon={t.icon}
+                                    iconPosition="start"
+                                    label={t.label}
+                                    id={`settings-tab-${idx}`}
+                                    aria-controls={`settings-tabpanel-${idx}`}
+                                    sx={{
+                                        minWidth: { xs: 'auto', sm: 120 },
+                                        '& .MuiTab-iconWrapper': {
+                                            display: { xs: 'none', sm: 'block' }
+                                        }
+                                    }}
+                                />
+                            ))}
                         </Tabs>
                     </Box>
 
                     {/* Server Settings Tab */}
-                    <Box
-                        role="tabpanel"
-                        hidden={tabValue !== 0}
-                        id="settings-tabpanel-0"
-                        aria-labelledby="settings-tab-0"
-                    >
-                        {tabValue === 0 && (
+                    {currentTabId === 'server' && (
+                        <Box
+                            role="tabpanel"
+                            id="settings-tabpanel-server"
+                            aria-labelledby="settings-tab-server"
+                        >
                             <Grid container spacing={3}>
                                 {/* Timing Settings */}
                                 <Grid size={{ xs: 12, md: 6 }}>
@@ -315,17 +397,16 @@ const Settings = () => {
                                     </Card>
                                 </Grid>
                             </Grid>
-                        )}
-                    </Box>
+                        </Box>
+                    )}
 
-                    {/* Device Settings Tab */}
-                    <Box
-                        role="tabpanel"
-                        hidden={tabValue !== 1}
-                        id="settings-tabpanel-1"
-                        aria-labelledby="settings-tab-1"
-                    >
-                        {tabValue === 1 && (
+                    {/* Device/Appearance Settings Tab */}
+                    {currentTabId === 'device' && (
+                        <Box
+                            role="tabpanel"
+                            id="settings-tabpanel-device"
+                            aria-labelledby="settings-tab-device"
+                        >
                             <Grid container spacing={3}>
                                 {/* Theme Settings */}
                                 <Grid size={{ xs: 12, md: 6 }}>
@@ -370,35 +451,19 @@ const Settings = () => {
                                     </Card>
                                 </Grid>
                             </Grid>
-                        )}
-                    </Box>
+                        </Box>
+                    )}
 
-                    {/* User Settings Tab */}
-                    <Box
-                        role="tabpanel"
-                        hidden={tabValue !== 2}
-                        id="settings-tabpanel-2"
-                        aria-labelledby="settings-tab-2"
-                    >
-                        {tabValue === 2 && (
-                            <Grid container spacing={3}>
-                                {/* Placeholder for future user settings */}
-                                <Grid size={12}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                                <SecurityIcon sx={{ mr: 1 }} />
-                                                <Typography variant="h6">User Preferences</Typography>
-                                            </Box>
-                                            <Typography variant="body2" color="text.secondary">
-                                                User-specific settings will be available in future updates.
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                            </Grid>
-                        )}
-                    </Box>
+                    {/* Users Management Tab */}
+                    {currentTabId === 'users' && (
+                        <Box
+                            role="tabpanel"
+                            id="settings-tabpanel-users"
+                            aria-labelledby="settings-tab-users"
+                        >
+                            <UsersPanel currentUser={user} />
+                        </Box>
+                    )}
                 </Box>
             )}
         </Container>

@@ -1,22 +1,21 @@
-- shouldn't have to sign in for dashboard 404 page
 - Move user/api setup out of setup.sh?
-- remove ability to sign in with username/password for dashboard/element? Keep ability in dashboard but have it disabled with env var and hidden from the UI
 - make setup.sh into setup.py
+- rename apprise_api to apprise_webhook
 - Pcie gen 3?
 - set up .well-known/openid-configuration?
-- Add actual user groups for access to certain sites
+- add specific roles for each service and page, implement roles in dashboard UI, make it so you can't sign in/access pages without proper roles
 - Make sure secrets managed properly
-- Fix .env.template
+- Fix .env.template, use basic regex replacement and always use parentheses?
 - Add next cloud
 - Add obsidian sync (desktop client and WebDAV for mobile)
 - Standardize mounts / COPY / named volumes, use :ro mounts more maybe?
 - Add cloud backup for containers (mega.nz, rclone)
-- Refactor to typescript
-- Better hiding pages in dashboard
+- Refactor dashboard to typescript
 - Ensure API is openapi compliant
 - Setup immich
 - Setup jellyfin
 - fail2ban?
 - Obsidian LiveSync?
-- Don't create .env until all required variables have been provided?
 - make sure all apps are in dashboard and authentik
+- use proper MCP servers
+- update screenshots

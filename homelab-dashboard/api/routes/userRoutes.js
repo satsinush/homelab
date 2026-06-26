@@ -46,4 +46,10 @@ router.post('/verify', (req, res) => userController.verifySession(req, res));
 // Update user profile
 router.put('/profile', requireAuth(), (req, res) => userController.updateProfile(req, res));
 
+// Get all users (Admin only)
+router.get('/', requireAuth('admin'), (req, res) => userController.getAllUsers(req, res));
+
+// Delete user
+router.delete('/:id', requireAuth(), (req, res) => userController.deleteUser(req, res));
+
 module.exports = router;

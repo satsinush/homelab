@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useConfig } from '../contexts/ConfigContext';
 import NetdataLogo from '../assets/netdata_logo.png';
 import PiHoleLogo from '../assets/pi_hole_logo.png';
 import PortainerLogo from '../assets/portainer_logo.jpg';
@@ -44,6 +45,9 @@ import UsersIcon from '../assets/users_icon.png';
 const Home = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { config } = useConfig();
+    const hostnames = config.hostnames || {};
+    const isAdmin = user?.groups?.includes('admin');
 
     const quickLinks = [
         {
@@ -51,7 +55,8 @@ const Home = () => {
             description: 'View real-time system resources, uptime, and performance metrics',
             icon: <DashboardIcon />,
             path: '/system',
-            color: 'primary'
+            color: 'primary',
+            adminOnly: true
         },
         {
             title: 'Devices',
@@ -65,21 +70,24 @@ const Home = () => {
             description: 'Ask questions and run actions with an AI chat bot',
             icon: <ChatIcon />,
             path: '/chat',
-            color: 'info'
+            color: 'info',
+            adminOnly: true
         },
         {
             title: 'Word Games',
             description: 'Use solvers to word games like Letterboxed',
             icon: <GamesIcon />,
             path: '/wordgames',
-            color: 'warning'
+            color: 'warning',
+            adminOnly: true
         },
         {
             title: 'Packages',
             description: 'Install, update, and manage system packages',
             icon: <PackagesIcon />,
             path: '/packages',
-            color: 'success'
+            color: 'success',
+            adminOnly: true
         },
         {
             title: 'Settings',
@@ -88,13 +96,14 @@ const Home = () => {
             path: '/settings',
             color: 'info'
         }
-    ];
+    ].filter(link => !link.adminOnly || isAdmin);
 
     const externalServices = [
         {
             title: 'Pi-hole Admin',
             description: 'Network-wide ad blocking and DNS management',
-            url: `https://${import.meta.env.VITE_PIHOLE_WEB_HOSTNAME}/admin`,
+            url: `https://${hostnames.pihole || ''}/admin`,
+            adminOnly: true,
             icon: (
                 <Avatar
                     src={PiHoleLogo}
@@ -111,7 +120,8 @@ const Home = () => {
         {
             title: 'Netdata',
             description: 'Real-time performance monitoring and visualization',
-            url: `https://${import.meta.env.VITE_NETDATA_WEB_HOSTNAME}/v3`,
+            url: `https://${hostnames.netdata || ''}/v3`,
+            adminOnly: true,
             icon: (
                 <Avatar
                     src={NetdataLogo}
@@ -128,7 +138,8 @@ const Home = () => {
         {
             title: 'Portainer',
             description: 'Docker container management and monitoring',
-            url: `https://${import.meta.env.VITE_PORTAINER_WEB_HOSTNAME}`,
+            url: `https://${hostnames.portainer || ''}`,
+            adminOnly: true,
             icon: (
                 <Avatar
                     src={PortainerLogo}
@@ -145,7 +156,8 @@ const Home = () => {
         {
             title: 'Dockge',
             description: 'Compose-first Docker stack management',
-            url: `https://${import.meta.env.VITE_DOCKGE_WEB_HOSTNAME}`,
+            url: `https://${hostnames.dockge || ''}`,
+            adminOnly: true,
             icon: (
                 <Avatar
                     src={DockgeLogo}
@@ -162,7 +174,8 @@ const Home = () => {
         {
             title: 'Dockhand',
             description: 'Modern Docker management and compose workflows',
-            url: `https://${import.meta.env.VITE_DOCKHAND_WEB_HOSTNAME}`,
+            url: `https://${hostnames.dockhand || ''}`,
+            adminOnly: true,
             icon: (
                 <Avatar
                     src={DockhandLogo}
@@ -179,7 +192,7 @@ const Home = () => {
         {
             title: 'Vaultwarden',
             description: 'Self-hosted password management solution',
-            url: `https://${import.meta.env.VITE_VAULTWARDEN_WEB_HOSTNAME}`,
+            url: `https://${hostnames.vaultwarden || ''}`,
             icon: (
                 <Avatar
                     src={VaultwardenLogo}
@@ -196,7 +209,8 @@ const Home = () => {
         {
             title: 'Uptime Kuma',
             description: 'Self-hosted status monitoring solution',
-            url: `https://${import.meta.env.VITE_UPTIME_KUMA_WEB_HOSTNAME}`,
+            url: `https://${hostnames['uptime-kuma'] || ''}`,
+            adminOnly: true,
             icon: (
                 <Avatar
                     src={UptimeKumaLogo}
@@ -210,11 +224,10 @@ const Home = () => {
             ),
             color: 'white'
         },
-
         {
             title: 'Authentik',
             description: 'Self-hosted authentication and identity provider',
-            url: `https://${import.meta.env.VITE_AUTHENTIK_WEB_HOSTNAME}`,
+            url: `https://${hostnames.authentik || ''}`,
             icon: (
                 <Avatar
                     src={AuthIcon}
@@ -228,7 +241,7 @@ const Home = () => {
             ),
             color: 'white'
         }
-    ];
+    ].filter(service => !service.adminOnly || isAdmin);
 
     return (
         <Container maxWidth="lg" sx={{ py: 3 }}>

@@ -27,13 +27,25 @@ class DatabaseModel {
 
     createTables() {
         this.db.exec(`
-            CREATE TABLE IF NOT EXISTS devices (
-                mac TEXT PRIMARY KEY,
+            CREATE TABLE IF NOT EXISTS user_devices (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL,
+                mac         TEXT NOT NULL,
+                name        TEXT,
+                description TEXT,
                 rustdesk_id TEXT,
-                data TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                is_favorite INTEGER NOT NULL DEFAULT 1,
+                last_ip     TEXT,
+                status      TEXT NOT NULL DEFAULT 'offline',
+                last_seen   DATETIME,
+                created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, mac),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
+
+            CREATE INDEX IF NOT EXISTS idx_user_devices_user_id ON user_devices(user_id);
+            CREATE INDEX IF NOT EXISTS idx_user_devices_mac ON user_devices(mac);
 
             CREATE TABLE IF NOT EXISTS settings (
                 id TEXT PRIMARY KEY,
@@ -74,6 +86,7 @@ class DatabaseModel {
             CREATE INDEX IF NOT EXISTS idx_chat_conversations_updated_at ON chat_conversations(updated_at);
         `);
     }
+
 
     getDatabase() {
         return this.db;

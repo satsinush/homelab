@@ -18,9 +18,12 @@ import {
     AccountCircle as AccountIcon
 } from '@mui/icons-material';
 import LocalLogin from './LocalLogin';
+import { useConfig } from '../contexts/ConfigContext';
 
 const LoginChoice = () => {
     const [showLocalLogin, setShowLocalLogin] = useState(false);
+    const { config } = useConfig();
+    const disableLocalAuth = config.disableLocalAuth;
 
     const handleSSOLogin = () => {
         window.location.href = '/api/users/sso-login';
@@ -57,7 +60,7 @@ const LoginChoice = () => {
                             Welcome
                         </Typography>
                         <Typography variant="body1" color="text.secondary">
-                            Choose your login method
+                            {disableLocalAuth ? 'Sign in with your homelab account' : 'Choose your login method'}
                         </Typography>
                     </Box>
 
@@ -82,7 +85,7 @@ const LoginChoice = () => {
                                     Sign in with SSO
                                 </Typography>
                                 <Typography variant="body1" color="text.secondary">
-                                    Recommended - Use your homelab account
+                                    {disableLocalAuth ? 'Use your homelab account to sign in' : 'Recommended - Use your homelab account'}
                                 </Typography>
                             </CardContent>
                             <CardActions sx={{ justifyContent: 'center', pb: 3 }}>
@@ -99,21 +102,23 @@ const LoginChoice = () => {
                             </CardActions>
                         </Card>
 
-                        {/* Secondary Local Login - Smaller */}
-                        <Box sx={{ textAlign: 'center', pt: 2 }}>
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
-                                Don't have SSO access?
-                            </Typography>
-                            <Button
-                                variant="text"
-                                size="small"
-                                startIcon={<AccountIcon />}
-                                onClick={() => setShowLocalLogin(true)}
-                                color="secondary"
-                            >
-                                Sign in locally instead
-                            </Button>
-                        </Box>
+                        {/* Secondary Local Login - only shown when local auth is not disabled */}
+                        {!disableLocalAuth && (
+                            <Box sx={{ textAlign: 'center', pt: 2 }}>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    Don't have SSO access?
+                                </Typography>
+                                <Button
+                                    variant="text"
+                                    size="small"
+                                    startIcon={<AccountIcon />}
+                                    onClick={() => setShowLocalLogin(true)}
+                                    color="secondary"
+                                >
+                                    Sign in locally instead
+                                </Button>
+                            </Box>
+                        )}
                     </Stack>
                 </Paper>
             </Box>

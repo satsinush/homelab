@@ -61,6 +61,24 @@ app.use(express.urlencoded({ extended: true }));
 // ROUTES
 // =============================================================================
 
+// Public Configuration Endpoint
+app.get('/api/config', (req, res) => {
+    res.json({
+        dashboardWebHostname: config.dashBoardWebHostname,
+        piholeWebHostname: config.piholeWebHostname,
+        netdataWebHostname: config.netdataWebHostname,
+        portainerWebHostname: config.portainerWebHostname,
+        dockgeWebHostname: config.dockgeWebHostname,
+        dockhandWebHostname: config.dockhandWebHostname,
+        vaultwardenWebHostname: config.vaultwardenWebHostname,
+        uptimeKumaWebHostname: config.uptimeKumaWebHostname,
+        gotifyWebHostname: config.gotifyWebHostname,
+        authentikWebHostname: config.authentikWebHostname,
+        disableLocalAuth: config.disableLocalAuth,
+        ssoEnabled: !!process.env.DASHBOARD_OIDC_SECRET
+    });
+});
+
 // API Routes
 app.use('/api/users', userRoutes);
 app.use('/api', deviceRoutes);
@@ -153,18 +171,9 @@ const initializeServer = async () => {
             // Perform initial device scan
             console.log('Performing initial device scan...');
             try {
-                const devices = await deviceController.scanAndUpdateDevices();
-                const favoriteDevices = devices.filter(d => d.isFavorite);
-                const onlineDevices = devices.filter(d => d.status === 'online');
-                
-                console.log(`Initial scan completed: ${devices.length} devices found (${favoriteDevices.length} favorites, ${onlineDevices.length} online)`);
-                
-                // Log configured favorite devices
-                if (favoriteDevices.length > 0) {
-                    console.log(`Favorite devices: ${favoriteDevices.map(d => d.name || d.mac).join(', ')}`);
-                } else {
-                    console.log('No favorite devices configured');
-                }
+                await deviceController.runScan();
+                const onlineCount = deviceController.scanCache.byMac.size;
+                console.log(`Initial scan completed: ${onlineCount} devices online`);
             } catch (error) {
                 console.error('Initial scan failed:', error.message);
             }

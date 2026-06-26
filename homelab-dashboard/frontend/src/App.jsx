@@ -1,10 +1,11 @@
 // src/App.jsx
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { ThemeProvider, CssBaseline, Box } from '@mui/material';
+import { ThemeProvider, CssBaseline, Box, CircularProgress, Typography } from '@mui/material';
 import { ThemeModeProvider, useThemeMode } from './contexts/ThemeContext';
 import { NotificationProvider } from './contexts/NotificationContext';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ConfigProvider, useConfig } from './contexts/ConfigContext';
 import AuthGuard from './components/AuthGuard';
 import Navigation from './components/Navigation';
 import Home from './components/Home';
@@ -18,10 +19,23 @@ import Profile from './components/Profile';
 import NotFound from './components/NotFound';
 import './App.css';
 
+function AdminRoute({ children }) {
+  const { user } = useAuth();
+  const isAdmin = user && user.groups && user.groups.includes('admin');
+  
+  if (!isAdmin) {
+    return <Navigate to="/home" replace />;
+  }
+  
+  return children;
+}
+
 function AppContent() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme } = useThemeMode();
   const location = useLocation();
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { loading: configLoading } = useConfig();
 
   // Get current tab from URL path
   const getCurrentTab = () => {
@@ -37,6 +51,53 @@ function AppContent() {
     if (path === '/profile') return 'profile';
     return 'home';
   };
+
+  const protectedPaths = [
+    '/',
+    '/home',
+    '/system',
+    '/devices',
+    '/chat',
+    '/wordgames',
+    '/packages',
+    '/settings',
+    '/profile'
+  ];
+
+  const isProtected = protectedPaths.includes(location.pathname);
+
+  if (authLoading || configLoading) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '100vh',
+            bgcolor: 'background.default'
+          }}
+        >
+          <CircularProgress size={60} sx={{ mb: 2 }} />
+          <Typography variant="h6" color="text.secondary">
+            Loading...
+          </Typography>
+        </Box>
+      </ThemeProvider>
+    );
+  }
+
+  // If the user is not logged in and is visiting an invalid (404) path, show NotFound without login requirement or Navigation
+  if (!isAuthenticated && !isProtected) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <NotFound />
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider theme={theme}>
@@ -64,11 +125,11 @@ function AppContent() {
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/home" element={<Home />} />
-                <Route path="/system" element={<System />} />
+                <Route path="/system" element={<AdminRoute><System /></AdminRoute>} />
                 <Route path="/devices" element={<Devices />} />
-                <Route path="/chat" element={<Chat />} />
-                <Route path="/wordgames" element={<WordGames />} />
-                <Route path="/packages" element={<PackageManager />} />
+                <Route path="/chat" element={<AdminRoute><Chat /></AdminRoute>} />
+                <Route path="/wordgames" element={<AdminRoute><WordGames /></AdminRoute>} />
+                <Route path="/packages" element={<AdminRoute><PackageManager /></AdminRoute>} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="*" element={<NotFound />} />
@@ -84,11 +145,13 @@ function AppContent() {
 function App() {
   return (
     <ThemeModeProvider>
-      <AuthProvider>
-        <Router>
-          <AppContent />
-        </Router>
-      </AuthProvider>
+      <ConfigProvider>
+        <AuthProvider>
+          <Router>
+            <AppContent />
+          </Router>
+        </AuthProvider>
+      </ConfigProvider>
     </ThemeModeProvider>
   );
 }

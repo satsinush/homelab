@@ -12,6 +12,11 @@ class UserController {
     // Login endpoint
     async login(req, res) {
         try {
+            // Check if local auth is disabled
+            if (config.disableLocalAuth) {
+                return sendError(res, 403, 'Local authentication is disabled. Please use SSO to sign in.');
+            }
+
             const { username, password } = req.body;
             
             // Basic request validation
@@ -392,6 +397,64 @@ class UserController {
             }
             
             return sendError(res, 500, 'Failed to update profile', error.message);
+        }
+    }
+
+    // Get all users (Admin only)
+    async getAllUsers(req, res) {
+        try {
+            const users = this.userModel.getAllUsers();
+            return sendSuccess(res, { users });
+        } catch (error) {
+            console.error('Get all users error:', error);
+            return sendError(res, 500, 'Failed to retrieve users list', error.message);
+        }
+    }
+
+    // Delete user
+    async deleteUser(req, res) {
+        try {
+            const targetUserId = parseInt(req.params.id, 10);
+            const currentUserId = req.session.user?.id || req.user?.id;
+            const currentUserGroups = req.session.user?.groups || req.user?.groups || [];
+            const isAdmin = currentUserGroups.includes('admin');
+            
+            if (isNaN(targetUserId)) {
+                return sendError(res, 400, 'Invalid user ID');
+            }
+
+            // A user can delete themselves, or an admin can delete any user
+            if (targetUserId !== currentUserId && !isAdmin) {
+                return sendError(res, 403, 'You do not have permission to delete this user');
+            }
+
+            // Don't allow deleting the only admin user
+            const users = this.userModel.getAllUsers();
+            const admins = users.filter(u => u.groups.includes('admin'));
+            const targetUser = users.find(u => u.id === targetUserId);
+            
+            if (targetUser && targetUser.groups.includes('admin') && admins.length <= 1) {
+                return sendError(res, 400, 'Cannot delete the only administrator account in the system');
+            }
+
+            const success = this.userModel.deleteUser(targetUserId);
+            if (!success) {
+                return sendError(res, 404, 'User not found');
+            }
+
+            // If the user deleted themselves, destroy their session
+            if (targetUserId === currentUserId) {
+                req.session.destroy((err) => {
+                    if (err) {
+                        console.error('Failed to destroy session after self-deletion:', err);
+                    }
+                });
+            }
+
+            return sendSuccess(res, { message: 'User deleted successfully' });
+        } catch (error) {
+            console.error('Delete user error:', error);
+            return sendError(res, 500, 'Failed to delete user', error.message);
         }
     }
 }

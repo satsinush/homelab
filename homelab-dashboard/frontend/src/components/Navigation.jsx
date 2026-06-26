@@ -44,15 +44,17 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }) => {
     const { showSuccess } = useNotification();
     const navigate = useNavigate();
 
+    const isAdmin = user?.groups?.includes('admin');
+
     const tabs = [
         { id: 'home', label: 'Home', icon: <HomeIcon />, path: '/home' },
-        { id: 'system', label: 'System', icon: <DashboardIcon />, path: '/system' },
+        { id: 'system', label: 'System', icon: <DashboardIcon />, path: '/system', adminOnly: true },
         { id: 'devices', label: 'Devices', icon: <DevicesIcon />, path: '/devices' },
-        { id: 'chat', label: 'AI Chat', icon: <ChatIcon />, path: '/chat' },
-        { id: 'wordgames', label: 'Word Games', icon: <GamesIcon />, path: '/wordgames' },
-        { id: 'packages', label: 'Packages', icon: <PackagesIcon />, path: '/packages' },
+        { id: 'chat', label: 'AI Chat', icon: <ChatIcon />, path: '/chat', adminOnly: true },
+        { id: 'wordgames', label: 'Word Games', icon: <GamesIcon />, path: '/wordgames', adminOnly: true },
+        { id: 'packages', label: 'Packages', icon: <PackagesIcon />, path: '/packages', adminOnly: true },
         { id: 'settings', label: 'Settings', icon: <SettingsIcon />, path: '/settings' }
-    ];
+    ].filter(tab => !tab.adminOnly || isAdmin);
 
     const drawerWidth = 280;
     const theme = useTheme();
@@ -115,7 +117,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }) => {
                         }
                     }}
                 >
-                    <HomeIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+                    <Box component="img" src="/homelab-icon.svg" alt="Logo" sx={{ width: 32, height: 32 }} />
                     <Typography variant="h5" component="h2" sx={{
                         fontWeight: 600,
                         color: 'text.primary'
@@ -260,7 +262,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }) => {
                         >
                             <MenuIcon />
                         </IconButton>
-                        <HomeIcon sx={{ mr: 1 }} />
+                        <Box component="img" src="/homelab-icon.svg" alt="Logo" sx={{ width: 24, height: 24, mr: 1.5 }} />
                         <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
                             Homelab Admin
                         </Typography>

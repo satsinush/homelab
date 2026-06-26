@@ -269,6 +269,38 @@ class User {
             return null;
         }
     }
+
+    // Get all users in the system
+    getAllUsers() {
+        try {
+            const stmt = this.db.prepare('SELECT id, username, groups, email, is_sso_user, last_login, created_at FROM users ORDER BY id ASC');
+            const rows = stmt.all();
+            return rows.map(user => ({
+                id: user.id,
+                username: user.username,
+                groups: JSON.parse(user.groups),
+                email: user.email,
+                is_sso_user: user.is_sso_user,
+                lastLogin: user.last_login,
+                createdAt: user.created_at
+            }));
+        } catch (error) {
+            console.error('Get all users error:', error);
+            return [];
+        }
+    }
+
+    // Delete a user from the system
+    deleteUser(userId) {
+        try {
+            const stmt = this.db.prepare('DELETE FROM users WHERE id = ?');
+            const result = stmt.run(userId);
+            return result.changes > 0;
+        } catch (error) {
+            console.error('Delete user error:', error);
+            throw error;
+        }
+    }
 }
 
 module.exports = User;

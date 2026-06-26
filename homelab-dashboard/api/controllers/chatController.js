@@ -25,9 +25,9 @@ class ChatController {
         this.startCleanupInterval();
     }
 
-    async getSystemPrompt() {
+    async getSystemPrompt(userId) {
         const systemInfo = JSON.stringify(await systemController.getSystemPromptInfo());
-        const deviceInfo = JSON.stringify(await deviceController.getDevicePromptInfo());
+        const deviceInfo = deviceController.getDevicePromptInfo(userId);
 
         const fullSystemPrompt =
         `You are HomeBot, a helpful AI assistant for a homelab management dashboard.
@@ -111,7 +111,7 @@ class ChatController {
 
     // Build messages array for Ollama API (simplified - uses Ollama message structure)
     async buildMessagesArray(userId) {
-        const systemPrompt = await this.getSystemPrompt();
+        const systemPrompt = await this.getSystemPrompt(userId);
         const messages = [
             {
                 role: 'system',

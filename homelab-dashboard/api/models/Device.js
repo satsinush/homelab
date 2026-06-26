@@ -5,153 +5,261 @@ class Device {
         this.db = database.getDatabase();
     }
 
-    // Find device by MAC address
-    findByMac(mac) {
-        try {
-            const stmt = this.db.prepare('SELECT * FROM devices WHERE mac = ?');
-            const row = stmt.get(mac);
-            
-            if (!row) {
-                return null;
-            }
-            
-            try {
-                const deviceData = JSON.parse(row.data);
-                return {
-                    ...deviceData,
-                    mac: row.mac, // Ensure MAC is always set from the key
-                    rustdeskId: row.rustdesk_id,
-                    createdAt: row.created_at,
-                    updatedAt: row.updated_at
-                };
-            } catch (parseError) {
-                console.error('Invalid device data for MAC', mac, ':', parseError.message);
-                // Delete invalid device
-                this.deleteByMac(mac);
-                console.log(`Deleted device with invalid data: MAC ${mac}`);
-                return null;
-            }
-        } catch (error) {
-            console.error('Error finding device by MAC:', error);
-            return null;
-        }
-    }
+    // ─── Per-user reads ────────────────────────────────────────────────────────
 
-    // Get all devices from database
-    getAll() {
+    // Get all saved device records for a user
+    getAllForUser(userId) {
         try {
-            const stmt = this.db.prepare('SELECT * FROM devices ORDER BY updated_at DESC');
-            const devices = stmt.all();
-            const parsedDevices = [];
-            
-            // Parse devices and handle any with invalid data
-            for (const device of devices) {
-                try {
-                    const deviceData = JSON.parse(device.data);
-                    parsedDevices.push({
-                        ...deviceData,
-                        mac: device.mac, // Ensure MAC is always set from the key
-                        rustdeskId: device.rustdesk_id,
-                        createdAt: device.created_at,
-                        updatedAt: device.updated_at
-                    });
-                } catch (parseError) {
-                    console.error('Invalid device data for MAC', device.mac, ':', parseError.message);
-                    // Delete invalid devices
-                    try {
-                        this.deleteByMac(device.mac);
-                        console.log(`Deleted device with invalid data: MAC ${device.mac}`);
-                    } catch (deleteError) {
-                        console.error('Error deleting invalid device:', deleteError);
-                    }
-                }
-            }
-            
-            return parsedDevices;
+            const stmt = this.db.prepare(
+                'SELECT * FROM user_devices WHERE user_id = ? ORDER BY is_favorite DESC, updated_at DESC'
+            );
+            return stmt.all(userId).map(row => this._rowToDevice(row));
         } catch (error) {
-            console.error('Error getting devices:', error);
+            console.error('Error getting devices for user:', error);
             return [];
         }
     }
 
-    // Save or update device in database
-    save(deviceData) {
+    // Get only favorite devices for a user
+    getFavoritesForUser(userId) {
+        try {
+            const stmt = this.db.prepare(
+                'SELECT * FROM user_devices WHERE user_id = ? AND is_favorite = 1 ORDER BY updated_at DESC'
+            );
+            return stmt.all(userId).map(row => this._rowToDevice(row));
+        } catch (error) {
+            console.error('Error getting favorites for user:', error);
+            return [];
+        }
+    }
+
+    // Find a specific user's device record by MAC
+    findByMacForUser(userId, mac) {
+        try {
+            const stmt = this.db.prepare(
+                'SELECT * FROM user_devices WHERE user_id = ? AND mac = ?'
+            );
+            const row = stmt.get(userId, mac);
+            return row ? this._rowToDevice(row) : null;
+        } catch (error) {
+            console.error('Error finding device by MAC for user:', error);
+            return null;
+        }
+    }
+
+    // Check if a MAC is saved (favorite) by a given user
+    isFavoriteForUser(userId, mac) {
+        try {
+            const stmt = this.db.prepare(
+                'SELECT 1 FROM user_devices WHERE user_id = ? AND mac = ? AND is_favorite = 1'
+            );
+            return !!stmt.get(userId, mac);
+        } catch (error) {
+            console.error('Error checking favorite status:', error);
+            return false;
+        }
+    }
+
+    // Check if ANY user has this MAC saved as a favorite
+    isMacFavoritedByAnyone(mac) {
+        try {
+            const stmt = this.db.prepare(
+                'SELECT 1 FROM user_devices WHERE mac = ? AND is_favorite = 1'
+            );
+            return !!stmt.get(mac);
+        } catch (error) {
+            console.error('Error checking if MAC is favorited by anyone:', error);
+            return false;
+        }
+    }
+
+    // ─── Per-user writes ───────────────────────────────────────────────────────
+
+    // Upsert a device record for a user
+    saveForUser(userId, deviceData) {
         try {
             const now = new Date().toISOString();
-            
-            if (!deviceData.mac) {
-                throw new Error('MAC address is required for saving device');
-            }
-            
-            // Check if device exists
-            const existingDevice = this.findByMac(deviceData.mac);
-            
-            // Prepare data without MAC or RustDesk ID (since they have their own columns)
-            const dataToStore = { ...deviceData };
-            const rustdeskId = dataToStore.rustdeskId || null;
-            delete dataToStore.mac;
-            delete dataToStore.rustdeskId;
-            delete dataToStore.createdAt;
-            delete dataToStore.updatedAt;
-            
-            if (existingDevice) {
-                // Update existing device
-                const stmt = this.db.prepare('UPDATE devices SET rustdesk_id = ?, data = ?, updated_at = ? WHERE mac = ?');
-                stmt.run(rustdeskId, JSON.stringify(dataToStore), now, deviceData.mac);
+            const mac = deviceData.mac;
+            if (!mac) throw new Error('MAC address is required');
+
+            const existing = this.findByMacForUser(userId, mac);
+
+            if (existing) {
+                const stmt = this.db.prepare(`
+                    UPDATE user_devices
+                    SET name = ?, description = ?, rustdesk_id = ?, is_favorite = ?,
+                        last_ip = ?, status = ?, last_seen = ?, updated_at = ?
+                    WHERE user_id = ? AND mac = ?
+                `);
+                stmt.run(
+                    deviceData.name ?? existing.name,
+                    deviceData.description ?? existing.description,
+                    deviceData.rustdeskId ?? existing.rustdeskId,
+                    deviceData.isFavorite !== undefined ? (deviceData.isFavorite ? 1 : 0) : (existing.isFavorite ? 1 : 0),
+                    deviceData.ip ?? deviceData.last_ip ?? existing.ip,
+                    deviceData.status ?? existing.status,
+                    deviceData.lastSeen ?? existing.lastSeen,
+                    now,
+                    userId, mac
+                );
             } else {
-                // Insert new device
-                const stmt = this.db.prepare('INSERT INTO devices (mac, rustdesk_id, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?)');
-                stmt.run(deviceData.mac, rustdeskId, JSON.stringify(dataToStore), now, now);
+                const stmt = this.db.prepare(`
+                    INSERT INTO user_devices
+                        (user_id, mac, name, description, rustdesk_id, is_favorite,
+                         last_ip, status, last_seen, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                `);
+                stmt.run(
+                    userId, mac,
+                    deviceData.name ?? null,
+                    deviceData.description ?? null,
+                    deviceData.rustdeskId ?? null,
+                    deviceData.isFavorite !== undefined ? (deviceData.isFavorite ? 1 : 0) : 1,
+                    deviceData.ip ?? null,
+                    deviceData.status ?? 'offline',
+                    deviceData.lastSeen ?? null,
+                    now, now
+                );
             }
-            
-            return deviceData.mac; // Return MAC instead of numeric ID
+            return mac;
         } catch (error) {
-            console.error('Error saving device:', error);
+            console.error('Error saving device for user:', error);
             throw error;
         }
     }
 
-    // Delete device from database
-    deleteByMac(mac) {
+    // Set is_favorite for a user's device row (add the row if it doesn't exist)
+    setFavoriteForUser(userId, mac, isFavorite) {
         try {
-            const stmt = this.db.prepare('DELETE FROM devices WHERE mac = ?');
-            const result = stmt.run(mac);
-            console.log(`Deleted device with MAC ${mac} from database`);
+            const now = new Date().toISOString();
+            if (isFavorite) {
+                // Insert-or-update with is_favorite=1
+                const stmt = this.db.prepare(`
+                    INSERT INTO user_devices (user_id, mac, is_favorite, created_at, updated_at)
+                    VALUES (?, ?, 1, ?, ?)
+                    ON CONFLICT(user_id, mac) DO UPDATE SET is_favorite = 1, updated_at = excluded.updated_at
+                `);
+                stmt.run(userId, mac, now, now);
+            } else {
+                // Only update if row exists; don't create an empty un-favorited row
+                const stmt = this.db.prepare(`
+                    UPDATE user_devices SET is_favorite = 0, updated_at = ?
+                    WHERE user_id = ? AND mac = ?
+                `);
+                stmt.run(now, userId, mac);
+            }
+            return true;
+        } catch (error) {
+            console.error('Error setting favorite for user:', error);
+            throw error;
+        }
+    }
+
+    // Delete a specific user's device record
+    deleteForUser(userId, mac) {
+        try {
+            const stmt = this.db.prepare(
+                'DELETE FROM user_devices WHERE user_id = ? AND mac = ?'
+            );
+            const result = stmt.run(userId, mac);
+            return result.changes > 0;
+        } catch (error) {
+            console.error('Error deleting device for user:', error);
+            throw error;
+        }
+    }
+
+    // Delete all non-favorite rows for a user (called on cache clear)
+    clearNonFavoritesForUser(userId) {
+        try {
+            const stmt = this.db.prepare(
+                'DELETE FROM user_devices WHERE user_id = ? AND is_favorite = 0'
+            );
+            const result = stmt.run(userId);
+            console.log(`Cleared ${result.changes} non-favorite devices for user ${userId}`);
             return result.changes;
         } catch (error) {
-            console.error('Error deleting device:', error);
+            console.error('Error clearing non-favorites for user:', error);
             throw error;
         }
     }
 
-    // Delete all non-favorite devices from database
-    clearNonFavorites() {
+    // ─── Cross-user scan updates ───────────────────────────────────────────────
+
+    // After a network scan, update last_ip / status / last_seen for every user
+    // who has a saved record for this MAC. Returns number of rows updated.
+    updateScanDataForMac(mac, ip, status, lastSeen) {
         try {
-            // Get all devices and filter for non-favorite ones
-            const allDevices = this.getAll();
-            const nonFavoriteDevices = allDevices.filter(device => !device.isFavorite && device.isFavorite !== undefined);
-            
-            console.log(`Found ${nonFavoriteDevices.length} non-favorite devices to clear out of ${allDevices.length} total devices`);
-            
-            if (nonFavoriteDevices.length > 0) {
-                const stmt = this.db.prepare('DELETE FROM devices WHERE mac = ?');
-                nonFavoriteDevices.forEach(device => {
-                    // Double check that device is actually not favorite before deleting
-                    if (!device.isFavorite) {
-                        console.log(`Deleting non-favorite device: ${device.name || 'Unknown'} (${device.mac})`);
-                        stmt.run(device.mac);
-                    } else {
-                        console.warn(`WARNING: Skipped deleting favorite device: ${device.name} (${device.mac})`);
-                    }
-                });
-                console.log(`Deleted ${nonFavoriteDevices.length} non-favorite devices from database`);
-            }
-            
-            return nonFavoriteDevices.length;
+            const now = lastSeen || new Date().toISOString();
+            const stmt = this.db.prepare(`
+                UPDATE user_devices
+                SET last_ip = ?, status = ?, last_seen = ?, updated_at = ?
+                WHERE mac = ?
+            `);
+            const result = stmt.run(ip, status, now, now, mac);
+            return result.changes;
         } catch (error) {
-            console.error('Error clearing non-favorite devices:', error);
-            throw error;
+            console.error('Error updating scan data for MAC:', error);
+            return 0;
         }
+    }
+
+    // Mark all user_devices for a list of MACs as offline (MACs not found in scan)
+    markOfflineByMacs(macs) {
+        if (!macs || macs.length === 0) return;
+        try {
+            const now = new Date().toISOString();
+            const placeholders = macs.map(() => '?').join(', ');
+            const stmt = this.db.prepare(`
+                UPDATE user_devices
+                SET status = 'offline', updated_at = ?
+                WHERE mac IN (${placeholders})
+            `);
+            stmt.run(now, ...macs);
+        } catch (error) {
+            console.error('Error marking devices offline:', error);
+        }
+    }
+
+    // Get all unique MACs that are saved by at least one user (for scan merging)
+    getAllSavedMacs() {
+        try {
+            const stmt = this.db.prepare('SELECT DISTINCT mac FROM user_devices');
+            return stmt.all().map(r => r.mac);
+        } catch (error) {
+            console.error('Error getting all saved MACs:', error);
+            return [];
+        }
+    }
+
+    // Get all user_devices rows for a given MAC (across all users)
+    getAllRowsForMac(mac) {
+        try {
+            const stmt = this.db.prepare('SELECT * FROM user_devices WHERE mac = ?');
+            return stmt.all(mac).map(row => this._rowToDevice(row));
+        } catch (error) {
+            console.error('Error getting rows for MAC:', error);
+            return [];
+        }
+    }
+
+    // ─── Private helpers ───────────────────────────────────────────────────────
+
+    _rowToDevice(row) {
+        return {
+            id: row.id,
+            userId: row.user_id,
+            mac: row.mac,
+            name: row.name,
+            description: row.description,
+            rustdeskId: row.rustdesk_id,
+            isFavorite: row.is_favorite === 1,
+            ip: row.last_ip,
+            status: row.status,
+            lastSeen: row.last_seen,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at
+        };
     }
 }
 

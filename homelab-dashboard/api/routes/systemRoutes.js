@@ -9,7 +9,9 @@ const systemController = new SystemController();
 router.get('/health', (req, res) => systemController.healthCheck(req, res));
 
 // Settings endpoints
-router.get('/settings', requireAuth('admin'), (req, res) => systemController.getSettings(req, res));
+// GET: any authenticated user can read settings (non-admins need device settings)
+// PUT: admin-only — only admins can change server/system settings
+router.get('/settings', requireAuth(), (req, res) => systemController.getSettings(req, res));
 router.put('/settings', requireAuth('admin'), (req, res) => systemController.updateSettings(req, res));
 
 // System information endpoints
