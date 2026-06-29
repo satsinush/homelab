@@ -32,7 +32,8 @@ import {
     ExitToApp as LogoutIcon,
     AccountCircle as AccountIcon,
     Chat as ChatIcon,
-    Games as GamesIcon
+    Games as GamesIcon,
+    People as PeopleIcon
 } from '@mui/icons-material';
 import { useThemeMode } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -53,6 +54,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }) => {
         { id: 'chat', label: 'AI Chat', icon: <ChatIcon />, path: '/chat', adminOnly: true },
         { id: 'wordgames', label: 'Word Games', icon: <GamesIcon />, path: '/wordgames', adminOnly: true },
         { id: 'packages', label: 'Packages', icon: <PackagesIcon />, path: '/packages', adminOnly: true },
+        { id: 'users', label: 'Users', icon: <PeopleIcon />, path: '/users', adminOnly: true },
         { id: 'settings', label: 'Settings', icon: <SettingsIcon />, path: '/settings' }
     ].filter(tab => !tab.adminOnly || isAdmin);
 
@@ -318,7 +320,8 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }) => {
                             width: drawerWidth,
                             boxSizing: 'border-box',
                             backgroundColor: 'background.paper',
-                            borderRight: `1px solid ${actualMode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)'}`
+                            borderRight: `1px solid ${actualMode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)'}`,
+                            paddingTop: '56px', // Height of mobile AppBar toolbar
                         },
                     }}
                 >

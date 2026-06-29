@@ -28,6 +28,7 @@ import {
     OpenInNew as ExternalLinkIcon,
     Games as GamesIcon,
     Chat as ChatIcon,
+    People as PeopleIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -95,6 +96,14 @@ const Home = () => {
             icon: <SettingsIcon />,
             path: '/settings',
             color: 'info'
+        },
+        {
+            title: 'Users',
+            description: 'Manage user accounts, groups, and dashboard permissions',
+            icon: <PeopleIcon />,
+            path: '/users',
+            color: 'warning',
+            adminOnly: true
         }
     ].filter(link => !link.adminOnly || isAdmin);
 

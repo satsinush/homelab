@@ -8,133 +8,40 @@ import {
     Alert,
     CircularProgress,
     Container,
-    Button,
     TextField,
     Stack,
-    List,
-    ListItem,
-    ListItemText,
-    IconButton,
     ToggleButton,
     ToggleButtonGroup,
-    Divider,
-    Chip,
     Grid,
     Tabs,
-    Tab
+    Tab,
+    Switch,
+    FormControlLabel,
+    MenuItem,
+    Select,
+    FormControl,
+    InputLabel,
+    FormHelperText
 } from '@mui/material';
 import {
-    NetworkWifi as NetworkIcon,
     Timer as TimerIcon,
-    Save as SaveIcon,
-    Computer as ComputerIcon,
+    Cloud as ServerIcon,
+    Devices as DevicesIcon,
+    Person as UserIcon,
     Palette as ThemeIcon,
     LightMode as LightIcon,
     DarkMode as DarkIcon,
     SettingsBrightness as DeviceIcon,
-    Cloud as ServerIcon,
-    Devices as DevicesIcon,
-    Person as UserIcon,
-    Security as SecurityIcon
+    NetworkWifi as NetworkIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { useThemeMode } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
 
-const UsersPanel = ({ currentUser }) => {
-    const [usersList, setUsersList] = useState([]);
-    const [usersLoading, setUsersLoading] = useState(true);
-    const { showSuccess, showError, showDeleteConfirmation } = useNotification();
-
-    const fetchUsers = useCallback(async () => {
-        setUsersLoading(true);
-        try {
-            const result = await tryApiCall('/users');
-            setUsersList(result.data.users || []);
-        } catch (err) {
-            showError(`Failed to load users: ${err.message}`);
-        } finally {
-            setUsersLoading(false);
-        }
-    }, [showError]);
-
-    useEffect(() => {
-        fetchUsers();
-    }, [fetchUsers]);
-
-    const handleDeleteUser = (userToDelete) => {
-        showDeleteConfirmation({
-            title: `Delete User`,
-            message: `Are you sure you want to permanently delete user "${userToDelete.username}"? This will remove all of their settings and chats.`,
-            confirmText: 'Delete',
-            cancelText: 'Cancel',
-            confirmColor: 'error',
-            onConfirm: async () => {
-                try {
-                    await tryApiCall(`/users/${userToDelete.id}`, {
-                        method: 'DELETE'
-                    });
-                    showSuccess(`User "${userToDelete.username}" deleted successfully`);
-                    fetchUsers();
-                } catch (err) {
-                    showError(`Failed to delete user: ${err.message}`);
-                }
-            }
-        });
-    };
-
-    if (usersLoading) {
-        return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                <CircularProgress size={24} />
-            </Box>
-        );
-    }
-
-    return (
-        <Card sx={{ mt: 2 }}>
-            <CardContent>
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Users Management</Typography>
-                <List>
-                    {usersList.map((u) => (
-                        <React.Fragment key={u.id}>
-                            <ListItem
-                                secondaryAction={
-                                    u.id !== currentUser?.id && (
-                                        <Button
-                                            variant="outlined"
-                                            color="error"
-                                            size="small"
-                                            onClick={() => handleDeleteUser(u)}
-                                        >
-                                            Delete
-                                        </Button>
-                                    )
-                                }
-                            >
-                                <ListItemText
-                                    primary={u.username}
-                                    primaryTypographyProps={{ fontWeight: 600 }}
-                                    secondary={
-                                        <>
-                                            {u.email && `${u.email} • `}
-                                            {u.is_sso_user ? 'SSO User' : 'Local User'} • Groups: {u.groups}
-                                        </>
-                                    }
-                                />
-                            </ListItem>
-                            <Divider component="li" />
-                        </React.Fragment>
-                    ))}
-                </List>
-            </CardContent>
-        </Card>
-    );
-};
-
 const Settings = () => {
-    const [settings, setSettings] = useState(null);
+    const [serverSettings, setServerSettings] = useState(null);
+    const [userSettings, setUserSettings] = useState(null);
     const [loading, setLoading] = useState(true);
     const [autoSaving, setAutoSaving] = useState(false);
     const [tabValue, setTabValue] = useState(0);
@@ -146,12 +53,10 @@ const Settings = () => {
     const tabsList = useMemo(() => {
         const list = [];
         if (isAdmin) {
-            list.push({ id: 'server', label: 'Server', icon: <ServerIcon /> });
+            list.push({ id: 'system', label: 'System', icon: <ServerIcon /> });
         }
+        list.push({ id: 'user', label: 'User', icon: <UserIcon /> });
         list.push({ id: 'device', label: 'Device', icon: <DevicesIcon /> });
-        if (isAdmin) {
-            list.push({ id: 'users', label: 'Users', icon: <UserIcon /> });
-        }
         return list;
     }, [isAdmin]);
 
@@ -162,26 +67,7 @@ const Settings = () => {
         }
     }, [tabsList, tabValue]);
 
-    const currentTabId = tabsList[tabValue]?.id || 'device';
-
-    // Auto-save debounced function
-    const debouncedSave = useCallback(
-        debounce(async (settingsToSave) => {
-            setAutoSaving(true);
-            try {
-                await tryApiCall('/settings', {
-                    method: 'PUT',
-                    data: settingsToSave
-                });
-                showSuccess('Settings saved automatically');
-            } catch (err) {
-                showError(`Failed to save settings: ${err.message}`);
-            } finally {
-                setAutoSaving(false);
-            }
-        }, 1000),
-        [showSuccess, showError]
-    );
+    const currentTabId = tabsList[tabValue]?.id || 'user';
 
     // Debounce utility function
     function debounce(func, wait) {
@@ -196,40 +82,75 @@ const Settings = () => {
         };
     }
 
-    useEffect(() => {
-        const fetchSettings = async () => {
+    // Auto-save server settings (admin only)
+    const debouncedSaveServer = useCallback(
+        debounce(async (settingsToSave) => {
+            setAutoSaving(true);
             try {
-                const result = await tryApiCall('/settings');
-                setSettings(result.data.settings);
+                await tryApiCall('/settings', {
+                    method: 'PUT',
+                    data: settingsToSave
+                });
+                showSuccess('System settings saved');
             } catch (err) {
-                // Non-admins can still use the Device tab (theme) even if settings load fails
-                if (isAdmin) {
-                    showError(`Failed to load settings: ${err.message}`);
-                }
-                // Set empty defaults so the page can still render
-                setSettings({ scanTimeout: 30000, cacheTimeout: 300000 });
+                showError(`Failed to save system settings: ${err.message}`);
+            } finally {
+                setAutoSaving(false);
+            }
+        }, 1000),
+        [showSuccess, showError]
+    );
+
+    // Auto-save user settings
+    const debouncedSaveUser = useCallback(
+        debounce(async (settingsToSave) => {
+            setAutoSaving(true);
+            try {
+                await tryApiCall('/user-settings', {
+                    method: 'PUT',
+                    data: settingsToSave
+                });
+                showSuccess('User settings saved');
+            } catch (err) {
+                showError(`Failed to save user settings: ${err.message}`);
+            } finally {
+                setAutoSaving(false);
+            }
+        }, 1000),
+        [showSuccess, showError]
+    );
+
+    useEffect(() => {
+        const fetchAll = async () => {
+            try {
+                const [serverRes, userRes] = await Promise.all([
+                    tryApiCall('/settings').catch(() => null),
+                    tryApiCall('/user-settings').catch(() => null)
+                ]);
+                setServerSettings(serverRes?.data?.settings || { scanTimeout: 30000, cacheTimeout: 300000 });
+                setUserSettings(userRes?.data?.settings || {});
+            } catch (err) {
+                showError(`Failed to load settings: ${err.message}`);
             } finally {
                 setLoading(false);
             }
         };
+        fetchAll();
+    }, [showError]);
 
-        fetchSettings();
-    }, [showError, isAdmin]);
-
-
-    const handleSettingChange = (key, value) => {
-        const newSettings = {
-            ...settings,
-            [key]: value
-        };
-        setSettings(newSettings);
-
-        // Only admins can save server settings
+    const handleServerSettingChange = (key, value) => {
+        const newSettings = { ...serverSettings, [key]: value };
+        setServerSettings(newSettings);
         if (isAdmin) {
-            debouncedSave(newSettings);
+            debouncedSaveServer(newSettings);
         }
     };
 
+    const handleUserSettingChange = (key, value) => {
+        const newSettings = { ...userSettings, [key]: value };
+        setUserSettings(newSettings);
+        debouncedSaveUser(newSettings);
+    };
 
     const handleTabChange = (event, newValue) => {
         setTabValue(newValue);
@@ -261,211 +182,236 @@ const Settings = () => {
                 )}
             </Box>
 
-            {settings && (
-                <Box sx={{ width: '100%' }}>
-                    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-                        <Tabs
-                            value={tabValue}
-                            onChange={handleTabChange}
-                            aria-label="settings tabs"
-                            variant="scrollable"
-                            scrollButtons="auto"
-                            allowScrollButtonsMobile
-                            sx={{
-                                '& .MuiTabs-scrollButtons': {
-                                    '&.Mui-disabled': { opacity: 0.3 }
-                                }
-                            }}
-                        >
-                            {tabsList.map((t, idx) => (
-                                <Tab
-                                    key={t.id}
-                                    icon={t.icon}
-                                    iconPosition="start"
-                                    label={t.label}
-                                    id={`settings-tab-${idx}`}
-                                    aria-controls={`settings-tabpanel-${idx}`}
-                                    sx={{
-                                        minWidth: { xs: 'auto', sm: 120 },
-                                        '& .MuiTab-iconWrapper': {
-                                            display: { xs: 'none', sm: 'block' }
-                                        }
-                                    }}
-                                />
-                            ))}
-                        </Tabs>
-                    </Box>
-
-                    {/* Server Settings Tab */}
-                    {currentTabId === 'server' && (
-                        <Box
-                            role="tabpanel"
-                            id="settings-tabpanel-server"
-                            aria-labelledby="settings-tab-server"
-                        >
-                            <Grid container spacing={3}>
-                                {/* Timing Settings */}
-                                <Grid size={{ xs: 12, md: 6 }}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                                <TimerIcon sx={{ mr: 1 }} />
-                                                <Typography variant="h6">Timing Configuration</Typography>
-                                            </Box>
-                                            <Stack spacing={2}>
-                                                <TextField
-                                                    label="Scan Timeout (ms)"
-                                                    type="number"
-                                                    value={settings.scanTimeout}
-                                                    onChange={(e) => handleSettingChange('scanTimeout', parseInt(e.target.value))}
-                                                    fullWidth
-                                                    helperText="Timeout for network scan operations"
-                                                    InputProps={{
-                                                        sx: {
-                                                            '& input[type=number]': {
-                                                                MozAppearance: 'textfield',
-                                                            },
-                                                            '& input[type=number]::-webkit-outer-spin-button': {
-                                                                WebkitAppearance: 'none',
-                                                                margin: 0,
-                                                            },
-                                                            '& input[type=number]::-webkit-inner-spin-button': {
-                                                                WebkitAppearance: 'none',
-                                                                margin: 0,
-                                                            },
-                                                        },
-                                                    }}
-                                                />
-                                                <TextField
-                                                    label="Cache Timeout (ms)"
-                                                    type="number"
-                                                    value={settings.cacheTimeout}
-                                                    onChange={(e) => handleSettingChange('cacheTimeout', parseInt(e.target.value))}
-                                                    fullWidth
-                                                    helperText="How long to cache device status"
-                                                    InputProps={{
-                                                        sx: {
-                                                            '& input[type=number]': {
-                                                                MozAppearance: 'textfield',
-                                                            },
-                                                            '& input[type=number]::-webkit-outer-spin-button': {
-                                                                WebkitAppearance: 'none',
-                                                                margin: 0,
-                                                            },
-                                                            '& input[type=number]::-webkit-inner-spin-button': {
-                                                                WebkitAppearance: 'none',
-                                                                margin: 0,
-                                                            },
-                                                        },
-                                                    }}
-                                                />
-                                            </Stack>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-
-                                {/* Network Settings */}
-                                <Grid size={12}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                                <NetworkIcon sx={{ mr: 1 }} />
-                                                <Typography variant="h6">Network Settings</Typography>
-                                            </Box>
-                                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                                Configure network monitoring and scanning settings.
-                                            </Typography>
-                                            <Stack spacing={3}>
-                                                <TextField
-                                                    label="Cache Timeout (ms)"
-                                                    value={settings?.cacheTimeout || ''}
-                                                    onChange={(e) => handleSettingChange('cacheTimeout', parseInt(e.target.value) || 300000)}
-                                                    type="number"
-                                                    helperText="How long to cache system data before refreshing"
-                                                    fullWidth
-                                                />
-                                                <TextField
-                                                    label="Scan Timeout (ms)"
-                                                    value={settings?.scanTimeout || ''}
-                                                    onChange={(e) => handleSettingChange('scanTimeout', parseInt(e.target.value) || 30000)}
-                                                    type="number"
-                                                    helperText="Timeout for network scanning operations"
-                                                    fullWidth
-                                                />
-                                            </Stack>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                            </Grid>
-                        </Box>
-                    )}
-
-                    {/* Device/Appearance Settings Tab */}
-                    {currentTabId === 'device' && (
-                        <Box
-                            role="tabpanel"
-                            id="settings-tabpanel-device"
-                            aria-labelledby="settings-tab-device"
-                        >
-                            <Grid container spacing={3}>
-                                {/* Theme Settings */}
-                                <Grid size={{ xs: 12, md: 6 }}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                                <ThemeIcon sx={{ mr: 1 }} />
-                                                <Typography variant="h6">Appearance</Typography>
-                                            </Box>
-                                            <Stack spacing={2}>
-                                                <Box>
-                                                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                                        Theme Mode
-                                                    </Typography>
-                                                    <ToggleButtonGroup
-                                                        value={themeMode}
-                                                        exclusive
-                                                        onChange={(e, newMode) => newMode && setThemeMode(newMode)}
-                                                        aria-label="theme mode"
-                                                        fullWidth
-                                                    >
-                                                        <ToggleButton value="light" aria-label="light mode">
-                                                            <LightIcon sx={{ mr: 1 }} />
-                                                            Light
-                                                        </ToggleButton>
-                                                        <ToggleButton value="dark" aria-label="dark mode">
-                                                            <DarkIcon sx={{ mr: 1 }} />
-                                                            Dark
-                                                        </ToggleButton>
-                                                        <ToggleButton value="device" aria-label="device mode">
-                                                            <DeviceIcon sx={{ mr: 1 }} />
-                                                            Device
-                                                        </ToggleButton>
-                                                    </ToggleButtonGroup>
-                                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                                                        Currently using: {actualMode} mode
-                                                        {themeMode === 'device' && ' (following device preference)'}
-                                                    </Typography>
-                                                </Box>
-                                            </Stack>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                            </Grid>
-                        </Box>
-                    )}
-
-                    {/* Users Management Tab */}
-                    {currentTabId === 'users' && (
-                        <Box
-                            role="tabpanel"
-                            id="settings-tabpanel-users"
-                            aria-labelledby="settings-tab-users"
-                        >
-                            <UsersPanel currentUser={user} />
-                        </Box>
-                    )}
+            <Box sx={{ width: '100%' }}>
+                <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                    <Tabs
+                        value={tabValue}
+                        onChange={handleTabChange}
+                        aria-label="settings tabs"
+                        variant="scrollable"
+                        scrollButtons="auto"
+                        allowScrollButtonsMobile
+                        sx={{
+                            '& .MuiTabs-scrollButtons': {
+                                '&.Mui-disabled': { opacity: 0.3 }
+                            }
+                        }}
+                    >
+                        {tabsList.map((t, idx) => (
+                            <Tab
+                                key={t.id}
+                                icon={t.icon}
+                                iconPosition="start"
+                                label={t.label}
+                                id={`settings-tab-${idx}`}
+                                aria-controls={`settings-tabpanel-${idx}`}
+                                sx={{
+                                    minWidth: { xs: 'auto', sm: 120 },
+                                    '& .MuiTab-iconWrapper': {
+                                        display: { xs: 'none', sm: 'block' }
+                                    }
+                                }}
+                            />
+                        ))}
+                    </Tabs>
                 </Box>
-            )}
+
+                {/* System Settings Tab (Admin Only) */}
+                {currentTabId === 'system' && serverSettings && (
+                    <Box role="tabpanel" id="settings-tabpanel-system">
+                        <Grid container spacing={3}>
+                            {/* Timing Settings */}
+                            <Grid size={{ xs: 12, md: 6 }}>
+                                <Card>
+                                    <CardContent>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                            <TimerIcon sx={{ mr: 1 }} />
+                                            <Typography variant="h6">Timing Configuration</Typography>
+                                        </Box>
+                                        <Stack spacing={2}>
+                                            <TextField
+                                                label="Scan Timeout (ms)"
+                                                type="number"
+                                                value={serverSettings.scanTimeout}
+                                                onChange={(e) => handleServerSettingChange('scanTimeout', parseInt(e.target.value))}
+                                                fullWidth
+                                                helperText="Timeout for network scan operations"
+                                                InputProps={{
+                                                    sx: {
+                                                        '& input[type=number]': { MozAppearance: 'textfield' },
+                                                        '& input[type=number]::-webkit-outer-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                                                        '& input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                                                    },
+                                                }}
+                                            />
+                                            <TextField
+                                                label="Cache Timeout (ms)"
+                                                type="number"
+                                                value={serverSettings.cacheTimeout}
+                                                onChange={(e) => handleServerSettingChange('cacheTimeout', parseInt(e.target.value))}
+                                                fullWidth
+                                                helperText="How long to cache device status"
+                                                InputProps={{
+                                                    sx: {
+                                                        '& input[type=number]': { MozAppearance: 'textfield' },
+                                                        '& input[type=number]::-webkit-outer-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                                                        '& input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                                                    },
+                                                }}
+                                            />
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        </Grid>
+                    </Box>
+                )}
+
+                {/* User Settings Tab */}
+                {currentTabId === 'user' && userSettings && (
+                    <Box role="tabpanel" id="settings-tabpanel-user">
+                        <Grid container spacing={3}>
+                            {/* Navigation Preferences */}
+                            <Grid size={{ xs: 12, md: 6 }}>
+                                <Card>
+                                    <CardContent>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                            <UserIcon sx={{ mr: 1 }} />
+                                            <Typography variant="h6">Navigation</Typography>
+                                        </Box>
+                                        <Stack spacing={2}>
+                                            <FormControl fullWidth>
+                                                <InputLabel>Default Home Page</InputLabel>
+                                                <Select
+                                                    value={userSettings.defaultHomePage || 'home'}
+                                                    label="Default Home Page"
+                                                    onChange={(e) => handleUserSettingChange('defaultHomePage', e.target.value)}
+                                                >
+                                                    <MenuItem value="home">Home Dashboard</MenuItem>
+                                                    <MenuItem value="devices">Devices</MenuItem>
+                                                </Select>
+                                                <FormHelperText>Page shown when you first sign in</FormHelperText>
+                                            </FormControl>
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+
+                            {/* Device List Preferences */}
+                            <Grid size={{ xs: 12, md: 6 }}>
+                                <Card>
+                                    <CardContent>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                            <DevicesIcon sx={{ mr: 1 }} />
+                                            <Typography variant="h6">Device List</Typography>
+                                        </Box>
+                                        <Stack spacing={2}>
+                                            <FormControl fullWidth>
+                                                <InputLabel>Default View</InputLabel>
+                                                <Select
+                                                    value={userSettings.deviceListView || 'grid'}
+                                                    label="Default View"
+                                                    onChange={(e) => handleUserSettingChange('deviceListView', e.target.value)}
+                                                >
+                                                    <MenuItem value="grid">Grid</MenuItem>
+                                                    <MenuItem value="list">List</MenuItem>
+                                                </Select>
+                                                <FormHelperText>How devices are displayed by default</FormHelperText>
+                                            </FormControl>
+                                            <TextField
+                                                label="Devices Per Page"
+                                                type="number"
+                                                value={userSettings.devicesPerPage || 25}
+                                                onChange={(e) => handleUserSettingChange('devicesPerPage', Math.max(5, Math.min(100, parseInt(e.target.value) || 25)))}
+                                                fullWidth
+                                                helperText="Number of devices shown per page (5-100)"
+                                                InputProps={{
+                                                    sx: {
+                                                        '& input[type=number]': { MozAppearance: 'textfield' },
+                                                        '& input[type=number]::-webkit-outer-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                                                        '& input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                                                    },
+                                                }}
+                                            />
+                                            <FormControlLabel
+                                                control={
+                                                    <Switch
+                                                        checked={userSettings.showOfflineDevices ?? true}
+                                                        onChange={(e) => handleUserSettingChange('showOfflineDevices', e.target.checked)}
+                                                    />
+                                                }
+                                                label="Show offline devices"
+                                            />
+                                            <FormControlLabel
+                                                control={
+                                                    <Switch
+                                                        checked={userSettings.compactMode ?? false}
+                                                        onChange={(e) => handleUserSettingChange('compactMode', e.target.checked)}
+                                                    />
+                                                }
+                                                label="Compact mode"
+                                            />
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        </Grid>
+                    </Box>
+                )}
+
+                {/* Device Settings Tab (localStorage) */}
+                {currentTabId === 'device' && (
+                    <Box role="tabpanel" id="settings-tabpanel-device">
+                        <Alert severity="info" sx={{ mb: 3 }}>
+                            Device settings are stored locally on this browser and not synced across devices.
+                        </Alert>
+                        <Grid container spacing={3}>
+                            {/* Theme Settings */}
+                            <Grid size={{ xs: 12, md: 6 }}>
+                                <Card>
+                                    <CardContent>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                            <ThemeIcon sx={{ mr: 1 }} />
+                                            <Typography variant="h6">Appearance</Typography>
+                                        </Box>
+                                        <Stack spacing={2}>
+                                            <Box>
+                                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                                    Theme Mode
+                                                </Typography>
+                                                <ToggleButtonGroup
+                                                    value={themeMode}
+                                                    exclusive
+                                                    onChange={(e, newMode) => newMode && setThemeMode(newMode)}
+                                                    aria-label="theme mode"
+                                                    fullWidth
+                                                >
+                                                    <ToggleButton value="light" aria-label="light mode">
+                                                        <LightIcon sx={{ mr: 1 }} />
+                                                        Light
+                                                    </ToggleButton>
+                                                    <ToggleButton value="dark" aria-label="dark mode">
+                                                        <DarkIcon sx={{ mr: 1 }} />
+                                                        Dark
+                                                    </ToggleButton>
+                                                    <ToggleButton value="device" aria-label="device mode">
+                                                        <DeviceIcon sx={{ mr: 1 }} />
+                                                        Device
+                                                    </ToggleButton>
+                                                </ToggleButtonGroup>
+                                                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                                    Currently using: {actualMode} mode
+                                                    {themeMode === 'device' && ' (following device preference)'}
+                                                </Typography>
+                                            </Box>
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        </Grid>
+                    </Box>
+                )}
+            </Box>
         </Container>
     );
 };

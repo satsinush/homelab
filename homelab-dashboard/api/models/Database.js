@@ -84,6 +84,14 @@ class DatabaseModel {
 
             CREATE INDEX IF NOT EXISTS idx_chat_conversations_user_id ON chat_conversations(user_id);
             CREATE INDEX IF NOT EXISTS idx_chat_conversations_updated_at ON chat_conversations(updated_at);
+
+            CREATE TABLE IF NOT EXISTS user_settings (
+                user_id  INTEGER NOT NULL,
+                key      TEXT NOT NULL,
+                value    TEXT,
+                PRIMARY KEY (user_id, key),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
         `);
     }
 

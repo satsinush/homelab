@@ -358,9 +358,10 @@ class UserController {
                     validatedNewPassword = ValidationUtils.validatePassword(newPassword);
                 }
                 
-                // Current password validation (if changing password)
-                if (newPassword && !currentPassword) {
-                    throw new Error('Current password is required to change password');
+                // Current password required for any change (username or password)
+                const isUsernameChanging = validatedUsername !== req.session.user.username;
+                if (!isSSO && (isUsernameChanging || newPassword) && !currentPassword) {
+                    throw new Error('Current password is required to make changes');
                 }
                 
             } catch (validationError) {

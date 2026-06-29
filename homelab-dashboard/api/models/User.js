@@ -135,25 +135,25 @@ class User {
                     lastLogin: new Date().toISOString()
                 };
             } else {
-                console.log('No existing SSO user found, checking for local user with same username');
-                // Check if a local user exists with the same username
-                const localUserStmt = this.db.prepare('SELECT * FROM users WHERE LOWER(username) = LOWER(?) AND is_sso_user = 0');
-                const localUser = localUserStmt.get(username);
+                let localUser = null;
+                if (email) {
+                    console.log(`No existing SSO user found, checking for local user with email: ${email}`);
+                    const localUserStmt = this.db.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?) AND is_sso_user = 0');
+                    localUser = localUserStmt.get(email);
+                }
 
                 if (localUser) {
-                    // Map SSO user to existing local user by updating their groups and marking as SSO-linked
-                    console.log(`Linking SSO profile to existing local user: ${username}`);
+                    // Map SSO user to existing local user by updating their details and marking as SSO-linked
+                    console.log(`Linking SSO profile to existing local user (matching email): ${localUser.username}`);
                     console.log(`Previous local user groups: ${JSON.stringify(JSON.parse(localUser.groups))}`);
                     console.log(`New groups from SSO: ${JSON.stringify(userGroups)}`);
                     
-                    // Always update groups to match what Authentik provides
-                    // This ensures role changes in Authentik are reflected for linked local users
                     const updateStmt = this.db.prepare(`
                         UPDATE users 
-                        SET email = ?, groups = ?, sso_id = ?, last_login = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+                        SET username = ?, email = ?, groups = ?, sso_id = ?, last_login = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
                         WHERE id = ?
                     `);
-                    updateStmt.run(email, JSON.stringify(userGroups), ssoId, localUser.id);
+                    updateStmt.run(username, email, JSON.stringify(userGroups), ssoId, localUser.id);
                                         
                     return {
                         id: localUser.id,

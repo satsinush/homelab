@@ -55,9 +55,9 @@ const LoginChoice = () => {
                     }}
                 >
                     <Box sx={{ textAlign: 'center', mb: 4 }}>
-                        <SecurityIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+                        <Box component="img" src="/homelab-icon.svg" alt="Homelab" sx={{ width: 64, height: 64, mb: 2 }} />
                         <Typography variant="h4" component="h1" gutterBottom>
-                            Welcome
+                            Homelab Dashboard
                         </Typography>
                         <Typography variant="body1" color="text.secondary">
                             {disableLocalAuth ? 'Sign in with your homelab account' : 'Choose your login method'}

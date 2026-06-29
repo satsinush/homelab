@@ -117,6 +117,9 @@ const LocalLogin = ({ onBack }) => {
                         borderRadius: 2
                     }}
                 >
+                    <Box sx={{ textAlign: 'center', mb: 2 }}>
+                        <Box component="img" src="/homelab-icon.svg" alt="Homelab" sx={{ width: 48, height: 48 }} />
+                    </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                         <IconButton onClick={onBack} sx={{ mr: 1 }}>
                             <ArrowBack />

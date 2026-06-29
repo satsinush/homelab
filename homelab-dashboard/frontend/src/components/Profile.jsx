@@ -15,386 +15,417 @@ import {
     Stack,
     Card,
     CardContent,
-    CardHeader,
-    Avatar
+    Avatar,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Chip
 } from '@mui/material';
 import {
     Person as PersonIcon,
     Lock as LockIcon,
     Visibility as VisibilityIcon,
     VisibilityOff as VisibilityOffIcon,
-    Save as SaveIcon,
-    AccountCircle as AccountCircleIcon
+    Edit as EditIcon,
+    AccountCircle as AccountCircleIcon,
+    Shield as AdminIcon,
+    Cloud as SSOIcon,
+    Computer as LocalIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { tryApiCall } from '../utils/api';
 
-const Profile = () => {
-    const { user, refreshUser } = useAuth();
-    const { showError, showSuccess } = useNotification();
+const autofillSx = (theme) => ({
+    '& input:-webkit-autofill': {
+        WebkitBoxShadow: '0 0 0 1000px transparent inset',
+        WebkitTextFillColor: `${theme.palette.text.primary} !important`,
+        backgroundColor: 'transparent !important',
+        transition: 'background-color 5000s ease-in-out 0s',
+    },
+    '& input:-webkit-autofill:hover': {
+        WebkitBoxShadow: '0 0 0 1000px transparent inset',
+        WebkitTextFillColor: `${theme.palette.text.primary} !important`,
+    },
+    '& input:-webkit-autofill:focus': {
+        WebkitBoxShadow: '0 0 0 1000px transparent inset',
+        WebkitTextFillColor: `${theme.palette.text.primary} !important`,
+    },
+});
 
-    const [username, setUsername] = useState(user?.username || '');
-    const [currentPassword, setCurrentPassword] = useState('');
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-    const [showNewPassword, setShowNewPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+// Change Username Modal
+const ChangeUsernameModal = ({ open, onClose, currentUsername, onSuccess }) => {
+    const [newUsername, setNewUsername] = useState(currentUsername);
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const { showSuccess, showError } = useNotification();
 
-    const handleUpdateProfile = async (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
         setError('');
-        setSuccess('');
 
-        // Validation
-        if (!username || username.trim().length < 3) {
+        if (!newUsername || newUsername.trim().length < 3) {
             setError('Username must be at least 3 characters long');
-            setLoading(false);
             return;
         }
 
-        if (newPassword && user?.is_sso_user) {
-            setError('SSO users cannot change passwords locally');
-            setLoading(false);
+        if (newUsername.trim() === currentUsername) {
+            setError('New username is the same as current');
             return;
         }
 
-        if (newPassword && newPassword.length < 6) {
-            setError('New password must be at least 6 characters long');
-            setLoading(false);
+        if (!password) {
+            setError('Password is required to change username');
             return;
         }
 
-        if (newPassword && newPassword !== confirmPassword) {
-            setError('New passwords do not match');
-            setLoading(false);
-            return;
-        }
-
-        if (newPassword && !user?.is_sso_user && !currentPassword) {
-            setError('Current password is required to change password');
-            setLoading(false);
-            return;
-        }
-
+        setLoading(true);
         try {
-            const result = await tryApiCall('/users/profile', {
+            await tryApiCall('/users/profile', {
                 method: 'PUT',
                 data: {
-                    username: username.trim(),
-                    currentPassword: currentPassword || undefined,
-                    newPassword: newPassword || undefined
+                    username: newUsername.trim(),
+                    currentPassword: password
                 }
             });
-
-            const message = newPassword ?
-                'Profile and password updated successfully' :
-                'Profile updated successfully'; setSuccess(message);
-            showSuccess(message);
-
-            // Clear password fields
-            setCurrentPassword('');
-            setNewPassword('');
-            setConfirmPassword('');
-
-            // Refresh user info to get updated username
-            await refreshUser();
-
-        } catch (error) {
-            console.error('Profile update failed:', error);
-            // Use the error message from the standardized API response
-            const errorMessage = error.message || 'Profile update failed';
-            setError(errorMessage);
-            showError(errorMessage);
+            showSuccess('Username updated successfully');
+            onSuccess();
+            handleClose();
+        } catch (err) {
+            const msg = err.message || 'Failed to update username';
+            setError(msg);
+            showError(msg);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleTogglePassword = (field) => {
-        switch (field) {
-            case 'current':
-                setShowCurrentPassword(!showCurrentPassword);
-                break;
-            case 'new':
-                setShowNewPassword(!showNewPassword);
-                break;
-            case 'confirm':
-                setShowConfirmPassword(!showConfirmPassword);
-                break;
+    const handleClose = () => {
+        setNewUsername(currentUsername);
+        setPassword('');
+        setShowPassword(false);
+        setError('');
+        onClose();
+    };
+
+    return (
+        <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+            <form onSubmit={handleSubmit}>
+                <DialogTitle>Change Username</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={3} sx={{ mt: 1 }}>
+                        {error && <Alert severity="error">{error}</Alert>}
+                        <TextField
+                            autoFocus
+                            fullWidth
+                            label="New Username"
+                            value={newUsername}
+                            onChange={(e) => setNewUsername(e.target.value)}
+                            disabled={loading}
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <PersonIcon color="action" />
+                                        </InputAdornment>
+                                    ),
+                                },
+                            }}
+                            helperText="Username must be at least 3 characters long"
+                            sx={autofillSx}
+                        />
+                        <TextField
+                            fullWidth
+                            label="Confirm Password"
+                            type={showPassword ? 'text' : 'password'}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            disabled={loading}
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <LockIcon color="action" />
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: (
+                                        <InputAdornment position="end">
+                                            <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" disabled={loading}>
+                                                {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ),
+                                },
+                            }}
+                            helperText="Enter your current password to confirm this change"
+                            sx={autofillSx}
+                        />
+                    </Stack>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={handleClose} disabled={loading}>Cancel</Button>
+                    <Button
+                        type="submit"
+                        variant="contained"
+                        disabled={loading}
+                        startIcon={loading ? <CircularProgress size={20} /> : null}
+                    >
+                        {loading ? 'Saving...' : 'Change Username'}
+                    </Button>
+                </DialogActions>
+            </form>
+        </Dialog>
+    );
+};
+
+// Change Password Modal
+const ChangePasswordModal = ({ open, onClose }) => {
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [showCurrent, setShowCurrent] = useState(false);
+    const [showNew, setShowNew] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const { user } = useAuth();
+    const { showSuccess, showError } = useNotification();
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+
+        if (!currentPassword) {
+            setError('Current password is required');
+            return;
+        }
+
+        if (!newPassword || newPassword.length < 6) {
+            setError('New password must be at least 6 characters long');
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            setError('New passwords do not match');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await tryApiCall('/users/profile', {
+                method: 'PUT',
+                data: {
+                    username: user.username,
+                    currentPassword,
+                    newPassword
+                }
+            });
+            showSuccess('Password updated successfully');
+            handleClose();
+        } catch (err) {
+            const msg = err.message || 'Failed to update password';
+            setError(msg);
+            showError(msg);
+        } finally {
+            setLoading(false);
         }
     };
+
+    const handleClose = () => {
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setShowCurrent(false);
+        setShowNew(false);
+        setShowConfirm(false);
+        setError('');
+        onClose();
+    };
+
+    const passwordField = (label, value, setValue, show, setShow, helperText) => (
+        <TextField
+            fullWidth
+            label={label}
+            type={show ? 'text' : 'password'}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            disabled={loading}
+            slotProps={{
+                input: {
+                    startAdornment: (
+                        <InputAdornment position="start">
+                            <LockIcon color="action" />
+                        </InputAdornment>
+                    ),
+                    endAdornment: (
+                        <InputAdornment position="end">
+                            <IconButton onClick={() => setShow(!show)} edge="end" disabled={loading}>
+                                {show ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                            </IconButton>
+                        </InputAdornment>
+                    ),
+                },
+            }}
+            helperText={helperText}
+            sx={autofillSx}
+        />
+    );
+
+    return (
+        <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+            <form onSubmit={handleSubmit}>
+                <DialogTitle>Change Password</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={3} sx={{ mt: 1 }}>
+                        {error && <Alert severity="error">{error}</Alert>}
+                        {passwordField('Current Password', currentPassword, setCurrentPassword, showCurrent, setShowCurrent, 'Enter your current password')}
+                        <Divider />
+                        {passwordField('New Password', newPassword, setNewPassword, showNew, setShowNew, 'At least 6 characters')}
+                        {passwordField('Confirm New Password', confirmPassword, setConfirmPassword, showConfirm, setShowConfirm, 'Must match new password')}
+                    </Stack>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Button onClick={handleClose} disabled={loading}>Cancel</Button>
+                    <Button
+                        type="submit"
+                        variant="contained"
+                        disabled={loading}
+                        startIcon={loading ? <CircularProgress size={20} /> : null}
+                    >
+                        {loading ? 'Saving...' : 'Change Password'}
+                    </Button>
+                </DialogActions>
+            </form>
+        </Dialog>
+    );
+};
+
+const Profile = () => {
+    const { user, refreshUser } = useAuth();
+    const isSSO = user?.is_sso_user;
+    const isAdmin = user?.groups?.includes('admin');
+    const [usernameModalOpen, setUsernameModalOpen] = useState(false);
+    const [passwordModalOpen, setPasswordModalOpen] = useState(false);
 
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
             <Paper elevation={1} sx={{ p: 4 }}>
+                {/* Header */}
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-                    <Avatar sx={{ bgcolor: 'primary.main', mr: 2, width: 56, height: 56 }}>
-                        <AccountCircleIcon sx={{ fontSize: 32 }} />
+                    <Avatar sx={{ bgcolor: 'primary.main', mr: 2, width: 64, height: 64, fontSize: '1.5rem' }}>
+                        {user?.username?.charAt(0).toUpperCase()}
                     </Avatar>
-                    <Box>
-                        <Typography variant="h4" component="h1" gutterBottom>
-                            Profile Settings
-                        </Typography>
-                        <Typography variant="body1" color="text.secondary">
-                            Update your account information and password
+                    <Box sx={{ flexGrow: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                            <Typography variant="h4" component="h1">
+                                {user?.username}
+                            </Typography>
+                            {isAdmin && (
+                                <Chip icon={<AdminIcon />} label="Admin" size="small" color="warning" variant="outlined" />
+                            )}
+                            <Chip
+                                icon={isSSO ? <SSOIcon /> : <LocalIcon />}
+                                label={isSSO ? 'SSO Account' : 'Local Account'}
+                                size="small"
+                                variant="outlined"
+                            />
+                        </Box>
+                        <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {user?.email || 'No email set'}
                         </Typography>
                     </Box>
                 </Box>
 
-                <form onSubmit={handleUpdateProfile}>
-                    <Stack spacing={4}>
-                        {/* User Information Card */}
-                        <Card variant="outlined">
-                            <CardHeader
-                                avatar={<PersonIcon color="primary" />}
-                                title="User Information"
-                                subheader="Update your basic account details"
-                            />
-                            <CardContent>
-                                <Stack spacing={3}>
-                                    {error && (
-                                        <Alert severity="error">
-                                            {error}
-                                        </Alert>
-                                    )}
+                {/* SSO Notice */}
+                {isSSO && (
+                    <Alert severity="info" sx={{ mb: 3 }}>
+                        Your account is managed through Authentik SSO. Username and password changes must be made through your SSO provider.
+                    </Alert>
+                )}
 
-                                    {success && (
-                                        <Alert severity="success">
-                                            {success}
-                                        </Alert>
-                                    )}
+                {/* Account Details */}
+                <Card variant="outlined" sx={{ mb: 3 }}>
+                    <CardContent>
+                        <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Account Details</Typography>
+                        <Stack spacing={2}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Box>
+                                    <Typography variant="body2" color="text.secondary">Username</Typography>
+                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>{user?.username}</Typography>
+                                </Box>
+                                {!isSSO && (
+                                    <Button
+                                        variant="outlined"
+                                        size="small"
+                                        startIcon={<EditIcon />}
+                                        onClick={() => setUsernameModalOpen(true)}
+                                    >
+                                        Change
+                                    </Button>
+                                )}
+                            </Box>
+                            <Divider />
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Box>
+                                    <Typography variant="body2" color="text.secondary">Email</Typography>
+                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>{user?.email || 'Not set'}</Typography>
+                                </Box>
+                            </Box>
+                            <Divider />
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Box>
+                                    <Typography variant="body2" color="text.secondary">Groups</Typography>
+                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                        {user?.groups?.join(', ') || 'None'}
+                                    </Typography>
+                                </Box>
+                            </Box>
+                        </Stack>
+                    </CardContent>
+                </Card>
 
-                                    {user?.is_sso_user && (
-                                        <Alert severity="info">
-                                            Profile credentials are managed via Authentik SSO
-                                        </Alert>
-                                    )}
-
-                                    <TextField
-                                        fullWidth
-                                        label="Username"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
-                                        disabled={loading || user?.is_sso_user}
-                                        slotProps={{
-                                            input: {
-                                                startAdornment: (
-                                                    <InputAdornment position="start">
-                                                        <PersonIcon color="action" />
-                                                    </InputAdornment>
-                                                ),
-                                            },
-                                        }}
-                                        helperText="Username must be at least 3 characters long"
-                                        sx={(theme) => ({
-                                            '& input:-webkit-autofill': {
-                                                WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                                backgroundColor: 'transparent !important',
-                                                transition: 'background-color 5000s ease-in-out 0s',
-                                            },
-                                            '& input:-webkit-autofill:hover': {
-                                                WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                            },
-                                            '& input:-webkit-autofill:focus': {
-                                                WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                            },
-                                        })}
-                                    />
-
-                                    <Box>
-                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                            <strong>Groups:</strong> {user?.groups?.join(', ') || 'N/A'}
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                            <strong>Email:</strong> {user?.email || 'N/A'}
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary">
-                                            <strong>Account Type:</strong> {user?.is_sso_user ? 'SSO User' : 'Local User'}
-                                        </Typography>
-                                    </Box>
-                                </Stack>
-                            </CardContent>
-                        </Card>
-
-                        {/* Password Change Card - Only show for local users */}
-                        {!user?.is_sso_user && (
-                            <Card variant="outlined">
-                                <CardHeader
-                                    avatar={<LockIcon color="primary" />}
-                                    title="Change Password"
-                                    subheader="Leave blank if you don't want to change your password"
-                                />
-                                <CardContent>
-                                    <Stack spacing={3}>
-                                        <TextField
-                                            fullWidth
-                                            label="Current Password"
-                                            type={showCurrentPassword ? 'text' : 'password'}
-                                            value={currentPassword}
-                                            onChange={(e) => setCurrentPassword(e.target.value)}
-                                            disabled={loading}
-                                            slotProps={{
-                                                input: {
-                                                    startAdornment: (
-                                                        <InputAdornment position="start">
-                                                            <LockIcon color="action" />
-                                                        </InputAdornment>
-                                                    ),
-                                                    endAdornment: (
-                                                        <InputAdornment position="end">
-                                                            <IconButton
-                                                                onClick={() => handleTogglePassword('current')}
-                                                                edge="end"
-                                                                disabled={loading}
-                                                            >
-                                                                {showCurrentPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                                                            </IconButton>
-                                                        </InputAdornment>
-                                                    ),
-                                                },
-                                            }}
-                                            helperText="Required only if changing password"
-                                            sx={(theme) => ({
-                                                '& input:-webkit-autofill': {
-                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                                    backgroundColor: 'transparent !important',
-                                                    transition: 'background-color 5000s ease-in-out 0s',
-                                                },
-                                                '& input:-webkit-autofill:hover': {
-                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                                },
-                                                '& input:-webkit-autofill:focus': {
-                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                                },
-                                            })}
-                                        />
-
-                                        <TextField
-                                            fullWidth
-                                            label="New Password"
-                                            type={showNewPassword ? 'text' : 'password'}
-                                            value={newPassword}
-                                            onChange={(e) => setNewPassword(e.target.value)}
-                                            disabled={loading}
-                                            slotProps={{
-                                                input: {
-                                                    startAdornment: (
-                                                        <InputAdornment position="start">
-                                                            <LockIcon color="action" />
-                                                        </InputAdornment>
-                                                    ),
-                                                    endAdornment: (
-                                                        <InputAdornment position="end">
-                                                            <IconButton
-                                                                onClick={() => handleTogglePassword('new')}
-                                                                edge="end"
-                                                                disabled={loading}
-                                                            >
-                                                                {showNewPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                                                            </IconButton>
-                                                        </InputAdornment>
-                                                    ),
-                                                },
-                                            }}
-                                            helperText="Password must be at least 6 characters long"
-                                            sx={(theme) => ({
-                                                '& input:-webkit-autofill': {
-                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                                    backgroundColor: 'transparent !important',
-                                                    transition: 'background-color 5000s ease-in-out 0s',
-                                                },
-                                                '& input:-webkit-autofill:hover': {
-                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                                },
-                                                '& input:-webkit-autofill:focus': {
-                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                                },
-                                            })}
-                                        />
-
-                                        <TextField
-                                            fullWidth
-                                            label="Confirm New Password"
-                                            type={showConfirmPassword ? 'text' : 'password'}
-                                            value={confirmPassword}
-                                            onChange={(e) => setConfirmPassword(e.target.value)}
-                                            disabled={loading}
-                                            slotProps={{
-                                                input: {
-                                                    startAdornment: (
-                                                        <InputAdornment position="start">
-                                                            <LockIcon color="action" />
-                                                        </InputAdornment>
-                                                    ),
-                                                    endAdornment: (
-                                                        <InputAdornment position="end">
-                                                            <IconButton
-                                                                onClick={() => handleTogglePassword('confirm')}
-                                                                edge="end"
-                                                                disabled={loading}
-                                                            >
-                                                                {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                                                            </IconButton>
-                                                        </InputAdornment>
-                                                    ),
-                                                },
-                                            }}
-                                            helperText="Must match new password"
-                                            sx={(theme) => ({
-                                                '& input:-webkit-autofill': {
-                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                                    backgroundColor: 'transparent !important',
-                                                    transition: 'background-color 5000s ease-in-out 0s',
-                                                },
-                                                '& input:-webkit-autofill:hover': {
-                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                                },
-                                                '& input:-webkit-autofill:focus': {
-                                                    WebkitBoxShadow: '0 0 0 1000px transparent inset',
-                                                    WebkitTextFillColor: `${theme.palette.text.primary} !important`,
-                                                },
-                                            })}
-                                        />
-                                    </Stack>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* Submit Button */}
-                        {!user?.is_sso_user && (
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                {/* Security Section - Only for local users */}
+                {!isSSO && (
+                    <Card variant="outlined">
+                        <CardContent>
+                            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Security</Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Box>
+                                    <Typography variant="body2" color="text.secondary">Password</Typography>
+                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>••••••••</Typography>
+                                </Box>
                                 <Button
-                                    type="submit"
-                                    variant="contained"
-                                    size="large"
-                                    disabled={loading}
-                                    startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
-                                    sx={{ minWidth: 150 }}
+                                    variant="outlined"
+                                    size="small"
+                                    startIcon={<LockIcon />}
+                                    onClick={() => setPasswordModalOpen(true)}
                                 >
-                                    {loading ? 'Updating...' : 'Update Profile'}
+                                    Change
                                 </Button>
                             </Box>
-                        )}
-                    </Stack>
-                </form>
+                        </CardContent>
+                    </Card>
+                )}
             </Paper>
+
+            {/* Modals */}
+            {!isSSO && (
+                <>
+                    <ChangeUsernameModal
+                        open={usernameModalOpen}
+                        onClose={() => setUsernameModalOpen(false)}
+                        currentUsername={user?.username || ''}
+                        onSuccess={refreshUser}
+                    />
+                    <ChangePasswordModal
+                        open={passwordModalOpen}
+                        onClose={() => setPasswordModalOpen(false)}
+                    />
+                </>
+            )}
         </Container>
     );
 };

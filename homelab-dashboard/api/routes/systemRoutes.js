@@ -1,18 +1,40 @@
 const express = require('express');
 const SystemController = require('../controllers/systemController');
+const UserSettings = require('../models/UserSettings');
 const { requireAuth } = require('../middleware/authMiddleware');
+const { sendSuccess, sendError } = require('../utils/response');
 
 const router = express.Router();
 const systemController = new SystemController();
+const userSettings = new UserSettings();
 
 // Health check (no auth required)
 router.get('/health', (req, res) => systemController.healthCheck(req, res));
 
-// Settings endpoints
+// Server settings endpoints
 // GET: any authenticated user can read settings (non-admins need device settings)
 // PUT: admin-only — only admins can change server/system settings
 router.get('/settings', requireAuth(), (req, res) => systemController.getSettings(req, res));
 router.put('/settings', requireAuth('admin'), (req, res) => systemController.updateSettings(req, res));
+
+// User settings endpoints (per-user key-value store)
+router.get('/user-settings', requireAuth(), (req, res) => {
+    try {
+        const settings = userSettings.get(req.user.id);
+        return sendSuccess(res, { settings, defaults: userSettings.getDefaults() });
+    } catch (error) {
+        return sendError(res, 500, 'Failed to load user settings', error.message);
+    }
+});
+
+router.put('/user-settings', requireAuth(), (req, res) => {
+    try {
+        const updated = userSettings.setAll(req.user.id, req.body);
+        return sendSuccess(res, { settings: updated });
+    } catch (error) {
+        return sendError(res, 500, 'Failed to save user settings', error.message);
+    }
+});
 
 // System information endpoints
 router.get('/system', requireAuth('admin'), (req, res) => systemController.getSystemInfo(req, res));

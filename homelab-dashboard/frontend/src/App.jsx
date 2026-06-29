@@ -16,6 +16,7 @@ import WordGames from './components/WordGames';
 import PackageManager from './components/PackageManager';
 import Settings from './components/Settings';
 import Profile from './components/Profile';
+import Users from './components/Users';
 import NotFound from './components/NotFound';
 import './App.css';
 
@@ -47,6 +48,7 @@ function AppContent() {
     if (path === '/chat') return 'chat';
     if (path === '/wordgames') return 'wordgames';
     if (path === '/packages') return 'packages';
+    if (path === '/users') return 'users';
     if (path === '/settings') return 'settings';
     if (path === '/profile') return 'profile';
     return 'home';
@@ -60,6 +62,7 @@ function AppContent() {
     '/chat',
     '/wordgames',
     '/packages',
+    '/users',
     '/settings',
     '/profile'
   ];
@@ -130,6 +133,7 @@ function AppContent() {
                 <Route path="/chat" element={<AdminRoute><Chat /></AdminRoute>} />
                 <Route path="/wordgames" element={<AdminRoute><WordGames /></AdminRoute>} />
                 <Route path="/packages" element={<AdminRoute><PackageManager /></AdminRoute>} />
+                <Route path="/users" element={<AdminRoute><Users /></AdminRoute>} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="*" element={<NotFound />} />
