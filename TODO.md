@@ -1,15 +1,13 @@
 - Move user/api setup out of setup.sh?
-- make setup.sh into setup.py
+- Standardize mounts / COPY / named volumes, use :ro mounts more maybe?
+- Fix .env.template, use basic regex replacement and always use parentheses?
 - rename apprise_api to apprise_webhook
-- wait dynamically for services to start
 - Pcie gen 3?
 - set up .well-known/openid-configuration?
 - add specific roles for each service and page, implement roles in dashboard UI, make it so you can't sign in/access pages without proper roles
 - Make sure secrets managed properly
-- Fix .env.template, use basic regex replacement and always use parentheses?
 - Add next cloud
 - Add obsidian sync (desktop client and WebDAV for mobile)
-- Standardize mounts / COPY / named volumes, use :ro mounts more maybe?
 - Add cloud backup for containers (mega.nz, rclone)
 - Refactor dashboard to typescript
 - Ensure API is openapi compliant

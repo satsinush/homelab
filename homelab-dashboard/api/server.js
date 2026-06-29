@@ -150,8 +150,9 @@ const initializeServer = async () => {
                 }
                 
                 if (bootstrapUsername && bootstrapPassword) {
-                    console.log(`Bootstrapping admin user: ${bootstrapUsername}`);
-                    await userModel.createFirstUser(bootstrapUsername, bootstrapPassword);
+                    const bootstrapEmail = process.env.HOMELAB_EMAIL || `${bootstrapUsername}@${process.env.HOMELAB_HOSTNAME || 'homelab.home.arpa'}`;
+                    console.log(`Bootstrapping admin user: ${bootstrapUsername} (${bootstrapEmail})`);
+                    await userModel.createFirstUser(bootstrapUsername, bootstrapPassword, bootstrapEmail);
                 } else {
                     console.log('Admin user bootstrap skipped: credentials not provided in env or secrets');
                 }

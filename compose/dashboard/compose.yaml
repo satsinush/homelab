@@ -21,6 +21,7 @@ services:
       - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
       - HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
       - HOMELAB_USERNAME=${HOMELAB_USERNAME}
+      - HOMELAB_EMAIL=${HOMELAB_EMAIL}
       - HOMELAB_PASSWORD_FILE=/secrets/homelab_password
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
       - RUSTDESK_PUBKEY_PATH=/secrets/rustdesk_public_key

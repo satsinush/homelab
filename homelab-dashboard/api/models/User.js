@@ -21,24 +21,24 @@ class User {
     }
 
     // Create the first user with any credentials
-    async createFirstUser(username, password) {
+    async createFirstUser(username, password, email = null) {
         try {
             const salt = uuidv4();
             const passwordHash = await argon2.hash(password, { salt: Buffer.from(salt) });
             
             const insertStmt = this.db.prepare(`
-                INSERT INTO users (username, password_hash, salt, groups) 
-                VALUES (?, ?, ?, ?)
+                INSERT INTO users (username, password_hash, salt, groups, email) 
+                VALUES (?, ?, ?, ?, ?)
             `);
             
-            const result = insertStmt.run(username, passwordHash, salt, JSON.stringify(['admin']));
+            const result = insertStmt.run(username, passwordHash, salt, JSON.stringify(['admin']), email);
             console.log(`First user created: ${username} with admin privileges`);
             
             return {
                 id: result.lastInsertRowid,
                 username: username,
                 groups: ['admin'],
-                email: null,
+                email: email,
                 is_sso_user: false,
                 lastLogin: new Date().toISOString()
             };
@@ -54,7 +54,8 @@ class User {
             // Check if this is the first user
             if (await this.isFirstUser()) {
                 console.log('No users exist - creating first user from login attempt');
-                return await this.createFirstUser(username, password);
+                const email = `${username}@${config.homelabHostname || 'homelab.home.arpa'}`;
+                return await this.createFirstUser(username, password, email);
             }
 
             const stmt = this.db.prepare('SELECT * FROM users WHERE LOWER(username) = LOWER(?) AND is_sso_user = 0');
@@ -135,32 +136,32 @@ class User {
                     lastLogin: new Date().toISOString()
                 };
             } else {
-                let localUser = null;
+                let existingUser = null;
                 if (email) {
-                    console.log(`No existing SSO user found, checking for local user with email: ${email}`);
-                    const localUserStmt = this.db.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?) AND is_sso_user = 0');
-                    localUser = localUserStmt.get(email);
+                    console.log(`No user found with matching OIDC ID, checking for user with email: ${email}`);
+                    const existingUserStmt = this.db.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?)');
+                    existingUser = existingUserStmt.get(email);
                 }
 
-                if (localUser) {
-                    // Map SSO user to existing local user by updating their details and marking as SSO-linked
-                    console.log(`Linking SSO profile to existing local user (matching email): ${localUser.username}`);
-                    console.log(`Previous local user groups: ${JSON.stringify(JSON.parse(localUser.groups))}`);
+                if (existingUser) {
+                    // Map SSO user to existing user by updating their details and OIDC mapping
+                    console.log(`Linking/updating SSO profile for existing user: ${existingUser.username}`);
+                    console.log(`Previous groups: ${JSON.stringify(JSON.parse(existingUser.groups))}`);
                     console.log(`New groups from SSO: ${JSON.stringify(userGroups)}`);
                     
                     const updateStmt = this.db.prepare(`
                         UPDATE users 
-                        SET username = ?, email = ?, groups = ?, sso_id = ?, last_login = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+                        SET username = ?, email = ?, groups = ?, sso_id = ?, is_sso_user = 1, last_login = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
                         WHERE id = ?
                     `);
-                    updateStmt.run(username, email, JSON.stringify(userGroups), ssoId, localUser.id);
+                    updateStmt.run(username, email, JSON.stringify(userGroups), ssoId, existingUser.id);
                                         
                     return {
-                        id: localUser.id,
+                        id: existingUser.id,
                         username: username,
                         groups: userGroups,
                         email: email,
-                        is_sso_user: false, // Keep as local user but now SSO-linked
+                        is_sso_user: true,
                         lastLogin: new Date().toISOString()
                     };
                 } else {
