@@ -1,6 +1,7 @@
 - Move user/api setup out of setup.sh?
 - make setup.sh into setup.py
 - rename apprise_api to apprise_webhook
+- wait dynamically for services to start
 - Pcie gen 3?
 - set up .well-known/openid-configuration?
 - add specific roles for each service and page, implement roles in dashboard UI, make it so you can't sign in/access pages without proper roles
