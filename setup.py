@@ -589,7 +589,7 @@ if gotify_ready:
         print("   ✅ Generated apprise.yaml configuration")
 
         # Reload Apprise Gateway
-        body, status = container_curl("apprise-api", "GET", "http://localhost:8000/health")
+        body, status = container_curl("apprise-api", "GET", "http://localhost:80/health")
         print("   ✅ SMTP/HTTP notification gateway reloaded")
 else:
     print("   ❌ Gotify failed to start or did not become ready.")

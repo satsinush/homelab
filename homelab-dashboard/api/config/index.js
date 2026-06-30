@@ -125,7 +125,7 @@ const config = {
         url: `http://host.docker.internal:5001`
     },
     apprise: {
-        url: 'http://apprise-api:8000'
+        url: 'http://apprise-api'
     },
     dashBoardWebHostname: process.env.DASHBOARD_WEB_HOSTNAME,
     authentikWebHostname: process.env.AUTHENTIK_WEB_HOSTNAME,
