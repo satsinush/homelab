@@ -66,12 +66,9 @@ app.get('/api/config', (req, res) => {
     res.json({
         dashboardWebHostname: config.dashBoardWebHostname,
         piholeWebHostname: config.piholeWebHostname,
-        netdataWebHostname: config.netdataWebHostname,
-        portainerWebHostname: config.portainerWebHostname,
-        dockgeWebHostname: config.dockgeWebHostname,
         dockhandWebHostname: config.dockhandWebHostname,
         vaultwardenWebHostname: config.vaultwardenWebHostname,
-        uptimeKumaWebHostname: config.uptimeKumaWebHostname,
+        gatusWebHostname: config.gatusWebHostname,
         gotifyWebHostname: config.gotifyWebHostname,
         authentikWebHostname: config.authentikWebHostname,
         disableLocalAuth: config.disableLocalAuth,

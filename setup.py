@@ -88,8 +88,6 @@ if not os.path.exists(".env"):
     dns_domain = hostname.split(".", 1)[1] if "." in hostname else hostname
 
     os.makedirs("./volumes/secrets", exist_ok=True)
-    os.makedirs("./dockge/volumes/stacks", exist_ok=True)
-    os.makedirs("./apprise/volumes/config", exist_ok=True)
     os.chmod("./volumes/secrets", 0o700)
 
     with open("./volumes/secrets/homelab_password", "w") as f:
@@ -171,10 +169,8 @@ os.chmod("./volumes/secrets", 0o700)
 gen_secret("homelab_api_session_secret", 64)
 gen_secret("vaultwarden_admin_token", 64)
 gen_secret("vaultwarden_oidc_secret", 64)
-gen_secret("portainer_oidc_secret", 64)
 gen_secret("dashboard_oidc_secret", 64)
 gen_secret("gotify_admin_password", 32)
-gen_secret("portainer_admin_password", 32)
 gen_secret("authentik_secret_key", 50)
 gen_secret("authentik_pg_pass", 32)
 
@@ -184,7 +180,7 @@ with open(".env") as f:
     env_lines = f.readlines()
 
 new_env_lines = []
-secret_names_upper = ["AUTHENTIK_SECRET_KEY", "AUTHENTIK_PG_PASS", "PORTAINER_OIDC_SECRET", "VAULTWARDEN_OIDC_SECRET", "DASHBOARD_OIDC_SECRET", "GOTIFY_ADMIN_PASSWORD", "PORTAINER_ADMIN_PASSWORD"]
+secret_names_upper = ["AUTHENTIK_SECRET_KEY", "AUTHENTIK_PG_PASS", "VAULTWARDEN_OIDC_SECRET", "DASHBOARD_OIDC_SECRET", "GOTIFY_ADMIN_PASSWORD"]
 for line in env_lines:
     matched = False
     for sec in secret_names_upper:
@@ -303,18 +299,10 @@ vaultwarden_setup.setup(env)
 import traefik.setup as traefik_setup
 traefik_setup.setup(env)
 
-import dockge.setup as dockge_setup
-dockge_setup.setup(env)
-
-import uptime_kuma.setup as uptime_kuma_setup
-uptime_kuma_setup.setup(env)
-
 # 6. Start docker containers
 print("\n🐳 Starting Docker containers...")
 
 run_cmd("docker network create homelab-net --subnet 10.10.30.0/24 || true")
-with open("./volumes/secrets/matrix_bot_token", "a"):
-    pass # touch file
 
 run_cmd("docker compose build")
 run_cmd("docker compose up -d")
@@ -323,9 +311,6 @@ wait_for_containers()
 print("✅ Docker containers started")
 
 # 7. Per-service configuration (post-container-start)
-import portainer.setup as portainer_setup
-portainer_setup.setup(env)
-
 import apprise.setup as apprise_setup
 apprise_setup.setup(env)
 
@@ -338,12 +323,11 @@ print("==========================")
 print(f"📋 Access Information:\n   Username: {env.get('HOMELAB_USERNAME')}\n   Email:    {env.get('HOMELAB_USERNAME')}@{hostname}")
 
 gotify_pwd = os.environ.get("GOTIFY_ADMIN_PASSWORD", "")
-portainer_pwd = os.environ.get("PORTAINER_ADMIN_PASSWORD", "")
 
 print(f"\n🌐 Web Access:")
 print(f"   Dashboard:  https://{env.get('DASHBOARD_WEB_HOSTNAME')}")
 print(f"   Gotify:     https://{env.get('GOTIFY_WEB_HOSTNAME')} (User: admin / Pass: {gotify_pwd})")
-print(f"   Portainer:  https://{env.get('PORTAINER_WEB_HOSTNAME')} (Fallback User: admin / Pass: {portainer_pwd})")
+print(f"   Status:     https://{env.get('GATUS_WEB_HOSTNAME')}")
 print(f"   Auth:       https://{env.get('AUTHENTIK_WEB_HOSTNAME')}")
 print(f"   Vault:      https://{env.get('VAULTWARDEN_WEB_HOSTNAME')}")
 ssl_mode = 'Self-signed (private)' if cert_resolver != 'letsencrypt' else "Public (Let's Encrypt)"

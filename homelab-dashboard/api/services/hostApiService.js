@@ -62,6 +62,11 @@ class HostApiService {
     async healthCheck() {
         return this.makeRequest('/health');
     }
+
+    // System metrics monitoring
+    async getSystemMetrics() {
+        return this.makeRequest('/system/metrics');
+    }
 }
 
 module.exports = HostApiService;

@@ -2,43 +2,36 @@ const Settings = require('../models/Settings');
 const fs = require('fs');
 const config = require('../config');
 const HostApiService = require('../services/hostApiService');
-const NetdataService = require('../services/netdataService');
 const { sendError, sendSuccess } = require('../utils/response'); // Utility for standardized responses
 
 class SystemController {
     constructor() {
         this.settingsModel = new Settings();
         this.hostApi = new HostApiService();
-        this.netdata = new NetdataService();
     }
 
     // Health check (no auth required)
     async healthCheck(req, res) {
         try {
-            // Get basic system info from Netdata instead of host API
             let systemInfo = {
                 status: 'OK',
                 timestamp: new Date().toISOString(),
                 platform: 'unknown',
                 hostname: 'unknown',
-                version: '1.0.0'
+                version: '1.0.0',
+                hostApi: 'unavailable'
             };
 
             try {
-                // Check if Netdata is available
-                const netdataAvailable = await this.netdata.isAvailable();
-                if (netdataAvailable) {
-                    const infoResult = await this.netdata.getSystemInfo();
-                    systemInfo.platform = infoResult.platform || 'unknown';
-                    systemInfo.hostname = infoResult.hostname || 'unknown';
-                    systemInfo.netdata = 'available';
-                } else {
-                    systemInfo.netdata = 'unavailable';
-                    console.warn('Netdata is not available for health check');
+                // Check if Host API is available
+                const hostApiHealth = await this.hostApi.healthCheck();
+                if (hostApiHealth && hostApiHealth.status === 'OK') {
+                    systemInfo.platform = hostApiHealth.platform || 'unknown';
+                    systemInfo.hostname = hostApiHealth.hostname || 'unknown';
+                    systemInfo.hostApi = 'available';
                 }
             } catch (error) {
-                console.warn('Could not fetch system info from Netdata for health check:', error.message);
-                systemInfo.netdata = 'error';
+                console.warn('Could not fetch health check from Host API:', error.message);
             }
 
             return sendSuccess(res, systemInfo);
@@ -134,277 +127,158 @@ class SystemController {
         }
     }
 
+    // Get all secrets in /secrets (admin-only)
+    async getSecrets(req, res) {
+        try {
+            const secretsDir = '/secrets';
+            if (!fs.existsSync(secretsDir)) {
+                return sendSuccess(res, { secrets: [] });
+            }
+
+            const files = fs.readdirSync(secretsDir);
+            const secretsList = [];
+
+            for (const file of files) {
+                const filePath = `${secretsDir}/${file}`;
+                const stat = fs.statSync(filePath);
+                if (stat.isFile()) {
+                    try {
+                        const value = fs.readFileSync(filePath, 'utf8').trim();
+                        secretsList.push({
+                            name: file,
+                            value: value
+                        });
+                    } catch (readError) {
+                        console.error(`Failed to read secret ${file}:`, readError.message);
+                    }
+                }
+            }
+
+            return sendSuccess(res, { secrets: secretsList });
+        } catch (error) {
+            console.error('Get secrets error:', error);
+            return sendError(res, 500, 'Failed to retrieve secrets', error.message);
+        }
+    }
+
     // Internal methods (moved from SystemService)
 
-    // Get basic system information from Netdata
+    // Get basic system information from Host API
     async getBasicSystemInfo() {
         try {
-            // Get system info from Netdata instead of host API
-            const systemInfo = await this.netdata.getSystemInfo();
-            return systemInfo;
+            const metrics = await this.hostApi.getSystemMetrics();
+            if (metrics && metrics.success && metrics.data) {
+                return metrics.data.system;
+            }
         } catch (error) {
-            console.error('Netdata system info fetch error:', error);
-            
-            // Fallback data if Netdata fails
-            return {
-                hostname: 'unknown',
-                platform: 'unknown',
-                uptime: 0,
-                memory: {
-                    total: 0,
-                    used: 0,
-                    free: 0
-                },
-                cpu: {
-                    cores: 1,
-                    model: 'Unknown'
-                },
-                source: 'fallback'
-            };
+            console.error('Host API system info fetch error:', error);
         }
+        return {
+            hostname: 'unknown',
+            platform: 'unknown',
+            uptime: 0,
+            memory: { total: 0, used: 0, free: 0 },
+            cpu: { cores: 1, model: 'Unknown' },
+            source: 'fallback'
+        };
     }
 
-    // Get resource usage from Netdata
+    // Get resource usage from Host API
     async getResourceUsage() {
         try {
-            // Get all resource data from Netdata
-            const [cpuUsage, memoryUsage, diskUsage] = await Promise.allSettled([
-                this.netdata.getCpuUsage(),
-                this.netdata.getMemoryUsage(),
-                this.netdata.getDiskUsage()
-            ]);
-
-            return {
-                cpu: {
-                    usage: cpuUsage.status === 'fulfilled' ? cpuUsage.value.usage : 0,
-                },
-                memory: memoryUsage.status === 'fulfilled' ? memoryUsage.value : {
-                    total: 0,
-                    used: 0,
-                    free: 0,
-                    percentage: 0
-                },
-                disk: diskUsage.status === 'fulfilled' ? diskUsage.value : {
-                    total: 0,
-                    used: 0,
-                    available: 0,
-                    percentage: 0
-                },
-                source: 'netdata'
-            };
+            const metrics = await this.hostApi.getSystemMetrics();
+            if (metrics && metrics.success && metrics.data) {
+                return metrics.data.resources;
+            }
         } catch (error) {
-            console.error('Netdata resource usage fetch error:', error);
-            
-            // Fallback to basic values if Netdata fails
-            return {
-                cpu: {
-                    usage: 0,
-                },
-                memory: {
-                    total: 0,
-                    used: 0,
-                    free: 0,
-                    percentage: 0
-                },
-                disk: {
-                    total: 0,
-                    used: 0,
-                    available: 0,
-                    percentage: 0
-                },
-                source: 'fallback'
-            };
+            console.error('Host API resource usage fetch error:', error);
         }
+        return {
+            cpu: { usage: 0 },
+            memory: { total: 0, used: 0, free: 0, percentage: 0 },
+            disk: { total: 0, used: 0, available: 0, percentage: 0 },
+            source: 'fallback'
+        };
     }
 
-    // Get temperature information from Netdata
+    // Get temperature information from Host API
     async getTemperature() {
         try {
-            // Get temperature from Netdata
-            const tempResult = await this.netdata.getTemperature();
-            return tempResult;
+            const metrics = await this.hostApi.getSystemMetrics();
+            if (metrics && metrics.success && metrics.data) {
+                return metrics.data.temperature;
+            }
         } catch (error) {
-            console.error('Netdata temperature fetch error:', error);
-            
-            return {
-                cpu: null 
-            };
+            console.error('Host API temperature fetch error:', error);
         }
+        return { cpu: null };
     }
 
-    // Get network statistics from Netdata
+    // Get network statistics from Host API
     async getNetworkStats() {
         try {
-            // Get network statistics from Netdata
-            const networkStats = await this.netdata.getNetworkStats();
-            return networkStats;
+            const metrics = await this.hostApi.getSystemMetrics();
+            if (metrics && metrics.success && metrics.data) {
+                return metrics.data.network;
+            }
         } catch (error) {
-            console.error('Netdata network stats error:', error);
-            return {
-                interfaces: {},
-                source: 'fallback',
-                timestamp: new Date().toISOString(),
-                error: error.message
-            };
+            console.error('Host API network stats error:', error);
         }
+        return { interfaces: [], source: 'fallback', timestamp: new Date().toISOString() };
     }
 
-    // Get combined system information from Netdata
+    // Get combined system information from Host API
     async getCombinedSystemInfo() {
         const startTime = Date.now();
-        
         try {
-            // Get all system data from Netdata
-            const [systemInfoResult, resourcesResult, temperatureResult, networkResult] = await Promise.allSettled([
-                this.getBasicSystemInfo(),
-                this.getResourceUsage(),
-                this.getTemperature(),
-                this.getNetworkStats(),
-            ]);
-            
-            // Extract results from Promise.allSettled with better error handling
-            const systemInfo = systemInfoResult.status === 'fulfilled' ? systemInfoResult.value : {
-                hostname: 'unknown',
-                platform: 'unknown',
-                uptime: 0,
-                memory: { total: 0, used: 0, free: 0 },
-                cpu: { cores: 1, model: 'Unknown' },
-                source: 'fallback'
-            };
-            
-            const resources = resourcesResult.status === 'fulfilled' ? resourcesResult.value : {
-                cpu: { usage: 0 },
-                memory: { total: 0, used: 0, free: 0, percentage: 0 },
-                disk: { total: 0, used: 0, available: 0, percentage: 0 },
-                source: 'fallback'
-            };
-            
-            const temperature = temperatureResult.status === 'fulfilled' ? temperatureResult.value : {
-                cpu: null
-            };
-            
-            const network = networkResult.status === 'fulfilled' ? networkResult.value : {
-                interfaces: {},
-                source: 'fallback',
-                error: 'Network monitoring unavailable'
-            };
-            
-            // Log any failed promises for debugging
-            if (systemInfoResult.status === 'rejected') {
-                console.error('System info failed:', systemInfoResult.reason);
-            }
-            if (resourcesResult.status === 'rejected') {
-                console.error('Resources failed:', resourcesResult.reason);
-            }
-            if (temperatureResult.status === 'rejected') {
-                console.error('Temperature failed:', temperatureResult.reason);
-            }
-            if (networkResult.status === 'rejected') {
-                console.error('Network failed:', networkResult.reason);
-            }
-            
-            // Transform network data for frontend compatibility
-            let transformedNetwork = null;
-            if (network && network.interfaces) {
-                const filteredInterfaces = Object.values(network.interfaces)
-                    .filter(iface => 
-                        iface.name !== 'total' && 
-                        iface.name !== 'Total Network' && 
-                        !iface.name.includes('veth') &&
-                        iface.name !== 'docker0' &&
-                        !iface.name.startsWith('br-') // Exclude all bridge interfaces
-                    )
-                    .map(iface => ({
-                        name: iface.name,
-                        downloadSpeed: iface.downloadSpeed || 0,
-                        uploadSpeed: iface.uploadSpeed || 0,
-                        active: iface.active || false
-                    }));
-                
-                transformedNetwork = {
-                    interfaces: filteredInterfaces,
-                    source: network.source || 'netdata',
-                    timestamp: network.timestamp || new Date().toISOString()
-                };
-            } else {
-                transformedNetwork = {
-                    interfaces: [],
-                    source: 'unavailable',
-                    timestamp: new Date().toISOString()
-                };
+            const metrics = await this.hostApi.getSystemMetrics();
+            if (!metrics || !metrics.success || !metrics.data) {
+                throw new Error(metrics ? metrics.error : 'Invalid response from Host API');
             }
 
-            const executionTime = Date.now() - startTime;
-            
-            // Return combined system information optimized for Netdata
-            const combinedSystemInfo = {
-                system: {
-                    hostname: systemInfo.hostname,
-                    platform: systemInfo.platform,
-                    uptime: systemInfo.uptime,
-                    source: systemInfo.source || 'netdata'
+            const { system, resources, temperature, network } = metrics.data;
+
+            // Filter network interfaces
+            let filteredInterfaces = [];
+            if (network && Array.isArray(network.interfaces)) {
+                filteredInterfaces = network.interfaces.filter(iface => 
+                    iface.name !== 'total' && 
+                    iface.name !== 'Total Network' && 
+                    !iface.name.includes('veth') &&
+                    iface.name !== 'docker0' &&
+                    !iface.name.startsWith('br-')
+                );
+            }
+
+            return {
+                system,
+                resources,
+                temperature,
+                network: {
+                    interfaces: filteredInterfaces,
+                    source: network.source || 'host-api',
+                    timestamp: network.timestamp || new Date().toISOString()
                 },
-                resources: {
-                    cpu: {
-                        usage: resources.cpu.usage,
-                        cores: systemInfo.cpu.cores,
-                        model: systemInfo.cpu.model
-                    },
-                    memory: {
-                        total: resources.memory.total,
-                        used: resources.memory.used,
-                        free: resources.memory.free,
-                        percentage: resources.memory.percentage,
-                        cached: resources.memory.cached || 0,
-                        buffers: resources.memory.buffers || 0
-                    },
-                    disk: {
-                        total: resources.disk.total,
-                        used: resources.disk.used,
-                        available: resources.disk.available,
-                        percentage: resources.disk.percentage,
-                        filesystem: resources.disk.filesystem || '/',
-                        mountPoint: resources.disk.mountPoint || '/'
-                    }
-                },
-                temperature: temperature,
-                network: transformedNetwork,
-                executionTime: executionTime,
+                executionTime: Date.now() - startTime,
                 timestamp: new Date().toISOString(),
-                dataSource: 'netdata'
+                dataSource: 'host-api'
             };
-            return combinedSystemInfo;
         } catch (error) {
             console.error('Combined system info error:', error);
-            const executionTime = Date.now() - startTime;
-
-            const combinedSystemInfo = {
-                system: {
-                    hostname: 'unknown',
-                    platform: 'unknown',
-                    uptime: 0,
-                    source: 'error'
-                },
+            return {
+                system: { hostname: 'unknown', platform: 'unknown', uptime: 0, source: 'error' },
                 resources: {
                     cpu: { usage: 0, cores: 1, model: 'Unknown' },
                     memory: { total: 0, used: 0, free: 0, percentage: 0, cached: 0, buffers: 0 },
                     disk: { total: 0, used: 0, available: 0, percentage: 0, filesystem: '/', mountPoint: '/' }
                 },
-                temperature: {
-                    cpu: { main: null, cores: [], max: null },
-                    system: { source: 'error', message: 'System monitoring unavailable' }
-                },
-                network: {
-                    interfaces: [],
-                    source: 'error',
-                    timestamp: new Date().toISOString()
-                },
-                executionTime: executionTime,
+                temperature: { cpu: null },
+                network: { interfaces: [], source: 'error', timestamp: new Date().toISOString() },
+                executionTime: Date.now() - startTime,
                 timestamp: new Date().toISOString(),
                 dataSource: 'error',
                 error: error.message
             };
-            return combinedSystemInfo;
         }
     }
 

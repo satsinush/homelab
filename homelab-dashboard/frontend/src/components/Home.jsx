@@ -33,13 +33,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useConfig } from '../contexts/ConfigContext';
-import NetdataLogo from '../assets/netdata_logo.png';
 import PiHoleLogo from '../assets/pi_hole_logo.png';
-import PortainerLogo from '../assets/portainer_logo.jpg';
 import VaultwardenLogo from '../assets/vaultwarden_logo.png';
-import UptimeKumaLogo from '../assets/uptime_kuma_logo.png';
+import GatusLogo from '../assets/gatus_logo.png';
 import AuthIcon from '../assets/auth_icon.png';
-import DockgeLogo from '../assets/dockge_logo.png';
 import DockhandLogo from '../assets/dockhand_logo.png';
 import UsersIcon from '../assets/users_icon.png';
 
@@ -127,60 +124,6 @@ const Home = () => {
             color: 'white'
         },
         {
-            title: 'Netdata',
-            description: 'Real-time performance monitoring and visualization',
-            url: `https://${hostnames.netdata || ''}/v3`,
-            adminOnly: true,
-            icon: (
-                <Avatar
-                    src={NetdataLogo}
-                    alt="Netdata"
-                    sx={{
-                        width: 32,
-                        height: 32,
-                        bgcolor: 'transparent',
-                    }}
-                />
-            ),
-            color: 'white'
-        },
-        {
-            title: 'Portainer',
-            description: 'Docker container management and monitoring',
-            url: `https://${hostnames.portainer || ''}`,
-            adminOnly: true,
-            icon: (
-                <Avatar
-                    src={PortainerLogo}
-                    alt="Portainer"
-                    sx={{
-                        width: 32,
-                        height: 32,
-                        bgcolor: 'transparent',
-                    }}
-                />
-            ),
-            color: 'white'
-        },
-        {
-            title: 'Dockge',
-            description: 'Compose-first Docker stack management',
-            url: `https://${hostnames.dockge || ''}`,
-            adminOnly: true,
-            icon: (
-                <Avatar
-                    src={DockgeLogo}
-                    alt="Dockge"
-                    sx={{
-                        width: 32,
-                        height: 32,
-                        bgcolor: 'transparent',
-                    }}
-                />
-            ),
-            color: 'white'
-        },
-        {
             title: 'Dockhand',
             description: 'Modern Docker management and compose workflows',
             url: `https://${hostnames.dockhand || ''}`,
@@ -216,14 +159,14 @@ const Home = () => {
             color: 'white'
         },
         {
-            title: 'Uptime Kuma',
-            description: 'Self-hosted status monitoring solution',
-            url: `https://${hostnames['uptime-kuma'] || ''}`,
+            title: 'Gatus',
+            description: 'Self-hosted service health status monitoring',
+            url: `https://${hostnames.gatus || ''}`,
             adminOnly: true,
             icon: (
                 <Avatar
-                    src={UptimeKumaLogo}
-                    alt="Uptime Kuma"
+                    src={GatusLogo}
+                    alt="Gatus"
                     sx={{
                         width: 32,
                         height: 32,

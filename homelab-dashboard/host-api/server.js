@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { exec } = require('child_process');
 const os = require('os');
+const fs = require('fs');
 const wol = require('wake_on_lan');
 const app = express();
 
@@ -227,9 +228,210 @@ app.post('/network/wake-on-lan', (req, res) => {
     });
 });
 
+// Helper functions for /system/metrics
+function getCpuUsage() {
+    return new Promise((resolve) => {
+        const first = os.cpus();
+        setTimeout(() => {
+            const second = os.cpus();
+            let totalDiff = 0;
+            let idleDiff = 0;
+            for (let i = 0; i < first.length; i++) {
+                const t1 = first[i].times;
+                const t2 = second[i].times;
+                const total1 = t1.user + t1.nice + t1.sys + t1.idle + t1.irq;
+                const total2 = t2.user + t2.nice + t2.sys + t2.idle + t2.irq;
+                totalDiff += total2 - total1;
+                idleDiff += t2.idle - t1.idle;
+            }
+            const percentage = totalDiff > 0 ? 100 - (100 * idleDiff / totalDiff) : 0;
+            resolve(Math.round(percentage));
+        }, 500);
+    });
+}
+
+function getMemoryMetrics() {
+    try {
+        const meminfo = fs.readFileSync('/proc/meminfo', 'utf8');
+        const parseMetric = (name) => {
+            const match = meminfo.match(new RegExp(`${name}:\\s+(\\d+)\\s+kB`));
+            return match ? parseInt(match[1]) * 1024 : 0;
+        };
+        const total = parseMetric('MemTotal');
+        const free = parseMetric('MemFree');
+        const buffers = parseMetric('Buffers');
+        const cached = parseMetric('Cached');
+        const reclaimable = parseMetric('SReclaimable');
+        
+        const available = free + buffers + cached + reclaimable;
+        const used = total - available;
+        const percentage = total > 0 ? Math.round((used / total) * 100) : 0;
+        
+        return {
+            total,
+            used,
+            free: available,
+            cached,
+            buffers,
+            percentage
+        };
+    } catch (err) {
+        const total = os.totalmem();
+        const free = os.freemem();
+        const used = total - free;
+        const percentage = total > 0 ? Math.round((used / total) * 100) : 0;
+        return {
+            total,
+            used,
+            free,
+            cached: 0,
+            buffers: 0,
+            percentage
+        };
+    }
+}
+
+function getDiskMetrics() {
+    return new Promise((resolve) => {
+        exec('df -B1 /', (error, stdout) => {
+            if (error) {
+                return resolve({ total: 0, used: 0, available: 0, percentage: 0, filesystem: '/', mountPoint: '/' });
+            }
+            const lines = stdout.trim().split('\n');
+            if (lines.length < 2) {
+                return resolve({ total: 0, used: 0, available: 0, percentage: 0, filesystem: '/', mountPoint: '/' });
+            }
+            const parts = lines[1].split(/\s+/);
+            if (parts.length >= 6) {
+                const total = parseInt(parts[1]);
+                const used = parseInt(parts[2]);
+                const available = parseInt(parts[3]);
+                const percentage = total > 0 ? Math.round((used / total) * 100) : 0;
+                return resolve({
+                    total,
+                    used,
+                    available,
+                    percentage,
+                    filesystem: parts[0],
+                    mountPoint: parts[5]
+                });
+            }
+            resolve({ total: 0, used: 0, available: 0, percentage: 0, filesystem: '/', mountPoint: '/' });
+        });
+    });
+}
+
+function getTemperatureMetrics() {
+    try {
+        if (fs.existsSync('/sys/class/thermal/thermal_zone0/temp')) {
+            const tempRaw = fs.readFileSync('/sys/class/thermal/thermal_zone0/temp', 'utf8');
+            const tempC = parseFloat(tempRaw.trim()) / 1000;
+            return { cpu: tempC };
+        }
+    } catch (err) {
+        console.error('Error reading temperature:', err);
+    }
+    return { cpu: null };
+}
+
+function getNetworkStats() {
+    const readNetDev = () => {
+        const content = fs.readFileSync('/proc/net/dev', 'utf8');
+        const lines = content.trim().split('\n');
+        const stats = {};
+        for (let i = 2; i < lines.length; i++) {
+            const parts = lines[i].trim().split(/\s+/);
+            if (parts.length >= 10) {
+                const name = parts[0].replace(':', '');
+                const rxBytes = parseInt(parts[1]);
+                const txBytes = parseInt(parts[9]);
+                stats[name] = { rxBytes, txBytes };
+            }
+        }
+        return stats;
+    };
+
+    return new Promise((resolve) => {
+        try {
+            const t1 = readNetDev();
+            setTimeout(() => {
+                const t2 = readNetDev();
+                const interfaces = [];
+                for (const name in t2) {
+                    if (t1[name]) {
+                        const rxSpeed = t2[name].rxBytes - t1[name].rxBytes;
+                        const txSpeed = t2[name].txBytes - t1[name].txBytes;
+                        interfaces.push({
+                            name,
+                            downloadSpeed: rxSpeed * 2,
+                            uploadSpeed: txSpeed * 2,
+                            active: rxSpeed > 0 || txSpeed > 0
+                        });
+                    }
+                }
+                resolve({ interfaces });
+            }, 500);
+        } catch (err) {
+            resolve({ interfaces: [] });
+        }
+    });
+}
+
+// System metrics endpoint (substitutes Netdata)
+app.get('/system/metrics', async (req, res) => {
+    const startTime = Date.now();
+    try {
+        const [cpuUsage, memoryMetrics, diskMetrics, networkStats] = await Promise.all([
+            getCpuUsage(),
+            getMemoryMetrics(),
+            getDiskMetrics(),
+            getNetworkStats()
+        ]);
+
+        const temperature = getTemperatureMetrics();
+        const cpus = os.cpus();
+        
+        res.json({
+            success: true,
+            data: {
+                system: {
+                    hostname: os.hostname(),
+                    platform: os.platform(),
+                    uptime: Math.floor(os.uptime()),
+                    source: 'host-api'
+                },
+                resources: {
+                    cpu: {
+                        usage: cpuUsage,
+                        cores: cpus.length,
+                        model: cpus.length > 0 ? cpus[0].model : 'Unknown'
+                    },
+                    memory: memoryMetrics,
+                    disk: diskMetrics
+                },
+                temperature,
+                network: {
+                    interfaces: networkStats.interfaces,
+                    source: 'host-api',
+                    timestamp: new Date().toISOString()
+                },
+                executionTime: Date.now() - startTime,
+                timestamp: new Date().toISOString(),
+                dataSource: 'host-api'
+            }
+        });
+    } catch (err) {
+        console.error('Failed to collect system metrics:', err);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to retrieve system metrics',
+            details: err.message
+        });
+    }
+});
+
 app.listen(5001, '0.0.0.0', () => {
     console.log(`Homelab Host API Server running on http://0.0.0.0:5001`);
-    console.log(`Simplified host API - Network scanning, Wake-on-LAN, and Package management only`);
-    console.log(`System monitoring delegated to Netdata`);
+    console.log(`Simplified host API - System monitoring, Network scanning, Wake-on-LAN, and Package management`);
     console.log(`Platform: ${os.platform()}`);
 });

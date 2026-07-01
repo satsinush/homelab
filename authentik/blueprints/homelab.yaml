@@ -69,38 +69,6 @@ entries:
 
   # OIDC Providers & Applications
   # =================================================================
-  # Portainer
-  - model: authentik_providers_oauth2.oauth2provider
-    id: portainer
-    identifiers:
-      name: portainer
-    attrs:
-      name: portainer
-      client_id: portainer
-      client_secret: !File /secrets/portainer_oidc_secret
-      client_type: confidential
-      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
-      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
-      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
-      grant_types:
-        - authorization_code
-        - refresh_token
-      redirect_uris:
-        - url: !Format ["https://portainer.%s", !Env HOMELAB_HOSTNAME]
-          matching_mode: strict
-      property_mappings:
-        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
-        - !KeyOf scope-email
-        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
-        - !KeyOf scope-groups
-
-  - model: authentik_core.application
-    identifiers:
-      slug: portainer
-    attrs:
-      name: Portainer
-      slug: portainer
-      provider: !KeyOf portainer
 
   # Vaultwarden
   - model: authentik_providers_oauth2.oauth2provider
@@ -192,65 +160,25 @@ entries:
       slug: pihole-app
       provider: !KeyOf pihole-proxy
 
-  # Netdata Proxy
+  # Gatus Proxy
   - model: authentik_providers_proxy.proxyprovider
-    id: netdata-proxy
+    id: gatus-proxy
     identifiers:
-      name: netdata-proxy
+      name: gatus-proxy
     attrs:
-      name: netdata-proxy
+      name: gatus-proxy
       mode: forward_single
-      external_host: !Format ["https://netdata.%s", !Env HOMELAB_HOSTNAME]
+      external_host: !Format ["https://status.%s", !Env HOMELAB_HOSTNAME]
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
 
   - model: authentik_core.application
     identifiers:
-      slug: netdata-app
+      slug: gatus-app
     attrs:
-      name: Netdata
-      slug: netdata-app
-      provider: !KeyOf netdata-proxy
-
-  # Uptime Kuma Proxy
-  - model: authentik_providers_proxy.proxyprovider
-    id: uptime-kuma-proxy
-    identifiers:
-      name: uptime-kuma-proxy
-    attrs:
-      name: uptime-kuma-proxy
-      mode: forward_single
-      external_host: !Format ["https://uptime-kuma.%s", !Env HOMELAB_HOSTNAME]
-      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
-      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
-
-  - model: authentik_core.application
-    identifiers:
-      slug: uptime-kuma-app
-    attrs:
-      name: Uptime Kuma
-      slug: uptime-kuma-app
-      provider: !KeyOf uptime-kuma-proxy
-
-  # Dockge Proxy
-  - model: authentik_providers_proxy.proxyprovider
-    id: dockge-proxy
-    identifiers:
-      name: dockge-proxy
-    attrs:
-      name: dockge-proxy
-      mode: forward_single
-      external_host: !Format ["https://dockge.%s", !Env HOMELAB_HOSTNAME]
-      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
-      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
-
-  - model: authentik_core.application
-    identifiers:
-      slug: dockge-app
-    attrs:
-      name: Dockge
-      slug: dockge-app
-      provider: !KeyOf dockge-proxy
+      name: Gatus
+      slug: gatus-app
+      provider: !KeyOf gatus-proxy
 
   # Dockhand Proxy
   - model: authentik_providers_proxy.proxyprovider
@@ -284,26 +212,10 @@ entries:
     attrs:
       order: 0
 
-  # Netdata
+  # Gatus
   - model: authentik_policies.policybinding
     identifiers:
-      target: !Find [authentik_core.application, [slug, netdata-app]]
-      group: !Find [authentik_core.group, [name, homelab_admins]]
-    attrs:
-      order: 0
-
-  # Uptime Kuma
-  - model: authentik_policies.policybinding
-    identifiers:
-      target: !Find [authentik_core.application, [slug, uptime-kuma-app]]
-      group: !Find [authentik_core.group, [name, homelab_admins]]
-    attrs:
-      order: 0
-
-  # Dockge
-  - model: authentik_policies.policybinding
-    identifiers:
-      target: !Find [authentik_core.application, [slug, dockge-app]]
+      target: !Find [authentik_core.application, [slug, gatus-app]]
       group: !Find [authentik_core.group, [name, homelab_admins]]
     attrs:
       order: 0
@@ -331,9 +243,7 @@ entries:
         authentik_host: !Format ["https://%s/", !Env AUTHENTIK_WEB_HOSTNAME]
       providers:
         - !Find [authentik_providers_proxy.proxyprovider, [name, pihole-proxy]]
-        - !Find [authentik_providers_proxy.proxyprovider, [name, netdata-proxy]]
-        - !Find [authentik_providers_proxy.proxyprovider, [name, uptime-kuma-proxy]]
-        - !Find [authentik_providers_proxy.proxyprovider, [name, dockge-proxy]]
+        - !Find [authentik_providers_proxy.proxyprovider, [name, gatus-proxy]]
         - !Find [authentik_providers_proxy.proxyprovider, [name, dockhand-proxy]]
 
   # Brand styling to match dark dashboard theme

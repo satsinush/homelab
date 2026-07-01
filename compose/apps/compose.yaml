@@ -136,7 +136,7 @@ services:
       - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
       - ${PROJECT_ROOT}/apprise/volumes/config:/config:ro
-      - ${PROJECT_ROOT}/apprise/apprise_webhook.py:/app/apprise_webhook.py:ro
+      - ${PROJECT_ROOT}/apprise/apprise_gateway.py:/app/apprise_gateway.py:ro
     environment:
       - SSL_CERT_FILE=/etc/ssl/certs/homelab-ca.crt
       - REQUESTS_CA_BUNDLE=/etc/ssl/certs/homelab-ca.crt

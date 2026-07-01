@@ -25,30 +25,21 @@ services:
     ports:
       - "8080:80/tcp"
 
-  netdata:
-    ports:
-      - "19999:19999"
-
   ollama:
     ports:
       - "11434:11434"
-
-  portainer:
-    ports:
-      - "9000:9000"
 
   vaultwarden:
     ports:
       - "8000:80"
   
-  uptime-kuma:
+  gatus:
     ports:
-      - "3001:3001"
+      - "8085:8080"
 
   gotify:
     ports:
       - "8083:80"
-
 
   authentik-server:
     ports:

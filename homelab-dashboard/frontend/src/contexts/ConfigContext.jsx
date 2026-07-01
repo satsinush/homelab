@@ -18,12 +18,9 @@ export const ConfigProvider = ({ children }) => {
         ssoEnabled: false,
         hostnames: {
             pihole: '',
-            netdata: '',
-            portainer: '',
-            dockge: '',
             dockhand: '',
             vaultwarden: '',
-            'uptime-kuma': '',
+            gatus: '',
             gotify: '',
             authentik: ''
         }
@@ -41,12 +38,9 @@ export const ConfigProvider = ({ children }) => {
                         ssoEnabled: d.ssoEnabled || false,
                         hostnames: {
                             pihole: d.piholeWebHostname || '',
-                            netdata: d.netdataWebHostname || '',
-                            portainer: d.portainerWebHostname || '',
-                            dockge: d.dockgeWebHostname || '',
                             dockhand: d.dockhandWebHostname || '',
                             vaultwarden: d.vaultwardenWebHostname || '',
-                            'uptime-kuma': d.uptimeKumaWebHostname || '',
+                            gatus: d.gatusWebHostname || '',
                             gotify: d.gotifyWebHostname || '',
                             authentik: d.authentikWebHostname || ''
                         }

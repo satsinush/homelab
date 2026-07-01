@@ -1,0 +1,85 @@
+web:
+  port: 8080
+
+alerting:
+  custom:
+    url: "http://apprise-api/alerts/gatus"
+    method: "POST"
+    headers:
+      Content-Type: "application/json"
+    body: |
+      {
+        "title": "Gatus Alert ([ALERT_TRIGGERED_OR_RESOLVED]: [ENDPOINT_NAME])",
+        "message": "[ALERT_DESCRIPTION]"
+      }
+
+endpoints:
+  - name: "Dashboard"
+    url: "http://homelab-dashboard:5000/health"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Dashboard is unreachable"
+        send-on-resolved: true
+
+  - name: "Authentik"
+    url: "http://authentik-server:9000/-/health/live/"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Authentik is unreachable"
+        send-on-resolved: true
+
+  - name: "Gotify"
+    url: "http://gotify:80/health"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Gotify is unreachable"
+        send-on-resolved: true
+
+  - name: "Dockhand"
+    url: "http://dockhand:3000/"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Dockhand is unreachable"
+        send-on-resolved: true
+
+  - name: "Pi-hole"
+    url: "http://pihole:80/"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Pi-hole is unreachable"
+        send-on-resolved: true
+
+  - name: "Vaultwarden"
+    url: "http://vaultwarden:80/alive"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Vaultwarden is unreachable"
+        send-on-resolved: true
+
+  - name: "Apprise Gateway"
+    url: "http://apprise-api:80/health"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Apprise Gateway is unreachable"
+        send-on-resolved: true

@@ -8,7 +8,7 @@ def setup(env):
     print("\n🖥️  Extracting RustDesk Public Key to secrets...")
     
     if shutil.which("docker"):
-        res = run_cmd("docker cp rustdesk-id-server:/root/data/key.pub ./volumes/secrets/rustdesk_public_key", check=False)
+        res = run_cmd("docker cp rustdesk-id-server:/root/id_ed25519.pub ./volumes/secrets/rustdesk_public_key", check=False)
         if res is not None:
             print("   ✅ RustDesk Public Key extracted to volumes/secrets/rustdesk_public_key")
         else:
