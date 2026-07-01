@@ -7,44 +7,34 @@ alerting:
     method: "POST"
     headers:
       Content-Type: "application/json"
+    
+    # ─── GLOBAL ALERTS DEFAULT ───
+    # This automatically applies to all endpoints below, keeping your YAML tiny.
+    default-alert:
+      failure-threshold: 2     # Must fail 2 times in a row before triggering (ignores random blips)
+      success-threshold: 1     # Instantly resolves on the first successful pass
+      send-on-resolved: true   # Keep this true globally
+
     body: |
       {
-        "title": "Gatus Alert ([ALERT_TRIGGERED_OR_RESOLVED]: [ENDPOINT_NAME])",
-        "message": "[ALERT_DESCRIPTION]"
+        "title": "Gatus Alert ([ALERT_TRIGGERED_OR_RESOLVED]): [ENDPOINT_NAME]",
+        "message": "[ALERT_DESCRIPTION]\n\nTarget: [ENDPOINT_URL]"
       }
 
 endpoints:
+  # ─── CORE SERVICES ───
   - name: "Dashboard"
+    group: "Core Services"
     url: "http://homelab-dashboard:5000/health"
     interval: 30s
     conditions:
       - "[STATUS] == 200"
     alerts:
       - type: custom
-        description: "Dashboard is unreachable"
-        send-on-resolved: true
-
-  - name: "Authentik"
-    url: "http://authentik-server:9000/-/health/live/"
-    interval: 30s
-    conditions:
-      - "[STATUS] == 200"
-    alerts:
-      - type: custom
-        description: "Authentik is unreachable"
-        send-on-resolved: true
-
-  - name: "Gotify"
-    url: "http://gotify:80/health"
-    interval: 30s
-    conditions:
-      - "[STATUS] == 200"
-    alerts:
-      - type: custom
-        description: "Gotify is unreachable"
-        send-on-resolved: true
+        description: "Homelab Dashboard is down"
 
   - name: "Dockhand"
+    group: "Core Services"
     url: "http://dockhand:3000/"
     interval: 30s
     conditions:
@@ -52,19 +42,22 @@ endpoints:
     alerts:
       - type: custom
         description: "Dockhand is unreachable"
-        send-on-resolved: true
 
-  - name: "Pi-hole"
-    url: "http://pihole:80/"
+  # ─── SECURITY & AUTH ───
+  - name: "Authentik"
+    group: "Identity & Security"
+    url: "http://authentik-server:9000/-/health/live/"
     interval: 30s
     conditions:
       - "[STATUS] == 200"
     alerts:
+      # Overriding defaults here for security: alert instantly on 1 failure, bug me every 5m
       - type: custom
-        description: "Pi-hole is unreachable"
-        send-on-resolved: true
+        description: "Authentik is down! Authentication is completely broken."
+        failure-threshold: 1
 
   - name: "Vaultwarden"
+    group: "Identity & Security"
     url: "http://vaultwarden:80/alive"
     interval: 30s
     conditions:
@@ -72,14 +65,35 @@ endpoints:
     alerts:
       - type: custom
         description: "Vaultwarden is unreachable"
-        send-on-resolved: true
+
+  # ─── NETWORKING & INFRA ───
+  - name: "Pi-hole"
+    group: "Infrastructure"
+    url: "http://pihole:80/"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Pi-hole DNS admin portal is unresponsive"
+
+  # ─── NOTIFICATIONS & ALERTS ───
+  - name: "Gotify"
+    group: "Alerting Pipeline"
+    url: "http://gotify:80/health"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Gotify notification server is unhealthy"
 
   - name: "Apprise Gateway"
+    group: "Alerting Pipeline"
     url: "http://apprise-api:80/health"
     interval: 30s
     conditions:
       - "[STATUS] == 200"
     alerts:
       - type: custom
-        description: "Apprise Gateway is unreachable"
-        send-on-resolved: true
+        description: "Apprise API Gateway is down (Alerting chain compromised!)"

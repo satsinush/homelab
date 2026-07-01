@@ -137,7 +137,7 @@ def wait_for_containers(timeout=120):
             return True
 
         elapsed = int(time.time() - start_time)
-        print(f"   [{elapsed}s] Still waiting for: {', '.join(starting_or_unhealthy[:4])}...", end="\r")
+        print(f"   [{elapsed}s] Still waiting for: {', '.join(starting_or_unhealthy[:4])}... \033[K", end="\r")
         time.sleep(2)
 
     print("\n   ⚠️  Timeout reached. Proceeding with configuration anyway...")

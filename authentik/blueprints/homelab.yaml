@@ -168,7 +168,7 @@ entries:
     attrs:
       name: gatus-proxy
       mode: forward_single
-      external_host: !Format ["https://status.%s", !Env HOMELAB_HOSTNAME]
+      external_host: !Format ["https://gatus.%s", !Env HOMELAB_HOSTNAME]
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
 
