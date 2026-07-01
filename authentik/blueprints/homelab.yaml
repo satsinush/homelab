@@ -87,7 +87,7 @@ entries:
         - authorization_code
         - refresh_token
       redirect_uris:
-        - url: !Format ["https://vaultwarden.%s/identity/connect/oidc-signin", !Env HOMELAB_HOSTNAME]
+        - url: !Format ["https://%s.%s/identity/connect/oidc-signin", !Env VAULTWARDEN_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
           matching_mode: strict
       property_mappings:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
@@ -120,7 +120,7 @@ entries:
         - authorization_code
         - refresh_token
       redirect_uris:
-        - url: !Format ["https://dashboard.%s/api/users/sso-callback", !Env HOMELAB_HOSTNAME]
+        - url: !Format ["https://%s.%s/api/users/sso-callback", !Env DASHBOARD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
           matching_mode: strict
       property_mappings:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
@@ -148,7 +148,7 @@ entries:
     attrs:
       name: pihole-proxy
       mode: forward_single
-      external_host: !Format ["https://pihole.%s", !Env HOMELAB_HOSTNAME]
+      external_host: !Format ["https://%s.%s", !Env PIHOLE_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
 
@@ -168,7 +168,7 @@ entries:
     attrs:
       name: gatus-proxy
       mode: forward_single
-      external_host: !Format ["https://gatus.%s", !Env HOMELAB_HOSTNAME]
+      external_host: !Format ["https://%s.%s", !Env GATUS_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
 
@@ -188,7 +188,7 @@ entries:
     attrs:
       name: dockhand-proxy
       mode: forward_single
-      external_host: !Format ["https://dockhand.%s", !Env HOMELAB_HOSTNAME]
+      external_host: !Format ["https://%s.%s", !Env DOCKHAND_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
 
@@ -240,7 +240,7 @@ entries:
       name: "authentik Embedded Outpost"
     attrs:
       config:
-        authentik_host: !Format ["https://%s/", !Env AUTHENTIK_WEB_HOSTNAME]
+        authentik_host: !Format ["https://%s.%s/", !Env AUTHENTIK_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
       providers:
         - !Find [authentik_providers_proxy.proxyprovider, [name, pihole-proxy]]
         - !Find [authentik_providers_proxy.proxyprovider, [name, gatus-proxy]]

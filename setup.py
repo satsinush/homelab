@@ -135,6 +135,15 @@ if not os.path.exists(".env"):
     os.environ["TZ"] = tz
     os.environ["ACME_EMAIL"] = os.environ["HOMELAB_EMAIL"]
 
+    # Default Service Names
+    os.environ["DASHBOARD_SERVICE_NAME"] = "dashboard"
+    os.environ["PIHOLE_SERVICE_NAME"] = "pihole"
+    os.environ["DOCKHAND_SERVICE_NAME"] = "dockhand"
+    os.environ["VAULTWARDEN_SERVICE_NAME"] = "vaultwarden"
+    os.environ["GATUS_SERVICE_NAME"] = "gatus"
+    os.environ["GOTIFY_SERVICE_NAME"] = "gotify"
+    os.environ["AUTHENTIK_SERVICE_NAME"] = "authentik"
+
     content = substitute_env_vars(content)
 
     # Write .env
