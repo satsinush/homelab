@@ -60,9 +60,11 @@ services:
       AUTHENTIK_EMAIL__USE_SSL: "false"
       AUTHENTIK_EMAIL__FROM: authentik@${HOMELAB_HOSTNAME}
     volumes:
-      - ${PROJECT_ROOT}/volumes/authentik/media:/media
-      - ${PROJECT_ROOT}/volumes/authentik/templates:/templates
-      - ${PROJECT_ROOT}/volumes/authentik/blueprints:/blueprints/custom
+      - ${PROJECT_ROOT}/authentik/volumes/media:/media
+      - ${PROJECT_ROOT}/homelab-dashboard/frontend/public/homelab-icon.svg:/media/public/homelab-icon.svg:ro
+      - ${PROJECT_ROOT}/authentik/volumes/templates:/templates
+      - ${PROJECT_ROOT}/authentik/volumes/blueprints:/blueprints/custom
+      - ${PROJECT_ROOT}/authentik/blueprints/homelab.yaml:/blueprints/custom/homelab.yaml:ro
       - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
     networks:
       - homelab-net
@@ -113,10 +115,12 @@ services:
     user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${PROJECT_ROOT}/volumes/authentik/media:/media
-      - ${PROJECT_ROOT}/volumes/authentik/certs:/certs
-      - ${PROJECT_ROOT}/volumes/authentik/templates:/templates
-      - ${PROJECT_ROOT}/volumes/authentik/blueprints:/blueprints/custom
+      - ${PROJECT_ROOT}/authentik/volumes/media:/media
+      - ${PROJECT_ROOT}/homelab-dashboard/frontend/public/homelab-icon.svg:/media/public/homelab-icon.svg:ro
+      - ${PROJECT_ROOT}/authentik/volumes/certs:/certs
+      - ${PROJECT_ROOT}/authentik/volumes/templates:/templates
+      - ${PROJECT_ROOT}/authentik/volumes/blueprints:/blueprints/custom
+      - ${PROJECT_ROOT}/authentik/blueprints/homelab.yaml:/blueprints/custom/homelab.yaml:ro
       - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
     networks:
       - homelab-net

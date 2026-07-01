@@ -2,9 +2,6 @@
 import os
 import sys
 import shutil
-import subprocess
-import secrets
-import time
 import getpass
 import re
 import json
@@ -23,56 +20,7 @@ if missing:
     sys.exit(1)
 print("✅ All prerequisites found")
 
-# Helper to run shell commands safely
-def run_cmd(cmd, cwd=None, shell=True, check=True):
-    try:
-        res = subprocess.run(cmd, cwd=cwd, shell=shell, check=check, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        return res.stdout.strip()
-    except subprocess.CalledProcessError as e:
-        print(f"Error running command: {cmd}\nOutput: {e.stdout}\nError: {e.stderr}")
-        if check:
-            sys.exit(1)
-        return None
-
-# Helper to generate secret
-def gen_secret(name, length_bytes):
-    path = f"./volumes/secrets/{name}"
-    if not os.path.exists(path) or os.path.getsize(path) == 0:
-        val = secrets.token_hex(length_bytes)
-        with open(path, "w") as f:
-            f.write(val + "\n")
-        print(f"     Generated {name}")
-        os.chmod(path, 0o600)
-
-# Helper to read env file
-def load_env(path=".env"):
-    env_vars = {}
-    if os.path.exists(path):
-        with open(path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    parts = line.split("=", 1)
-                    if len(parts) == 2:
-                        k, v = parts[0].strip(), parts[1].strip()
-                        # strip quotes if present
-                        if (v.startswith("'") and v.endswith("'")) or (v.startswith('"') and v.endswith('"')):
-                            v = v[1:-1]
-                        env_vars[k] = v
-                        os.environ[k] = v
-    return env_vars
-
-# Load secrets into environment
-def load_secrets():
-    secrets_dir = "./volumes/secrets"
-    if os.path.exists(secrets_dir):
-        for name in os.listdir(secrets_dir):
-            path = os.path.join(secrets_dir, name)
-            if os.path.isfile(path):
-                varname = name.upper()
-                with open(path) as f:
-                    val = f.read().strip()
-                os.environ[varname] = val
+from setup_utils import run_cmd, gen_secret, load_env, load_secrets, wait_for_containers, substitute_env_vars
 
 # 2. Check or generate .env
 if not os.path.exists(".env"):
@@ -140,8 +88,8 @@ if not os.path.exists(".env"):
     dns_domain = hostname.split(".", 1)[1] if "." in hostname else hostname
 
     os.makedirs("./volumes/secrets", exist_ok=True)
-    os.makedirs("./volumes/dockge/stacks", exist_ok=True)
-    os.makedirs("./volumes/apprise/config", exist_ok=True)
+    os.makedirs("./dockge/volumes/stacks", exist_ok=True)
+    os.makedirs("./apprise/volumes/config", exist_ok=True)
     os.chmod("./volumes/secrets", 0o700)
 
     with open("./volumes/secrets/homelab_password", "w") as f:
@@ -151,22 +99,18 @@ if not os.path.exists(".env"):
     with open(".env.template") as f:
         content = f.read()
 
-    email = f"{username}@{hostname}"
+    os.environ["HOMELAB_USERNAME"] = username
+    os.environ["HOMELAB_EMAIL"] = f"{username}@{hostname}"
+    os.environ["HOMELAB_IP_ADDRESS"] = ip_address
+    os.environ["PUID"] = puid
+    os.environ["PGID"] = pgid
+    os.environ["HOMELAB_HOSTNAME"] = hostname
+    os.environ["DNS_DOMAIN"] = dns_domain
+    os.environ["PROJECT_ROOT"] = os.getcwd()
+    os.environ["TZ"] = tz
+    os.environ["ACME_EMAIL"] = os.environ["HOMELAB_EMAIL"]
 
-    replacements = {
-        "<username>": username,
-        "<email>": email,
-        "<ip-address>": ip_address,
-        "<PUID>": puid,
-        "<PGID>": pgid,
-        "<homelab-hostname>": hostname,
-        "<dns-domain>": dns_domain,
-        "<project-root>": os.getcwd(),
-        "<timezone>": tz
-    }
-
-    for k, v in replacements.items():
-        content = content.replace(k, v)
+    content = substitute_env_vars(content)
 
     # Write .env
     with open(".env", "w") as f:
@@ -178,7 +122,7 @@ if not os.path.exists(".env"):
         cf_token = input("   Cloudflare DNS API token (Zone.Zone:Read, Zone.DNS:Edit): ").strip()
         while not cf_token:
             cf_token = input("   Cloudflare DNS API token: ").strip()
-        
+
         print("\n   Let's Encrypt requires a valid e-mail address for certificate expiry notices.")
         while True:
             acme_email = input("   ACME e-mail address: ").strip()
@@ -197,7 +141,7 @@ if not os.path.exists(".env"):
         env_content = env_content.replace(f"acme-email", acme_email)
         with open(".env", "w") as f:
             f.write(env_content)
-        
+
         os.environ["TRAEFIK_CERT_RESOLVER"] = "letsencrypt"
         print("   ✅ Let's Encrypt (Cloudflare DNS-01) mode configured")
     else:
@@ -271,6 +215,8 @@ if not os.path.exists("./volumes/secrets/homelab_password") or os.path.getsize("
 # Load secrets into os.environ
 load_secrets()
 
+
+
 # 4. Certificates and Keys
 print("\n🔐 Setting up certificates and keys...")
 certs_dir = "./volumes/certificates"
@@ -291,7 +237,7 @@ else:
         run_cmd(f"openssl genrsa -out {ca_key} 4096")
         run_cmd(f'openssl req -x509 -new -nodes -key {ca_key} -sha256 -days 3650 -out {ca_cert} -subj "/CN=Homelab Root CA/O=Homelab/C=US"')
         print("   ✅ CA certificate and key generated")
-    
+
     if not os.path.exists(server_key) or not os.path.exists(server_cert):
         print(f"   Generating server certificate for {hostname}...")
         conf_file = "/tmp/server_ssl_config.cnf"
@@ -324,10 +270,10 @@ DNS.3 = *.home.arpa
 
         run_cmd(f"openssl req -new -nodes -out {csr_file} -keyout {server_key} -config {conf_file}")
         run_cmd(f"openssl x509 -req -in {csr_file} -CA {ca_cert} -CAkey {ca_key} -CAcreateserial -out {server_cert} -days 3650 -sha256 -extfile {conf_file} -extensions v3_req")
-        
+
         shutil.copy(server_cert, fallback_cert)
         shutil.copy(server_key, fallback_key)
-        
+
         # Try to trust CA locally
         if os.path.exists(ca_cert):
             print("   Trusting CA certificate locally...")
@@ -344,19 +290,27 @@ DNS.3 = *.home.arpa
         if os.path.exists(csr_file): os.remove(csr_file)
         print("   ✅ SSL certificates ready")
 
-# 5. Start docker containers
+# 5. Pre-compose file setup (directory creation, configurations)
+import authentik.setup as authentik_setup
+authentik_setup.setup(env)
+
+import apprise.setup as apprise_setup
+apprise_setup.pre_setup(env)
+
+import vaultwarden.setup as vaultwarden_setup
+vaultwarden_setup.setup(env)
+
+import traefik.setup as traefik_setup
+traefik_setup.setup(env)
+
+import dockge.setup as dockge_setup
+dockge_setup.setup(env)
+
+import uptime_kuma.setup as uptime_kuma_setup
+uptime_kuma_setup.setup(env)
+
+# 6. Start docker containers
 print("\n🐳 Starting Docker containers...")
-if os.path.exists("./homelab-dashboard/api/entrypoint.sh"):
-    os.chmod("./homelab-dashboard/api/entrypoint.sh", 0o755)
-
-# Ensure Authentik directories exist and copy blueprints/branding files
-os.makedirs("./volumes/authentik/blueprints", exist_ok=True)
-os.makedirs("./volumes/authentik/media/public", exist_ok=True)
-
-if os.path.exists("./authentik/blueprints/homelab.yaml"):
-    shutil.copy("./authentik/blueprints/homelab.yaml", "./volumes/authentik/blueprints/homelab.yaml")
-if os.path.exists("./homelab-dashboard/frontend/public/homelab-icon.svg"):
-    shutil.copy("./homelab-dashboard/frontend/public/homelab-icon.svg", "./volumes/authentik/media/public/homelab-icon.svg")
 
 run_cmd("docker network create homelab-net --subnet 10.10.30.0/24 || true")
 with open("./volumes/secrets/matrix_bot_token", "a"):
@@ -365,247 +319,26 @@ with open("./volumes/secrets/matrix_bot_token", "a"):
 run_cmd("docker compose build")
 run_cmd("docker compose up -d")
 
-# Dynamic service waiting
-def wait_for_containers(timeout=120):
-    print("   Waiting for all containers to be running and healthy...")
-    start_time = time.time()
-    
-    while time.time() - start_time < timeout:
-        stdout = run_cmd("docker compose ps --format json", check=False)
-        if not stdout:
-            time.sleep(2)
-            continue
-            
-        containers = []
-        for line in stdout.strip().split("\n"):
-            line = line.strip()
-            if line:
-                try:
-                    # In some docker compose versions, output might be a single JSON list,
-                    # in others it is multiple JSON objects separated by newlines.
-                    if line.startswith("[") and line.endswith("]"):
-                        containers.extend(json.loads(line))
-                    else:
-                        containers.append(json.loads(line))
-                except Exception:
-                    pass
-                    
-        if not containers:
-            time.sleep(2)
-            continue
-            
-        all_ok = True
-        starting_or_unhealthy = []
-        
-        for c in containers:
-            name = c.get("Name", c.get("Service", "unknown"))
-            state = c.get("State", "").lower()
-            health = c.get("Health", "").lower()
-            
-            # Skip checking static/stopped project containers if any
-            if state in ["exited", "stopped"] and name == "setup":
-                continue
-                
-            # Must be running
-            if state != "running":
-                all_ok = False
-                starting_or_unhealthy.append(f"{name} ({state})")
-                continue
-                
-            # If healthcheck is defined, must be healthy
-            if health and health not in ["healthy", "none"]:
-                all_ok = False
-                starting_or_unhealthy.append(f"{name} ({health})")
-                
-        if all_ok:
-            print("   All containers are running and healthy! 🎉")
-            return True
-            
-        elapsed = int(time.time() - start_time)
-        print(f"   [{elapsed}s] Still waiting for: {', '.join(starting_or_unhealthy[:4])}...", end="\r")
-        time.sleep(2)
-        
-    print("\n   ⚠️  Timeout reached. Proceeding with configuration anyway...")
-    return False
-
 wait_for_containers()
 print("✅ Docker containers started")
 
-# Helper to exec curl inside container
-def container_curl(container, method, url, data=None, headers=None, auth=None):
-    headers = headers or {}
-    cmd = ["docker", "exec", "-i", container, "curl", "-s", "-k", "-w", "\\n%{http_code}", "-X", method]
-    for k, v in headers.items():
-        cmd += ["-H", f"{k}: {v}"]
-    if auth:
-        cmd += ["-u", auth]
-    if data:
-        cmd += ["--data-binary", "@-"]
-    cmd.append(url)
+# 7. Per-service configuration (post-container-start)
+import portainer.setup as portainer_setup
+portainer_setup.setup(env)
 
-    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE if data else None, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    stdout, stderr = proc.communicate(input=data)
-    
-    lines = stdout.strip().split("\n")
-    if not lines or len(lines) < 2:
-        return "", 0
-    status_code = int(lines[-1])
-    body = "\n".join(lines[:-1])
-    return body, status_code
+import apprise.setup as apprise_setup
+apprise_setup.setup(env)
 
-# 6. Configure Portainer
-print("\n⚙️  Configuring Portainer...")
-portainer_pwd = os.environ.get("PORTAINER_ADMIN_PASSWORD")
-portainer_oidc_secret = os.environ.get("PORTAINER_OIDC_SECRET")
+import rustdesk.setup as rustdesk_setup
+rustdesk_setup.setup(env)
 
-# Check if admin initialized
-body, status = container_curl("portainer", "GET", "http://localhost:9000/api/users/admin/check")
-if status == 404:
-    print("   Extracting setup token...")
-    setup_token = ""
-    for _ in range(30):
-        logs = run_cmd("docker logs portainer 2>&1", check=False)
-        if logs:
-            # Strip ANSI escape sequences
-            clean_logs = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', logs)
-            match = re.search(r"setup_token=([a-zA-Z0-9]+)", clean_logs)
-            if match:
-                setup_token = match.group(1)
-                break
-        time.sleep(1)
-
-    if not setup_token:
-        print("   ❌ Failed to extract Portainer setup token from logs")
-        sys.exit(1)
-
-    print("   Initializing admin user...")
-    init_data = f'{{"username": "admin", "password": "{portainer_pwd}"}}'
-    container_curl("portainer", "POST", "http://localhost:9000/api/users/admin/init", data=init_data, headers={"X-Setup-Token": setup_token})
-else:
-    print("   Admin user already initialized.")
-
-# Get Token
-auth_data = f'{{"username": "admin", "password": "{portainer_pwd}"}}'
-body, status = container_curl("portainer", "POST", "http://localhost:9000/api/auth", data=auth_data, headers={"Content-Type": "application/json"})
-try:
-    import json
-    token = json.loads(body).get("jwt")
-except Exception:
-    token = None
-
-if not token or token == "null":
-    print("   ❌ Failed to authenticate with Portainer")
-    sys.exit(1)
-
-print("   Configuring SSO settings...")
-oauth_payload = json.dumps({
-    "authenticationMethod": 3,
-    "oauthSettings": {
-        "SSO": True,
-        "OAuthAutoCreateUsers": True,
-        "ClientID": "portainer",
-        "ClientSecret": portainer_oidc_secret,
-        "AccessTokenURI": f"https://{env.get('AUTHENTIK_WEB_HOSTNAME')}/application/o/token/",
-        "AuthorizationURI": f"https://{env.get('AUTHENTIK_WEB_HOSTNAME')}/application/o/authorize/",
-        "ResourceURI": f"https://{env.get('AUTHENTIK_WEB_HOSTNAME')}/application/o/userinfo/",
-        "RedirectURI": f"https://{env.get('PORTAINER_WEB_HOSTNAME')}",
-        "LogoutURI": f"https://{env.get('AUTHENTIK_WEB_HOSTNAME')}/application/o/portainer/end-session/",
-        "UserIdentifier": "preferred_username",
-        "Scopes": "openid profile email groups"
-    }
-})
-
-body, status = container_curl("portainer", "PUT", "http://localhost:9000/api/settings", data=oauth_payload, headers={
-    "Authorization": f"Bearer {token}",
-    "Content-Type": "application/json"
-})
-
-if status == 200:
-    print("   ✅ Portainer SSO configured")
-else:
-    print(f"   ❌ Failed to configure Portainer SSO (HTTP: {status})")
-    sys.exit(1)
-
-# 7. Configure Gotify & Apprise
-print("\n🔔 Setting up Gotify server & Apprise yaml integration...")
-gotify_pwd = os.environ.get("GOTIFY_ADMIN_PASSWORD")
-
-# Wait for Gotify
-print("   Waiting for Gotify to initialize...")
-gotify_ready = False
-for _ in range(30):
-    body, status = container_curl("gotify", "GET", "http://localhost:80/version")
-    if status == 200:
-        gotify_ready = True
-        break
-    time.sleep(2)
-
-if gotify_ready:
-    print("   Gotify is up. Configuring...")
-    # Change default admin password
-    container_curl("gotify", "POST", "http://localhost:80/current/user/password", data=f'{{"pass":"{gotify_pwd}"}}', headers={"Content-Type": "application/json"}, auth="admin:admin")
-    
-    # Get apps list
-    body, status = container_curl("gotify", "GET", "http://localhost:80/application", auth=f"admin:{gotify_pwd}")
-    gotify_token = ""
-    gotify_id = ""
-    try:
-        apps = json.loads(body)
-        for app in apps:
-            if app.get("name") == "Homelab Alert Gateway":
-                gotify_token = app.get("token")
-                gotify_id = app.get("id")
-                break
-    except Exception:
-        pass
-
-    if not gotify_token:
-        # Create application
-        body, status = container_curl("gotify", "POST", "http://localhost:80/application", 
-            data='{"name":"Homelab Alert Gateway","description":"Gateway for all homelab services"}',
-            headers={"Content-Type": "application/json"},
-            auth=f"admin:{gotify_pwd}"
-        )
-        try:
-            app_res = json.loads(body)
-            gotify_token = app_res.get("token")
-            gotify_id = app_res.get("id")
-        except Exception:
-            pass
-
-    if gotify_token:
-        print("   ✅ Created Gotify Application. Token generated.")
-        # Upload app icon
-        icon_path = "./gotify/homelab-icon.png"
-        if os.path.exists(icon_path) and gotify_id:
-            run_cmd(f'docker exec gotify curl -s -X POST -u "admin:{gotify_pwd}" -F "file=@/app/homelab-icon.png" "http://localhost:80/application/{gotify_id}/image"', check=False)
-            print("   ✅ Uploaded Gotify Application icon.")
-
-        # Generate apprise.yaml configuration
-        os.makedirs("./volumes/apprise/config", exist_ok=True)
-        apprise_content = f"urls:\n  - gotify://gotify/{gotify_token}\n"
-        with open("./volumes/apprise/config/apprise.yaml", "w") as f:
-            f.write(apprise_content)
-        print("   ✅ Generated apprise.yaml configuration")
-
-        # Reload Apprise Gateway
-        body, status = container_curl("apprise-api", "GET", "http://localhost:80/health")
-        print("   ✅ SMTP/HTTP notification gateway reloaded")
-else:
-    print("   ❌ Gotify failed to start or did not become ready.")
-
+# 9. Summary
 print("\n🎉 Homelab Setup Complete!")
 print("==========================")
 print(f"📋 Access Information:\n   Username: {env.get('HOMELAB_USERNAME')}\n   Email:    {env.get('HOMELAB_USERNAME')}@{hostname}")
 
-# 8. Extract RustDesk key
-print("\n🖥️  Extracting RustDesk Public Key to secrets...")
-if shutil.which("docker"):
-    res = run_cmd("docker cp rustdesk-id-server:/root/data/key.pub ./volumes/secrets/rustdesk_public_key", check=False)
-    if res is not None:
-        print("   ✅ RustDesk Public Key extracted to volumes/secrets/rustdesk_public_key")
-    else:
-        print("   ⚠️  Failed to copy RustDesk key. RustDesk container may not be initialized yet.")
+gotify_pwd = os.environ.get("GOTIFY_ADMIN_PASSWORD", "")
+portainer_pwd = os.environ.get("PORTAINER_ADMIN_PASSWORD", "")
 
 print(f"\n🌐 Web Access:")
 print(f"   Dashboard:  https://{env.get('DASHBOARD_WEB_HOSTNAME')}")

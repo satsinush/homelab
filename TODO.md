@@ -1,6 +1,5 @@
 - Move user/api setup out of setup.sh?
-- Standardize mounts / COPY / named volumes, use :ro mounts more maybe?
-- Fix .env.template, use basic regex replacement and always use parentheses?
+- Add initial uptime-kuma/dockge setup
 - Pcie gen 3?
 - set up .well-known/openid-configuration?
 - add specific roles for each service and page, implement roles in dashboard UI, make it so you can't sign in/access pages without proper roles

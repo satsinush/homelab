@@ -75,7 +75,7 @@ app.get('/api/config', (req, res) => {
         gotifyWebHostname: config.gotifyWebHostname,
         authentikWebHostname: config.authentikWebHostname,
         disableLocalAuth: config.disableLocalAuth,
-        ssoEnabled: !!process.env.DASHBOARD_OIDC_SECRET
+        ssoEnabled: config.ssoEnabled
     });
 });
 

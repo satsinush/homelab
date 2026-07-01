@@ -3,4 +3,4 @@
 
 urls:
   # Send all alert notifications to Gotify
-  - gotify://gotify/GOTIFY_TOKEN
+  - gotify://gotify/${GOTIFY_TOKEN}

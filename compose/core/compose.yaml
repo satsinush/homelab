@@ -12,7 +12,7 @@ services:
       - ${PROJECT_ROOT}/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ${PROJECT_ROOT}/traefik/dynamic_conf.yml:/etc/traefik/dynamic_conf.yml:ro
       - ${PROJECT_ROOT}/volumes/certificates:/etc/ssl/homelab:ro
-      - ${PROJECT_ROOT}/volumes/traefik/acme.json:/etc/traefik/acme.json
+      - ${PROJECT_ROOT}/traefik/volumes/acme.json:/etc/traefik/acme.json
       - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
     networks:
       homelab-net:

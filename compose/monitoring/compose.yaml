@@ -49,7 +49,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ${PROJECT_ROOT}/volumes/uptime-kuma/data:/app/data
+      - ${PROJECT_ROOT}/uptime_kuma/volumes/data:/app/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
     environment:

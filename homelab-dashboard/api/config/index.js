@@ -3,24 +3,25 @@ require('dotenv').config();
 
 const path = require('path');
 const https = require('https');
+const { getEnv } = require('../utils/env');
 
 // Import openid-client following official documentation
 const client = require('openid-client');
 const { url } = require('inspector');
 
 // Validate required environment variables
-const SESSION_SECRET = process.env.HOMELAB_API_SESSION_SECRET;
-const DASHBOARD_OIDC_SECRET = process.env.DASHBOARD_OIDC_SECRET;
+const SESSION_SECRET = getEnv('HOMELAB_API_SESSION_SECRET');
+const DASHBOARD_OIDC_SECRET = getEnv('DASHBOARD_OIDC_SECRET');
 
 if (!SESSION_SECRET) {
-    console.error('ERROR: SESSION_SECRET environment variable is required!');
-    console.error('Please set HOMELAB_API_SESSION_SECRET in your .env file or environment variables.');
+    console.error('ERROR: SESSION_SECRET environment variable or HOMELAB_API_SESSION_SECRET_FILE is required!');
+    console.error('Please set HOMELAB_API_SESSION_SECRET or HOMELAB_API_SESSION_SECRET_FILE.');
     process.exit(1);
 }
 
 if (!DASHBOARD_OIDC_SECRET) {
-    console.error('ERROR: DASHBOARD_OIDC_SECRET environment variable is required!');
-    console.error('Please set DASHBOARD_OIDC_SECRET in your .env file or environment variables.');
+    console.error('ERROR: DASHBOARD_OIDC_SECRET environment variable or DASHBOARD_OIDC_SECRET_FILE is required!');
+    console.error('Please set DASHBOARD_OIDC_SECRET or DASHBOARD_OIDC_SECRET_FILE.');
     process.exit(1);
 }
 
@@ -55,7 +56,7 @@ async function initializeOIDCClient() {
             // Set up the OIDC configuration following official documentation
             const server = new URL(`https://${process.env.AUTHENTIK_WEB_HOSTNAME}/application/o/homelab-dashboard/`);
             const clientId = 'homelab_dashboard';
-            const clientSecret = process.env.DASHBOARD_OIDC_SECRET;
+            const clientSecret = DASHBOARD_OIDC_SECRET;
 
             oidcConfig = await client.discovery(
                 server,
@@ -131,7 +132,7 @@ const config = {
     authentikWebHostname: process.env.AUTHENTIK_WEB_HOSTNAME,
     homelabHostname: process.env.HOMELAB_HOSTNAME,
     rustdeskPubKeyPath: process.env.RUSTDESK_PUBKEY_PATH,
-    disableLocalAuth: process.env.DISABLE_LOCAL_AUTH === 'true',
+    disableLocalAuth: (process.env.DISABLE_LOCAL_AUTH ?? 'true') === 'true',
     piholeWebHostname: process.env.PIHOLE_WEB_HOSTNAME,
     netdataWebHostname: process.env.NETDATA_WEB_HOSTNAME,
     portainerWebHostname: process.env.PORTAINER_WEB_HOSTNAME,
@@ -140,6 +141,7 @@ const config = {
     vaultwardenWebHostname: process.env.VAULTWARDEN_WEB_HOSTNAME,
     uptimeKumaWebHostname: process.env.UPTIME_KUMA_WEB_HOSTNAME,
     gotifyWebHostname: process.env.GOTIFY_WEB_HOSTNAME,
+    ssoEnabled: !!DASHBOARD_OIDC_SECRET,
     defaultSettings: DEFAULT_SETTINGS,
     getOIDCConfig: getOIDCConfig,
     oidcLib: client
