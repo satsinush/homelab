@@ -5,13 +5,40 @@ import shutil
 import getpass
 import re
 import json
+import subprocess
+
+# Parse arguments
+if "--reset" in sys.argv:
+    print("🏠 Homelab Reset Utility")
+    print("========================")
+    print("\n⚠️  WARNING: This will permanently destroy your entire homelab state:")
+    print("   - Stop and remove all Docker containers and networks")
+    print("   - Delete all named Docker volumes")
+    print("   - Delete your local configuration (.env)")
+    print("   - Delete all certificates, configurations, databases, and secrets (volumes/, */volumes/)")
+    print("\n🚨 THIS ACTION IS IRREVERSIBLE!")
+    
+    try:
+        confirm = input("\nAre you absolutely sure you want to reset your homelab? (y/N): ").strip().lower()
+        if confirm == 'y':
+            print("\n🔥 Resetting homelab stack...")
+            subprocess.run("docker compose down -v", shell=True)
+            subprocess.run("sudo rm -rf .env volumes/ */volumes/", shell=True)
+            print("\n✅ Homelab has been successfully reset.")
+            sys.exit(0)
+        else:
+            print("\n❌ Reset aborted.")
+            sys.exit(0)
+    except KeyboardInterrupt:
+        print("\n❌ Reset aborted.")
+        sys.exit(1)
 
 print("🏠 Homelab Python Setup Script")
 print("==============================")
 
 # 1. Check prerequisites
 print("🔍 Checking prerequisites...")
-REQUIRED_PROGRAMS = ["openssl", "docker", "jq"]
+REQUIRED_PROGRAMS = ["openssl", "argon2", "docker", "jq"]
 missing = [p for p in REQUIRED_PROGRAMS if not shutil.which(p)]
 
 if missing:
@@ -167,7 +194,7 @@ os.makedirs("./volumes/secrets", exist_ok=True)
 os.chmod("./volumes/secrets", 0o700)
 
 gen_secret("homelab_api_session_secret", 64)
-gen_secret("vaultwarden_admin_token", 64)
+gen_secret("vaultwarden_admin_token", 48)
 gen_secret("vaultwarden_oidc_secret", 64)
 gen_secret("dashboard_oidc_secret", 64)
 gen_secret("gotify_admin_password", 32)
