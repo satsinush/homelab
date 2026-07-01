@@ -2,7 +2,7 @@
 const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
-const SQLiteStore = require('connect-sqlite3')(session);
+const SQLiteStore = require('better-sqlite3-session-store')(session);
 const path = require('path');
 
 // Import configuration and routes
@@ -42,10 +42,11 @@ app.use(cors({
 // Session configuration with SQLite store
 app.use(session({
     store: new SQLiteStore({
-        db: config.database.filename,
-        dir: config.database.path,
-        table: 'sessions',
-        concurrentDB: true
+        client: require('./models/Database').getDatabase(),
+        expired: {
+            clear: true,
+            intervalMs: 900000 // 15 minutes
+        }
     }),
     secret: config.sessionSecret,
     resave: false,

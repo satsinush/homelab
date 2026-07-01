@@ -67,12 +67,6 @@ class DatabaseModel {
                 last_login DATETIME
             );
 
-            CREATE TABLE IF NOT EXISTS sessions (
-                sid TEXT PRIMARY KEY,
-                expired INTEGER NOT NULL,
-                sess TEXT NOT NULL
-            );
-
             CREATE TABLE IF NOT EXISTS chat_conversations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
