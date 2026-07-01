@@ -17,6 +17,7 @@ import PackageManager from './components/PackageManager';
 import Settings from './components/Settings';
 import Profile from './components/Profile';
 import Users from './components/Users';
+import Secrets from './components/Secrets';
 import NotFound from './components/NotFound';
 import './App.css';
 
@@ -49,6 +50,7 @@ function AppContent() {
     if (path === '/wordgames') return 'wordgames';
     if (path === '/packages') return 'packages';
     if (path === '/users') return 'users';
+    if (path === '/secrets') return 'secrets';
     if (path === '/settings') return 'settings';
     if (path === '/profile') return 'profile';
     return 'home';
@@ -63,6 +65,7 @@ function AppContent() {
     '/wordgames',
     '/packages',
     '/users',
+    '/secrets',
     '/settings',
     '/profile'
   ];
@@ -134,6 +137,7 @@ function AppContent() {
                 <Route path="/wordgames" element={<AdminRoute><WordGames /></AdminRoute>} />
                 <Route path="/packages" element={<AdminRoute><PackageManager /></AdminRoute>} />
                 <Route path="/users" element={<AdminRoute><Users /></AdminRoute>} />
+                <Route path="/secrets" element={<AdminRoute><Secrets /></AdminRoute>} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="*" element={<NotFound />} />

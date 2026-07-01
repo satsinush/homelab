@@ -33,7 +33,8 @@ import {
     AccountCircle as AccountIcon,
     Chat as ChatIcon,
     Games as GamesIcon,
-    People as PeopleIcon
+    People as PeopleIcon,
+    VpnKey as KeyIcon
 } from '@mui/icons-material';
 import { useThemeMode } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -55,6 +56,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }) => {
         { id: 'wordgames', label: 'Word Games', icon: <GamesIcon />, path: '/wordgames', adminOnly: true },
         { id: 'packages', label: 'Packages', icon: <PackagesIcon />, path: '/packages', adminOnly: true },
         { id: 'users', label: 'Users', icon: <PeopleIcon />, path: '/users', adminOnly: true },
+        { id: 'secrets', label: 'Secrets', icon: <KeyIcon />, path: '/secrets', adminOnly: true },
         { id: 'settings', label: 'Settings', icon: <SettingsIcon />, path: '/settings' }
     ].filter(tab => !tab.adminOnly || isAdmin);
 
