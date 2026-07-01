@@ -43,6 +43,38 @@ endpoints:
       - type: custom
         description: "Dockhand is unreachable"
 
+  - name: "Host API"
+    group: "Core Services"
+    url: "http://host.docker.internal:5001/health"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Homelab Host API is unreachable"
+
+  - name: "Ollama"
+    group: "Core Services"
+    url: "http://ollama:11434/"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY] == Ollama is running"
+    alerts:
+      - type: custom
+        description: "Ollama service is unresponsive"
+
+  - name: "Traefik"
+    group: "Core Services"
+    url: "http://traefik:8082/ping"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY] == OK"
+    alerts:
+      - type: custom
+        description: "Traefik reverse proxy is unhealthy"
+
   # ─── SECURITY & AUTH ───
   - name: "Authentik"
     group: "Identity & Security"
@@ -76,6 +108,49 @@ endpoints:
     alerts:
       - type: custom
         description: "Pi-hole DNS admin portal is unresponsive"
+
+  - name: "DNS Resolution"
+    group: "Infrastructure"
+    url: "pihole"
+    interval: 30s
+    dns:
+      query-name: "google.com"
+      query-type: "A"
+    conditions:
+      - "[DNS_RCODE] == NOERROR"
+    alerts:
+      - type: custom
+        description: "DNS resolution through Pi-hole is failing"
+
+  - name: "ddclient"
+    group: "Infrastructure"
+    url: "icmp://ddclient"
+    interval: 1m
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: custom
+        description: "ddclient container is unreachable"
+
+  - name: "RustDesk ID Server"
+    group: "Infrastructure"
+    url: "tcp://rustdesk-id-server:21116"
+    interval: 30s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: custom
+        description: "RustDesk ID Server (hbbs) is unreachable"
+
+  - name: "RustDesk Relay Server"
+    group: "Infrastructure"
+    url: "tcp://rustdesk-relay-server:21117"
+    interval: 30s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: custom
+        description: "RustDesk Relay Server (hbbr) is unreachable"
 
   # ─── NOTIFICATIONS & ALERTS ───
   - name: "Gotify"

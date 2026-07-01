@@ -6,6 +6,10 @@ services:
     restart: on-failure
     volumes:
       - ${PROJECT_ROOT}/gatus/config.yaml:/config/config.yaml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    cap_add:
+      - NET_RAW
     networks:
       - homelab-net
     labels:
