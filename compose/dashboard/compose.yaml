@@ -32,11 +32,19 @@ services:
       - VAULTWARDEN_WEB_HOSTNAME=${VAULTWARDEN_WEB_HOSTNAME}
       - GATUS_WEB_HOSTNAME=${GATUS_WEB_HOSTNAME}
       - GOTIFY_WEB_HOSTNAME=${GOTIFY_WEB_HOSTNAME}
+
     secrets:
       - homelab_password
       - homelab_api_session_secret
       - dashboard_oidc_secret
       - rustdesk_public_key
+      - vaultwarden_oidc_secret
+      - vaultwarden_admin_token
+      - vaultwarden_admin_token_plain
+      - gotify_admin_password
+      - authentik_secret_key
+      - authentik_pg_pass
+      - authentik_akadmin_password
     labels:
       - "traefik.enable=true"
       # Canonical dashboard route
@@ -74,6 +82,8 @@ services:
       retries: 3
       start_period: 1m
 
+
+
 secrets:
   homelab_password:
     file: ${PROJECT_ROOT}/volumes/secrets/homelab_password
@@ -83,6 +93,20 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/dashboard_oidc_secret
   rustdesk_public_key:
     file: ${PROJECT_ROOT}/volumes/secrets/rustdesk_public_key
+  vaultwarden_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_oidc_secret
+  vaultwarden_admin_token:
+    file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_admin_token
+  vaultwarden_admin_token_plain:
+    file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_admin_token_plain
+  gotify_admin_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/gotify_admin_password
+  authentik_secret_key:
+    file: ${PROJECT_ROOT}/volumes/secrets/authentik_secret_key
+  authentik_pg_pass:
+    file: ${PROJECT_ROOT}/volumes/secrets/authentik_pg_pass
+  authentik_akadmin_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/authentik_akadmin_password
 
 volumes:
   dashboard_api_data:

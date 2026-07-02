@@ -3,6 +3,63 @@ metadata:
   name: "Homelab Bootstrap"
 entries:
   # =================================================================
+  # Predefined Roles
+  # =================================================================
+  - model: authentik_rbac.role
+    identifiers:
+      name: homelab-admin
+    attrs:
+      name: homelab-admin
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: dashboard-user
+    attrs:
+      name: dashboard-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: dashboard-devices-user
+    attrs:
+      name: dashboard-devices-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: dashboard-chat-user
+    attrs:
+      name: dashboard-chat-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: dashboard-wordgames-user
+    attrs:
+      name: dashboard-wordgames-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: dashboard-packages-user
+    attrs:
+      name: dashboard-packages-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: dashboard-settings-user
+    attrs:
+      name: dashboard-settings-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: gatus-user
+    attrs:
+      name: gatus-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: vaultwarden-user
+    attrs:
+      name: vaultwarden-user
+
+  # =================================================================
   # Groups
   # =================================================================
   - model: authentik_core.group
@@ -11,6 +68,8 @@ entries:
     attrs:
       name: homelab-admins
       is_superuser: true
+      roles:
+        - !Find [authentik_rbac.role, [name, homelab-admin]]
 
   - model: authentik_core.group
     identifiers:
@@ -18,6 +77,11 @@ entries:
     attrs:
       name: homelab-users
       is_superuser: false
+      roles:
+        - !Find [authentik_rbac.role, [name, dashboard-user]]
+        - !Find [authentik_rbac.role, [name, gatus-user]]
+        - !Find [authentik_rbac.role, [name, dashboard-devices-user]]
+        - !Find [authentik_rbac.role, [name, vaultwarden-user]]
 
   # =================================================================
   # Admin User
@@ -50,16 +114,7 @@ entries:
       description: "SSO Groups and Roles"
       expression: |
         groups = [g.name for g in request.user.ak_groups.all()]
-        roles = []
-        if "homelab-admins" in groups:
-            roles.append("homelab-admin")
-        if "homelab-users" in groups:
-            roles.extend([
-                "dashboard-user",
-                "gatus-user",
-                "dashboard-devices-user",
-                "vaultwarden-user"
-            ])
+        roles = [r.name for r in request.user.all_roles()]
         return {
             "groups": groups,
             "roles": roles

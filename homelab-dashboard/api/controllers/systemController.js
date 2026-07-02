@@ -130,7 +130,7 @@ class SystemController {
     // Get all secrets in /secrets (admin-only)
     async getSecrets(req, res) {
         try {
-            const secretsDir = '/secrets';
+            const secretsDir = '/run/secrets';
             if (!fs.existsSync(secretsDir)) {
                 return sendSuccess(res, { secrets: [] });
             }

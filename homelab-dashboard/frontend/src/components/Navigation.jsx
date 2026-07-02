@@ -37,7 +37,7 @@ import {
     VpnKey as KeyIcon
 } from '@mui/icons-material';
 import { useThemeMode } from '../contexts/ThemeContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import { useNotification } from '../contexts/NotificationContext';
 
 const Navigation = ({ activeTab, mobileOpen, setMobileOpen }) => {

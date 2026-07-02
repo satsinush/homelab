@@ -20,7 +20,7 @@ import {
     AccountCircle as AccountIcon,
     Settings as SetupIcon
 } from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import { useNotification } from '../contexts/NotificationContext';
 import { tryApiCall } from '../utils/api';
 

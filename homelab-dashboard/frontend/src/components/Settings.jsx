@@ -37,7 +37,7 @@ import {
 import { tryApiCall } from '../utils/api';
 import { useThemeMode } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 
 const Settings = () => {
     const [serverSettings, setServerSettings] = useState(null);

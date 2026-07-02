@@ -44,6 +44,7 @@ class UserController {
                 id: user.id,
                 username: user.username,
                 groups: user.groups,
+                roles: user.roles,
                 email: user.email,
                 is_sso_user: user.is_sso_user
             };
@@ -54,6 +55,7 @@ class UserController {
                     id: user.id,
                     username: user.username,
                     groups: user.groups,
+                    roles: user.roles,
                     email: user.email,
                     is_sso_user: user.is_sso_user
                 }
@@ -185,6 +187,7 @@ class UserController {
                 id: user.id,
                 username: user.username,
                 groups: user.groups,
+                roles: user.roles,
                 email: user.email,
                 is_sso_user: user.is_sso_user
             };
@@ -293,6 +296,7 @@ class UserController {
                     id: user.id,
                     username: user.username,
                     groups: user.groups,
+                    roles: user.roles,
                     email: user.email,
                     is_sso_user: user.is_sso_user
                 }
@@ -317,6 +321,7 @@ class UserController {
                     id: req.session.user.id,
                     username: req.session.user.username,
                     groups: req.session.user.groups,
+                    roles: req.session.user.roles,
                     email: req.session.user.email,
                     is_sso_user: req.session.user.is_sso_user
                 }
@@ -374,6 +379,7 @@ class UserController {
             if (req.session.user) {
                 req.session.user.username = updatedUser.username;
                 req.session.user.groups = updatedUser.groups;
+                req.session.user.roles = updatedUser.roles;
                 req.session.user.email = updatedUser.email;
             }
             

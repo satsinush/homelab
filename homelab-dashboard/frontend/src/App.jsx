@@ -4,7 +4,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { ThemeProvider, CssBaseline, Box, CircularProgress, Typography } from '@mui/material';
 import { ThemeModeProvider, useThemeMode } from './contexts/ThemeContext';
 import { NotificationProvider } from './contexts/NotificationContext';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
+import { useAuth } from './contexts/useAuth';
 import { ConfigProvider, useConfig } from './contexts/ConfigContext';
 import AuthGuard from './components/AuthGuard';
 import Navigation from './components/Navigation';

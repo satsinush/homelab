@@ -1,7 +1,7 @@
 // src/components/AuthGuard.jsx
 import React from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/useAuth';
 import LoginChoice from './LoginChoice';
 
 const AuthGuard = ({ children }) => {
