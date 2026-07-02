@@ -1,4 +1,5 @@
 - Pcie gen 3?
+- make TRAEFIK_CERT_RESOLVER like normal env var
 - refactor to typescript
 - make sure all containers come up after reboot
 - Make sure secrets managed properly

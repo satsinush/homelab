@@ -32,7 +32,7 @@ entries:
       email: !Format ["%s@%s", !Env HOMELAB_USERNAME, !Env HOMELAB_HOSTNAME]
       is_active: true
       is_superuser: true
-      password: !File /secrets/homelab_password
+      password: !File /run/secrets/homelab_password
       groups:
         - !Find [authentik_core.group, [name, homelab-admins]]
 
@@ -90,7 +90,7 @@ entries:
     attrs:
       name: vaultwarden
       client_id: vaultwarden
-      client_secret: !File /secrets/vaultwarden_oidc_secret
+      client_secret: !File /run/secrets/vaultwarden_oidc_secret
       client_type: confidential
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
@@ -123,7 +123,7 @@ entries:
     attrs:
       name: homelab_dashboard
       client_id: homelab_dashboard
-      client_secret: !File /secrets/dashboard_oidc_secret
+      client_secret: !File /run/secrets/dashboard_oidc_secret
       client_type: confidential
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]

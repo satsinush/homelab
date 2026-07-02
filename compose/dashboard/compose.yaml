@@ -11,7 +11,6 @@ services:
       - dashboard_word_games_data:/app/word_games/data
       - ${PROJECT_ROOT}/word_games/resources:/app/word_games/resources:ro
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
-      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
     networks:
       - homelab-net
     extra_hosts:
@@ -23,16 +22,21 @@ services:
       - HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
       - HOMELAB_USERNAME=${HOMELAB_USERNAME}
       - HOMELAB_EMAIL=${HOMELAB_EMAIL}
-      - HOMELAB_PASSWORD_FILE=/secrets/homelab_password
-      - HOMELAB_API_SESSION_SECRET_FILE=/secrets/homelab_api_session_secret
-      - DASHBOARD_OIDC_SECRET_FILE=/secrets/dashboard_oidc_secret
+      - HOMELAB_PASSWORD_FILE=/run/secrets/homelab_password
+      - HOMELAB_API_SESSION_SECRET_FILE=/run/secrets/homelab_api_session_secret
+      - DASHBOARD_OIDC_SECRET_FILE=/run/secrets/dashboard_oidc_secret
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
-      - RUSTDESK_PUBKEY_PATH=/secrets/rustdesk_public_key
+      - RUSTDESK_PUBKEY_PATH=/run/secrets/rustdesk_public_key
       - PIHOLE_WEB_HOSTNAME=${PIHOLE_WEB_HOSTNAME}
       - DOCKHAND_WEB_HOSTNAME=${DOCKHAND_WEB_HOSTNAME}
       - VAULTWARDEN_WEB_HOSTNAME=${VAULTWARDEN_WEB_HOSTNAME}
       - GATUS_WEB_HOSTNAME=${GATUS_WEB_HOSTNAME}
       - GOTIFY_WEB_HOSTNAME=${GOTIFY_WEB_HOSTNAME}
+    secrets:
+      - homelab_password
+      - homelab_api_session_secret
+      - dashboard_oidc_secret
+      - rustdesk_public_key
     labels:
       - "traefik.enable=true"
       # Canonical dashboard route
@@ -69,6 +73,16 @@ services:
       timeout: 10s
       retries: 3
       start_period: 1m
+
+secrets:
+  homelab_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/homelab_password
+  homelab_api_session_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/homelab_api_session_secret
+  dashboard_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/dashboard_oidc_secret
+  rustdesk_public_key:
+    file: ${PROJECT_ROOT}/volumes/secrets/rustdesk_public_key
 
 volumes:
   dashboard_api_data:

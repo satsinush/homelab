@@ -65,8 +65,12 @@ if not os.path.exists(".env"):
         password = getpass.getpass("   Password (min 12 characters): ").strip()
         if len(password) < 12:
             print("   ⚠️  Password is too short. Please try again.")
-        else:
-            break
+            continue
+        confirm_password = getpass.getpass("   Confirm Password: ").strip()
+        if password != confirm_password:
+            print("   ⚠️  Passwords do not match. Please try again.")
+            continue
+        break
 
     # Get IP Address
     ip_address = ""
@@ -124,6 +128,31 @@ if not os.path.exists(".env"):
     with open(".env.template") as f:
         content = f.read()
 
+    # Retrieve Cert resolver variables early
+    cf_token = ""
+    acme_email = ""
+    if has_public == "y":
+        cf_token = input("   Cloudflare DNS API token (Zone.Zone:Read, Zone.DNS:Edit): ").strip()
+        while not cf_token:
+            cf_token = input("   Cloudflare DNS API token: ").strip()
+
+        print("\n   Let's Encrypt requires a valid e-mail address for certificate expiry notices.")
+        while True:
+            acme_email = input("   ACME e-mail address: ").strip()
+            if re.match(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$', acme_email):
+                break
+            print("   ⚠️  That doesn't look like a valid e-mail address. Please try again.")
+
+        with open("./volumes/secrets/cf_dns_api_token", "w") as f:
+            f.write(cf_token + "\n")
+        os.chmod("./volumes/secrets/cf_dns_api_token", 0o600)
+
+        os.environ["TRAEFIK_CERT_RESOLVER"] = "letsencrypt"
+        os.environ["ACME_EMAIL"] = acme_email
+    else:
+        os.environ["TRAEFIK_CERT_RESOLVER"] = ""
+        os.environ["ACME_EMAIL"] = f"{username}@{hostname}"
+
     os.environ["HOMELAB_USERNAME"] = username
     os.environ["HOMELAB_EMAIL"] = f"{username}@{hostname}"
     os.environ["HOMELAB_IP_ADDRESS"] = ip_address
@@ -133,7 +162,6 @@ if not os.path.exists(".env"):
     os.environ["DNS_DOMAIN"] = dns_domain
     os.environ["PROJECT_ROOT"] = os.getcwd()
     os.environ["TZ"] = tz
-    os.environ["ACME_EMAIL"] = os.environ["HOMELAB_EMAIL"]
 
     # Default Service Names
     os.environ["DASHBOARD_SERVICE_NAME"] = "dashboard"
@@ -153,39 +181,8 @@ if not os.path.exists(".env"):
     load_env(".env")
 
     if has_public == "y":
-        cf_token = input("   Cloudflare DNS API token (Zone.Zone:Read, Zone.DNS:Edit): ").strip()
-        while not cf_token:
-            cf_token = input("   Cloudflare DNS API token: ").strip()
-
-        print("\n   Let's Encrypt requires a valid e-mail address for certificate expiry notices.")
-        while True:
-            acme_email = input("   ACME e-mail address: ").strip()
-            if re.match(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$', acme_email):
-                break
-            print("   ⚠️  That doesn't look like a valid e-mail address. Please try again.")
-
-        with open("./volumes/secrets/cf_dns_api_token", "w") as f:
-            f.write(cf_token + "\n")
-        os.chmod("./volumes/secrets/cf_dns_api_token", 0o600)
-
-        # Update resolver in .env
-        with open(".env") as f:
-            env_content = f.read()
-        env_content = env_content.replace("TRAEFIK_CERT_RESOLVER=''", "TRAEFIK_CERT_RESOLVER='letsencrypt'")
-        env_content = env_content.replace(f"acme-email", acme_email)
-        with open(".env", "w") as f:
-            f.write(env_content)
-
-        os.environ["TRAEFIK_CERT_RESOLVER"] = "letsencrypt"
         print("   ✅ Let's Encrypt (Cloudflare DNS-01) mode configured")
     else:
-        # Private mode email default
-        with open(".env") as f:
-            env_content = f.read()
-        env_content = env_content.replace("<acme-email>", f"{username}@{hostname}")
-        with open(".env", "w") as f:
-            f.write(env_content)
-        os.environ["TRAEFIK_CERT_RESOLVER"] = ""
         print("   ✅ Self-signed certificate mode configured")
 
     print("✅ Environment configuration created")
@@ -203,34 +200,14 @@ os.makedirs("./volumes/secrets", exist_ok=True)
 os.chmod("./volumes/secrets", 0o700)
 
 gen_secret("homelab_api_session_secret", 64)
-gen_secret("vaultwarden_admin_token", 48)
+gen_secret("vaultwarden_admin_token_plain", 48)
+gen_secret("vaultwarden_admin_token", 48) # Placeholder to be overwritten
 gen_secret("vaultwarden_oidc_secret", 64)
 gen_secret("dashboard_oidc_secret", 64)
 gen_secret("gotify_admin_password", 32)
 gen_secret("authentik_secret_key", 50)
 gen_secret("authentik_pg_pass", 32)
-
-# Cleanup secrets from .env file to enforce loading from secrets volume
-env_updates = False
-with open(".env") as f:
-    env_lines = f.readlines()
-
-new_env_lines = []
-secret_names_upper = ["AUTHENTIK_SECRET_KEY", "AUTHENTIK_PG_PASS", "VAULTWARDEN_OIDC_SECRET", "DASHBOARD_OIDC_SECRET", "GOTIFY_ADMIN_PASSWORD"]
-for line in env_lines:
-    matched = False
-    for sec in secret_names_upper:
-        if line.startswith(f"{sec}="):
-            matched = True
-            env_updates = True
-            break
-    if not matched:
-        new_env_lines.append(line)
-
-if env_updates:
-    with open(".env", "w") as f:
-        f.writelines(new_env_lines)
-    print("     Removed sensitive secrets from .env file")
+gen_secret("authentik_akadmin_password", 32)
 
 # Ensure homelab_password exists
 if not os.path.exists("./volumes/secrets/homelab_password") or os.path.getsize("./volumes/secrets/homelab_password") == 0:

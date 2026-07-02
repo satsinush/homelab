@@ -26,8 +26,8 @@ services:
     networks:
       - homelab-net
     ports:
-      - "21117:21117"
       - "21119:21119"
+      - "21117:21117"
     restart: unless-stopped
 
   ddclient:
@@ -68,12 +68,9 @@ services:
     image: vaultwarden/server:latest
     container_name: vaultwarden
     restart: on-failure
-    env_file:
-      - ${PROJECT_ROOT}/volumes/secrets/vaultwarden.env
     volumes:
       - vaultwarden_data:/data
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
-      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
     extra_hosts:
       - "${AUTHENTIK_WEB_HOSTNAME}:10.10.30.100"
     networks:
@@ -92,6 +89,11 @@ services:
       - SSO_CLIENT_ID=vaultwarden
       - SSO_AUTHORITY=https://${AUTHENTIK_WEB_HOSTNAME}/application/o/vaultwarden/
       - SSO_SCOPES=openid email profile offline_access groups
+      - SSO_CLIENT_SECRET_FILE=/run/secrets/vaultwarden_oidc_secret
+      - ADMIN_TOKEN_FILE=/run/secrets/vaultwarden_admin_token
+    secrets:
+      - vaultwarden_oidc_secret
+      - vaultwarden_admin_token
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.vaultwarden.rule=Host(`${VAULTWARDEN_WEB_HOSTNAME}`)"
@@ -133,7 +135,6 @@ services:
     container_name: apprise-api
     restart: unless-stopped
     volumes:
-      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
       - ${PROJECT_ROOT}/apprise/volumes/config:/config:ro
       - ${PROJECT_ROOT}/apprise/apprise_gateway.py:/app/apprise_gateway.py:ro
@@ -150,6 +151,12 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+secrets:
+  vaultwarden_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_oidc_secret
+  vaultwarden_admin_token:
+    file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_admin_token
 
 volumes:
   ollama_data:

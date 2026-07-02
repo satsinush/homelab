@@ -12,11 +12,12 @@ services:
       timeout: 5s
     volumes:
       - authentik_db:/var/lib/postgresql/data
-      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
     environment:
-      POSTGRES_PASSWORD_FILE: /secrets/authentik_pg_pass
+      POSTGRES_PASSWORD_FILE: /run/secrets/authentik_pg_pass
       POSTGRES_USER: ${AUTHENTIK_PG_USER:-authentik}
       POSTGRES_DB: ${AUTHENTIK_PG_DB:-authentik}
+    secrets:
+      - authentik_pg_pass
     networks:
       - homelab-net
 
@@ -45,10 +46,10 @@ services:
       AUTHENTIK_REDIS__HOST: authentik-redis
       AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
       AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_PG_USER:-authentik}
-      AUTHENTIK_POSTGRESQL__PASSWORD: "file:///secrets/authentik_pg_pass"
+      AUTHENTIK_POSTGRESQL__PASSWORD: "file:///run/secrets/authentik_pg_pass"
       AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_PG_DB:-authentik}
-      AUTHENTIK_SECRET_KEY: "file:///secrets/authentik_secret_key"
-      AUTHENTIK_BOOTSTRAP_PASSWORD: "file:///secrets/homelab_password"
+      AUTHENTIK_SECRET_KEY: "file:///run/secrets/authentik_secret_key"
+      AUTHENTIK_BOOTSTRAP_PASSWORD: "file:///run/secrets/authentik_akadmin_password"
       AUTHENTIK_BOOTSTRAP_EMAIL: authentik@${HOMELAB_HOSTNAME}
       AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
       HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
@@ -72,7 +73,13 @@ services:
       - ${PROJECT_ROOT}/authentik/volumes/templates:/templates
       - ${PROJECT_ROOT}/authentik/volumes/blueprints:/blueprints/custom
       - ${PROJECT_ROOT}/authentik/blueprints/homelab.yaml:/blueprints/custom/homelab.yaml:ro
-      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
+    secrets:
+      - authentik_pg_pass
+      - authentik_secret_key
+      - authentik_akadmin_password
+      - homelab_password
+      - vaultwarden_oidc_secret
+      - dashboard_oidc_secret
     networks:
       - homelab-net
     labels:
@@ -105,10 +112,10 @@ services:
       AUTHENTIK_REDIS__HOST: authentik-redis
       AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
       AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_PG_USER:-authentik}
-      AUTHENTIK_POSTGRESQL__PASSWORD: "file:///secrets/authentik_pg_pass"
+      AUTHENTIK_POSTGRESQL__PASSWORD: "file:///run/secrets/authentik_pg_pass"
       AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_PG_DB:-authentik}
-      AUTHENTIK_SECRET_KEY: "file:///secrets/authentik_secret_key"
-      AUTHENTIK_BOOTSTRAP_PASSWORD: "file:///secrets/homelab_password"
+      AUTHENTIK_SECRET_KEY: "file:///run/secrets/authentik_secret_key"
+      AUTHENTIK_BOOTSTRAP_PASSWORD: "file:///run/secrets/authentik_akadmin_password"
       AUTHENTIK_BOOTSTRAP_EMAIL: authentik@${HOMELAB_HOSTNAME}
       AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
       HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
@@ -135,7 +142,13 @@ services:
       - ${PROJECT_ROOT}/authentik/volumes/templates:/templates
       - ${PROJECT_ROOT}/authentik/volumes/blueprints:/blueprints/custom
       - ${PROJECT_ROOT}/authentik/blueprints/homelab.yaml:/blueprints/custom/homelab.yaml:ro
-      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
+    secrets:
+      - authentik_pg_pass
+      - authentik_secret_key
+      - authentik_akadmin_password
+      - homelab_password
+      - vaultwarden_oidc_secret
+      - dashboard_oidc_secret
     networks:
       - homelab-net
     depends_on:
@@ -143,6 +156,20 @@ services:
         condition: service_healthy
       authentik-redis:
         condition: service_healthy
+
+secrets:
+  authentik_pg_pass:
+    file: ${PROJECT_ROOT}/volumes/secrets/authentik_pg_pass
+  authentik_secret_key:
+    file: ${PROJECT_ROOT}/volumes/secrets/authentik_secret_key
+  authentik_akadmin_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/authentik_akadmin_password
+  homelab_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/homelab_password
+  vaultwarden_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_oidc_secret
+  dashboard_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/dashboard_oidc_secret
 
 volumes:
   authentik_db:
