@@ -6,6 +6,31 @@ const fs = require('fs');
 const wol = require('wake_on_lan');
 const app = express();
 
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
+
+const swaggerOptions = {
+    definition: {
+        openapi: '3.0.0',
+        info: {
+            title: 'Homelab Host API',
+            version: '1.0.0',
+            description: 'Privileged backend running on the host machine for monitoring, package updates, network scanning and Wake-on-LAN',
+        },
+        servers: [
+            {
+                url: '',
+                description: 'Relative API Base URL'
+            }
+        ]
+    },
+    apis: [
+        __filename
+    ]
+};
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+
 // CORS configuration - allow requests from homelab-dashboard
 app.use(cors({
     origin: ['http://homelab-dashboard:5000', 'http://localhost:5001'],
@@ -15,6 +40,22 @@ app.use(cors({
 
 app.use(express.json());
 
+// Swagger Documentation Route
+app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.get('/docs.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+});
+
+/**
+ * @openapi
+ * /:
+ *   get:
+ *     summary: Welcome root endpoint
+ *     responses:
+ *       200:
+ *         description: Welcome message
+ */
 app.get('/', (req, res) => {
     res.status(200).json({ message: 'Welcome to the Homelab Host API' });
 });
@@ -71,6 +112,15 @@ function parsePackageResults(stdout) {
 }
 
 // Health check endpoint
+/**
+ * @openapi
+ * /health:
+ *   get:
+ *     summary: Verify host-api status and system platform details
+ *     responses:
+ *       200:
+ *         description: OK
+ */
 app.get('/health', (req, res) => {
     console.log("Received health check request");
     res.json({ 
@@ -83,6 +133,26 @@ app.get('/health', (req, res) => {
 });
 
 // Network scan endpoint
+/**
+ * @openapi
+ * /network/scan:
+ *   post:
+ *     summary: Scan host local network for active IP/MAC devices
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               timeout:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Scan results list
+ *       500:
+ *         description: Internal scan utility error
+ */
 app.post('/network/scan', (req, res) => {
     console.log("Received network scan request");
     const { timeout = 30000 } = req.body;
@@ -118,6 +188,15 @@ app.post('/network/scan', (req, res) => {
 });
 
 // Package management endpoints
+/**
+ * @openapi
+ * /packages/installed:
+ *   get:
+ *     summary: Retrieve list of host pacman/apt installed packages
+ *     responses:
+ *       200:
+ *         description: Packages list
+ */
 app.get('/packages/installed', (req, res) => {
     console.log("Received request for installed packages");
     const cmd = getPlatformCommand('installedPackages');
@@ -145,6 +224,15 @@ app.get('/packages/installed', (req, res) => {
     });
 });
 
+/**
+ * @openapi
+ * /packages/updates:
+ *   get:
+ *     summary: Retrieve pending OS updates list
+ *     responses:
+ *       200:
+ *         description: Updates list
+ */
 app.get('/packages/updates', (req, res) => {
     console.log("Received request for package updates");
     const cmd = getPlatformCommand('packageUpdates');
@@ -163,6 +251,15 @@ app.get('/packages/updates', (req, res) => {
     });
 });
 
+/**
+ * @openapi
+ * /packages/sync-time:
+ *   get:
+ *     summary: Get last package database sync timestamp
+ *     responses:
+ *       200:
+ *         description: Sync time payload
+ */
 app.get('/packages/sync-time', (req, res) => {
     console.log("Received request for package sync time");
     const cmd = getPlatformCommand('packageSyncTime');
@@ -182,6 +279,30 @@ app.get('/packages/sync-time', (req, res) => {
 });
 
 // Wake on LAN endpoint
+/**
+ * @openapi
+ * /network/wake-on-lan:
+ *   post:
+ *     summary: Send Wake-on-LAN magic packet to target MAC address
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - mac
+ *             properties:
+ *               mac:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Magic packet sent successfully
+ *       400:
+ *         description: Invalid MAC or missing parameter
+ *       500:
+ *         description: Failed to transmit WOL packet
+ */
 app.post('/network/wake-on-lan', (req, res) => {
     console.log("Received Wake-on-LAN request");
     const { mac } = req.body;
@@ -378,6 +499,17 @@ function getNetworkStats() {
 }
 
 // System metrics endpoint (substitutes Netdata)
+/**
+ * @openapi
+ * /system/metrics:
+ *   get:
+ *     summary: Retrieve real-time CPU, memory, disk, network, and temperature metrics of host OS
+ *     responses:
+ *       200:
+ *         description: Real-time host metrics payload
+ *       500:
+ *         description: Internal metrics collection error
+ */
 app.get('/system/metrics', async (req, res) => {
     const startTime = Date.now();
     try {

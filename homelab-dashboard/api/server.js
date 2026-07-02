@@ -23,6 +23,32 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 // Initialize Express app
 const app = express();
 
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
+
+const swaggerOptions = {
+    definition: {
+        openapi: '3.0.0',
+        info: {
+            title: 'Homelab Dashboard API',
+            version: '1.0.0',
+            description: 'Core API for the Homelab Dashboard',
+        },
+        servers: [
+            {
+                url: '',
+                description: 'Relative API Base URL'
+            }
+        ]
+    },
+    apis: [
+        path.join(__dirname, 'routes', '*.js'),
+        path.join(__dirname, 'server.js')
+    ]
+};
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+
 // Trust proxy for accurate client IP detection (needed for rate limiting behind nginx)
 // Only trust the first proxy (nginx) rather than all proxies for security
 app.set('trust proxy', 1);
@@ -63,6 +89,16 @@ app.use(express.urlencoded({ extended: true }));
 // =============================================================================
 
 // Public Configuration Endpoint
+/**
+ * @openapi
+ * /api/config:
+ *   get:
+ *     summary: Retrieve public application configuration
+ *     description: Returns public hostnames and authentication feature flags.
+ *     responses:
+ *       200:
+ *         description: Success
+ */
 app.get('/api/config', (req, res) => {
     res.json({
         dashboardWebHostname: config.dashBoardWebHostname,
@@ -75,6 +111,13 @@ app.get('/api/config', (req, res) => {
         disableLocalAuth: config.disableLocalAuth,
         ssoEnabled: config.ssoEnabled
     });
+});
+
+// Swagger Documentation Route
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.get('/api/docs.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
 });
 
 // API Routes
