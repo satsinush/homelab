@@ -15,7 +15,7 @@ router.get('/health', (req, res) => systemController.healthCheck(req, res));
 // GET: any authenticated user can read settings (non-admins need device settings)
 // PUT: admin-only — only admins can change server/system settings
 router.get('/settings', requireAuth(), (req, res) => systemController.getSettings(req, res));
-router.put('/settings', requireAuth('admin'), (req, res) => systemController.updateSettings(req, res));
+router.put('/settings', requireAuth('dashboard-settings-user'), (req, res) => systemController.updateSettings(req, res));
 
 // User settings endpoints (per-user key-value store)
 router.get('/user-settings', requireAuth(), (req, res) => {
@@ -37,10 +37,10 @@ router.put('/user-settings', requireAuth(), (req, res) => {
 });
 
 // System information endpoints
-router.get('/system', requireAuth('admin'), (req, res) => systemController.getSystemInfo(req, res));
-router.get('/packages', requireAuth('admin'), (req, res) => systemController.getPackages(req, res));
-router.get('/system/rustdesk-config', requireAuth('admin'), (req, res) => systemController.getRustDeskConfig(req, res));
-router.get('/system/updates/check', requireAuth('admin'), (req, res) => systemController.checkUpdates(req, res));
-router.get('/system/secrets', requireAuth('admin'), (req, res) => systemController.getSecrets(req, res));
+router.get('/system', requireAuth('dashboard-system-user'), (req, res) => systemController.getSystemInfo(req, res));
+router.get('/packages', requireAuth('dashboard-packages-user'), (req, res) => systemController.getPackages(req, res));
+router.get('/system/rustdesk-config', requireAuth('dashboard-system-user'), (req, res) => systemController.getRustDeskConfig(req, res));
+router.get('/system/updates/check', requireAuth('dashboard-system-user'), (req, res) => systemController.checkUpdates(req, res));
+router.get('/system/secrets', requireAuth('dashboard-secrets-user'), (req, res) => systemController.getSecrets(req, res));
 
 module.exports = router;

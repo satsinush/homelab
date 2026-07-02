@@ -417,24 +417,24 @@ class UserController {
         try {
             const targetUserId = parseInt(req.params.id, 10);
             const currentUserId = req.session.user?.id || req.user?.id;
-            const currentUserGroups = req.session.user?.groups || req.user?.groups || [];
-            const isAdmin = currentUserGroups.includes('admin');
+            const currentUserRoles = req.session.user?.roles || req.user?.roles || [];
+            const hasUserManagement = currentUserRoles.includes('homelab-admin') || currentUserRoles.includes('dashboard-users-user');
             
             if (isNaN(targetUserId)) {
                 return sendError(res, 400, 'Invalid user ID');
             }
 
-            // A user can delete themselves, or an admin can delete any user
-            if (targetUserId !== currentUserId && !isAdmin) {
+            // A user can delete themselves, or an admin/user manager can delete any user
+            if (targetUserId !== currentUserId && !hasUserManagement) {
                 return sendError(res, 403, 'You do not have permission to delete this user');
             }
 
             // Don't allow deleting the only admin user
             const users = this.userModel.getAllUsers();
-            const admins = users.filter(u => u.groups.includes('admin'));
+            const admins = users.filter(u => u.roles.includes('homelab-admin'));
             const targetUser = users.find(u => u.id === targetUserId);
             
-            if (targetUser && targetUser.groups.includes('admin') && admins.length <= 1) {
+            if (targetUser && targetUser.roles.includes('homelab-admin') && admins.length <= 1) {
                 return sendError(res, 400, 'Cannot delete the only administrator account in the system');
             }
 

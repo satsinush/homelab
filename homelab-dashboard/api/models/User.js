@@ -27,17 +27,18 @@ class User {
             const passwordHash = await argon2.hash(password, { salt: Buffer.from(salt) });
             
             const insertStmt = this.db.prepare(`
-                INSERT INTO users (username, password_hash, salt, groups, email) 
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO users (username, password_hash, salt, groups, roles, email) 
+                VALUES (?, ?, ?, ?, ?, ?)
             `);
             
-            const result = insertStmt.run(username, passwordHash, salt, JSON.stringify(['admin']), email);
+            const result = insertStmt.run(username, passwordHash, salt, JSON.stringify(['admin']), JSON.stringify(['homelab-admin']), email);
             console.log(`First user created: ${username} with admin privileges`);
             
             return {
                 id: result.lastInsertRowid,
                 username: username,
                 groups: ['admin'],
+                roles: ['homelab-admin'],
                 email: email,
                 is_sso_user: false,
                 lastLogin: new Date().toISOString()
@@ -79,6 +80,7 @@ class User {
                 id: user.id,
                 username: user.username,
                 groups: JSON.parse(user.groups),
+                roles: JSON.parse(user.roles || '[]'),
                 email: user.email,
                 is_sso_user: false,
                 lastLogin: user.last_login
@@ -97,15 +99,9 @@ class User {
             const username = ssoProfile.preferred_username || ssoProfile.name; // Use preferred_username first, fallback to name
             const email = ssoProfile.email || null; // Authentik provides email directly
             
-            // Use groups for role mapping
-            let userGroups = [];            
-            if (ssoProfile.groups) {
-                if (ssoProfile.groups.includes('homelab_admins')) {
-                    userGroups = ['admin'];
-                } else if (ssoProfile.groups.includes('homelab_users')) {
-                    userGroups = ['user'];
-                }
-            }
+            // Use groups and roles mapping
+            const userGroups = ssoProfile.groups || [];
+            const userRoles = ssoProfile.roles || [];
 
             // Check if SSO user already exists by sso_id
             let user;
@@ -117,20 +113,21 @@ class User {
                 console.log(`Updating existing SSO user: ${username}`);
                 console.log(`Previous groups: ${JSON.stringify(JSON.parse(user.groups))}`);
                 console.log(`New groups from SSO: ${JSON.stringify(userGroups)}`);
+                console.log(`New roles from SSO: ${JSON.stringify(userRoles)}`);
                 
-                // Always update groups to match what Authentik provides
-                // This ensures role revocations in Authentik are reflected in the dashboard
+                // Always update groups and roles to match what Authentik provides
                 const updateStmt = this.db.prepare(`
                     UPDATE users 
-                    SET username = ?, email = ?, groups = ?, last_login = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+                    SET username = ?, email = ?, groups = ?, roles = ?, last_login = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
                     WHERE id = ?
                 `);
-                updateStmt.run(username, email, JSON.stringify(userGroups), user.id);
+                updateStmt.run(username, email, JSON.stringify(userGroups), JSON.stringify(userRoles), user.id);
                                 
                 return {
                     id: user.id,
                     username: username,
                     groups: userGroups,
+                    roles: userRoles,
                     email: email,
                     is_sso_user: true,
                     lastLogin: new Date().toISOString()
@@ -146,20 +143,19 @@ class User {
                 if (existingUser) {
                     // Map SSO user to existing user by updating their details and OIDC mapping
                     console.log(`Linking/updating SSO profile for existing user: ${existingUser.username}`);
-                    console.log(`Previous groups: ${JSON.stringify(JSON.parse(existingUser.groups))}`);
-                    console.log(`New groups from SSO: ${JSON.stringify(userGroups)}`);
                     
                     const updateStmt = this.db.prepare(`
                         UPDATE users 
-                        SET username = ?, email = ?, groups = ?, sso_id = ?, is_sso_user = 1, last_login = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+                        SET username = ?, email = ?, groups = ?, roles = ?, sso_id = ?, is_sso_user = 1, last_login = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
                         WHERE id = ?
                     `);
-                    updateStmt.run(username, email, JSON.stringify(userGroups), ssoId, existingUser.id);
+                    updateStmt.run(username, email, JSON.stringify(userGroups), JSON.stringify(userRoles), ssoId, existingUser.id);
                                         
                     return {
                         id: existingUser.id,
                         username: username,
                         groups: userGroups,
+                        roles: userRoles,
                         email: email,
                         is_sso_user: true,
                         lastLogin: new Date().toISOString()
@@ -167,15 +163,16 @@ class User {
                 } else {
                     // Create new SSO user
                     const insertStmt = this.db.prepare(`
-                        INSERT INTO users (username, email, groups, is_sso_user, sso_id, last_login) 
-                        VALUES (?, ?, ?, 1, ?, CURRENT_TIMESTAMP)
+                        INSERT INTO users (username, email, groups, roles, is_sso_user, sso_id, last_login) 
+                        VALUES (?, ?, ?, ?, 1, ?, CURRENT_TIMESTAMP)
                     `);
-                    const result = insertStmt.run(username, email, JSON.stringify(userGroups), ssoId);
+                    const result = insertStmt.run(username, email, JSON.stringify(userGroups), JSON.stringify(userRoles), ssoId);
                     
                     return {
                         id: result.lastInsertRowid,
                         username: username,
                         groups: userGroups,
+                        roles: userRoles,
                         email: email,
                         is_sso_user: true,
                         lastLogin: new Date().toISOString()
@@ -239,6 +236,7 @@ class User {
                 id: userId,
                 username: username,
                 groups: JSON.parse(user.groups),
+                roles: JSON.parse(user.roles || '[]'),
                 email: user.email,
                 is_sso_user: user.is_sso_user
             };
@@ -251,7 +249,7 @@ class User {
     // Get user by ID
     getUserById(userId) {
         try {
-            const stmt = this.db.prepare('SELECT id, username, groups, email, is_sso_user FROM users WHERE id = ?');
+            const stmt = this.db.prepare('SELECT id, username, groups, roles, email, is_sso_user FROM users WHERE id = ?');
             const user = stmt.get(userId);
             
             if (!user) {
@@ -262,6 +260,7 @@ class User {
                 id: user.id,
                 username: user.username,
                 groups: JSON.parse(user.groups),
+                roles: JSON.parse(user.roles || '[]'),
                 email: user.email,
                 is_sso_user: user.is_sso_user
             };
@@ -274,12 +273,13 @@ class User {
     // Get all users in the system
     getAllUsers() {
         try {
-            const stmt = this.db.prepare('SELECT id, username, groups, email, is_sso_user, last_login, created_at FROM users ORDER BY id ASC');
+            const stmt = this.db.prepare('SELECT id, username, groups, roles, email, is_sso_user, last_login, created_at FROM users ORDER BY id ASC');
             const rows = stmt.all();
             return rows.map(user => ({
                 id: user.id,
                 username: user.username,
                 groups: JSON.parse(user.groups),
+                roles: JSON.parse(user.roles || '[]'),
                 email: user.email,
                 is_sso_user: user.is_sso_user,
                 lastLogin: user.last_login,

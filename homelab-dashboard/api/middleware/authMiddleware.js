@@ -1,5 +1,5 @@
 // Authentication middleware
-const requireAuth = (requiredGroup = null) => {
+const requireAuth = (requiredRole = null) => {
     return (req, res, next) => {        
         // Check if user is logged in via session
         if (!req.session.userId || !req.session.user) {
@@ -8,9 +8,12 @@ const requireAuth = (requiredGroup = null) => {
         }
         
         const user = req.session.user;
+        const roles = user.roles || [];
         
-        // Check group if specified
-        if (requiredGroup && !user.groups.includes(requiredGroup)) {
+        // Admins bypass all role checks
+        const hasAdmin = roles.includes('homelab-admin');
+        
+        if (requiredRole && !hasAdmin && !roles.includes(requiredRole)) {
             return res.status(403).json({ error: 'Insufficient permissions' });
         }
         

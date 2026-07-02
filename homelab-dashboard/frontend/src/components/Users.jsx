@@ -115,7 +115,7 @@ const Users = () => {
                                     }
                                 >
                                     <ListItemAvatar>
-                                        <Avatar sx={{ bgcolor: u.groups?.includes('admin') ? 'warning.main' : 'primary.main' }}>
+                                        <Avatar sx={{ bgcolor: u.roles?.includes('homelab-admin') ? 'warning.main' : 'primary.main' }}>
                                             {u.username?.charAt(0).toUpperCase()}
                                         </Avatar>
                                     </ListItemAvatar>
@@ -128,7 +128,7 @@ const Users = () => {
                                                 {u.id === currentUser?.id && (
                                                     <Chip label="You" size="small" color="primary" variant="outlined" />
                                                 )}
-                                                {u.groups?.includes('admin') && (
+                                                {u.roles?.includes('homelab-admin') && (
                                                     <Chip icon={<AdminIcon />} label="Admin" size="small" color="warning" variant="outlined" />
                                                 )}
                                             </Box>

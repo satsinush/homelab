@@ -7,16 +7,16 @@ entries:
   # =================================================================
   - model: authentik_core.group
     identifiers:
-      name: homelab_admins
+      name: homelab-admins
     attrs:
-      name: homelab_admins
+      name: homelab-admins
       is_superuser: true
 
   - model: authentik_core.group
     identifiers:
-      name: homelab_users
+      name: homelab-users
     attrs:
-      name: homelab_users
+      name: homelab-users
       is_superuser: false
 
   # =================================================================
@@ -34,7 +34,7 @@ entries:
       is_superuser: true
       password: !File /secrets/homelab_password
       groups:
-        - !Find [authentik_core.group, [name, homelab_admins]]
+        - !Find [authentik_core.group, [name, homelab-admins]]
 
   # =================================================================
   # =================================================================
@@ -47,10 +47,22 @@ entries:
     attrs:
       name: "custom-scope-groups"
       scope_name: groups
-      description: "SSO Groups"
+      description: "SSO Groups and Roles"
       expression: |
+        groups = [g.name for g in request.user.ak_groups.all()]
+        roles = []
+        if "homelab-admins" in groups:
+            roles.append("homelab-admin")
+        if "homelab-users" in groups:
+            roles.extend([
+                "dashboard-user",
+                "gatus-user",
+                "dashboard-devices-user",
+                "vaultwarden-user"
+            ])
         return {
-            "groups": [g.name for g in request.user.ak_groups.all()]
+            "groups": groups,
+            "roles": roles
         }
 
   - model: authentik_providers_oauth2.scopemapping
@@ -202,13 +214,14 @@ entries:
 
 
   # =================================================================
-  # Access Policies (Bind Groups to Admin Applications)
+  # Access Policies (Bind Groups to Applications)
   # =================================================================
+  # Pi-hole
   # Pi-hole
   - model: authentik_policies.policybinding
     identifiers:
       target: !Find [authentik_core.application, [slug, pihole-app]]
-      group: !Find [authentik_core.group, [name, homelab_admins]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
     attrs:
       order: 0
 
@@ -216,17 +229,54 @@ entries:
   - model: authentik_policies.policybinding
     identifiers:
       target: !Find [authentik_core.application, [slug, gatus-app]]
-      group: !Find [authentik_core.group, [name, homelab_admins]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
     attrs:
       order: 0
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, gatus-app]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 1
 
   # Dockhand
   - model: authentik_policies.policybinding
     identifiers:
       target: !Find [authentik_core.application, [slug, dockhand-app]]
-      group: !Find [authentik_core.group, [name, homelab_admins]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
     attrs:
       order: 0
+
+  # Vaultwarden
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, vaultwarden]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
+    attrs:
+      order: 0
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, vaultwarden]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 1
+
+  # Homelab Dashboard
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, homelab-dashboard]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
+    attrs:
+      order: 0
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, homelab-dashboard]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 1
 
 
 

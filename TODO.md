@@ -1,5 +1,5 @@
-- Use service prefixes/names instead of full hostnames so they can be used for Authentik easier
 - Pcie gen 3?
+- refactor to typescript
 - set up .well-known/openid-configuration?
 - add specific roles for each service and page, implement roles in dashboard UI, make it so you can't sign in/access pages without proper roles
 - Make sure secrets managed properly

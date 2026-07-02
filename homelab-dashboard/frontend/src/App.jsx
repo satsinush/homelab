@@ -21,11 +21,10 @@ import Secrets from './components/Secrets';
 import NotFound from './components/NotFound';
 import './App.css';
 
-function AdminRoute({ children }) {
-  const { user } = useAuth();
-  const isAdmin = user && user.groups && user.groups.includes('admin');
+function ProtectedRoute({ children, role }) {
+  const { hasPermission } = useAuth();
   
-  if (!isAdmin) {
+  if (!hasPermission(role)) {
     return <Navigate to="/home" replace />;
   }
   
@@ -131,13 +130,13 @@ function AppContent() {
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/home" element={<Home />} />
-                <Route path="/system" element={<AdminRoute><System /></AdminRoute>} />
-                <Route path="/devices" element={<Devices />} />
-                <Route path="/chat" element={<AdminRoute><Chat /></AdminRoute>} />
-                <Route path="/wordgames" element={<AdminRoute><WordGames /></AdminRoute>} />
-                <Route path="/packages" element={<AdminRoute><PackageManager /></AdminRoute>} />
-                <Route path="/users" element={<AdminRoute><Users /></AdminRoute>} />
-                <Route path="/secrets" element={<AdminRoute><Secrets /></AdminRoute>} />
+                <Route path="/system" element={<ProtectedRoute role="dashboard-system-user"><System /></ProtectedRoute>} />
+                <Route path="/devices" element={<ProtectedRoute role="dashboard-devices-user"><Devices /></ProtectedRoute>} />
+                <Route path="/chat" element={<ProtectedRoute role="dashboard-chat-user"><Chat /></ProtectedRoute>} />
+                <Route path="/wordgames" element={<ProtectedRoute role="dashboard-wordgames-user"><WordGames /></ProtectedRoute>} />
+                <Route path="/packages" element={<ProtectedRoute role="dashboard-packages-user"><PackageManager /></ProtectedRoute>} />
+                <Route path="/users" element={<ProtectedRoute role="dashboard-users-user"><Users /></ProtectedRoute>} />
+                <Route path="/secrets" element={<ProtectedRoute role="dashboard-secrets-user"><Secrets /></ProtectedRoute>} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="*" element={<NotFound />} />

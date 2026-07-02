@@ -42,23 +42,21 @@ import { useNotification } from '../contexts/NotificationContext';
 
 const Navigation = ({ activeTab, mobileOpen, setMobileOpen }) => {
     const [anchorEl, setAnchorEl] = React.useState(null);
-    const { user, logout } = useAuth();
+    const { user, logout, hasPermission } = useAuth();
     const { showSuccess } = useNotification();
     const navigate = useNavigate();
 
-    const isAdmin = user?.groups?.includes('admin');
-
     const tabs = [
         { id: 'home', label: 'Home', icon: <HomeIcon />, path: '/home' },
-        { id: 'system', label: 'System', icon: <DashboardIcon />, path: '/system', adminOnly: true },
-        { id: 'devices', label: 'Devices', icon: <DevicesIcon />, path: '/devices' },
-        { id: 'chat', label: 'AI Chat', icon: <ChatIcon />, path: '/chat', adminOnly: true },
-        { id: 'wordgames', label: 'Word Games', icon: <GamesIcon />, path: '/wordgames', adminOnly: true },
-        { id: 'packages', label: 'Packages', icon: <PackagesIcon />, path: '/packages', adminOnly: true },
-        { id: 'users', label: 'Users', icon: <PeopleIcon />, path: '/users', adminOnly: true },
-        { id: 'secrets', label: 'Secrets', icon: <KeyIcon />, path: '/secrets', adminOnly: true },
+        { id: 'system', label: 'System', icon: <DashboardIcon />, path: '/system', role: 'dashboard-system-user' },
+        { id: 'devices', label: 'Devices', icon: <DevicesIcon />, path: '/devices', role: 'dashboard-devices-user' },
+        { id: 'chat', label: 'AI Chat', icon: <ChatIcon />, path: '/chat', role: 'dashboard-chat-user' },
+        { id: 'wordgames', label: 'Word Games', icon: <GamesIcon />, path: '/wordgames', role: 'dashboard-wordgames-user' },
+        { id: 'packages', label: 'Packages', icon: <PackagesIcon />, path: '/packages', role: 'dashboard-packages-user' },
+        { id: 'users', label: 'Users', icon: <PeopleIcon />, path: '/users', role: 'dashboard-users-user' },
+        { id: 'secrets', label: 'Secrets', icon: <KeyIcon />, path: '/secrets', role: 'dashboard-secrets-user' },
         { id: 'settings', label: 'Settings', icon: <SettingsIcon />, path: '/settings' }
-    ].filter(tab => !tab.adminOnly || isAdmin);
+    ].filter(tab => !tab.role || hasPermission(tab.role));
 
     const drawerWidth = 280;
     const theme = useTheme();
@@ -212,7 +210,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }) => {
                             {user?.username}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                            {user?.groups?.includes('admin') ? 'Administrator' : 'User'}
+                            {user?.roles?.includes('homelab-admin') ? 'Administrator' : 'User'}
                         </Typography>
                     </Box>
                 </Box>

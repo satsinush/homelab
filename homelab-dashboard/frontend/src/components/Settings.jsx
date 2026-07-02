@@ -47,18 +47,18 @@ const Settings = () => {
     const [tabValue, setTabValue] = useState(0);
     const { themeMode, setThemeMode, actualMode } = useThemeMode();
     const { showSuccess, showError } = useNotification();
-    const { user } = useAuth();
-    const isAdmin = user?.groups?.includes('admin');
+    const { user, hasPermission } = useAuth();
+    const canManageSettings = hasPermission('dashboard-settings-user');
 
     const tabsList = useMemo(() => {
         const list = [];
-        if (isAdmin) {
+        if (canManageSettings) {
             list.push({ id: 'system', label: 'System', icon: <ServerIcon /> });
         }
         list.push({ id: 'user', label: 'User', icon: <UserIcon /> });
         list.push({ id: 'device', label: 'Device', icon: <DevicesIcon /> });
         return list;
-    }, [isAdmin]);
+    }, [canManageSettings]);
 
     // Adjust tabValue if it gets out of bounds
     useEffect(() => {
@@ -141,7 +141,7 @@ const Settings = () => {
     const handleServerSettingChange = (key, value) => {
         const newSettings = { ...serverSettings, [key]: value };
         setServerSettings(newSettings);
-        if (isAdmin) {
+        if (canManageSettings) {
             debouncedSaveServer(newSettings);
         }
     };

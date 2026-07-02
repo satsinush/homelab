@@ -97,6 +97,13 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const hasPermission = (role) => {
+        if (!user || !user.roles) return false;
+        const roles = user.roles;
+        if (roles.includes('homelab-admin')) return true;
+        return roles.includes(role);
+    };
+
     const value = {
         user,
         loading,
@@ -104,6 +111,7 @@ export const AuthProvider = ({ children }) => {
         loginSSO,
         logout,
         refreshUser,
+        hasPermission,
         isAuthenticated: !!user
     };
 

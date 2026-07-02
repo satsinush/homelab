@@ -59,6 +59,7 @@ class DatabaseModel {
                 password_hash TEXT,
                 salt TEXT,
                 groups TEXT NOT NULL DEFAULT '[]',
+                roles TEXT NOT NULL DEFAULT '[]',
                 email TEXT,
                 is_sso_user BOOLEAN DEFAULT 0,
                 sso_id TEXT,

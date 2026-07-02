@@ -42,10 +42,9 @@ import UsersIcon from '../assets/users_icon.png';
 
 const Home = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, hasPermission } = useAuth();
     const { config } = useConfig();
     const hostnames = config.hostnames || {};
-    const isAdmin = user?.groups?.includes('admin');
 
     const quickLinks = [
         {
@@ -54,14 +53,15 @@ const Home = () => {
             icon: <DashboardIcon />,
             path: '/system',
             color: 'primary',
-            adminOnly: true
+            role: 'dashboard-system-user'
         },
         {
             title: 'Devices',
             description: 'Manage Wake-on-LAN devices and network equipment',
             icon: <DevicesIcon />,
             path: '/devices',
-            color: 'secondary'
+            color: 'secondary',
+            role: 'dashboard-devices-user'
         },
         {
             title: 'AI Chat',
@@ -69,7 +69,7 @@ const Home = () => {
             icon: <ChatIcon />,
             path: '/chat',
             color: 'info',
-            adminOnly: true
+            role: 'dashboard-chat-user'
         },
         {
             title: 'Word Games',
@@ -77,7 +77,7 @@ const Home = () => {
             icon: <GamesIcon />,
             path: '/wordgames',
             color: 'warning',
-            adminOnly: true
+            role: 'dashboard-wordgames-user'
         },
         {
             title: 'Packages',
@@ -85,7 +85,7 @@ const Home = () => {
             icon: <PackagesIcon />,
             path: '/packages',
             color: 'success',
-            adminOnly: true
+            role: 'dashboard-packages-user'
         },
         {
             title: 'Settings',
@@ -100,16 +100,16 @@ const Home = () => {
             icon: <PeopleIcon />,
             path: '/users',
             color: 'warning',
-            adminOnly: true
+            role: 'dashboard-users-user'
         }
-    ].filter(link => !link.adminOnly || isAdmin);
+    ].filter(link => !link.role || hasPermission(link.role));
 
     const externalServices = [
         {
             title: 'Pi-hole Admin',
             description: 'Network-wide ad blocking and DNS management',
             url: `https://${hostnames.pihole || ''}/admin`,
-            adminOnly: true,
+            role: 'pihole-user',
             icon: (
                 <Avatar
                     src={PiHoleLogo}
@@ -127,7 +127,7 @@ const Home = () => {
             title: 'Dockhand',
             description: 'Modern Docker management and compose workflows',
             url: `https://${hostnames.dockhand || ''}`,
-            adminOnly: true,
+            role: 'dockhand-user',
             icon: (
                 <Avatar
                     src={DockhandLogo}
@@ -145,6 +145,7 @@ const Home = () => {
             title: 'Vaultwarden',
             description: 'Self-hosted password management solution',
             url: `https://${hostnames.vaultwarden || ''}`,
+            role: 'vaultwarden-user',
             icon: (
                 <Avatar
                     src={VaultwardenLogo}
@@ -162,7 +163,7 @@ const Home = () => {
             title: 'Gatus',
             description: 'Self-hosted service health status monitoring',
             url: `https://${hostnames.gatus || ''}`,
-            adminOnly: true,
+            role: 'gatus-user',
             icon: (
                 <Avatar
                     src={GatusLogo}
@@ -193,7 +194,7 @@ const Home = () => {
             ),
             color: 'white'
         }
-    ].filter(service => !service.adminOnly || isAdmin);
+    ].filter(service => !service.role || hasPermission(service.role));
 
     return (
         <Container maxWidth="lg" sx={{ py: 3 }}>
