@@ -30,7 +30,7 @@ import {
     Chat as ChatIcon,
     People as PeopleIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../contexts/useAuth';
 import { useConfig } from '../contexts/ConfigContext';
 import PiHoleLogo from '../assets/pi_hole_logo.png';
@@ -225,8 +225,11 @@ const Home = () => {
                     {quickLinks.map((link) => (
                         <Grid size={{ xs: 12, sm: 6, md: 3 }} key={link.path}>
                             <Card
-                                onClick={() => navigate(link.path)}
+                                component={RouterLink}
+                                to={link.path}
                                 sx={{
+                                    textDecoration: 'none',
+                                    color: 'inherit',
                                     height: '100%',
                                     display: 'flex',
                                     flexDirection: 'column',
@@ -260,10 +263,7 @@ const Home = () => {
                                     <Button
                                         size="small"
                                         color={link.color}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            navigate(link.path);
-                                        }}
+                                        component="div"
                                         sx={{ ml: 'auto' }}
                                     >
                                         Open
@@ -284,8 +284,11 @@ const Home = () => {
                     {externalServices.map((service, index) => (
                         <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
                             <Card
-                                onClick={() => window.location.href = service.url}
+                                component="a"
+                                href={service.url}
                                 sx={{
+                                    textDecoration: 'none',
+                                    color: 'inherit',
                                     height: '100%',
                                     display: 'flex',
                                     flexDirection: 'column',
@@ -320,8 +323,7 @@ const Home = () => {
                                     <Button
                                         size="small"
                                         color={service.color}
-                                        href={service.url}
-                                        onClick={(e) => e.stopPropagation()}
+                                        component="div"
                                         sx={{ ml: 'auto' }}
                                     >
                                         Open

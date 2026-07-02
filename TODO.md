@@ -1,8 +1,6 @@
 - Pcie gen 3?
-- make TRAEFIK_CERT_RESOLVER like normal env var
 - refactor to typescript
 - make sure all containers come up after reboot
-- Make sure secrets managed properly
 - Add next cloud
 - Add obsidian sync (desktop client and WebDAV for mobile)
 - Add cloud backup for containers (mega.nz, rclone)
@@ -15,3 +13,4 @@
 - make sure all apps are in dashboard and authentik
 - use proper MCP servers
 - update screenshots
+- update docs

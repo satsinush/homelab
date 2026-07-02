@@ -531,9 +531,11 @@ const WordGames = () => {
                         />
                     )}
                     <Tooltip title="Refresh Status">
-                        <IconButton onClick={checkGameStatus} color="primary" disabled={isLoading}>
-                            {isLoading ? <CircularProgress size={20} /> : <RefreshIcon />}
-                        </IconButton>
+                        <span>
+                            <IconButton onClick={checkGameStatus} color="primary" disabled={isLoading}>
+                                {isLoading ? <CircularProgress size={20} /> : <RefreshIcon />}
+                            </IconButton>
+                        </span>
                     </Tooltip>
                 </Box>
             </Box>

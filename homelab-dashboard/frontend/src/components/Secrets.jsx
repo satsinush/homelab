@@ -116,8 +116,8 @@ const Secrets = () => {
 
             <Card>
                 <CardContent sx={{ p: 0 }}>
-                    <TableContainer component={Paper} elevation={0}>
-                        <Table sx={{ tableLayout: 'fixed' }}>
+                    <TableContainer component={Paper} elevation={0} sx={{ maxHeight: '550px', overflowY: 'auto' }}>
+                        <Table stickyHeader sx={{ tableLayout: 'fixed' }}>
                             <TableHead>
                                 <TableRow>
                                     <TableCell sx={{ fontWeight: 600, width: '30%' }}>Secret Name</TableCell>
