@@ -7,6 +7,14 @@ interface NotificationPayload {
     tags?: string[];
 }
 
+interface PackageUpdate {
+    name: string;
+    currentVersion?: string;
+    newVersion?: string | null;
+    hasUpdate?: boolean;
+    status?: string;
+}
+
 class AppriseService {
     private appriseUrl: string;
 
@@ -14,7 +22,7 @@ class AppriseService {
         this.appriseUrl = config.apprise.url;
     }
 
-    async sendPackageUpdateNotification(updatesCount: number, packages: any[] = []) {
+    async sendPackageUpdateNotification(updatesCount: number, packages: PackageUpdate[] = []) {
         try {
             const title = `${updatesCount} Package Update${updatesCount > 1 ? 's' : ''} Available`;
             const message = updatesCount <= 5 
@@ -29,8 +37,9 @@ class AppriseService {
             });
 
             console.log(`Package update notification sent: ${updatesCount} updates available`);
-        } catch (error: any) {
-            console.error('Failed to send package update notification:', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Failed to send package update notification:', err.message);
         }
     }
 
@@ -51,8 +60,7 @@ class AppriseService {
                     priority,
                     tags
                 }),
-                // @ts-ignore
-                timeout: 10000 // 10 second timeout
+                signal: AbortSignal.timeout(10000)
             });
 
             console.log(`Apprise Gateway response status: ${response.status} ${response.statusText}`);
@@ -63,8 +71,9 @@ class AppriseService {
             }
 
             return true;
-        } catch (error: any) {
-            console.error('Apprise notification failed:', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Apprise notification failed:', err.message);
             return false;
         }
     }

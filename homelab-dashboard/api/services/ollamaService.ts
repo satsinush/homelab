@@ -1,5 +1,125 @@
 import config from '../config';
 
+export interface OllamaModel {
+    name: string;
+    size: string;
+    modified: string;
+    details: unknown;
+}
+
+export interface DetailedOllamaModel {
+    name: string;
+    size: number;
+    sizeFormatted: string;
+    modified: string;
+    digest: string;
+    details: unknown;
+}
+
+export interface OllamaStatusResponse {
+    success: boolean;
+    status: string;
+    version?: string;
+    apiUrl?: string;
+    error?: string;
+}
+
+export interface OllamaModelsResponse {
+    success: boolean;
+    models: OllamaModel[];
+    count: number;
+    error?: string;
+}
+
+export interface OllamaDetailedModelsResponse {
+    success: boolean;
+    models: DetailedOllamaModel[];
+    count: number;
+    error?: string;
+}
+
+export interface OllamaChatResponse {
+    success: boolean;
+    response: string;
+    model?: string;
+    done?: boolean;
+    totalDuration?: number;
+    loadDuration?: number;
+    promptEvalCount?: number;
+    evalCount?: number;
+    error?: string;
+}
+
+export interface OllamaGenerateResponse {
+    success: boolean;
+    response: string;
+    model?: string;
+    done?: boolean;
+    totalDuration?: number;
+    loadDuration?: number;
+    promptEvalCount?: number;
+    evalCount?: number;
+    error?: string;
+}
+
+export interface OllamaPullResponse {
+    success: boolean;
+    status?: string;
+    model?: string;
+    response?: unknown;
+    error?: string;
+}
+
+export interface OllamaAvailabilityResponse {
+    success: boolean;
+    exists: boolean;
+    available?: boolean;
+    name: string;
+    message?: string;
+    details?: unknown;
+    error?: string;
+}
+
+export interface OllamaDeleteResponse {
+    success: boolean;
+    message?: string;
+    error?: string;
+}
+
+export interface OllamaShowResponse {
+    success: boolean;
+    modelfile?: string;
+    parameters?: string;
+    template?: string;
+    details?: unknown;
+    error?: string;
+}
+
+interface OllamaRawTag {
+    name: string;
+    size?: number;
+    modified_at?: string;
+    details?: unknown;
+}
+
+interface OllamaRawResponse {
+    models?: OllamaRawTag[];
+    message?: { content?: string };
+    model?: string;
+    done?: boolean;
+    total_duration?: number;
+    load_duration?: number;
+    prompt_eval_count?: number;
+    eval_count?: number;
+    version?: string;
+    status?: string;
+    modelfile?: string;
+    parameters?: string;
+    template?: string;
+    details?: unknown;
+    response?: string;
+}
+
 class OllamaService {
     public baseUrl: string;
     private timeout: number;
@@ -12,10 +132,10 @@ class OllamaService {
     }
 
     // Generic method to make Ollama API requests
-    async makeRequest(endpoint: string, method: string = 'GET', data: any = null, timeout: number | null = null): Promise<any> {
+    async makeRequest(endpoint: string, method = 'GET', data: unknown = null, timeout: number | null = null): Promise<OllamaRawResponse> {
         const url = new URL(endpoint, this.baseUrl);
         
-        const options: any = {
+        const options: RequestInit = {
             method: method,
             headers: {
                 'Content-Type': 'application/json',
@@ -39,13 +159,14 @@ class OllamaService {
             }
 
             const responseText = await response.text();
-            return responseText ? JSON.parse(responseText) : {};
+            return (responseText ? JSON.parse(responseText) : {}) as OllamaRawResponse;
             
-        } catch (error: any) {
-            if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+        } catch (error: unknown) {
+            const err = error as { name?: string; cause?: { code?: string } };
+            if (err.name === 'TimeoutError' || err.name === 'AbortError') {
                 throw new Error('Request timeout');
             }
-            if (error.cause?.code === 'ECONNREFUSED') {
+            if (err.cause?.code === 'ECONNREFUSED') {
                 throw new Error('Connection refused - Ollama service not running');
             }
             throw error;
@@ -53,14 +174,14 @@ class OllamaService {
     }
 
     // Get available models
-    async getModels(): Promise<any> {
+    async getModels(): Promise<OllamaModelsResponse> {
         try {
             const response = await this.makeRequest('/api/tags', 'GET', null, this.shortTimeout);
             const models = response.models || [];
 
             return {
                 success: true,
-                models: models.map((model: any) => ({
+                models: models.map((model) => ({
                     name: model.name,
                     size: this.formatBytes(model.size || 0),
                     modified: model.modified_at || 'Unknown',
@@ -68,11 +189,12 @@ class OllamaService {
                 })),
                 count: models.length
             };
-        } catch (error: any) {
-            console.error('Ollama get models error:', error);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Ollama get models error:', err);
             return {
                 success: false,
-                error: error.message,
+                error: err.message,
                 models: [],
                 count: 0
             };
@@ -80,7 +202,7 @@ class OllamaService {
     }
 
     // Send chat message
-    async sendChat(messages: any[], modelName: string, stream: boolean = false): Promise<any> {
+    async sendChat(messages: unknown[], modelName: string, stream = false): Promise<OllamaChatResponse> {
         try {
             const data = {
                 model: modelName,
@@ -100,18 +222,19 @@ class OllamaService {
                 promptEvalCount: response.prompt_eval_count || 0,
                 evalCount: response.eval_count || 0
             };
-        } catch (error: any) {
-            console.error('Ollama chat error:', error);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Ollama chat error:', err);
             return {
                 success: false,
-                error: error.message,
+                error: err.message,
                 response: ''
             };
         }
     }
 
     // Generate completion (for non-chat models)
-    async generate(prompt: string, modelName: string, options: any = {}): Promise<any> {
+    async generate(prompt: string, modelName: string, options: Record<string, unknown> = {}): Promise<OllamaGenerateResponse> {
         try {
             const data = {
                 model: modelName,
@@ -132,18 +255,19 @@ class OllamaService {
                 promptEvalCount: response.prompt_eval_count || 0,
                 evalCount: response.eval_count || 0
             };
-        } catch (error: any) {
-            console.error('Ollama generate error:', error);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Ollama generate error:', err);
             return {
                 success: false,
-                error: error.message,
+                error: err.message,
                 response: ''
             };
         }
     }
 
     // Get Ollama version and status
-    async getStatus(): Promise<any> {
+    async getStatus(): Promise<OllamaStatusResponse> {
         try {
             const response = await this.makeRequest('/api/version', 'GET', null, this.shortTimeout);
             
@@ -153,19 +277,20 @@ class OllamaService {
                 version: response.version || 'Unknown',
                 apiUrl: this.baseUrl
             };
-        } catch (error: any) {
-            console.error('Ollama status error:', error);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Ollama status error:', err);
             return {
                 success: false,
                 status: 'offline',
-                error: error.message.includes('Connection refused') ? 'Service not running' : 'Service not responding',
+                error: err.message.includes('Connection refused') ? 'Service not running' : 'Service not responding',
                 apiUrl: this.baseUrl
             };
         }
     }
 
     // Pull a model from Ollama library with progress tracking
-    async pullModel(modelName: string, stream: boolean = true): Promise<any> {
+    async pullModel(modelName: string, stream = true): Promise<OllamaPullResponse> {
         try {
             const data = {
                 name: modelName,
@@ -180,18 +305,19 @@ class OllamaService {
                 model: modelName,
                 response: response
             };
-        } catch (error: any) {
-            console.error('Ollama pull model error:', error);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Ollama pull model error:', err);
             return {
                 success: false,
-                error: error.message,
+                error: err.message,
                 model: modelName
             };
         }
     }
 
     // Check if a model is available in Ollama library (more comprehensive check)
-    async checkModelAvailability(modelName: string): Promise<any> {
+    async checkModelAvailability(modelName: string): Promise<OllamaAvailabilityResponse> {
         try {
             // First check if model exists locally
             const localModels = await this.getModelNames();
@@ -226,11 +352,12 @@ class OllamaService {
                     error: 'Invalid model name format'
                 };
             }
-        } catch (error: any) {
-            console.error('Ollama check model availability error:', error);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Ollama check model availability error:', err);
             return {
                 success: false,
-                error: error.message,
+                error: err.message,
                 exists: false,
                 available: false,
                 name: modelName
@@ -239,28 +366,29 @@ class OllamaService {
     }
 
     // Get detailed information about downloaded models
-    async getDetailedModels(): Promise<any> {
+    async getDetailedModels(): Promise<OllamaDetailedModelsResponse> {
         try {
             const response = await this.makeRequest('/api/tags', 'GET', null, this.shortTimeout);
             const models = response.models || [];
 
             return {
                 success: true,
-                models: models.map((model: any) => ({
-                    name: model.name,
+                models: models.map((model) => ({
+                    name: model.name || '',
                     size: model.size || 0,
                     sizeFormatted: this.formatBytes(model.size || 0),
                     modified: model.modified_at || 'Unknown',
-                    digest: model.digest || '',
+                    digest: (model as { digest?: string }).digest || '',
                     details: model.details || {}
                 })),
                 count: models.length
             };
-        } catch (error: any) {
-            console.error('Ollama get detailed models error:', error);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Ollama get detailed models error:', err);
             return {
                 success: false,
-                error: error.message,
+                error: err.message,
                 models: [],
                 count: 0
             };
@@ -268,7 +396,7 @@ class OllamaService {
     }
 
     // Delete a model
-    async deleteModel(modelName: string): Promise<any> {
+    async deleteModel(modelName: string): Promise<OllamaDeleteResponse> {
         try {
             const data = {
                 name: modelName
@@ -280,17 +408,18 @@ class OllamaService {
                 success: true,
                 message: `Model ${modelName} deleted successfully`
             };
-        } catch (error: any) {
-            console.error('Ollama delete model error:', error);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Ollama delete model error:', err);
             return {
                 success: false,
-                error: error.message
+                error: err.message
             };
         }
     }
 
     // Show model information
-    async showModel(modelName: string): Promise<any> {
+    async showModel(modelName: string): Promise<OllamaShowResponse> {
         try {
             const data = {
                 name: modelName
@@ -305,11 +434,12 @@ class OllamaService {
                 template: response.template || '',
                 details: response.details || {}
             };
-        } catch (error: any) {
-            console.error('Ollama show model error:', error);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Ollama show model error:', err);
             return {
                 success: false,
-                error: error.message
+                error: err.message
             };
         }
     }
@@ -319,7 +449,7 @@ class OllamaService {
         try {
             const status = await this.getStatus();
             return status.success && status.status === 'online';
-        } catch (error) {
+        } catch {
             return false;
         }
     }
@@ -329,7 +459,7 @@ class OllamaService {
         try {
             const modelsResult = await this.getModels();
             if (modelsResult.success) {
-                return modelsResult.models.map((model: any) => model.name);
+                return modelsResult.models.map((model) => model.name);
             }
             return [];
         } catch (error) {

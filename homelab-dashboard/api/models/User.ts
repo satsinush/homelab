@@ -15,6 +15,30 @@ export interface UserProfile {
     createdAt?: string;
 }
 
+interface DatabaseUserRow {
+    id: number;
+    username: string;
+    password_hash?: string;
+    salt?: string;
+    groups: string;
+    roles: string;
+    email: string | null;
+    is_sso_user: number;
+    sso_id?: string;
+    created_at: string;
+    updated_at: string;
+    last_login: string | null;
+}
+
+export interface SSOProfile {
+    sub: string;
+    preferred_username?: string;
+    name?: string;
+    email?: string;
+    groups?: string[];
+    roles?: string[];
+}
+
 class User {
     private db: Database.Database;
 
@@ -74,9 +98,9 @@ class User {
             }
 
             const stmt = this.db.prepare('SELECT * FROM users WHERE LOWER(username) = LOWER(?) AND is_sso_user = 0');
-            const user = stmt.get(username) as any;
+            const user = stmt.get(username) as DatabaseUserRow | undefined;
             
-            if (!user) {
+            if (!user || !user.password_hash) {
                 return null;
             }
             
@@ -97,7 +121,7 @@ class User {
                 roles: JSON.parse(user.roles || '[]'),
                 email: user.email,
                 is_sso_user: false,
-                lastLogin: user.last_login
+                lastLogin: user.last_login || undefined
             };
         } catch (error) {
             console.error('Authentication error:', error);
@@ -106,11 +130,11 @@ class User {
     }
 
     // Create or update SSO user
-    async createOrUpdateSSOUser(ssoProfile: any): Promise<UserProfile> {
+    async createOrUpdateSSOUser(ssoProfile: SSOProfile): Promise<UserProfile> {
         try {
             // Extract user info from Authentik OIDC profile
             const ssoId = ssoProfile.sub;
-            const username = ssoProfile.preferred_username || ssoProfile.name;
+            const username = ssoProfile.preferred_username || ssoProfile.name || 'sso-user';
             const email = ssoProfile.email || null;
             
             // Use groups and roles mapping
@@ -118,9 +142,8 @@ class User {
             const userRoles = ssoProfile.roles || [];
 
             // Check if SSO user already exists by sso_id
-            let user: any;
             const ssoUserStmt = this.db.prepare('SELECT * FROM users WHERE sso_id = ? AND is_sso_user = 1');
-            user = ssoUserStmt.get(ssoId);
+            const user = ssoUserStmt.get(ssoId) as DatabaseUserRow | undefined;
 
             if (user) {
                 // Update existing SSO user - always sync roles from Authentik
@@ -147,11 +170,11 @@ class User {
                     lastLogin: new Date().toISOString()
                 };
             } else {
-                let existingUser: any = null;
+                let existingUser: DatabaseUserRow | undefined = undefined;
                 if (email) {
                     console.log(`No user found with matching OIDC ID, checking for user with email: ${email}`);
                     const existingUserStmt = this.db.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?)');
-                    existingUser = existingUserStmt.get(email);
+                    existingUser = existingUserStmt.get(email) as DatabaseUserRow | undefined;
                 }
 
                 if (existingUser) {
@@ -204,7 +227,7 @@ class User {
         try {
             // Get current user data
             const userStmt = this.db.prepare('SELECT * FROM users WHERE id = ?');
-            const user = userStmt.get(userId) as any;
+            const user = userStmt.get(userId) as DatabaseUserRow | undefined;
             
             if (!user) {
                 throw new Error('User not found');
@@ -228,7 +251,7 @@ class User {
             
             // Check if username is already taken (by another user)
             const existingUserStmt = this.db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?) AND id != ?');
-            const existingUser = existingUserStmt.get(username, userId);
+            const existingUser = existingUserStmt.get(username, userId) as DatabaseUserRow | undefined;
             
             if (existingUser) {
                 throw new Error('Username is already taken');
@@ -262,7 +285,7 @@ class User {
     getUserById(userId: number): UserProfile | null {
         try {
             const stmt = this.db.prepare('SELECT id, username, groups, roles, email, is_sso_user FROM users WHERE id = ?');
-            const user = stmt.get(userId) as any;
+            const user = stmt.get(userId) as DatabaseUserRow | undefined;
             
             if (!user) {
                 return null;
@@ -286,7 +309,7 @@ class User {
     getAllUsers(): UserProfile[] {
         try {
             const stmt = this.db.prepare('SELECT id, username, groups, roles, email, is_sso_user, last_login, created_at FROM users ORDER BY id ASC');
-            const rows = stmt.all() as any[];
+            const rows = stmt.all() as DatabaseUserRow[];
             return rows.map(user => ({
                 id: user.id,
                 username: user.username,
@@ -294,7 +317,7 @@ class User {
                 roles: JSON.parse(user.roles || '[]'),
                 email: user.email,
                 is_sso_user: !!user.is_sso_user,
-                lastLogin: user.last_login,
+                lastLogin: user.last_login || undefined,
                 createdAt: user.created_at
             }));
         } catch (error) {

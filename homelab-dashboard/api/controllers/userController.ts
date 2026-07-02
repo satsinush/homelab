@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import User from '../models/User';
+import User, { SSOProfile } from '../models/User';
 import ValidationUtils from '../utils/validation';
 import { sendError, sendSuccess } from '../utils/response';
 import config from '../config';
@@ -30,8 +30,9 @@ class UserController {
             let validatedCredentials;
             try {
                 validatedCredentials = ValidationUtils.validateLoginCredentials(username, password);
-            } catch (validationError: any) {
-                return sendError(res, 400, validationError.message);
+            } catch (validationError: unknown) {
+                const err = validationError as Error;
+                return sendError(res, 400, err.message);
             }
             
             const user = await this.userModel.authenticate(validatedCredentials.username, validatedCredentials.password);
@@ -62,9 +63,10 @@ class UserController {
                     is_sso_user: user.is_sso_user
                 }
             });
-        } catch (error: any) {
-            console.error('Login error:', error);
-            return sendError(res, 500, 'An unexpected error occurred during login', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Login error:', err);
+            return sendError(res, 500, 'An unexpected error occurred during login', err.message);
         }
     }
 
@@ -86,10 +88,7 @@ class UserController {
             const code_challenge = await config.oidcLib.calculatePKCECodeChallenge(code_verifier);
             const state = config.oidcLib.randomState();
             
-            // Store in session for verification
-            // @ts-ignore
             req.session.oidc_code_verifier = code_verifier;
-            // @ts-ignore
             req.session.oidc_state = state;
 
             await new Promise<void>((resolve, reject) => {
@@ -119,15 +118,19 @@ class UserController {
             console.log('Redirecting to:', redirectTo.href);
             res.redirect(redirectTo.href);
             
-        } catch (error: any) {
-            console.error('SSO Login error:', error);
-            if (error.message && error.message.includes('discovery')) {
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('SSO Login error:', err);
+            if (err.message && err.message.includes('discovery')) {
                 return res.status(503).json({ 
                     error: 'SSO service unavailable',
                     message: 'Authentik is not available. Please try local login or try again later.'
                 });
             }
-            res.status(500).json({ error: 'Failed to initiate SSO login' });
+            return res.status(500).json({ 
+                error: 'SSO initiation failed',
+                message: err.message 
+            });
         }
     }
 
@@ -146,8 +149,6 @@ class UserController {
                 });
             }
 
-            // Verify we have the required session data
-            // @ts-ignore
             if (!req.session.oidc_code_verifier || !req.session.oidc_state) {
                 console.error('Missing session data for OIDC callback');
                 return res.status(400).json({ error: 'Missing session data for authentication' });
@@ -163,17 +164,18 @@ class UserController {
                 oidcConfig,
                 getCurrentUrl(),
                 {
-                    // @ts-ignore
                     pkceCodeVerifier: req.session.oidc_code_verifier,
-                    // @ts-ignore
                     expectedState: req.session.oidc_state,
                 }
             );
 
             console.log('Token exchange successful');
             
-            // Get user info using the access token and dynamic endpoint from discovery
             const userinfoEndpoint = oidcConfig.serverMetadata().userinfo_endpoint;
+            if (!userinfoEndpoint) {
+                throw new Error('OIDC UserInfo endpoint not found in server metadata');
+            }
+
             const protectedResourceResponse = await config.oidcLib.fetchProtectedResource(
                 oidcConfig,
                 tokens.access_token,
@@ -181,7 +183,7 @@ class UserController {
                 'GET'
             );
             
-            const userinfo: any = await protectedResourceResponse.json();
+            const userinfo = await protectedResourceResponse.json() as unknown as SSOProfile;
             console.log('User info received for:', userinfo.preferred_username);
 
             // Create or update user based on SSO profile
@@ -199,10 +201,7 @@ class UserController {
                 is_sso_user: user.is_sso_user
             };
 
-            // Clean up OIDC session data
-            // @ts-ignore
             delete req.session.oidc_state;
-            // @ts-ignore
             delete req.session.oidc_code_verifier;
 
             await new Promise<void>((resolve, reject) => {
@@ -218,11 +217,12 @@ class UserController {
             console.log('OIDC authentication successful for', user.username);
             return res.redirect('/');
 
-        } catch (error: any) {
-            console.error('OIDC callback error:', error);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('OIDC callback error:', err);
             return res.status(500).json({
                 error: 'Authentication failed',
-                details: error.message
+                details: err.message
             });
         }
     }
@@ -277,9 +277,10 @@ class UserController {
                     });
                 }
             });
-        } catch (error: any) {
-            console.error('Logout error:', error);
-            return sendError(res, 500, 'An unexpected error occurred during logout', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Logout error:', err);
+            return sendError(res, 500, 'An unexpected error occurred during logout', err.message);
         }
     }
 
@@ -290,9 +291,10 @@ class UserController {
             return sendSuccess(res, {
                 isFirstUser: isFirst
             });
-        } catch (error: any) {
-            console.error('First user check error:', error);
-            return sendError(res, 500, 'Failed to check first user status', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('First user check error:', err);
+            return sendError(res, 500, 'Failed to check first user status', err.message);
         }
     }
 
@@ -313,9 +315,10 @@ class UserController {
                     is_sso_user: user.is_sso_user
                 }
             });
-        } catch (error: any) {
-            console.error('Get user error:', error);
-            return sendError(res, 500, 'Failed to retrieve user information', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Get user error:', err);
+            return sendError(res, 500, 'Failed to retrieve user information', err.message);
         }
     }
 
@@ -338,9 +341,10 @@ class UserController {
                     is_sso_user: req.session.user.is_sso_user
                 }
             });
-        } catch (error: any) {
-            console.error('Session verification error:', error);
-            return sendError(res, 500, 'Session verification failed', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Session verification error:', err);
+            return sendError(res, 500, 'Session verification failed', err.message);
         }
     }
 
@@ -387,8 +391,9 @@ class UserController {
                     throw new Error('Current password is required to make changes');
                 }
                 
-            } catch (validationError: any) {
-                return sendError(res, 400, validationError.message);
+            } catch (validationError: unknown) {
+                const err = validationError as Error;
+                return sendError(res, 400, err.message);
             }
             
             const updatedUser = await this.userModel.updateProfile(userId, validatedUsername, currentPassword, validatedNewPassword);
@@ -405,23 +410,24 @@ class UserController {
                 message: 'Profile updated successfully',
                 user: updatedUser
             });
-        } catch (error: any) {
-            console.error('Profile update error:', error);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Profile update error:', err);
             
             // Business logic errors
-            if (error.message === 'User not found') {
+            if (err.message === 'User not found') {
                 return sendError(res, 404, 'User account not found');
             }
             
-            if (error.message.includes('Current password is incorrect')) {
+            if (err.message.includes('Current password is incorrect')) {
                 return sendError(res, 400, 'Current password is incorrect');
             }
             
-            if (error.message.includes('Username is already taken')) {
+            if (err.message.includes('Username is already taken')) {
                 return sendError(res, 400, 'Username is already taken');
             }
             
-            return sendError(res, 500, 'Failed to update profile', error.message);
+            return sendError(res, 500, 'Failed to update profile', err.message);
         }
     }
 
@@ -430,9 +436,10 @@ class UserController {
         try {
             const users = this.userModel.getAllUsers();
             return sendSuccess(res, { users });
-        } catch (error: any) {
-            console.error('Get all users error:', error);
-            return sendError(res, 500, 'Failed to retrieve users list', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Get all users error:', err);
+            return sendError(res, 500, 'Failed to retrieve users list', err.message);
         }
     }
 
@@ -477,9 +484,10 @@ class UserController {
             }
 
             return sendSuccess(res, { message: 'User deleted successfully' });
-        } catch (error: any) {
-            console.error('Delete user error:', error);
-            return sendError(res, 500, 'Failed to delete user', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Delete user error:', err);
+            return sendError(res, 500, 'Failed to delete user', err.message);
         }
     }
 }

@@ -1,11 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
 
+interface ExpressError {
+    message?: string;
+    status?: number;
+    name?: string;
+    type?: string;
+    code?: string;
+    stack?: string;
+}
+
 // Error handling middleware
-export const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
+export const errorHandler = (err: ExpressError, req: Request, res: Response, _next: NextFunction) => {
     console.error('Error:', err);
     
     // Default error response structure
-    let error = {
+    const error = {
         error: err.message || 'Internal Server Error',
         status: err.status || 500
     };
@@ -41,7 +50,7 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
 };
 
 // 404 handler with consistent response format
-export const notFound = (req: Request, res: Response, next: NextFunction) => {
+export const notFound = (req: Request, res: Response, _next: NextFunction) => {
     res.status(404).json({
         error: `Resource not found: ${req.method} ${req.originalUrl}`
     });

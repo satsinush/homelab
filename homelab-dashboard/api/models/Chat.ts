@@ -1,6 +1,13 @@
 import database from './Database';
 import Database from 'better-sqlite3';
 
+export interface ChatMessage {
+    role: string;
+    content: string;
+    message?: string;
+    actions?: unknown[];
+}
+
 class Chat {
     private db: Database.Database;
 
@@ -21,13 +28,13 @@ class Chat {
     }
 
     // Get conversation from database
-    getConversation(userId: number): any[] {
+    getConversation(userId: number): ChatMessage[] {
         try {
             const stmt = this.db.prepare('SELECT messages FROM chat_conversations WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1');
             const result = stmt.get(userId) as { messages: string } | undefined;
             
             if (result && result.messages) {
-                return JSON.parse(result.messages);
+                return JSON.parse(result.messages) as ChatMessage[];
             }
             return [];
         } catch (error) {
@@ -37,7 +44,7 @@ class Chat {
     }
 
     // Save conversation to database
-    saveConversation(userId: number, messages: any[]) {
+    saveConversation(userId: number, messages: ChatMessage[]) {
         try {
             const messagesJson = JSON.stringify(messages);
             

@@ -5,6 +5,19 @@ import readline from 'readline';
 import { sendError, sendSuccess } from '../utils/response';
 import { Request, Response } from 'express';
 
+interface GuessWithEntropy {
+    word?: string;
+    pattern?: string;
+    entropy: number;
+    probability: number;
+}
+
+interface LetterSuggestion {
+    letter: string;
+    entropy: number;
+    probability: number;
+}
+
 class WordGamesController {
     private executableFile: string;
     private executableDir: string;
@@ -31,8 +44,9 @@ class WordGamesController {
         try {
             console.log('Running initial cleanup of old results files...');
             await this.cleanupOldResultsFiles();
-        } catch (error: any) {
-            console.error('Error during initial cleanup:', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Error during initial cleanup:', err.message);
         }
     }
 
@@ -129,9 +143,10 @@ class WordGamesController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Letter Boxed solve error:', error);
-            return sendError(res, 500, 'Failed to solve Letter Boxed puzzle', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Letter Boxed solve error:', err);
+            return sendError(res, 500, 'Failed to solve Letter Boxed puzzle', err.message);
         }
     }
 
@@ -212,9 +227,10 @@ class WordGamesController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Spelling Bee solve error:', error);
-            return sendError(res, 500, 'Failed to solve Spelling Bee puzzle', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Spelling Bee solve error:', err);
+            return sendError(res, 500, 'Failed to solve Spelling Bee puzzle', err.message);
         }
     }
 
@@ -281,9 +297,10 @@ class WordGamesController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Wordle solve error:', error);
-            return sendError(res, 500, 'Failed to solve Wordle step', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Wordle solve error:', err);
+            return sendError(res, 500, 'Failed to solve Wordle step', err.message);
         }
     }
 
@@ -364,9 +381,10 @@ class WordGamesController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Mastermind solve error:', error);
-            return sendError(res, 500, 'Failed to solve Mastermind step', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Mastermind solve error:', err);
+            return sendError(res, 500, 'Failed to solve Mastermind step', err.message);
         }
     }
 
@@ -429,9 +447,10 @@ class WordGamesController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Dungleon solve error:', error);
-            return sendError(res, 500, 'Failed to solve Dungleon step', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Dungleon solve error:', err);
+            return sendError(res, 500, 'Failed to solve Dungleon step', err.message);
         }
     }
 
@@ -487,9 +506,10 @@ class WordGamesController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Hangman solve error:', error);
-            return sendError(res, 500, 'Failed to solve Hangman step', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Hangman solve error:', err);
+            return sendError(res, 500, 'Failed to solve Hangman step', err.message);
         }
     }
 
@@ -532,9 +552,10 @@ class WordGamesController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Load results chunk error:', error);
-            return sendError(res, 500, 'Failed to load results chunk', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Load results chunk error:', err);
+            return sendError(res, 500, 'Failed to load results chunk', err.message);
         }
     }
 
@@ -644,7 +665,7 @@ class WordGamesController {
     }
 
     // Parse Wordle output
-    parseWordleOutput(output: string, possibleCount: number): { possibleWords: string[]; guessesWithEntropy: any[] } {
+    parseWordleOutput(output: string, _possibleCount: number): { possibleWords: string[]; guessesWithEntropy: GuessWithEntropy[] } {
         if (!output || typeof output !== 'string') {
             return { possibleWords: [], guessesWithEntropy: [] };
         }
@@ -654,7 +675,7 @@ class WordGamesController {
             .filter(line => line.length > 0);
 
         const possibleWords: string[] = [];
-        const guessesWithEntropy: any[] = [];
+        const guessesWithEntropy: GuessWithEntropy[] = [];
 
         for (const line of lines) {
             if (line.includes(',')) {
@@ -678,7 +699,7 @@ class WordGamesController {
     }
 
     // Parse Mastermind output
-    parseMastermindOutput(output: string, possibleCount: number): { possiblePatterns: string[]; guessesWithEntropy: any[] } {
+    parseMastermindOutput(output: string, _possibleCount: number): { possiblePatterns: string[]; guessesWithEntropy: GuessWithEntropy[] } {
         if (!output || typeof output !== 'string') {
             return { possiblePatterns: [], guessesWithEntropy: [] };
         }
@@ -688,7 +709,7 @@ class WordGamesController {
             .filter(line => line.length > 0);
 
         const possiblePatterns: string[] = [];
-        const guessesWithEntropy: any[] = [];
+        const guessesWithEntropy: GuessWithEntropy[] = [];
 
         for (const line of lines) {
             if (line.includes(',')) {
@@ -712,7 +733,7 @@ class WordGamesController {
     }
 
     // Parse Hangman output
-    parseHangmanOutput(output: string, letterCount: number): { letterSuggestions: any[]; possibleWords: string[] } {
+    parseHangmanOutput(output: string, _letterCount: number): { letterSuggestions: LetterSuggestion[]; possibleWords: string[] } {
         if (!output || typeof output !== 'string') {
             return { letterSuggestions: [], possibleWords: [] };
         }
@@ -721,7 +742,7 @@ class WordGamesController {
             .map(line => line.trim())
             .filter(line => line.length > 0);
 
-        const letterSuggestions: any[] = [];
+        const letterSuggestions: LetterSuggestion[] = [];
         const possibleWords: string[] = [];
 
         for (const line of lines) {
@@ -744,7 +765,7 @@ class WordGamesController {
     }
 
     // Parse Dungleon output
-    parseDungleonOutput(output: string, possibleCount: number): { possiblePatterns: string[]; guessesWithEntropy: any[] } {
+    parseDungleonOutput(output: string, _possibleCount: number): { possiblePatterns: string[]; guessesWithEntropy: GuessWithEntropy[] } {
         if (!output || typeof output !== 'string') {
             return { possiblePatterns: [], guessesWithEntropy: [] };
         }
@@ -754,7 +775,7 @@ class WordGamesController {
             .filter(line => line.length > 0);
 
         const possiblePatterns: string[] = [];
-        const guessesWithEntropy: any[] = [];
+        const guessesWithEntropy: GuessWithEntropy[] = [];
 
         for (const line of lines) {
             if (line.includes(',')) {
@@ -776,6 +797,7 @@ class WordGamesController {
         return { possiblePatterns, guessesWithEntropy };
     }
 
+
     // Schedule file cleanup
     scheduleFileCleanup(filePath: string) {
         setTimeout(() => {
@@ -793,13 +815,15 @@ class WordGamesController {
                 await fsPromises.access(fullPath);
                 await fsPromises.unlink(fullPath);
                 console.log(`Cleaned up results file: ${filePath}`);
-            } catch (err: any) {
-                if (err.code !== 'ENOENT') {
-                    console.error(`Failed to cleanup results file ${filePath}:`, err.message);
+            } catch (err: unknown) {
+                const errorObj = err as { code?: string; message?: string };
+                if (errorObj.code !== 'ENOENT') {
+                    console.error(`Failed to cleanup results file ${filePath}:`, errorObj.message);
                 }
             }
-        } catch (error: any) {
-            console.error(`Error during file cleanup for ${filePath}:`, error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error(`Error during file cleanup for ${filePath}:`, err.message);
         }
     }
 
@@ -811,14 +835,13 @@ class WordGamesController {
             
             try {
                 await fsPromises.access(resultsDir);
-            } catch (err) {
+            } catch {
                 console.log('Results directory does not exist, nothing to clean up');
                 return;
             }
 
             const files = await fsPromises.readdir(resultsDir);
             const now = Date.now();
-            let cleanedCount = 0;
             
             for (const filename of files) {
                 try {
@@ -829,15 +852,16 @@ class WordGamesController {
                     if (fileAge > this.cleanupDelay) {
                         await fsPromises.unlink(filePath);
                         console.log(`Cleaned up old results file: ${filename} (age: ${Math.round(fileAge / 1000)}s)`);
-                        cleanedCount++;
                     }
-                } catch (err: any) {
-                    console.error(`Error processing file ${filename} during cleanup:`, err.message);
+                } catch (err: unknown) {
+                    const errorObj = err as Error;
+                    console.error(`Error processing file ${filename} during cleanup:`, errorObj.message);
                 }
             }
             
-        } catch (error: any) {
-            console.error('Error during results directory cleanup:', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Error during results directory cleanup:', err.message);
         }
     }
 }

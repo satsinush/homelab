@@ -35,7 +35,7 @@ export const normalizeMacForApi = (mac: string): string => {
 
 interface DeviceInput {
     mac: string;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 interface DeviceOutput extends DeviceInput {
@@ -46,7 +46,7 @@ interface DeviceOutput extends DeviceInput {
  * Format device data for display by applying MAC formatting
  */
 export const formatDeviceForDisplay = (device: DeviceInput): DeviceOutput => {
-    if (!device) return device as any;
+    if (!device) return device as unknown as DeviceOutput;
     
     return {
         ...device,
@@ -60,7 +60,7 @@ export const formatDeviceForDisplay = (device: DeviceInput): DeviceOutput => {
  * Format multiple devices for display
  */
 export const formatDevicesForDisplay = (devices: DeviceInput[]): DeviceOutput[] => {
-    if (!Array.isArray(devices)) return devices as any;
+    if (!Array.isArray(devices)) return devices as unknown as DeviceOutput[];
     
     return devices.map(device => formatDeviceForDisplay(device));
 };

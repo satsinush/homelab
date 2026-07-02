@@ -16,6 +16,21 @@ export interface DeviceData {
     updatedAt: string;
 }
 
+interface DatabaseDeviceRow {
+    id: number;
+    user_id: number;
+    mac: string;
+    name: string | null;
+    description: string | null;
+    rustdesk_id: string | null;
+    is_favorite: number;
+    last_ip: string | null;
+    status: string;
+    last_seen: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
 class Device {
     private db: Database.Database;
 
@@ -29,7 +44,7 @@ class Device {
             const stmt = this.db.prepare(
                 'SELECT * FROM user_devices WHERE user_id = ? ORDER BY is_favorite DESC, updated_at DESC'
             );
-            return stmt.all(userId).map((row: any) => this._rowToDevice(row));
+            return (stmt.all(userId) as DatabaseDeviceRow[]).map(row => this._rowToDevice(row));
         } catch (error) {
             console.error('Error getting devices for user:', error);
             return [];
@@ -42,7 +57,7 @@ class Device {
             const stmt = this.db.prepare(
                 'SELECT * FROM user_devices WHERE user_id = ? AND is_favorite = 1 ORDER BY updated_at DESC'
             );
-            return stmt.all(userId).map((row: any) => this._rowToDevice(row));
+            return (stmt.all(userId) as DatabaseDeviceRow[]).map(row => this._rowToDevice(row));
         } catch (error) {
             console.error('Error getting favorites for user:', error);
             return [];
@@ -55,7 +70,7 @@ class Device {
             const stmt = this.db.prepare(
                 'SELECT * FROM user_devices WHERE user_id = ? AND mac = ?'
             );
-            const row = stmt.get(userId, mac) as any;
+            const row = stmt.get(userId, mac) as DatabaseDeviceRow | undefined;
             return row ? this._rowToDevice(row) : null;
         } catch (error) {
             console.error('Error finding device by MAC for user:', error);
@@ -248,14 +263,14 @@ class Device {
     getAllRowsForMac(mac: string): DeviceData[] {
         try {
             const stmt = this.db.prepare('SELECT * FROM user_devices WHERE mac = ?');
-            return stmt.all(mac).map((row: any) => this._rowToDevice(row));
+            return (stmt.all(mac) as DatabaseDeviceRow[]).map(row => this._rowToDevice(row));
         } catch (error) {
             console.error('Error getting rows for MAC:', error);
             return [];
         }
     }
 
-    private _rowToDevice(row: any): DeviceData {
+    private _rowToDevice(row: DatabaseDeviceRow): DeviceData {
         return {
             id: row.id,
             userId: row.user_id,

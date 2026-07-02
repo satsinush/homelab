@@ -23,7 +23,7 @@ import DeviceController from './controllers/deviceController';
 import PackageUpdateChecker from './services/packageUpdateChecker';
 import Database from './models/Database';
 
-const SQLiteStoreFactory = require('better-sqlite3-session-store');
+import SQLiteStoreFactory from 'better-sqlite3-session-store';
 const SQLiteStore = SQLiteStoreFactory(session);
 
 // Initialize Express app
@@ -135,7 +135,7 @@ if (process.env.ENVIRONMENT === 'development') {
         if (req.path.startsWith('/api')) {
             return next();
         }
-        viteProxy(req as any, res as any, next as any);
+        viteProxy(req, res, next);
     });
 } else {
     app.use(express.static(frontendDistPath));
@@ -170,8 +170,9 @@ const initializeServer = async () => {
                         if (fs.existsSync(secretsPath)) {
                             bootstrapPassword = fs.readFileSync(secretsPath, 'utf8').trim();
                         }
-                    } catch (err: any) {
-                        console.log(`Could not read password from file ${process.env.HOMELAB_PASSWORD_FILE}:`, err.message);
+                    } catch (err: unknown) {
+                        const errorObj = err as Error;
+                        console.log(`Could not read password from file ${process.env.HOMELAB_PASSWORD_FILE}:`, errorObj.message);
                     }
                 }
                 
@@ -199,19 +200,20 @@ const initializeServer = async () => {
             console.log('Performing initial device scan...');
             try {
                 await deviceController.runScan();
-                // @ts-ignore
-                const onlineCount = deviceController.scanCache.byMac.size;
+                const onlineCount = deviceController.getOnlineCount();
                 console.log(`Initial scan completed: ${onlineCount} devices online`);
-            } catch (error: any) {
-                console.error('Initial scan failed:', error.message);
+            } catch (error: unknown) {
+                const err = error as Error;
+                console.error('Initial scan failed:', err.message);
             }
 
             // Start package update checker
             try {
                 packageUpdateChecker.start();
                 console.log('Package update checker started (hourly notifications) ✓');
-            } catch (error: any) {
-                console.error('Failed to start package update checker:', error.message);
+            } catch (error: unknown) {
+                const err = error as Error;
+                console.error('Failed to start package update checker:', err.message);
             }
         });
         

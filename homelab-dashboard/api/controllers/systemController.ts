@@ -2,8 +2,49 @@ import { Request, Response } from 'express';
 import Settings from '../models/Settings';
 import fs from 'fs';
 import config from '../config';
-import HostApiService from '../services/hostApiService';
+import HostApiService, { HostApiResponse } from '../services/hostApiService';
 import { sendError, sendSuccess } from '../utils/response';
+
+interface BasicSystemInfo {
+    hostname: string;
+    platform: string;
+    uptime: number;
+    memory?: { total: number; used: number; free: number };
+    cpu?: { cores: number; model: string };
+    source?: string;
+}
+
+interface ResourceUsage {
+    cpu: { usage: number; cores: number; model: string };
+    memory: { total: number; used: number; free: number; percentage: number };
+    disk: { total: number; used: number; available: number; percentage: number };
+    source?: string;
+}
+
+interface TemperatureInfo {
+    cpu: number | null;
+}
+
+interface NetworkStats {
+    interfaces: Array<{
+        name: string;
+        downloadSpeed?: number;
+        uploadSpeed?: number;
+        active?: boolean;
+    }>;
+    source?: string;
+    timestamp?: string;
+}
+
+export interface PackageInfo {
+    packages: Array<{ name: string; currentVersion: string; newVersion: string | null; hasUpdate: boolean; status: string }>;
+    totalPackages: number;
+    updatesAvailable: number;
+    lastChecked: string;
+    lastSynced: string | null;
+    packageManager: string;
+    note: string;
+}
 
 class SystemController {
     private settingsModel: Settings;
@@ -17,7 +58,7 @@ class SystemController {
     // Health check (no auth required)
     async healthCheck(req: Request, res: Response) {
         try {
-            let systemInfo = {
+            const systemInfo = {
                 status: 'OK',
                 timestamp: new Date().toISOString(),
                 platform: 'unknown',
@@ -27,20 +68,22 @@ class SystemController {
             };
 
             try {
-                const hostApiHealth = await this.hostApi.healthCheck();
+                const hostApiHealth = await this.hostApi.healthCheck() as { status?: string; platform?: string; hostname?: string } & HostApiResponse;
                 if (hostApiHealth && hostApiHealth.status === 'OK') {
                     systemInfo.platform = hostApiHealth.platform || 'unknown';
                     systemInfo.hostname = hostApiHealth.hostname || 'unknown';
                     systemInfo.hostApi = 'available';
                 }
-            } catch (error: any) {
-                console.warn('Could not fetch health check from Host API:', error.message);
+            } catch (error: unknown) {
+                const err = error as Error;
+                console.warn('Could not fetch health check from Host API:', err.message);
             }
 
             return sendSuccess(res, systemInfo);
-        } catch (error: any) {
-            console.error('Health check error:', error);
-            return sendError(res, 500, 'Health check failed', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Health check error:', err);
+            return sendError(res, 500, 'Health check failed', err.message);
         }
     }
 
@@ -49,9 +92,10 @@ class SystemController {
         try {
             const settings = this.settingsModel.get();
             return sendSuccess(res, { settings: settings });
-        } catch (error: any) {
-            console.error('Get settings error:', error);
-            return sendError(res, 500, 'Failed to retrieve settings', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Get settings error:', err);
+            return sendError(res, 500, 'Failed to retrieve settings', err.message);
         }
     }
 
@@ -67,9 +111,10 @@ class SystemController {
                 message: 'Settings updated successfully', 
                 settings: updatedSettings 
             });
-        } catch (error: any) {
-            console.error('Update settings error:', error);
-            return sendError(res, 500, 'Failed to update settings', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Update settings error:', err);
+            return sendError(res, 500, 'Failed to update settings', err.message);
         }
     }
 
@@ -78,9 +123,10 @@ class SystemController {
         try {
             const systemInfo = await this.getCombinedSystemInfo();
             return sendSuccess(res, systemInfo);
-        } catch (error: any) {
-            console.error('Get system info error:', error);
-            return sendError(res, 500, 'Failed to retrieve system information', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Get system info error:', err);
+            return sendError(res, 500, 'Failed to retrieve system information', err.message);
         }
     }
 
@@ -89,9 +135,10 @@ class SystemController {
         try {
             const packageInfo = await this.getPackageInfo();
             return sendSuccess(res, { packages: packageInfo.packages, updatesAvailable: packageInfo.updatesAvailable, lastChecked: packageInfo.lastChecked, lastSynced: packageInfo.lastSynced, packageManager: packageInfo.packageManager, note: packageInfo.note });
-        } catch (error: any) {
-            console.error('Get packages error:', error);
-            return sendError(res, 500, 'Failed to retrieve package information', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Get CPU info error:', err);
+            return sendError(res, 500, 'Failed to retrieve CPU information', err.message);
         }
     }
 
@@ -105,9 +152,10 @@ class SystemController {
                 updatesAvailable: packageInfo.updatesAvailable,
                 lastChecked: packageInfo.lastChecked
             });
-        } catch (error: any) {
-            console.error('Manual package update check error:', error);
-            return sendError(res, 500, 'Failed to check for package updates', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Manual package update check error:', err);
+            return sendError(res, 500, 'Failed to check for package updates', err.message);
         }
     }
 
@@ -126,8 +174,9 @@ class SystemController {
                         console.warn(`RustDesk public key file not found at: ${config.rustdeskPubKeyPath}`);
                         errorFlag = true;
                     }
-                } catch (readError) {
-                    console.error('Error reading RustDesk public key:', readError);
+                } catch (readError: unknown) {
+                    const err = readError as Error;
+                    console.error('Error reading RustDesk public key:', err);
                     errorFlag = true;
                 }
             } else {
@@ -139,9 +188,10 @@ class SystemController {
                 publicKey: publicKey,
                 available: !errorFlag && !!publicKey
             });
-        } catch (error: any) {
-            console.error('Get RustDesk config error:', error);
-            return sendError(res, 500, 'Failed to retrieve RustDesk configuration', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Get RustDesk config error:', err);
+            return sendError(res, 500, 'Failed to retrieve RustDesk configuration', err.message);
         }
     }
 
@@ -166,25 +216,28 @@ class SystemController {
                             name: file,
                             value: value
                         });
-                    } catch (readError: any) {
-                        console.error(`Failed to read secret ${file}:`, readError.message);
+                    } catch (readError: unknown) {
+                        const err = readError as Error;
+                        console.warn(`Could not read container metadata file: ${err.message}`);
                     }
                 }
             }
 
             return sendSuccess(res, { secrets: secretsList });
-        } catch (error: any) {
-            console.error('Get secrets error:', error);
-            return sendError(res, 500, 'Failed to retrieve secrets', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Get Docker container info error:', err);
+            return sendError(res, 500, 'Failed to retrieve Docker containers', err.message);
         }
     }
 
     // Get basic system information from Host API
-    async getBasicSystemInfo() {
+    async getBasicSystemInfo(): Promise<BasicSystemInfo> {
         try {
             const metrics = await this.hostApi.getSystemMetrics();
-            if (metrics && metrics.success && metrics.data) {
-                return metrics.data.system;
+            const data = metrics.data as { system?: BasicSystemInfo } | undefined;
+            if (metrics && metrics.success && data && data.system) {
+                return data.system;
             }
         } catch (error) {
             console.error('Host API system info fetch error:', error);
@@ -200,11 +253,12 @@ class SystemController {
     }
 
     // Get resource usage from Host API
-    async getResourceUsage() {
+    async getResourceUsage(): Promise<ResourceUsage> {
         try {
             const metrics = await this.hostApi.getSystemMetrics();
-            if (metrics && metrics.success && metrics.data) {
-                return metrics.data.resources;
+            const data = metrics.data as { resources?: ResourceUsage } | undefined;
+            if (metrics && metrics.success && data && data.resources) {
+                return data.resources;
             }
         } catch (error) {
             console.error('Host API resource usage fetch error:', error);
@@ -218,11 +272,12 @@ class SystemController {
     }
 
     // Get temperature information from Host API
-    async getTemperature() {
+    async getTemperature(): Promise<TemperatureInfo> {
         try {
             const metrics = await this.hostApi.getSystemMetrics();
-            if (metrics && metrics.success && metrics.data) {
-                return metrics.data.temperature;
+            const data = metrics.data as { temperature?: TemperatureInfo } | undefined;
+            if (metrics && metrics.success && data && data.temperature) {
+                return data.temperature;
             }
         } catch (error) {
             console.error('Host API temperature fetch error:', error);
@@ -231,16 +286,17 @@ class SystemController {
     }
 
     // Get network statistics from Host API
-    async getNetworkStats() {
+    async getNetworkStats(): Promise<NetworkStats> {
         try {
             const metrics = await this.hostApi.getSystemMetrics();
-            if (metrics && metrics.success && metrics.data) {
-                return metrics.data.network;
+            const data = metrics.data as { network?: NetworkStats } | undefined;
+            if (metrics && metrics.success && data && data.network) {
+                return data.network;
             }
         } catch (error) {
             console.error('Host API network stats error:', error);
         }
-        return { interfaces: [] as any[], source: 'fallback', timestamp: new Date().toISOString() };
+        return { interfaces: [] as Array<{ name: string; downloadSpeed?: number; uploadSpeed?: number; active?: boolean }>, source: 'fallback', timestamp: new Date().toISOString() };
     }
 
     // Get combined system information from Host API
@@ -248,16 +304,23 @@ class SystemController {
         const startTime = Date.now();
         try {
             const metrics = await this.hostApi.getSystemMetrics();
-            if (!metrics || !metrics.success || !metrics.data) {
+            const data = metrics.data as {
+                system?: BasicSystemInfo;
+                resources?: ResourceUsage;
+                temperature?: TemperatureInfo;
+                network?: NetworkStats;
+            } | undefined;
+
+            if (!metrics || !metrics.success || !data) {
                 throw new Error(metrics ? metrics.error : 'Invalid response from Host API');
             }
 
-            const { system, resources, temperature, network } = metrics.data;
+            const { system, resources, temperature, network } = data;
 
             // Filter network interfaces
-            let filteredInterfaces = [];
+            let filteredInterfaces: Array<{ name: string; downloadSpeed?: number; uploadSpeed?: number; active?: boolean }> = [];
             if (network && Array.isArray(network.interfaces)) {
-                filteredInterfaces = network.interfaces.filter((iface: any) => 
+                filteredInterfaces = network.interfaces.filter((iface: { name: string }) => 
                     iface.name !== 'total' && 
                     iface.name !== 'Total Network' && 
                     !iface.name.includes('veth') &&
@@ -272,15 +335,16 @@ class SystemController {
                 temperature,
                 network: {
                     interfaces: filteredInterfaces,
-                    source: network.source || 'host-api',
-                    timestamp: network.timestamp || new Date().toISOString()
+                    source: network?.source || 'host-api',
+                    timestamp: network?.timestamp || new Date().toISOString()
                 },
                 executionTime: Date.now() - startTime,
                 timestamp: new Date().toISOString(),
                 dataSource: 'host-api'
             };
-        } catch (error: any) {
-            console.error('Combined system info error:', error);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Combined system info error:', err);
             return {
                 system: { hostname: 'unknown', platform: 'unknown', uptime: 0, source: 'error' },
                 resources: {
@@ -293,13 +357,13 @@ class SystemController {
                 executionTime: Date.now() - startTime,
                 timestamp: new Date().toISOString(),
                 dataSource: 'error',
-                error: error.message
+                error: err.message
             };
         }
     }
 
     // Get package information
-    async getPackageInfo() {
+    async getPackageInfo(): Promise<PackageInfo> {
         try {
             const [installedPackages, availableUpdates, syncTime] = await Promise.all([
                 this.getInstalledPackages(),
@@ -355,13 +419,14 @@ class SystemController {
     async getInstalledPackages() {
         try {
             const packagesResult = await this.hostApi.getInstalledPackages();
-            if (!packagesResult.success || !packagesResult.data || !packagesResult.data.packages) {
+            const data = packagesResult.data as { packages?: Array<{ name: string; version: string }> } | undefined;
+            if (!packagesResult.success || !data || !data.packages) {
                 console.error('Package list error from host API');
                 return new Map();
             }
 
             const packages = new Map();
-            const packageList = packagesResult.data.packages;
+            const packageList = data.packages;
             
             for (const pkg of packageList) {
                 packages.set(pkg.name, {
@@ -374,8 +439,9 @@ class SystemController {
             }
             
             return packages;
-        } catch (error: any) {
-            console.error('Package list error:', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Package list error:', err.message);
             return new Map();
         }
     }
@@ -383,12 +449,13 @@ class SystemController {
     async getPackageSyncTime() {
         try {
             const syncResult = await this.hostApi.getPackageSyncTime();
-            if (!syncResult.success || !syncResult.data) {
+            const data = syncResult.data as { syncTime?: string } | undefined;
+            if (!syncResult.success || !data) {
                 console.error('Package sync time error from host API');
                 return null;
             }
             
-            const syncTime = syncResult.data.syncTime;
+            const syncTime = data.syncTime;
             if (syncTime && syncTime !== 'Unknown') {
                 const timestamp = parseInt(syncTime);
                 if (!isNaN(timestamp)) {
@@ -400,8 +467,9 @@ class SystemController {
                 }
             }
             return null;
-        } catch (error: any) {
-            console.error('Package sync time error:', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Package sync time error:', err.message);
             return null;
         }
     }
@@ -418,10 +486,11 @@ class SystemController {
             }
 
             const updates = new Map();
-            const updatesData = updatesResult.data?.updates;
+            const data = updatesResult.data as { updates?: string } | undefined;
+            const updatesData = data?.updates;
             
             if (updatesData && updatesData !== 'No updates available') {
-                const lines = updatesData.split('\n').filter((line: string) => line.trim());
+                const lines = updatesData.split('\n').filter(line => line.trim());
                 
                 for (const line of lines) {
                     const match = line.match(/^(.+?)\s+(.+?)\s+->\s+(.+?)$/);
@@ -436,8 +505,9 @@ class SystemController {
             }
             
             return updates;
-        } catch (error: any) {
-            console.error('Package update check error:', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Package update check error:', err.message);
             return new Map();
         }
     }
@@ -486,7 +556,7 @@ class SystemController {
             temperature: {
                 cpu: `${temperature.cpu ? temperature.cpu + "'C" : 'N/A'}`,
             },
-            network: Object.values(networkStats.interfaces || {}).map((iface: any) => ({
+            network: (networkStats.interfaces || []).map(iface => ({
                 name: iface.name,
                 downloadSpeed: formatBytes(iface.downloadSpeed || 0) + '/s',
                 uploadSpeed: formatBytes(iface.uploadSpeed || 0) + '/s',

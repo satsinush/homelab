@@ -54,15 +54,15 @@ class PackageUpdateChecker {
             console.log('Checking for package updates...');
             
             const packageInfo = await this.systemController.getPackageInfo();
-            const packagesWithUpdates = packageInfo.packages.filter((pkg: any) => pkg.hasUpdate);
+            const packagesWithUpdates = packageInfo.packages.filter(pkg => pkg.hasUpdate);
             const updatesAvailable = packagesWithUpdates.length;
             
             if (updatesAvailable > 0) {
                 // Create a set of current packages that need updates
-                const currentPackageNames = new Set(packagesWithUpdates.map((pkg: any) => pkg.name));
+                const currentPackageNames = new Set(packagesWithUpdates.map(pkg => pkg.name));
                 
                 // Check if there are any new packages that need updates
-                const newPackages = packagesWithUpdates.filter((pkg: any) => !this.lastNotifiedPackages.has(pkg.name));
+                const newPackages = packagesWithUpdates.filter(pkg => !this.lastNotifiedPackages.has(pkg.name));
                 const hasNewUpdates = newPackages.length > 0;
                 
                 // Check if enough time has passed since last notification
@@ -78,7 +78,7 @@ class PackageUpdateChecker {
                     );
                     
                     this.lastNotificationTime = now;
-                    this.lastNotifiedPackages = currentPackageNames as Set<string>;
+                    this.lastNotifiedPackages = currentPackageNames;
                     
                     if (hasNewUpdates) {
                         console.log(`Package update notification sent: ${newPackages.length} new updates (${updatesAvailable} total)`);
@@ -93,7 +93,7 @@ class PackageUpdateChecker {
                     );
                     
                     this.lastNotificationTime = now;
-                    this.lastNotifiedPackages = currentPackageNames as Set<string>;
+                    this.lastNotifiedPackages = currentPackageNames;
                     
                     const hoursSinceLastNotification = Math.round(timeSinceLastNotification / (60 * 60 * 1000));
                     console.log(`Package update reminder sent: ${updatesAvailable} updates still pending (${hoursSinceLastNotification}h since last notification)`);
@@ -110,8 +110,9 @@ class PackageUpdateChecker {
                     console.log('No package updates available');
                 }
             }
-        } catch (error: any) {
-            console.error('Package update check failed:', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Package update check failed:', err.message);
         }
     }
 

@@ -40,10 +40,10 @@ const DEFAULT_SETTINGS: DefaultSettings = {
     }
 };
 
-let oidcConfig: any = null;
-let initializationPromise: Promise<any> | null = null;
+let oidcConfig: client.Configuration | null = null;
+let initializationPromise: Promise<client.Configuration> | null = null;
 
-async function initializeOIDCClient(): Promise<any> {
+async function initializeOIDCClient(): Promise<client.Configuration> {
     if (initializationPromise) {
         return initializationPromise;
     }
@@ -67,9 +67,10 @@ async function initializeOIDCClient(): Promise<any> {
 
             console.log('OIDC Configuration initialized successfully');
             return oidcConfig;
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const err = error as Error;
             console.error('Failed to initialize OIDC client:', error);
-            console.error('Error details:', error.message);
+            console.error('Error details:', err.message);
             initializationPromise = null;
             throw error;
         }
@@ -78,11 +79,11 @@ async function initializeOIDCClient(): Promise<any> {
     return initializationPromise;
 }
 
-async function getOIDCConfig(): Promise<any> {
+async function getOIDCConfig(): Promise<client.Configuration> {
     if (!oidcConfig) {
         await initializeOIDCClient();
     }
-    return oidcConfig;
+    return oidcConfig as client.Configuration;
 }
 
 const config = {

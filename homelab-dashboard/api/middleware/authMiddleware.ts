@@ -10,8 +10,10 @@ declare module 'express-session' {
             roles: string[];
             email: string | null;
             is_sso_user: boolean;
-            [key: string]: any;
+            [key: string]: unknown;
         };
+        oidc_code_verifier?: string;
+        oidc_state?: string;
     }
 }
 
@@ -24,7 +26,7 @@ declare module 'express-serve-static-core' {
             roles: string[];
             email: string | null;
             is_sso_user: boolean;
-            [key: string]: any;
+            [key: string]: unknown;
         };
     }
 }

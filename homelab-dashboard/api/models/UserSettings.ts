@@ -8,7 +8,7 @@ export interface UserSettingsData {
     showOfflineDevices: boolean;
     devicesPerPage: number;
     compactMode: boolean;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 const DEFAULT_USER_SETTINGS: UserSettingsData = {
@@ -32,7 +32,7 @@ class UserSettings {
             'SELECT key, value FROM user_settings WHERE user_id = ?'
         ).all(userId) as Array<{ key: string; value: string }>;
 
-        const userOverrides: Record<string, any> = {};
+        const userOverrides: Record<string, unknown> = {};
         for (const row of rows) {
             try {
                 userOverrides[row.key] = JSON.parse(row.value);
@@ -45,7 +45,7 @@ class UserSettings {
     }
 
     // Set a single setting for a user
-    set(userId: number, key: string, value: any) {
+    set(userId: number, key: string, value: unknown) {
         this.db.prepare(
             `INSERT INTO user_settings (user_id, key, value)
              VALUES (?, ?, ?)
@@ -54,14 +54,14 @@ class UserSettings {
     }
 
     // Bulk update settings for a user
-    setAll(userId: number, settings: Record<string, any>): UserSettingsData {
+    setAll(userId: number, settings: Record<string, unknown>): UserSettingsData {
         const upsert = this.db.prepare(
             `INSERT INTO user_settings (user_id, key, value)
              VALUES (?, ?, ?)
              ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value`
         );
 
-        const transaction = this.db.transaction((entries: [string, any][]) => {
+        const transaction = this.db.transaction((entries: [string, unknown][]) => {
             for (const [key, value] of entries) {
                 // Only save keys that are valid defaults
                 if (key in DEFAULT_USER_SETTINGS) {

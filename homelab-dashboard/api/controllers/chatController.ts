@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
+import Database from 'better-sqlite3';
 import DatabaseModel from '../models/Database';
-import Chat from '../models/Chat';
+import Chat, { ChatMessage } from '../models/Chat';
 import SystemController from '../controllers/systemController';
 import DeviceController from '../controllers/deviceController';
 import OllamaService from '../services/ollamaService';
@@ -13,7 +14,7 @@ const deviceController = new DeviceController();
 class ChatController {
     private modelName: string | null;
     private ollamaService: OllamaService;
-    private db: any;
+    private db: Database.Database;
     private chatModel: Chat;
     private maxTokens: number;
     private conversationTTL: number;
@@ -96,8 +97,9 @@ class ChatController {
             this.modelName = availableModels[0];
             console.log(`Initialized with first available model: ${this.modelName}, max tokens: ${this.maxTokens}`);
 
-        } catch (error: any) {
-            console.warn('Failed to initialize model, using fallback:', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.warn('Failed to initialize model, using fallback:', err.message);
         }
     }
 
@@ -106,8 +108,9 @@ class ChatController {
         try {
             const modelNames = await this.ollamaService.getModelNames();
             return modelNames;
-        } catch (error: any) {
-            console.warn('Failed to get available models via service:', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.warn('Failed to get available models via service:', err.message);
             return [];
         }
     }
@@ -118,9 +121,9 @@ class ChatController {
     }
 
     // Build messages array for Ollama API
-    async buildMessagesArray(userId: number): Promise<any[]> {
+    async buildMessagesArray(userId: number): Promise<ChatMessage[]> {
         const systemPrompt = await this.getSystemPrompt(userId);
-        const messages: any[] = [
+        const messages: ChatMessage[] = [
             {
                 role: 'system',
                 content: systemPrompt
@@ -132,19 +135,16 @@ class ChatController {
             const historyMessages = conversationMessages.slice(1);
             
             let totalTokens = this.estimateTokens(systemPrompt) + 10;
-            const maxHistoryTokens = Math.floor(this.maxTokens * 0.8);
+            const messagesToInclude: ChatMessage[] = [];
             
-            const messagesToInclude = [];
             for (let i = historyMessages.length - 1; i >= 0; i--) {
                 const message = historyMessages[i];
-                const messageTokens = this.estimateTokens(message.content) + 10;
-                
-                if (totalTokens + messageTokens <= maxHistoryTokens) {
-                    messagesToInclude.unshift(message);
-                    totalTokens += messageTokens;
-                } else {
+                const tokens = this.estimateTokens(message.content) + 5;
+                if (totalTokens + tokens > this.maxTokens) {
                     break;
                 }
+                totalTokens += tokens;
+                messagesToInclude.unshift(message);
             }
             
             messages.push(...messagesToInclude);
@@ -155,7 +155,7 @@ class ChatController {
     }
 
     // Get conversation from database
-    getConversationFromDatabase(userId: number): any[] {
+    getConversationFromDatabase(userId: number): ChatMessage[] {
         try {
             const conversation = this.chatModel.getConversation(userId);
             if (!conversation || conversation.length === 0) {
@@ -170,12 +170,12 @@ class ChatController {
     }
 
     // Save conversation to database
-    saveConversationToDatabase(userId: number, messages: any[]) {
+    saveConversationToDatabase(userId: number, messages: ChatMessage[]) {
         this.chatModel.saveConversation(userId, messages);
     }
 
     // Add a message to conversation history
-    addToConversationHistory(userId: number, message: any) {
+    addToConversationHistory(userId: number, message: ChatMessage) {
         const conversation = this.getConversationFromDatabase(userId);
         conversation.push(message);
         
@@ -255,28 +255,29 @@ class ChatController {
                 actions: actionsExecuted,
             });
 
-        } catch (error: any) {
-            console.error('Chat error:', error);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Chat error:', err);
 
             const userId = req.user?.id;
             if (userId) {
                 this.addToConversationHistory(userId, {
                     role: 'assistant',
-                    content: `Message failed: ${error.message}`,
+                    content: `Message failed: ${err.message}`,
                     message: "Error processing your request",
                     actions: []
                 });
             }
 
-            if (error.message.includes('ECONNREFUSED')) {
+            if (err.message.includes('ECONNREFUSED')) {
                 return sendError(res, 503, 'AI service is currently unavailable. Please try again later.');
             }
 
-            if (error.message.includes('timeout')) {
+            if (err.message.includes('timeout')) {
                 return sendError(res, 408, 'Request timeout. Please try a shorter message or try again later.');
             }
 
-            return sendError(res, 500, 'Failed to process chat message', error.message);
+            return sendError(res, 500, 'Failed to process chat message', err.message);
         }
     }    
 
@@ -293,8 +294,9 @@ class ChatController {
             }
 
             return response.response;            
-        } catch (error: any) {
-            console.error('Ollama API request failed:', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Ollama API request failed:', err.message);
             throw error;
         }
     }
@@ -321,9 +323,10 @@ class ChatController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Get models error:', error);
-            return sendError(res, 500, 'Failed to retrieve available AI models', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Get models error:', err);
+            return sendError(res, 500, 'Failed to retrieve available models', err.message);
         }
     }
 
@@ -349,7 +352,7 @@ class ChatController {
                 return sendError(res, 500, 'Failed to retrieve available models', modelsResult.error);
             }
 
-            const availableModels = modelsResult.models.map((model: any) => model.name);
+            const availableModels = modelsResult.models.map((model) => model.name);
 
             if (!availableModels.includes(modelName.trim())) {
                 return sendError(res, 404, `Model '${modelName}' not found. Available models: ${availableModels.join(', ')}`);
@@ -364,9 +367,10 @@ class ChatController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Set model error:', error);
-            return sendError(res, 500, 'Failed to change AI model', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Set model error:', err);
+            return sendError(res, 500, 'Failed to change AI model', err.message);
         }
     }
 
@@ -384,7 +388,7 @@ class ChatController {
                 error: statusResult.error || undefined
             });
 
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Ollama status error:', error);
             
             return sendSuccess(res, {
@@ -436,9 +440,10 @@ class ChatController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Manual cleanup error:', error);
-            return sendError(res, 500, 'Failed to cleanup conversations', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Manual cleanup error:', err);
+            return sendError(res, 500, 'Failed to cleanup conversations', err.message);
         }
     }
 
@@ -453,14 +458,15 @@ class ChatController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Clear all conversations error:', error);
-            return sendError(res, 500, 'Failed to clear conversations', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Clear chat history error:', err);
+            return sendError(res, 500, 'Failed to clear chat history', err.message);
         }
     }
 
     // Get conversation history for a user
-    getConversationHistory(userId: number): any[] {
+    getConversationHistory(userId: number): ChatMessage[] {
         const conversation = this.getConversationFromDatabase(userId);
         return conversation.slice(1);
     }
@@ -483,9 +489,10 @@ class ChatController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Failed to get conversation history:', error);
-            return sendError(res, 500, 'Failed to retrieve conversation history', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Get conversation history error:', err);
+            return sendError(res, 500, 'Failed to retrieve conversation history', err.message);
         }
     }
 
@@ -506,13 +513,14 @@ class ChatController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Failed to clear conversation:', error);
-            return sendError(res, 500, 'Failed to clear conversation', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Failed to clear conversation:', err);
+            return sendError(res, 500, 'Failed to clear conversation', err.message);
         }
     }
 
-    parseMessage(rawMessage: string): { message: string; actions: any[] } | null {
+    parseMessage(rawMessage: string): { message: string; actions: Record<string, unknown>[] } | null {
         try {
             for (let i = 0; i < rawMessage.length; i++) {
                 if (rawMessage[i] !== '{') continue;
@@ -528,9 +536,9 @@ class ChatController {
                                 typeof obj.message === 'string' &&
                                 Array.isArray(obj.actions)
                             ) {
-                                return { message: obj.message, actions: obj.actions };
+                                return { message: obj.message, actions: obj.actions as Record<string, unknown>[] };
                             }
-                        } catch (e) {
+                        } catch {
                             // Keep searching
                         }
                         break;
@@ -545,16 +553,16 @@ class ChatController {
         }
     }
 
-    async executeActions(actions: any[]): Promise<any[]> {
+    async executeActions(actions: Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
         if (!Array.isArray(actions) || actions.length === 0) {
             return [];
         }
-        let actionsExecuted = [];
+        const actionsExecuted: Record<string, unknown>[] = [];
         for (const action of actions) {
             console.log('Executing action:', JSON.stringify(action));
-            switch (action.action) {
+            switch (action.action as string) {
                 case 'wol':
-                    const formattedMac = formatMacForDisplay(action.mac);
+                    const formattedMac = formatMacForDisplay(action.mac as string);
                     const successful = await deviceController.wakeDeviceByMac(formattedMac);
                     if (successful) {
                         actionsExecuted.push({
@@ -611,9 +619,10 @@ class ChatController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Check model availability error:', error);
-            return sendError(res, 500, 'Failed to check model availability', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Check model availability error:', err);
+            return sendError(res, 500, 'Failed to check model availability', err.message);
         }
     }
 
@@ -640,7 +649,7 @@ class ChatController {
             const downloadResult = await this.ollamaService.pullModel(trimmedModelName, false);
 
             if (!downloadResult.success) {
-                if (downloadResult.error.includes('Connection refused')) {
+                if (downloadResult.error && downloadResult.error.includes('Connection refused')) {
                     return sendError(res, 503, 'AI service is not running. Cannot download model.');
                 }
                 return sendError(res, 500, `Failed to download model "${trimmedModelName}"`, downloadResult.error);
@@ -657,9 +666,10 @@ class ChatController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Download model error:', error);
-            return sendError(res, 500, 'Failed to download model', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Download model error:', err);
+            return sendError(res, 500, 'Failed to download model', err.message);
         }
     }
 
@@ -682,9 +692,10 @@ class ChatController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Get detailed models error:', error);
-            return sendError(res, 500, 'Failed to retrieve detailed model information', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Get detailed models error:', err);
+            return sendError(res, 500, 'Failed to retrieve detailed model information', err.message);
         }
     }
 
@@ -707,7 +718,7 @@ class ChatController {
             const deleteResult = await this.ollamaService.deleteModel(trimmedModelName);
 
             if (!deleteResult.success) {
-                if (deleteResult.error.includes('Connection refused')) {
+                if (deleteResult.error && deleteResult.error.includes('Connection refused')) {
                     return sendError(res, 503, 'AI service is not running. Cannot delete model.');
                 }
                 return sendError(res, 500, `Failed to delete model "${trimmedModelName}"`, deleteResult.error);
@@ -719,9 +730,10 @@ class ChatController {
                 timestamp: new Date().toISOString()
             });
 
-        } catch (error: any) {
-            console.error('Delete model error:', error);
-            return sendError(res, 500, 'Failed to delete model', error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Delete model error:', err);
+            return sendError(res, 500, 'Failed to delete model', err.message);
         }
     }
 }

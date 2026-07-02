@@ -15,8 +15,9 @@ export function getEnv(varName: string, defaultValue: string | undefined = undef
             if (fs.existsSync(filePath)) {
                 return fs.readFileSync(filePath, 'utf8').trim();
             }
-        } catch (error: any) {
-            console.error(`Failed to read environment secret file from ${filePath}:`, error.message);
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error(`Failed to read environment secret file from ${filePath}:`, err.message);
         }
     }
     

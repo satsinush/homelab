@@ -103,8 +103,9 @@ router.get('/user-settings', requireAuth(), (req: Request, res: Response) => {
         }
         const settings = userSettings.get(userId);
         return sendSuccess(res, { settings, defaults: userSettings.getDefaults() });
-    } catch (error: any) {
-        return sendError(res, 500, 'Failed to load user settings', error.message);
+    } catch (error: unknown) {
+        const err = error as Error;
+        return sendError(res, 500, 'Failed to load user settings', err.message);
     }
 });
 
@@ -116,8 +117,9 @@ router.put('/user-settings', requireAuth(), (req: Request, res: Response) => {
         }
         const updated = userSettings.setAll(userId, req.body);
         return sendSuccess(res, { settings: updated });
-    } catch (error: any) {
-        return sendError(res, 500, 'Failed to save user settings', error.message);
+    } catch (error: unknown) {
+        const err = error as Error;
+        return sendError(res, 500, 'Failed to save user settings', err.message);
     }
 });
 

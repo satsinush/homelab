@@ -4,7 +4,7 @@ import Database from 'better-sqlite3';
 
 class Settings {
     private db: Database.Database;
-    private serverSettings: DefaultSettings & Record<string, any>;
+    private serverSettings: DefaultSettings & Record<string, unknown>;
 
     constructor() {
         this.db = database.getDatabase();
@@ -37,7 +37,7 @@ class Settings {
     }
 
     // Update settings
-    update(newSettings: Record<string, any>) {
+    update(newSettings: Record<string, unknown>) {
         try {
             const updatedSettings = { ...this.serverSettings, ...newSettings };
             
@@ -60,17 +60,17 @@ class Settings {
 
     // Get cache timeout from settings
     getCacheTimeout(): number {
-        return this.serverSettings.cacheTimeout || 300000;
+        return (this.serverSettings.cacheTimeout as number) || 300000;
     }
 
     // Get scan timeout from settings
     getScanTimeout(): number {
-        return this.serverSettings.scanTimeout || 30000;
+        return (this.serverSettings.scanTimeout as number) || 30000;
     }
 
     // Get services list from settings
-    getServices(): any[] {
-        return this.serverSettings.services || [];
+    getServices(): unknown[] {
+        return (this.serverSettings.services as unknown[]) || [];
     }
 }
 

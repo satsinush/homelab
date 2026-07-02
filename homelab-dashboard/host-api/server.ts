@@ -3,8 +3,7 @@ import cors from 'cors';
 import { exec } from 'child_process';
 import os from 'os';
 import fs from 'fs';
-// @ts-ignore
-import wol from 'wake_on_lan';
+import dgram from 'dgram';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 
@@ -349,16 +348,45 @@ app.post('/network/wake-on-lan', (req: Request, res: Response) => {
         });
     }
     
-    // Convert to colon-separated format for WOL
-    const macForWol = mac.replace(/[-]/g, ':');
-    
-    // Use the wake_on_lan package to send the magic packet
-    wol.wake(macForWol, (error: Error | null) => {
-        if (error) {
+    // Convert to clean format for magic packet construction
+    const cleanMac = mac.replace(/[:-]/g, '');
+    if (cleanMac.length !== 12) {
+        return res.status(400).json({
+            success: false,
+            error: 'Invalid MAC address length'
+        });
+    }
+
+    // Construct magic packet: 6 bytes of 0xFF followed by 16 repetitions of MAC address (6 bytes each)
+    const buf = Buffer.alloc(102);
+    for (let i = 0; i < 6; i++) {
+        buf[i] = 0xFF;
+    }
+
+    const macBytes = Buffer.from(cleanMac, 'hex');
+    for (let i = 0; i < 16; i++) {
+        macBytes.copy(buf, 6 + i * 6);
+    }
+
+    // Send magic packet to broadcast address via UDP
+    const socket = dgram.createSocket('udp4');
+    socket.once('error', (err) => {
+        socket.close();
+        res.status(500).json({
+            success: false,
+            error: 'Failed to send Wake-on-LAN packet',
+            details: err.message,
+            timestamp: new Date().toISOString()
+        });
+    });
+
+    socket.send(buf, 0, buf.length, 9, '255.255.255.255', (err) => {
+        socket.close();
+        if (err) {
             return res.status(500).json({
                 success: false,
                 error: 'Failed to send Wake-on-LAN packet',
-                details: error.message,
+                details: err.message,
                 timestamp: new Date().toISOString()
             });
         }
@@ -366,8 +394,8 @@ app.post('/network/wake-on-lan', (req: Request, res: Response) => {
         res.json({
             success: true,
             data: {
-                message: `Wake-on-LAN packet sent to ${macForWol}`,
-                mac: macForWol,
+                message: `Wake-on-LAN packet sent to ${mac}`,
+                mac: mac,
                 platform: os.platform()
             },
             timestamp: new Date().toISOString()
@@ -431,7 +459,7 @@ function getMemoryMetrics(): MemoryMetrics {
             buffers,
             percentage
         };
-    } catch (err) {
+    } catch {
         const total = os.totalmem();
         const free = os.freemem();
         const used = total - free;
@@ -543,7 +571,7 @@ function getNetworkStats(): Promise<{ interfaces: NetworkInterface[] }> {
                 }
                 resolve({ interfaces });
             }, 500);
-        } catch (err) {
+        } catch {
             resolve({ interfaces: [] });
         }
     });
@@ -603,12 +631,13 @@ app.get('/system/metrics', async (req: Request, res: Response) => {
                 dataSource: 'host-api'
             }
         });
-    } catch (err: any) {
-        console.error('Failed to collect system metrics:', err);
+    } catch (err: unknown) {
+        const errorObj = err as Error;
+        console.error('Failed to collect system metrics:', errorObj);
         res.status(500).json({
             success: false,
             error: 'Failed to retrieve system metrics',
-            details: err.message
+            details: errorObj.message
         });
     }
 });
