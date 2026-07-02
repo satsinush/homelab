@@ -1,8 +1,8 @@
-const express = require('express');
-const SystemController = require('../controllers/systemController');
-const UserSettings = require('../models/UserSettings');
-const { requireAuth } = require('../middleware/authMiddleware');
-const { sendSuccess, sendError } = require('../utils/response');
+import express, { Request, Response } from 'express';
+import SystemController from '../controllers/systemController';
+import UserSettings from '../models/UserSettings';
+import { requireAuth } from '../middleware/authMiddleware';
+import { sendSuccess, sendError } from '../utils/response';
 
 const router = express.Router();
 const systemController = new SystemController();
@@ -26,7 +26,7 @@ const userSettings = new UserSettings();
  *       200:
  *         description: OK
  */
-router.get('/health', (req, res) => systemController.healthCheck(req, res));
+router.get('/health', (req: Request, res: Response) => systemController.healthCheck(req, res));
 
 // Server settings endpoints
 /**
@@ -61,8 +61,8 @@ router.get('/health', (req, res) => systemController.healthCheck(req, res));
  *       403:
  *         description: Forbidden
  */
-router.get('/settings', requireAuth(), (req, res) => systemController.getSettings(req, res));
-router.put('/settings', requireAuth('dashboard-settings-user'), (req, res) => systemController.updateSettings(req, res));
+router.get('/settings', requireAuth(), (req: Request, res: Response) => systemController.getSettings(req, res));
+router.put('/settings', requireAuth('dashboard-settings-user'), (req: Request, res: Response) => systemController.updateSettings(req, res));
 
 // User settings endpoints (per-user key-value store)
 /**
@@ -95,20 +95,28 @@ router.put('/settings', requireAuth('dashboard-settings-user'), (req, res) => sy
  *       401:
  *         description: Unauthorized
  */
-router.get('/user-settings', requireAuth(), (req, res) => {
+router.get('/user-settings', requireAuth(), (req: Request, res: Response) => {
     try {
-        const settings = userSettings.get(req.user.id);
+        const userId = req.user?.id;
+        if (!userId) {
+            return sendError(res, 401, 'Unauthorized');
+        }
+        const settings = userSettings.get(userId);
         return sendSuccess(res, { settings, defaults: userSettings.getDefaults() });
-    } catch (error) {
+    } catch (error: any) {
         return sendError(res, 500, 'Failed to load user settings', error.message);
     }
 });
 
-router.put('/user-settings', requireAuth(), (req, res) => {
+router.put('/user-settings', requireAuth(), (req: Request, res: Response) => {
     try {
-        const updated = userSettings.setAll(req.user.id, req.body);
+        const userId = req.user?.id;
+        if (!userId) {
+            return sendError(res, 401, 'Unauthorized');
+        }
+        const updated = userSettings.setAll(userId, req.body);
         return sendSuccess(res, { settings: updated });
-    } catch (error) {
+    } catch (error: any) {
         return sendError(res, 500, 'Failed to save user settings', error.message);
     }
 });
@@ -130,7 +138,7 @@ router.put('/user-settings', requireAuth(), (req, res) => {
  *       403:
  *         description: Forbidden
  */
-router.get('/system', requireAuth('dashboard-system-user'), (req, res) => systemController.getSystemInfo(req, res));
+router.get('/system', requireAuth('dashboard-system-user'), (req: Request, res: Response) => systemController.getSystemInfo(req, res));
 
 /**
  * @openapi
@@ -148,7 +156,7 @@ router.get('/system', requireAuth('dashboard-system-user'), (req, res) => system
  *       403:
  *         description: Forbidden
  */
-router.get('/packages', requireAuth('dashboard-packages-user'), (req, res) => systemController.getPackages(req, res));
+router.get('/packages', requireAuth('dashboard-packages-user'), (req: Request, res: Response) => systemController.getPackages(req, res));
 
 /**
  * @openapi
@@ -166,7 +174,7 @@ router.get('/packages', requireAuth('dashboard-packages-user'), (req, res) => sy
  *       403:
  *         description: Forbidden
  */
-router.get('/system/rustdesk-config', requireAuth('dashboard-system-user'), (req, res) => systemController.getRustDeskConfig(req, res));
+router.get('/system/rustdesk-config', requireAuth('dashboard-system-user'), (req: Request, res: Response) => systemController.getRustDeskConfig(req, res));
 
 /**
  * @openapi
@@ -184,7 +192,7 @@ router.get('/system/rustdesk-config', requireAuth('dashboard-system-user'), (req
  *       403:
  *         description: Forbidden
  */
-router.get('/system/updates/check', requireAuth('dashboard-system-user'), (req, res) => systemController.checkUpdates(req, res));
+router.get('/system/updates/check', requireAuth('dashboard-system-user'), (req: Request, res: Response) => systemController.checkUpdates(req, res));
 
 /**
  * @openapi
@@ -202,6 +210,6 @@ router.get('/system/updates/check', requireAuth('dashboard-system-user'), (req, 
  *       403:
  *         description: Forbidden
  */
-router.get('/system/secrets', requireAuth('dashboard-secrets-user'), (req, res) => systemController.getSecrets(req, res));
+router.get('/system/secrets', requireAuth('dashboard-secrets-user'), (req: Request, res: Response) => systemController.getSecrets(req, res));
 
-module.exports = router;
+export default router;

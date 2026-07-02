@@ -1,27 +1,41 @@
-const Device = require('../models/Device');
-const Settings = require('../models/Settings');
-const ValidationUtils = require('../utils/validation');
-const HostApiService = require('../services/hostApiService');
-const { sendError, sendSuccess } = require('../utils/response');
+import { Request, Response } from 'express';
+import Device, { DeviceData } from '../models/Device';
+import Settings from '../models/Settings';
+import ValidationUtils from '../utils/validation';
+import HostApiService from '../services/hostApiService';
+import { sendError, sendSuccess } from '../utils/response';
+
+interface ScanEntry {
+    mac: string;
+    ip: string | null;
+    status: string;
+    lastSeen: string | null;
+    scanMethod: string;
+}
 
 class DeviceController {
+    private deviceModel: Device;
+    private settingsModel: Settings;
+    private hostApi: HostApiService;
+    private scanCache: {
+        byMac: Map<string, ScanEntry>;
+        lastScan: number | null;
+        scanInProgress: boolean;
+    };
+
     constructor() {
         this.deviceModel = new Device();
         this.settingsModel = new Settings();
         this.hostApi = new HostApiService();
 
-        // Shared network discovery cache — device presence on the LAN is not per-user.
-        // Keys are MAC addresses, values are lightweight scan objects.
         this.scanCache = {
-            byMac: new Map(), // mac -> { mac, ip, status, lastSeen, scanMethod }
+            byMac: new Map<string, ScanEntry>(),
             lastScan: null,
             scanInProgress: false
         };
     }
 
-    // ─── Network Scan ──────────────────────────────────────────────────────────
-
-    async performNetworkScan() {
+    async performNetworkScan(): Promise<ScanEntry[]> {
         try {
             const scanResult = await this.hostApi.scanNetwork(this.settingsModel.getScanTimeout());
             if (!scanResult.success || !scanResult.data?.devices) {
@@ -30,14 +44,14 @@ class DeviceController {
             }
 
             const now = new Date().toISOString();
-            return scanResult.data.devices.map(device => ({
+            return scanResult.data.devices.map((device: any) => ({
                 mac: ValidationUtils.validateAndNormalizeMac(device.mac),
                 ip: device.ip,
                 status: 'online',
                 lastSeen: now,
                 scanMethod: 'network-scan'
             }));
-        } catch (error) {
+        } catch (error: any) {
             console.error('Network scan error:', error.message);
             return [];
         }
@@ -56,18 +70,14 @@ class DeviceController {
             const scannedDevices = await this.performNetworkScan();
             const now = new Date().toISOString();
 
-            // Get the set of MACs found in this scan
             const scannedMacSet = new Set(scannedDevices.map(d => d.mac));
 
-            // Update the shared scan cache
             this.scanCache.byMac = new Map(scannedDevices.map(d => [d.mac, d]));
 
-            // Propagate online/offline status to ALL users' saved records
             for (const d of scannedDevices) {
-                this.deviceModel.updateScanDataForMac(d.mac, d.ip, 'online', now);
+                this.deviceModel.updateScanDataForMac(d.mac, d.ip || '', 'online', now);
             }
 
-            // Mark any saved MACs not found in this scan as offline
             const allSavedMacs = this.deviceModel.getAllSavedMacs();
             const offlineMacs = allSavedMacs.filter(mac => !scannedMacSet.has(mac));
             this.deviceModel.markOfflineByMacs(offlineMacs);
@@ -81,8 +91,6 @@ class DeviceController {
         }
     }
 
-    // ─── Cache helpers ─────────────────────────────────────────────────────────
-
     async ensureFreshScan() {
         const cacheExpired = !this.scanCache.lastScan ||
             (Date.now() - this.scanCache.lastScan) > this.settingsModel.getCacheTimeout();
@@ -91,29 +99,27 @@ class DeviceController {
         }
     }
 
-    // Build the merged device list for a specific user:
-    //   - Their saved records (favorites + non-favorites) with up-to-date status from DB
-    //   - Any discovered devices from the scan cache not yet in the user's list
-    buildDeviceListForUser(userId) {
+    buildDeviceListForUser(userId: number) {
         const userSaved = this.deviceModel.getAllForUser(userId);
         const userSavedMacs = new Set(userSaved.map(d => d.mac));
 
-        // Merge: start with user's saved devices (they already have updated scan status)
         const result = userSaved.map(d => ({ ...d }));
 
-        // Append discovered devices the user hasn't saved yet
         for (const [mac, scanEntry] of this.scanCache.byMac) {
             if (!userSavedMacs.has(mac)) {
                 result.push({
+                    id: 0,
+                    userId: userId,
                     mac,
                     ip: scanEntry.ip,
                     status: scanEntry.status,
                     lastSeen: scanEntry.lastSeen,
-                    scanMethod: scanEntry.scanMethod,
                     isFavorite: false,
                     name: null,
                     description: null,
-                    rustdeskId: null
+                    rustdeskId: null,
+                    createdAt: '',
+                    updatedAt: ''
                 });
             }
         }
@@ -121,13 +127,14 @@ class DeviceController {
         return result;
     }
 
-    // ─── HTTP Endpoints ────────────────────────────────────────────────────────
-
     // GET /api/devices
-    async getDevices(req, res) {
+    async getDevices(req: Request, res: Response) {
         try {
             await this.ensureFreshScan();
-            const userId = req.user.id;
+            const userId = req.user?.id;
+            if (!userId) {
+                return sendError(res, 401, 'Unauthorized');
+            }
             const devices = this.buildDeviceListForUser(userId);
 
             const favoriteCount = devices.filter(d => d.isFavorite).length;
@@ -142,17 +149,20 @@ class DeviceController {
                 lastScan: this.scanCache.lastScan ? new Date(this.scanCache.lastScan).toISOString() : null,
                 timestamp: new Date().toISOString()
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Get devices error:', error);
             return sendError(res, 500, 'Failed to retrieve devices', error.message);
         }
     }
 
     // POST /api/devices/scan
-    async scanDevices(req, res) {
+    async scanDevices(req: Request, res: Response) {
         try {
             await this.runScan();
-            const userId = req.user.id;
+            const userId = req.user?.id;
+            if (!userId) {
+                return sendError(res, 401, 'Unauthorized');
+            }
             const devices = this.buildDeviceListForUser(userId);
 
             const favoriteCount = devices.filter(d => d.isFavorite).length;
@@ -167,21 +177,22 @@ class DeviceController {
                 onlineDevices: onlineCount,
                 timestamp: new Date().toISOString()
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Scan devices error:', error);
             return sendError(res, 500, 'Failed to scan network for devices', error.message);
         }
     }
 
     // POST /api/devices/clear-cache
-    async clearDeviceCache(req, res) {
+    async clearDeviceCache(req: Request, res: Response) {
         try {
-            const userId = req.user.id;
+            const userId = req.user?.id;
+            if (!userId) {
+                return sendError(res, 401, 'Unauthorized');
+            }
 
-            // Clear this user's non-favorite device rows
             const deletedCount = this.deviceModel.clearNonFavoritesForUser(userId);
 
-            // Reset scan cache and re-run
             this.scanCache.byMac = new Map();
             this.scanCache.lastScan = null;
             await this.runScan();
@@ -201,38 +212,39 @@ class DeviceController {
                 timestamp: new Date().toISOString(),
                 cacheCleared: true
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Clear cache error:', error);
             return sendError(res, 500, 'Failed to clear device cache', error.message);
         }
     }
 
-    // POST /api/devices — create / manually add a saved device
-    async createDevice(req, res) {
+    // POST /api/devices
+    async createDevice(req: Request, res: Response) {
         try {
             if (!req.body || typeof req.body !== 'object') {
                 return sendError(res, 400, 'Invalid request body');
             }
 
             const { name, mac, description, rustdeskId } = req.body;
-            const userId = req.user.id;
+            const userId = req.user?.id;
+            if (!userId) {
+                return sendError(res, 401, 'Unauthorized');
+            }
 
             let validatedName, validatedMac, validatedDescription;
             try {
                 validatedName = ValidationUtils.validateDeviceName(name);
                 validatedMac = ValidationUtils.validateAndNormalizeMac(mac);
                 validatedDescription = ValidationUtils.validateDeviceDescription(description);
-            } catch (validationError) {
+            } catch (validationError: any) {
                 return sendError(res, 400, validationError.message);
             }
 
-            // Check if this user already has a record for this MAC
             const existing = this.deviceModel.findByMacForUser(userId, validatedMac);
             if (existing) {
                 return sendError(res, 409, `You already have a device with MAC address ${validatedMac}`);
             }
 
-            // Check scan cache for current status
             const scanEntry = this.scanCache.byMac.get(validatedMac);
 
             const newDevice = {
@@ -254,14 +266,14 @@ class DeviceController {
                 message: 'Device created successfully',
                 device: newDevice
             }, 201);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Add device error:', error);
             return sendError(res, 500, 'Failed to create device', error.message);
         }
     }
 
-    // PUT /api/devices/:mac — update a user's saved device
-    async updateDevice(req, res) {
+    // PUT /api/devices/:mac
+    async updateDevice(req: Request, res: Response) {
         try {
             if (!req.params || typeof req.params !== 'object') {
                 return sendError(res, 400, 'Invalid request parameters');
@@ -270,9 +282,12 @@ class DeviceController {
                 return sendError(res, 400, 'Invalid request body');
             }
 
-            const { mac: paramMac } = req.params;
+            const paramMac = req.params.mac as string;
             const { name, mac, description, rustdeskId } = req.body;
-            const userId = req.user.id;
+            const userId = req.user?.id;
+            if (!userId) {
+                return sendError(res, 401, 'Unauthorized');
+            }
 
             if (!paramMac?.trim()) {
                 return sendError(res, 400, 'MAC address parameter is required');
@@ -284,25 +299,21 @@ class DeviceController {
                 validatedMac = ValidationUtils.validateAndNormalizeMac(mac);
                 validatedDescription = ValidationUtils.validateDeviceDescription(description);
                 validatedParamMac = ValidationUtils.validateAndNormalizeMac(paramMac.trim());
-            } catch (validationError) {
+            } catch (validationError: any) {
                 return sendError(res, 400, validationError.message);
             }
 
-            // Verify this user owns a record for the old MAC
             const existingDevice = this.deviceModel.findByMacForUser(userId, validatedParamMac);
             if (!existingDevice) {
                 return sendError(res, 404, 'Device not found');
             }
 
-            // MAC address is changing
             if (validatedParamMac !== validatedMac) {
-                // Make sure user doesn't already have a record for the new MAC
                 const conflict = this.deviceModel.findByMacForUser(userId, validatedMac);
                 if (conflict) {
                     return sendError(res, 409, `You already have a device with MAC address ${validatedMac}`);
                 }
 
-                // Delete old record, insert new one (preserving scan status)
                 const scanEntry = this.scanCache.byMac.get(validatedMac);
                 const updatedDevice = {
                     mac: validatedMac,
@@ -324,7 +335,6 @@ class DeviceController {
                     device: { ...updatedDevice, isFavorite: existingDevice.isFavorite }
                 });
             } else {
-                // MAC unchanged — just update metadata
                 const updatedDevice = {
                     ...existingDevice,
                     name: validatedName,
@@ -340,20 +350,20 @@ class DeviceController {
                     device: updatedDevice
                 });
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Update device error:', error);
             return sendError(res, 500, 'Failed to update device', error.message);
         }
     }
 
-    // POST /api/devices/:mac/favorite — toggle favorite
-    async toggleFavorite(req, res) {
+    // POST /api/devices/:mac/favorite
+    async toggleFavorite(req: Request, res: Response) {
         try {
             if (!req.params || typeof req.params !== 'object') {
                 return sendError(res, 400, 'Invalid request parameters');
             }
 
-            const { mac } = req.params;
+            const mac = req.params.mac as string;
             if (!mac?.trim()) {
                 return sendError(res, 400, 'MAC address is required');
             }
@@ -361,11 +371,14 @@ class DeviceController {
             let normalizedMac;
             try {
                 normalizedMac = ValidationUtils.validateAndNormalizeMac(mac.trim());
-            } catch (validationError) {
+            } catch (validationError: any) {
                 return sendError(res, 400, validationError.message);
             }
 
-            const userId = req.user.id;
+            const userId = req.user?.id;
+            if (!userId) {
+                return sendError(res, 401, 'Unauthorized');
+            }
             await this.ensureFreshScan();
 
             const existingRecord = this.deviceModel.findByMacForUser(userId, normalizedMac);
@@ -373,9 +386,7 @@ class DeviceController {
             const nowFavorite = !currentlyFavorite;
 
             if (nowFavorite) {
-                // Adding to favorites — ensure a user_devices row exists
                 if (!existingRecord) {
-                    // Pull live data from scan cache or use defaults
                     const scanEntry = this.scanCache.byMac.get(normalizedMac);
                     const newRecord = {
                         mac: normalizedMac,
@@ -402,7 +413,6 @@ class DeviceController {
                     });
                 }
             } else {
-                // Removing from favorites — delete the user's record entirely
                 this.deviceModel.deleteForUser(userId, normalizedMac);
                 console.log(`Device removed from favorites for user ${userId}: ${existingRecord?.name || normalizedMac}`);
                 return sendSuccess(res, {
@@ -414,21 +424,24 @@ class DeviceController {
                     }
                 });
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Toggle favorite error:', error);
             return sendError(res, 500, 'Failed to toggle favorite status', error.message);
         }
     }
 
-    // POST /api/wol — Wake-on-LAN
-    async sendWakeOnLan(req, res) {
+    // POST /api/wol
+    async sendWakeOnLan(req: Request, res: Response) {
         try {
             if (!req.body || typeof req.body !== 'object') {
                 return sendError(res, 400, 'Invalid request body');
             }
 
             const { device } = req.body;
-            const userId = req.user.id;
+            const userId = req.user?.id;
+            if (!userId) {
+                return sendError(res, 401, 'Unauthorized');
+            }
 
             let normalizedMac;
             try {
@@ -437,7 +450,6 @@ class DeviceController {
                 normalizedMac = null;
             }
 
-            // Look up in user's saved devices first, then fall back to scan cache
             let targetMac = normalizedMac;
             if (!targetMac && device.name) {
                 const userDevices = this.deviceModel.getAllForUser(userId);
@@ -455,16 +467,17 @@ class DeviceController {
             } else {
                 return sendError(res, 503, 'Failed to send Wake-on-LAN packet');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('WOL error:', error);
             return sendError(res, 500, 'Failed to send Wake-on-LAN packet', error.message);
         }
     }
 
-    async wakeDeviceByMac(mac) {
+    async wakeDeviceByMac(mac: string): Promise<boolean> {
         try {
             const normalizedMac = ValidationUtils.validateAndNormalizeMac(mac);
-            const macForWol = normalizedMac.match(/.{2}/g).join(':');
+            const parts = normalizedMac.match(/.{2}/g);
+            const macForWol = parts ? parts.join(':') : normalizedMac;
             const result = await this.hostApi.sendWakeOnLan(macForWol);
             return result.success ?? false;
         } catch (error) {
@@ -473,8 +486,7 @@ class DeviceController {
         }
     }
 
-    // Used by the AI chat system prompt
-    getDevicePromptInfo(userId) {
+    getDevicePromptInfo(userId: number): string {
         const devices = userId
             ? this.deviceModel.getAllForUser(userId)
             : [];
@@ -484,4 +496,4 @@ class DeviceController {
     }
 }
 
-module.exports = DeviceController;
+export default DeviceController;

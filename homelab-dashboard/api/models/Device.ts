@@ -1,19 +1,35 @@
-const database = require('./Database');
+import database from './Database';
+import Database from 'better-sqlite3';
+
+export interface DeviceData {
+    id: number;
+    userId: number;
+    mac: string;
+    name: string | null;
+    description: string | null;
+    rustdeskId: string | null;
+    isFavorite: boolean;
+    ip: string | null;
+    status: string;
+    lastSeen: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
 
 class Device {
+    private db: Database.Database;
+
     constructor() {
         this.db = database.getDatabase();
     }
 
-    // ─── Per-user reads ────────────────────────────────────────────────────────
-
     // Get all saved device records for a user
-    getAllForUser(userId) {
+    getAllForUser(userId: number): DeviceData[] {
         try {
             const stmt = this.db.prepare(
                 'SELECT * FROM user_devices WHERE user_id = ? ORDER BY is_favorite DESC, updated_at DESC'
             );
-            return stmt.all(userId).map(row => this._rowToDevice(row));
+            return stmt.all(userId).map((row: any) => this._rowToDevice(row));
         } catch (error) {
             console.error('Error getting devices for user:', error);
             return [];
@@ -21,12 +37,12 @@ class Device {
     }
 
     // Get only favorite devices for a user
-    getFavoritesForUser(userId) {
+    getFavoritesForUser(userId: number): DeviceData[] {
         try {
             const stmt = this.db.prepare(
                 'SELECT * FROM user_devices WHERE user_id = ? AND is_favorite = 1 ORDER BY updated_at DESC'
             );
-            return stmt.all(userId).map(row => this._rowToDevice(row));
+            return stmt.all(userId).map((row: any) => this._rowToDevice(row));
         } catch (error) {
             console.error('Error getting favorites for user:', error);
             return [];
@@ -34,12 +50,12 @@ class Device {
     }
 
     // Find a specific user's device record by MAC
-    findByMacForUser(userId, mac) {
+    findByMacForUser(userId: number, mac: string): DeviceData | null {
         try {
             const stmt = this.db.prepare(
                 'SELECT * FROM user_devices WHERE user_id = ? AND mac = ?'
             );
-            const row = stmt.get(userId, mac);
+            const row = stmt.get(userId, mac) as any;
             return row ? this._rowToDevice(row) : null;
         } catch (error) {
             console.error('Error finding device by MAC for user:', error);
@@ -48,7 +64,7 @@ class Device {
     }
 
     // Check if a MAC is saved (favorite) by a given user
-    isFavoriteForUser(userId, mac) {
+    isFavoriteForUser(userId: number, mac: string): boolean {
         try {
             const stmt = this.db.prepare(
                 'SELECT 1 FROM user_devices WHERE user_id = ? AND mac = ? AND is_favorite = 1'
@@ -61,7 +77,7 @@ class Device {
     }
 
     // Check if ANY user has this MAC saved as a favorite
-    isMacFavoritedByAnyone(mac) {
+    isMacFavoritedByAnyone(mac: string): boolean {
         try {
             const stmt = this.db.prepare(
                 'SELECT 1 FROM user_devices WHERE mac = ? AND is_favorite = 1'
@@ -73,10 +89,8 @@ class Device {
         }
     }
 
-    // ─── Per-user writes ───────────────────────────────────────────────────────
-
     // Upsert a device record for a user
-    saveForUser(userId, deviceData) {
+    saveForUser(userId: number, deviceData: Partial<DeviceData> & { mac: string }): string {
         try {
             const now = new Date().toISOString();
             const mac = deviceData.mac;
@@ -92,13 +106,13 @@ class Device {
                     WHERE user_id = ? AND mac = ?
                 `);
                 stmt.run(
-                    deviceData.name ?? existing.name,
-                    deviceData.description ?? existing.description,
-                    deviceData.rustdeskId ?? existing.rustdeskId,
+                    deviceData.name !== undefined ? deviceData.name : existing.name,
+                    deviceData.description !== undefined ? deviceData.description : existing.description,
+                    deviceData.rustdeskId !== undefined ? deviceData.rustdeskId : existing.rustdeskId,
                     deviceData.isFavorite !== undefined ? (deviceData.isFavorite ? 1 : 0) : (existing.isFavorite ? 1 : 0),
-                    deviceData.ip ?? deviceData.last_ip ?? existing.ip,
-                    deviceData.status ?? existing.status,
-                    deviceData.lastSeen ?? existing.lastSeen,
+                    deviceData.ip !== undefined ? deviceData.ip : existing.ip,
+                    deviceData.status !== undefined ? deviceData.status : existing.status,
+                    deviceData.lastSeen !== undefined ? deviceData.lastSeen : existing.lastSeen,
                     now,
                     userId, mac
                 );
@@ -111,13 +125,13 @@ class Device {
                 `);
                 stmt.run(
                     userId, mac,
-                    deviceData.name ?? null,
-                    deviceData.description ?? null,
-                    deviceData.rustdeskId ?? null,
+                    deviceData.name !== undefined ? deviceData.name : null,
+                    deviceData.description !== undefined ? deviceData.description : null,
+                    deviceData.rustdeskId !== undefined ? deviceData.rustdeskId : null,
                     deviceData.isFavorite !== undefined ? (deviceData.isFavorite ? 1 : 0) : 1,
-                    deviceData.ip ?? null,
-                    deviceData.status ?? 'offline',
-                    deviceData.lastSeen ?? null,
+                    deviceData.ip !== undefined ? deviceData.ip : null,
+                    deviceData.status !== undefined ? deviceData.status : 'offline',
+                    deviceData.lastSeen !== undefined ? deviceData.lastSeen : null,
                     now, now
                 );
             }
@@ -129,7 +143,7 @@ class Device {
     }
 
     // Set is_favorite for a user's device row (add the row if it doesn't exist)
-    setFavoriteForUser(userId, mac, isFavorite) {
+    setFavoriteForUser(userId: number, mac: string, isFavorite: boolean): boolean {
         try {
             const now = new Date().toISOString();
             if (isFavorite) {
@@ -156,7 +170,7 @@ class Device {
     }
 
     // Delete a specific user's device record
-    deleteForUser(userId, mac) {
+    deleteForUser(userId: number, mac: string): boolean {
         try {
             const stmt = this.db.prepare(
                 'DELETE FROM user_devices WHERE user_id = ? AND mac = ?'
@@ -170,7 +184,7 @@ class Device {
     }
 
     // Delete all non-favorite rows for a user (called on cache clear)
-    clearNonFavoritesForUser(userId) {
+    clearNonFavoritesForUser(userId: number): number {
         try {
             const stmt = this.db.prepare(
                 'DELETE FROM user_devices WHERE user_id = ? AND is_favorite = 0'
@@ -184,11 +198,9 @@ class Device {
         }
     }
 
-    // ─── Cross-user scan updates ───────────────────────────────────────────────
-
     // After a network scan, update last_ip / status / last_seen for every user
     // who has a saved record for this MAC. Returns number of rows updated.
-    updateScanDataForMac(mac, ip, status, lastSeen) {
+    updateScanDataForMac(mac: string, ip: string, status: string, lastSeen: string | null): number {
         try {
             const now = lastSeen || new Date().toISOString();
             const stmt = this.db.prepare(`
@@ -205,7 +217,7 @@ class Device {
     }
 
     // Mark all user_devices for a list of MACs as offline (MACs not found in scan)
-    markOfflineByMacs(macs) {
+    markOfflineByMacs(macs: string[]) {
         if (!macs || macs.length === 0) return;
         try {
             const now = new Date().toISOString();
@@ -222,10 +234,10 @@ class Device {
     }
 
     // Get all unique MACs that are saved by at least one user (for scan merging)
-    getAllSavedMacs() {
+    getAllSavedMacs(): string[] {
         try {
             const stmt = this.db.prepare('SELECT DISTINCT mac FROM user_devices');
-            return stmt.all().map(r => r.mac);
+            return (stmt.all() as Array<{ mac: string }>).map(r => r.mac);
         } catch (error) {
             console.error('Error getting all saved MACs:', error);
             return [];
@@ -233,19 +245,17 @@ class Device {
     }
 
     // Get all user_devices rows for a given MAC (across all users)
-    getAllRowsForMac(mac) {
+    getAllRowsForMac(mac: string): DeviceData[] {
         try {
             const stmt = this.db.prepare('SELECT * FROM user_devices WHERE mac = ?');
-            return stmt.all(mac).map(row => this._rowToDevice(row));
+            return stmt.all(mac).map((row: any) => this._rowToDevice(row));
         } catch (error) {
             console.error('Error getting rows for MAC:', error);
             return [];
         }
     }
 
-    // ─── Private helpers ───────────────────────────────────────────────────────
-
-    _rowToDevice(row) {
+    private _rowToDevice(row: any): DeviceData {
         return {
             id: row.id,
             userId: row.user_id,
@@ -263,4 +273,4 @@ class Device {
     }
 }
 
-module.exports = Device;
+export default Device;

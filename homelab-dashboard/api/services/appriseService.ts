@@ -1,11 +1,20 @@
-const config = require('../config');
+import config from '../config';
+
+interface NotificationPayload {
+    title: string;
+    message: string;
+    priority?: number;
+    tags?: string[];
+}
 
 class AppriseService {
+    private appriseUrl: string;
+
     constructor() {
         this.appriseUrl = config.apprise.url;
     }
 
-    async sendPackageUpdateNotification(updatesCount, packages = []) {
+    async sendPackageUpdateNotification(updatesCount: number, packages: any[] = []) {
         try {
             const title = `${updatesCount} Package Update${updatesCount > 1 ? 's' : ''} Available`;
             const message = updatesCount <= 5 
@@ -20,12 +29,12 @@ class AppriseService {
             });
 
             console.log(`Package update notification sent: ${updatesCount} updates available`);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to send package update notification:', error.message);
         }
     }
 
-    async sendNotification({ title, message, priority = 3, tags = [] }) {
+    async sendNotification({ title, message, priority = 3, tags = [] }: NotificationPayload): Promise<boolean> {
         try {
             const url = `${this.appriseUrl}/alerts/dashboard`;
             console.log(`Sending alert notification to: ${url}`);
@@ -42,6 +51,7 @@ class AppriseService {
                     priority,
                     tags
                 }),
+                // @ts-ignore
                 timeout: 10000 // 10 second timeout
             });
 
@@ -53,11 +63,11 @@ class AppriseService {
             }
 
             return true;
-        } catch (error) {
+        } catch (error: any) {
             console.error('Apprise notification failed:', error.message);
             return false;
         }
     }
 }
 
-module.exports = AppriseService;
+export default AppriseService;
