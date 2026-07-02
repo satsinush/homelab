@@ -362,10 +362,6 @@ gotify_pwd = os.environ.get("GOTIFY_ADMIN_PASSWORD", "")
 
 print(f"\n🌐 Web Access:")
 print(f"   Dashboard:  https://{env.get('DASHBOARD_WEB_HOSTNAME')}")
-print(f"   Gotify:     https://{env.get('GOTIFY_WEB_HOSTNAME')} (User: admin / Pass: {gotify_pwd})")
-print(f"   Status:     https://{env.get('GATUS_WEB_HOSTNAME')}")
-print(f"   Auth:       https://{env.get('AUTHENTIK_WEB_HOSTNAME')}")
-print(f"   Vault:      https://{env.get('VAULTWARDEN_WEB_HOSTNAME')}")
 ssl_mode = 'Self-signed (private)' if cert_resolver != 'letsencrypt' else "Public (Let's Encrypt)"
 print(f"\n🔒 SSL Mode: {ssl_mode}")
 if cert_resolver != "letsencrypt":

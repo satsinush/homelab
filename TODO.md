@@ -1,7 +1,6 @@
 - Pcie gen 3?
 - refactor to typescript
-- set up .well-known/openid-configuration?
-- add specific roles for each service and page, implement roles in dashboard UI, make it so you can't sign in/access pages without proper roles
+- make sure all containers come up after reboot
 - Make sure secrets managed properly
 - Add next cloud
 - Add obsidian sync (desktop client and WebDAV for mobile)
