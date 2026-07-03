@@ -209,6 +209,13 @@ gen_secret("authentik_secret_key", 50)
 gen_secret("authentik_pg_pass", 32)
 gen_secret("authentik_akadmin_password", 32)
 
+# Ensure placeholder file exists for rustdesk_public_key to prevent Docker from creating a directory
+os.makedirs("./volumes/public-configs", exist_ok=True)
+rustdesk_key_path = "./volumes/public-configs/rustdesk_public_key"
+if not os.path.exists(rustdesk_key_path):
+    with open(rustdesk_key_path, "w") as f:
+        f.write("\n")
+
 # Ensure homelab_password exists
 if not os.path.exists("./volumes/secrets/homelab_password") or os.path.getsize("./volumes/secrets/homelab_password") == 0:
     print("   ⚠️  homelab_password secret is missing from volumes/secrets!")

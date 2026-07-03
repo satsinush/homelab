@@ -195,33 +195,36 @@ class SystemController {
         }
     }
 
-    // Get all secrets in /secrets (admin-only)
+    // Get all secrets in /secrets and public-configs (admin-only)
     async getSecrets(req: Request, res: Response) {
         try {
             const secretsDir = '/run/secrets';
-            if (!fs.existsSync(secretsDir)) {
-                return sendSuccess(res, { secrets: [] });
-            }
+            const publicConfigsDir = '/app/public-configs';
+            const secretsList: Array<{ name: string; value: string }> = [];
 
-            const files = fs.readdirSync(secretsDir);
-            const secretsList = [];
-
-            for (const file of files) {
-                const filePath = `${secretsDir}/${file}`;
-                const stat = fs.statSync(filePath);
-                if (stat.isFile()) {
-                    try {
-                        const value = fs.readFileSync(filePath, 'utf8').trim();
-                        secretsList.push({
-                            name: file,
-                            value: value
-                        });
-                    } catch (readError: unknown) {
-                        const err = readError as Error;
-                        console.warn(`Could not read container metadata file: ${err.message}`);
+            const scanDirectory = (dir: string) => {
+                if (!fs.existsSync(dir)) return;
+                const files = fs.readdirSync(dir);
+                for (const file of files) {
+                    const filePath = `${dir}/${file}`;
+                    const stat = fs.statSync(filePath);
+                    if (stat.isFile()) {
+                        try {
+                            const value = fs.readFileSync(filePath, 'utf8').trim();
+                            secretsList.push({
+                                name: file,
+                                value: value
+                            });
+                        } catch (readError: unknown) {
+                            const err = readError as Error;
+                            console.warn(`Could not read container config file ${file}: ${err.message}`);
+                        }
                     }
                 }
-            }
+            };
+
+            scanDirectory(secretsDir);
+            scanDirectory(publicConfigsDir);
 
             return sendSuccess(res, { secrets: secretsList });
         } catch (error: unknown) {
