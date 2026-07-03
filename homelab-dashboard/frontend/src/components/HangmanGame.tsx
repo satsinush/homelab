@@ -10,7 +10,6 @@ import {
     CircularProgress,
     Stack,
     Chip,
-    Paper,
     IconButton,
     Tooltip
 } from '@mui/material';
@@ -19,22 +18,11 @@ import {
     Settings as SettingsIcon,
     ContentCopy as CopyIcon
 } from '@mui/icons-material';
-import GameSettingsDialog from './GameSettingsDialog';
-
-interface SuggestionItem {
-    letter: string;
-    probability: number | null;
-    entropy: number | null;
-}
-
-interface SolverResults {
-    letterSuggestions?: SuggestionItem[];
-    possibleWords: string[];
-    possibleWordsCount?: number;
-}
+import GameSettingsDialog, { DialogConfig, FieldDefinition } from './GameSettingsDialog';
+import { HangmanResultState, GameStatus } from '../types/api';
 
 interface HangmanResultsProps {
-    results: SolverResults | null;
+    results: HangmanResultState | null;
     onCopyToClipboard: (text: string) => void;
 }
 
@@ -59,7 +47,7 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard }: HangmanResult
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                                 <Box>
                                     <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-                                        Possible Words ({results.possibleWordsCount || results.possibleWords.length})
+                                        Possible Words ({results.gameData?.possibleWordsCount || results.possibleWords.length})
                                     </Typography>
                                 </Box>
                                 {results.possibleWords.length > 0 && (
@@ -176,12 +164,12 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard }: HangmanResult
 HangmanResults.displayName = 'HangmanResults';
 
 interface HangmanGameProps {
-    gameStatus: any;
+    gameStatus: GameStatus | null;
     isLoading: boolean;
-    onSolve: (gameType: string, params: any) => Promise<void>;
+    onSolve: (gameType: string, params: unknown) => Promise<void>;
     onClear: () => void;
     showError: (message: string) => void;
-    results: SolverResults | null;
+    results: HangmanResultState | null;
 }
 
 const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, results }: HangmanGameProps) => {
@@ -193,7 +181,7 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
         excludeUncommonWords: true
     });
 
-    const settingsFields = [
+    const settingsFields: FieldDefinition[] = [
         {
             name: 'maxDepth',
             label: 'Solver Mode',
@@ -206,7 +194,7 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
             label: 'Exclude Uncommon Words',
             type: 'checkbox'
         }
-    ] as const;
+    ];
 
     const handlePatternChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const cleanValue = e.target.value.replace(/[^a-zA-Z? ]/g, '').toUpperCase();
@@ -382,13 +370,13 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
                     <GameSettingsDialog
                         open={settingsOpen}
                         onClose={() => setSettingsOpen(false)}
-                        onSave={(newConfig: any) => setConfig({
+                        onSave={(newConfig: DialogConfig) => setConfig({
                             maxDepth: Number(newConfig.maxDepth),
                             excludeUncommonWords: Boolean(newConfig.excludeUncommonWords)
                         })}
                         title="Hangman Settings"
                         config={config}
-                        fields={settingsFields as any}
+                        fields={settingsFields}
                     />
                 </CardContent>
             </Card>

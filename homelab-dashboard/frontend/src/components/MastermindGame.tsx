@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useCallback, useMemo, useState, forwardRef, useImperativeHandle } from 'react';
 import {
     Box,
     Card,
@@ -8,14 +8,8 @@ import {
     Grid,
     CircularProgress,
     Stack,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    TextField,
     IconButton,
     Tooltip,
-    Paper,
     Table,
     TableBody,
     TableCell,
@@ -32,7 +26,8 @@ import {
     Settings as SettingsIcon,
     ContentCopy as CopyIcon
 } from '@mui/icons-material';
-import GameSettingsDialog, { FieldDefinition } from './GameSettingsDialog';
+import GameSettingsDialog, { FieldDefinition, DialogConfig } from './GameSettingsDialog';
+import { MastermindResultState, GameStatus } from '../types/api';
 
 // Color palette for pegs (11 colors)
 const PEG_COLORS = [
@@ -163,8 +158,12 @@ const MastermindPatternDisplay = ({ pattern, size = 'small', colorMapping = null
 
 interface MastermindResultsProps {
     possiblePatterns: string[];
-    guessesWithEntropy: any[];
-    lastGameData: any;
+    guessesWithEntropy: {
+        pattern: string;
+        probability: number | null;
+        entropy: number | null;
+    }[];
+    lastGameData: MastermindResultState['gameData'];
     isLoading: boolean;
     onLoadMore: (type: string) => void;
     onCopyToClipboard: (text: string) => void;
@@ -484,12 +483,12 @@ const ColorSelector = ({ enabledColors, setEnabledColors, onColorSelect, colorMa
 };
 
 interface MastermindGameProps {
-    gameStatus: any;
+    gameStatus: GameStatus | null;
     isLoading: boolean;
-    onSolve: (gameType: string, params: any) => Promise<void>;
+    onSolve: (gameType: string, params: unknown) => Promise<void>;
     onClear: () => void;
     showError: (message: string) => void;
-    results: any;
+    results: MastermindResultState | null;
     onLoadMore: (type: string) => void;
 }
 
@@ -976,15 +975,16 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                     <GameSettingsDialog
                         open={settingsOpen}
                         onClose={() => setSettingsOpen(false)}
-                        onSave={(newConfig) => {
+                        onSave={(newConfig: DialogConfig) => {
                             setState(prev => {
-                                const numPegsChanged = newConfig.numPegs !== prev.numPegs;
+                                const newNumPegs = Number(newConfig.numPegs);
+                                const numPegsChanged = newNumPegs !== prev.numPegs;
                                 return {
                                     ...prev,
-                                    numPegs: newConfig.numPegs,
-                                    allowDuplicates: newConfig.allowDuplicates,
-                                    maxDepth: newConfig.maxDepth,
-                                    currentPattern: numPegsChanged ? Array(newConfig.numPegs).fill(null) : prev.currentPattern,
+                                    numPegs: newNumPegs,
+                                    allowDuplicates: newConfig.allowDuplicates ? 1 : 0,
+                                    maxDepth: Number(newConfig.maxDepth),
+                                    currentPattern: numPegsChanged ? Array(newNumPegs).fill(null) : prev.currentPattern,
                                     correctPosition: numPegsChanged ? 0 : prev.correctPosition,
                                     correctColor: numPegsChanged ? 0 : prev.correctColor,
                                     guesses: numPegsChanged ? [] : prev.guesses

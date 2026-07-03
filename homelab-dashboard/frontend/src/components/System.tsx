@@ -1,5 +1,5 @@
 // src/components/System.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box,
     Card,
@@ -28,6 +28,7 @@ import {
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/NotificationContext';
+import { SystemInfo, ResourceMetrics, SystemTemperature, NetworkInfo, SystemDataResponse } from '../types/api';
 
 // --- Helper Components for better visualization (Suggestion) ---
 
@@ -86,10 +87,10 @@ const Gauge = ({ value, color, title }: GaugeProps) => (
 
 
 const System = () => {
-    const [systemInfo, setSystemInfo] = useState<any>(null);
-    const [resources, setResources] = useState<any>(null);
-    const [temperature, setTemperature] = useState<any>(null);
-    const [network, setNetwork] = useState<any>(null);
+    const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+    const [resources, setResources] = useState<ResourceMetrics | null>(null);
+    const [temperature, setTemperature] = useState<SystemTemperature | null>(null);
+    const [network, setNetwork] = useState<NetworkInfo | null>(null);
     const [loading, setLoading] = useState(true);
     const [autoRefresh, setAutoRefresh] = useState<boolean>(() => {
         const saved = localStorage.getItem('systemAutoRefresh');
@@ -98,9 +99,9 @@ const System = () => {
     const [refreshing, setRefreshing] = useState(false);
     const { showError } = useNotification();
 
-    const fetchSystemData = async () => {
+    const fetchSystemData = useCallback(async () => {
         try {
-            const systemDataResult = await tryApiCall('/system');
+            const systemDataResult = await tryApiCall<SystemDataResponse>('/system');
             const data = systemDataResult.data;
             setSystemInfo(data.system);
             setResources(data.resources);
@@ -113,7 +114,7 @@ const System = () => {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, [showError]);
 
     useEffect(() => {
         fetchSystemData();
@@ -121,7 +122,7 @@ const System = () => {
         if (autoRefresh) {
             interval = setInterval(async () => {
                 try {
-                    const systemDataResult = await tryApiCall('/system');
+                    const systemDataResult = await tryApiCall<SystemDataResponse>('/system');
                     const systemData = systemDataResult.data;
                     if (systemData) {
                         if (systemData.resources) setResources(systemData.resources);
@@ -137,7 +138,7 @@ const System = () => {
         return () => {
             if (interval) clearInterval(interval);
         };
-    }, [autoRefresh]);
+    }, [autoRefresh, fetchSystemData]);
 
     useEffect(() => {
         localStorage.setItem('systemAutoRefresh', JSON.stringify(autoRefresh));
@@ -351,7 +352,7 @@ const System = () => {
                                     <Typography variant="h6" sx={{ fontWeight: 600 }}>Network Interfaces</Typography>
                                 </Box>
                                 <Grid container spacing={2}>
-                                    {network.interfaces.map((iface: any, index: number) => (
+                                    {network.interfaces.map((iface, index: number) => (
                                         <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
                                             <Paper variant="outlined" sx={{ p: 2 }}>
                                                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}><Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{iface.name}</Typography><Chip label={iface.active ? 'Active' : 'Inactive'} size="small" color={iface.active ? 'success' : 'default'} /></Box>

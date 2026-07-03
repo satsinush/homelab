@@ -32,9 +32,10 @@ interface CustomRequestInit extends RequestInit {
  * Try API endpoints until one works using fetch
  * @param {string} path - The API path to call (e.g., '/devices', '/system-info')
  * @param {CustomRequestInit} options - Additional fetch options (method, headers, body, etc.)
- * @returns {Promise<{data: any, response: Response}>} Response data, raw response
+ * @returns {Promise<{data: T, response: Response}>} Response data, raw response
  */
-export const tryApiCall = async (path: string, options: CustomRequestInit = {}): Promise<{ data: any; response: Response }> => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const tryApiCall = async <T = any>(path: string, options: CustomRequestInit = {}): Promise<{ data: T; response: Response }> => {
     const headers: Record<string, string> = {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
@@ -56,7 +57,7 @@ export const tryApiCall = async (path: string, options: CustomRequestInit = {}):
     if (options.data !== undefined) {
         fetchOptions.body = JSON.stringify(options.data);
     } else if (options.body !== undefined) {
-        fetchOptions.body = options.body;
+        fetchOptions.body = options.body as BodyInit;
     }
 
     // Handle timeout
@@ -71,11 +72,12 @@ export const tryApiCall = async (path: string, options: CustomRequestInit = {}):
 
         // Parse response data first to get error details
         const contentType = response.headers.get('content-type');
-        let data: any;
+        let data: T;
         if (contentType && contentType.includes('application/json')) {
-            data = await response.json();
+            data = await response.json() as T;
         } else {
-            data = await response.text();
+            const text = await response.text();
+            data = text as unknown as T;
         }
 
         // Handle 401 errors
@@ -85,7 +87,8 @@ export const tryApiCall = async (path: string, options: CustomRequestInit = {}):
 
         // Handle non-ok responses with detailed error messages
         if (!response.ok) {
-            const errorMessage = data?.error || data?.message || `HTTP ${response.status}`;
+            const errorData = data as Record<string, unknown> | null;
+            const errorMessage = ((errorData?.error || errorData?.message || `HTTP ${response.status}`) as string) || `HTTP ${response.status}`;
             throw new ApiError(errorMessage, response.status, response);
         }
 

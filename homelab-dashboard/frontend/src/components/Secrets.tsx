@@ -29,11 +29,15 @@ import {
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/NotificationContext';
+import { SecretsResponse } from '../types/api';
 
 interface SecretItem {
     name: string;
     value: string;
+    description?: string;
 }
+
+
 
 const Secrets = () => {
     const [secrets, setSecrets] = useState<SecretItem[]>([]);
@@ -45,8 +49,12 @@ const Secrets = () => {
     const fetchSecrets = useCallback(async () => {
         setLoading(true);
         try {
-            const result = await tryApiCall('/system/secrets');
-            setSecrets((result.data.secrets || []) as SecretItem[]);
+            const result = await tryApiCall<SecretsResponse>('/system/secrets');
+            setSecrets((result.data.secrets || []).map(s => ({
+                name: s.key,
+                value: s.value,
+                description: s.description
+            })));
         } catch (err) {
             const error = err as Error;
             showError(`Failed to load secrets: ${error.message}`);

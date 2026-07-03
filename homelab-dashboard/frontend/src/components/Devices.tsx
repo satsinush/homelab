@@ -1,5 +1,5 @@
 // src/components/Devices.jsx
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Box,
     Card,
@@ -21,7 +21,6 @@ import {
     Grid,
     ToggleButton,
     ToggleButtonGroup,
-    InputAdornment,
     Table,
     TableBody,
     TableCell,
@@ -31,9 +30,7 @@ import {
     Tooltip,
     Select,
     MenuItem,
-    FormControl,
-    FormControlLabel,
-    Checkbox
+    FormControl
 } from '@mui/material';
 import {
     Refresh as RefreshIcon,
@@ -50,11 +47,9 @@ import {
     Add as AddIcon,
     Edit as EditIcon,
     Clear as ClearIcon,
-    Search as SearchIcon,
     FilterList as FilterIcon,
     ViewModule as CardViewIcon,
     ViewList as TableViewIcon,
-    Sort as SortIcon,
     ArrowUpward as ArrowUpIcon,
     ArrowDownward as ArrowDownIcon,
     Star as StarIcon,
@@ -96,7 +91,7 @@ const DeviceDialog = React.memo(({
     }, [open, initialDeviceForm]);
 
     // Internal form change handler - doesn't affect parent component
-    const handleFormChange = useCallback((field: keyof Device, value: any) => {
+    const handleFormChange = useCallback((field: keyof Device, value: unknown) => {
         setDeviceForm(prev => ({ ...prev, [field]: value }));
     }, []);
 
@@ -199,12 +194,7 @@ const Devices = () => {
     const [sortBy, setSortBy] = useState('status');
     const [sortOrder, setSortOrder] = useState('desc'); // 'asc' or 'desc'
 
-    useEffect(() => {
-        fetchDevices();
-        fetchRustdeskConfig();
-    }, []);
-
-    const fetchRustdeskConfig = async () => {
+    const fetchRustdeskConfig = useCallback(async () => {
         try {
             const response = await tryApiCall('/system/rustdesk-config');
             if (response.data) {
@@ -213,7 +203,30 @@ const Devices = () => {
         } catch (err) {
             console.error('Failed to fetch RustDesk config:', err);
         }
-    };
+    }, []);
+
+    const fetchDevices = useCallback(async () => {
+        try {
+            // Fetch all device data using simplified endpoint
+            const response = await tryApiCall('/devices');
+
+            setDevices(formatDevicesForDisplay<Device>(response.data.devices || []));
+            setLoading(false);
+        } catch (err) {
+            const error = err as Error;
+            console.error('All API endpoints failed:', error);
+            showError(`Failed to connect to API server: ${error.message}`);
+            setLoading(false);
+
+            // Set empty data for development
+            setDevices([]);
+        }
+    }, [showError]);
+
+    useEffect(() => {
+        fetchDevices();
+        fetchRustdeskConfig();
+    }, [fetchDevices, fetchRustdeskConfig]);
 
     const handleWakeOnLan = async (device: Device) => {
         try {
@@ -246,13 +259,11 @@ const Devices = () => {
         setRefreshingAll(true);
 
         try {
-            // Trigger a new arp-scan for all devices
             const response = await tryApiCall('/devices/scan', {
                 method: 'POST'
             });
 
-            // Update device lists from scan response
-            setDevices(formatDevicesForDisplay(response.data.devices || []));
+            setDevices(formatDevicesForDisplay<Device>(response.data.devices || []));
             showSuccess('Device status refreshed successfully');
         } catch (err) {
             const error = err as Error;
@@ -276,14 +287,11 @@ const Devices = () => {
                 setClearingCache(true);
 
                 try {
-                    // Clear the discovered device cache and perform fresh scan
                     const response = await tryApiCall('/devices/clear-cache', {
                         method: 'POST'
                     });
 
-                    // Update device lists from scan response
-                    setDevices(formatDevicesForDisplay(response.data.devices || []));
-
+                    setDevices(formatDevicesForDisplay<Device>(response.data.devices || []));
                     showSuccess(`Cleared ${response.data.deletedCount || discoveredCount} discovered devices and completed fresh scan`);
                 } catch (err) {
                     const error = err as Error;
@@ -302,7 +310,6 @@ const Devices = () => {
         setInitialDeviceForm({ name: '', mac: '', description: '', rustdeskId: '', isFavorite: false });
     }, []);
 
-    // Device management functions
     const handleAddDevice = () => {
         setEditingDevice(null);
         setInitialDeviceForm({ name: '', mac: '', description: '', rustdeskId: '' });
@@ -310,7 +317,6 @@ const Devices = () => {
     };
 
     const handleEditDevice = (device: Device) => {
-        // Only allow editing favorite devices
         if (!device.isFavorite) {
             showError('Only favorite devices can be edited');
             return;
@@ -335,7 +341,6 @@ const Devices = () => {
             const updatedDevice = formatDevicesForDisplay([response.data.device])[0];
             const message = response.data.message;
 
-            // Update local state immediately
             setDevices(prevDevices =>
                 prevDevices.map(d =>
                     (d.macNormalized || d.mac) === (device.macNormalized || device.mac) ? updatedDevice : d
@@ -355,10 +360,8 @@ const Devices = () => {
             return;
         }
 
-        // Normalize MAC address for comparison (convert to lowercase and handle both : and - formats)
         const normalizedInputMac = normalizeMacForApi(deviceForm.mac.trim());
 
-        // Check for existing MAC address (only when adding new device, not editing)
         if (!editingDevice) {
             const existingDevice = devices.find(device => {
                 if (!device.mac && !device.macNormalized) return false;
@@ -382,17 +385,14 @@ const Devices = () => {
             };
 
             if (editingDevice) {
-                // Update existing device - use MAC as identifier
                 const originalMac = editingDevice.macNormalized || normalizeMacForApi(editingDevice.mac);
                 const response = await tryApiCall(`/devices/${encodeURIComponent(originalMac)}`, {
                     method: 'PUT',
                     data: deviceData
                 });
 
-                // Get the updated device from server response
                 const updatedDevice = formatDevicesForDisplay([response.data.device])[0];
 
-                // Update local state immediately with server response data
                 setDevices(prevDevices =>
                     prevDevices.map(d =>
                         (d.macNormalized || normalizeMacForApi(d.mac)) === originalMac
@@ -403,17 +403,13 @@ const Devices = () => {
 
                 showSuccess('Favorite device updated successfully');
             } else {
-                // Add new device - use POST
                 const response = await tryApiCall('/devices', {
                     method: 'POST',
                     data: deviceData
                 });
 
                 const newDevice = formatDevicesForDisplay([response.data.device])[0];
-
-                // Add to devices list
                 setDevices(prevDevices => [...prevDevices, newDevice]);
-
                 showSuccess('Favorite device added successfully');
             }
 
@@ -424,24 +420,6 @@ const Devices = () => {
         } catch (err) {
             const error = err as Error;
             showError(`Failed to save device: ${error.message}`);
-        }
-    };
-
-    const fetchDevices = async () => {
-        try {
-            // Fetch all device data using simplified endpoint
-            const response = await tryApiCall('/devices');
-
-            setDevices(formatDevicesForDisplay(response.data.devices || []));
-            setLoading(false);
-        } catch (err) {
-            const error = err as Error;
-            console.error('All API endpoints failed:', error);
-            showError(`Failed to connect to API server: ${error.message}`);
-            setLoading(false);
-
-            // Set empty data for development
-            setDevices([]);
         }
     };
 

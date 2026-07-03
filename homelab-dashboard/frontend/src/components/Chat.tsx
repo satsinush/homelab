@@ -1,5 +1,5 @@
 // src/components/Chat.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import {
     Box,
@@ -42,13 +42,22 @@ import {
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/NotificationContext';
+import { OllamaStatus } from '../types/api';
+
+interface HistoryMessageItem {
+    role: 'user' | 'assistant';
+    content: string;
+    message?: string;
+    actions?: { status: string; message: string }[];
+    timestamp?: string;
+}
 
 interface ChatMessage {
     id: string;
     type: 'user' | 'assistant' | 'error';
     content: string;
     message?: string;
-    actions?: any[];
+    actions?: { status?: string; message?: string; action?: string }[];
     timestamp: string;
     thinking?: boolean;
 }
@@ -70,7 +79,7 @@ const Chat = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [availableModels, setAvailableModels] = useState<AvailableModel[]>([]);
     const [currentModel, setCurrentModel] = useState('');
-    const [ollamaStatus, setOllamaStatus] = useState<any>(null);
+    const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus | null>(null);
     const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
     const [modelToDownload, setModelToDownload] = useState('');
     const [downloadLoading, setDownloadLoading] = useState(false);
@@ -81,24 +90,10 @@ const Chat = () => {
     const inputRef = useRef<HTMLDivElement | null>(null);
     const { showError, showSuccess, showConfirmDialog } = useNotification();
 
-    useEffect(() => {
-        checkOllamaStatus();
-        fetchModels();
-        fetchConversationHistory();
-    }, []);
-
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
-
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    };
-
-    const checkOllamaStatus = async () => {
+    const checkOllamaStatus = useCallback(async () => {
         setIsLoading(true);
         try {
-            const response = await tryApiCall('/chat/status');
+            const response = await tryApiCall<OllamaStatus>('/chat/status');
             setOllamaStatus(response.data);
         } catch (error) {
             console.error('Failed to check Ollama status:', error);
@@ -106,9 +101,9 @@ const Chat = () => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    const fetchModels = async () => {
+    const fetchModels = useCallback(async () => {
         setIsLoading(true);
         try {
             const response = await tryApiCall('/chat/models');
@@ -123,13 +118,13 @@ const Chat = () => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [showError]);
 
-    const fetchConversationHistory = async () => {
+    const fetchConversationHistory = useCallback(async () => {
         try {
             const response = await tryApiCall('/chat/conversation');
             if (response.data.conversationHistory) {
-                const historyMessages = (response.data.conversationHistory as any[]).map((msg, index) => ({
+                const historyMessages = (response.data.conversationHistory as HistoryMessageItem[]).map((msg, index) => ({
                     id: `history-${Date.now() + index}`,
                     type: msg.role === 'user' ? 'user' : 'assistant',
                     content: msg.content,
@@ -142,7 +137,13 @@ const Chat = () => {
         } catch (error) {
             console.error('Failed to fetch conversation history:', error);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        checkOllamaStatus();
+        fetchModels();
+        fetchConversationHistory();
+    }, [checkOllamaStatus, fetchModels, fetchConversationHistory]);
 
     const handleSendMessage = async () => {
         if (!inputMessage.trim() || isLoading || ollamaStatus?.status === 'offline' || availableModels.length === 0) return;
@@ -190,7 +191,7 @@ const Chat = () => {
             });
 
             if (response.data.conversationHistory) {
-                const frontendMessages = (response.data.conversationHistory as any[]).map((msg, index) => ({
+                const frontendMessages = (response.data.conversationHistory as HistoryMessageItem[]).map((msg, index) => ({
                     id: `history-${Date.now() + index}`,
                     type: msg.role === 'user' ? 'user' : 'assistant',
                     content: msg.content,
@@ -202,7 +203,7 @@ const Chat = () => {
             }
 
             if (response.data.actions) {
-                (response.data.actions as any[]).forEach(action => {
+                (response.data.actions as { status: string; message: string }[]).forEach(action => {
                     if (action.status === 'success') {
                         showSuccess(action.message);
                     } else {
@@ -274,12 +275,7 @@ const Chat = () => {
         });
     };
 
-    const formatTimestamp = (timestamp: string) => {
-        return new Date(timestamp).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
+
 
     const getStatusColor = (status: string): 'success' | 'error' | 'warning' => {
         switch (status) {

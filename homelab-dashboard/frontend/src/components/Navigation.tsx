@@ -1,6 +1,6 @@
 // src/components/Navigation.jsx
 import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
     Box,
     Drawer,
@@ -17,7 +17,6 @@ import {
     useMediaQuery,
     useTheme,
     Avatar,
-    Button,
     Menu,
     MenuItem
 } from '@mui/material';
@@ -30,7 +29,6 @@ import {
     Menu as MenuIcon,
     Person as PersonIcon,
     ExitToApp as LogoutIcon,
-    AccountCircle as AccountIcon,
     Chat as ChatIcon,
     Games as GamesIcon,
     People as PeopleIcon,

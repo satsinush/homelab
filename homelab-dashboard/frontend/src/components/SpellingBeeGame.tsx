@@ -20,7 +20,8 @@ import {
     Paper
 } from '@mui/material';
 import { PlayArrow as PlayIcon, Settings as SettingsIcon, ContentCopy as CopyIcon } from '@mui/icons-material';
-import GameSettingsDialog from './GameSettingsDialog';
+import GameSettingsDialog, { FieldDefinition, DialogConfig } from './GameSettingsDialog';
+import { SpellingBeeResultState, GameStatus } from '../types/api';
 
 interface SpellingBeeDisplayProps {
     letters: string;
@@ -34,43 +35,65 @@ const SpellingBeeDisplay = ({ letters }: SpellingBeeDisplayProps) => {
 
     return (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
-            <Box sx={{
-                position: 'relative', width: 220, height: 220,
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-                {/* Center Hexagon - Flat Top */}
-                <Box sx={{
-                    position: 'absolute', width: 70, height: 60,
-                    clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
-                    backgroundColor: 'primary.main',
-                    color: 'primary.contrastText',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 'bold', fontSize: '1.5rem',
-                    zIndex: 2,
-                    boxShadow: 3
-                }}>
-                    {centerLetter || '?'}
-                </Box>
+            {/* Hexagon Layout */}
+            <Box sx={{ position: 'relative', width: 220, height: 220 }}>
+                {/* Center Letter */}
+                {centerLetter && (
+                    <Box
+                        sx={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            width: 60,
+                            height: 60,
+                            borderRadius: '50%',
+                            bgcolor: 'warning.main',
+                            color: 'warning.contrastText',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '1.5rem',
+                            fontWeight: 'bold',
+                            boxShadow: 3,
+                            zIndex: 2
+                        }}
+                    >
+                        {centerLetter}
+                    </Box>
+                )}
 
-                {/* Outer Hexagons - Flat Top */}
-                {outerLetters.map((letter, i) => {
-                    const angle = (i * 60 - 30) * (Math.PI / 180);
-                    const radius = 75;
-                    const x = Math.cos(angle) * radius;
-                    const y = Math.sin(angle) * radius;
+                {/* Outer Letters */}
+                {outerLetters.map((letter, index) => {
+                    const angle = (index * 60 * Math.PI) / 180;
+                    const radius = 70; // Distance from center
+                    const x = Math.round(radius * Math.cos(angle));
+                    const y = Math.round(radius * Math.sin(angle));
 
                     return (
-                        <Box key={i} sx={{
-                            position: 'absolute', width: 70, height: 60,
-                            left: `calc(50% + ${x}px - 35px)`,
-                            top: `calc(50% + ${y}px - 30px)`,
-                            clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
-                            backgroundColor: 'action.selected',
-                            color: 'text.primary',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontWeight: 'bold', fontSize: '1.5rem',
-                            border: '1px solid transparent',
-                        }}>
+                        <Box
+                            key={index}
+                            sx={{
+                                position: 'absolute',
+                                top: `calc(50% + ${y}px)`,
+                                left: `calc(50% + ${x}px)`,
+                                transform: 'translate(-50%, -50%)',
+                                width: 50,
+                                height: 50,
+                                borderRadius: '50%',
+                                bgcolor: 'background.paper',
+                                color: 'text.primary',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '1.25rem',
+                                fontWeight: 'bold',
+                                boxShadow: 1,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                zIndex: 1
+                            }}
+                        >
                             {letter}
                         </Box>
                     );
@@ -81,13 +104,7 @@ const SpellingBeeDisplay = ({ letters }: SpellingBeeDisplayProps) => {
 };
 
 interface SpellingBeeResultsProps {
-    results: {
-        solutions: string[];
-        gameData?: {
-            actualTotalFound?: number;
-            totalSolutions?: number;
-        };
-    } | null;
+    results: SpellingBeeResultState | null;
     onCopy: (text: string) => void;
     onLoadMore: () => void;
     isLoading: boolean;
@@ -165,12 +182,12 @@ const SpellingBeeResults = React.memo(({ results, onCopy, onLoadMore, isLoading 
 SpellingBeeResults.displayName = 'SpellingBeeResults';
 
 interface SpellingBeeGameProps {
-    gameStatus: any;
+    gameStatus: GameStatus | null;
     isLoading: boolean;
-    onSolve: (gameType: string, params: any) => Promise<void>;
+    onSolve: (gameType: string, params: unknown) => Promise<void>;
     onClear: () => void;
     showError: (message: string) => void;
-    results: any;
+    results: SpellingBeeResultState | null;
     onLoadMore: () => void;
 }
 
@@ -183,7 +200,7 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
         reuseLetters: true
     });
 
-    const settingsFields = [
+    const settingsFields: FieldDefinition[] = [
         {
             name: 'excludeUncommonWords',
             label: 'Exclude Uncommon Words',
@@ -199,7 +216,7 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
             label: 'Allow Letter Reuse',
             type: 'checkbox'
         }
-    ] as const;
+    ];
 
     const handleSpellingBeeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const cleanValue = e.target.value.replace(/[^a-zA-Z]/g, '');
@@ -222,22 +239,22 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
         });
     }, [spellingBeeLetters, config, onSolve, showError]);
 
-    const handleClear = useCallback(() => {
-        setSpellingBeeLetters('');
-        onClear();
-    }, [onClear]);
-
     const handleCopy = useCallback((text: string) => {
         navigator.clipboard.writeText(text);
     }, []);
+
+    const handleLocalClear = useCallback(() => {
+        setSpellingBeeLetters('');
+        onClear();
+    }, [onClear]);
 
     return (
         <>
             <Card>
                 <CardContent>
-                    {/* Top Left Control Layout */}
+                    {/* Top Controls */}
                     <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-                        <Button variant="outlined" onClick={handleClear} disabled={isLoading} size="small">
+                        <Button variant="outlined" onClick={handleLocalClear} disabled={isLoading} size="small">
                             New Game
                         </Button>
                         <Tooltip title="Settings">
@@ -249,61 +266,38 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
 
                     <Box sx={{ textAlign: 'center', mb: 3 }}>
                         <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 1 }}>
-                            Spelling Bee
+                            Spelling Bee Solver
                         </Typography>
                         <Typography variant="body1" color="text.secondary">
-                            Enter letters (minimum 3, duplicates allowed, first letter is special)
+                            Enter the 7 letters from your puzzle. The first letter is the Center (required) letter.
                         </Typography>
                     </Box>
 
-                    {/* Input Field */}
-                    <Grid container spacing={3} justifyContent="center" sx={{ mb: 3 }}>
-                        <Grid size={{ xs: 12, md: 8 }}>
+                    {/* Honeycomb Display */}
+                    {spellingBeeLetters.length > 0 && (
+                        <SpellingBeeDisplay letters={spellingBeeLetters} />
+                    )}
+
+                    <Grid container spacing={2} sx={{ mt: 2 }}>
+                        <Grid size={{ xs: 12, md: 6 }}>
                             <TextField
-                                label="Enter letters (first is center/special)"
+                                fullWidth
+                                label="Puzzle Letters (Center First)"
+                                variant="outlined"
                                 value={spellingBeeLetters}
                                 onChange={handleSpellingBeeChange}
-                                fullWidth
-                                helperText={`${spellingBeeLetters.length} letters entered (minimum 3)`}
-                                autoCorrect="off"
-                                autoComplete="off"
-                                slotProps={{
-                                    htmlInput: {
-                                        autoComplete: 'off',
-                                        autoCorrect: 'off',
-                                        autoCapitalize: 'off',
-                                        spellCheck: 'false',
-                                        style: {
-                                            textAlign: 'center',
-                                            fontSize: '1.2rem',
-                                            fontWeight: 'bold',
-                                            letterSpacing: '3px',
-                                            textTransform: 'uppercase'
-                                        },
-                                    }
-                                }}
-
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        e.preventDefault();
-                                        handleSolve();
-                                    }
-                                }}
+                                placeholder="E.g., CENTERX"
+                                disabled={isLoading}
+                                slotProps={{ htmlInput: { maxLength: 7, autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'off', spellCheck: 'false' } }}
                             />
                         </Grid>
-                    </Grid>
-
-                    {/* Spelling Bee Display */}
-                    <SpellingBeeDisplay letters={spellingBeeLetters} />
-
-                    <Grid container spacing={3} justifyContent="center">
                         <Grid size={{ xs: 12, md: 6 }}>
                             <Button
                                 fullWidth
                                 variant="contained"
                                 size="large"
                                 onClick={handleSolve}
-                                disabled={isLoading || spellingBeeLetters.length < 3}
+                                disabled={isLoading || spellingBeeLetters.length < 3 || gameStatus?.status !== 'available'}
                                 startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
                             >
                                 {isLoading ? 'Solving...' : 'Solve Puzzle'}
@@ -314,14 +308,14 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                     <GameSettingsDialog
                         open={settingsOpen}
                         onClose={() => setSettingsOpen(false)}
-                        onSave={(newConfig: any) => setConfig({
+                        onSave={(newConfig: DialogConfig) => setConfig({
                             excludeUncommonWords: Boolean(newConfig.excludeUncommonWords),
                             mustIncludeFirstLetter: Boolean(newConfig.mustIncludeFirstLetter),
                             reuseLetters: Boolean(newConfig.reuseLetters)
                         })}
                         title="Spelling Bee Settings"
                         config={config}
-                        fields={settingsFields as any}
+                        fields={settingsFields}
                     />
                 </CardContent>
             </Card>

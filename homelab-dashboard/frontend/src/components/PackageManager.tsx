@@ -1,5 +1,5 @@
 // src/components/PackageManager.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Box,
     Card,
@@ -37,6 +37,12 @@ interface SystemPackage {
     newVersion?: string;
 }
 
+interface PackagesResponse {
+    packages: SystemPackage[];
+    lastSynced: string | null;
+    note?: string;
+}
+
 const PackageManager = () => {
     const [packages, setPackages] = useState<SystemPackage[]>([]);
     const [loading, setLoading] = useState(true);
@@ -46,14 +52,14 @@ const PackageManager = () => {
     const [lastSynced, setLastSynced] = useState<string | null>(null);
     const { showError, showSuccess } = useNotification();
 
-    const fetchPackages = async () => {
+    const fetchPackages = useCallback(async () => {
         setLoading(true);
         try {
-            const result = await tryApiCall('/packages', { 'timeout': 30000 });
-            setPackages((result.data.packages || []) as SystemPackage[]);
+            const result = await tryApiCall<PackagesResponse>('/packages', { 'timeout': 30000 });
+            setPackages(result.data.packages || []);
             setLastSynced(result.data.lastSynced);
 
-            // Show any notes from the backend
+            // Show notes from the backend
             if (result.data.note) {
                 console.log('Package status:', result.data.note);
             }
@@ -65,19 +71,13 @@ const PackageManager = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [showError]);
 
     useEffect(() => {
         fetchPackages();
-    }, [showError, showSuccess]);
+    }, [fetchPackages]);
 
-    // Generate dynamic filter options
-    const getUniqueStatusValues = () => {
-        const statusValues = packages.map(pkg => {
-            return pkg.hasUpdate ? 'updates' : 'uptodate';
-        });
-        return [...new Set(statusValues)].sort();
-    };
+
 
     const filteredPackages = packages.filter(pkg => {
         // Filter by package name search term

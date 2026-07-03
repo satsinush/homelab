@@ -29,12 +29,15 @@ export interface FieldDefinition {
     max?: number;
 }
 
+type ConfigValue = string | number | boolean;
+type DialogConfig = Record<string, ConfigValue>;
+
 interface GameSettingsDialogProps {
     open: boolean;
     onClose: () => void;
-    onSave: (config: any) => void;
+    onSave: (config: DialogConfig) => void;
     title: string;
-    config: any;
+    config: DialogConfig;
     fields: FieldDefinition[];
 }
 
@@ -42,14 +45,14 @@ interface GameSettingsDialogProps {
  * Reusable settings dialog for word games.
  */
 const GameSettingsDialog = ({ open, onClose, onSave, title, config, fields }: GameSettingsDialogProps) => {
-    const [localConfig, setLocalConfig] = useState<any>(config);
+    const [localConfig, setLocalConfig] = useState<DialogConfig>(config);
 
     useEffect(() => {
         setLocalConfig(config);
     }, [config, open]);
 
-    const handleChange = (name: string, value: any) => {
-        setLocalConfig((prev: any) => ({ ...prev, [name]: value }));
+    const handleChange = (name: string, value: ConfigValue) => {
+        setLocalConfig((prev) => ({ ...prev, [name]: value }));
     };
 
     const handleSave = () => {
@@ -66,9 +69,9 @@ const GameSettingsDialog = ({ open, onClose, onSave, title, config, fields }: Ga
                     <FormControl fullWidth size="small" key={field.name}>
                         <InputLabel>{field.label}</InputLabel>
                         <Select
-                            value={value}
+                            value={value ?? ''}
                             label={field.label}
-                            onChange={(e) => handleChange(field.name, e.target.value)}
+                            onChange={(e) => handleChange(field.name, e.target.value as ConfigValue)}
                         >
                             {field.options?.map(opt => (
                                 <MenuItem key={opt.value} value={opt.value}>
@@ -141,3 +144,4 @@ const GameSettingsDialog = ({ open, onClose, onSave, title, config, fields }: Ga
 };
 
 export default GameSettingsDialog;
+export type { DialogConfig, ConfigValue };

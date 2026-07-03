@@ -31,7 +31,7 @@ const useFirstUserCheck = () => {
     useEffect(() => {
         const checkFirstUser = async () => {
             try {
-                const result = await tryApiCall('/auth/first-user-check', {
+                const result = await tryApiCall<{ isFirstUser: boolean }>('/auth/first-user-check', {
                     method: 'GET'
                 });
                 setIsFirstUser(result.data.isFirstUser);
@@ -179,7 +179,7 @@ const LocalLogin = ({ onBack }: LocalLoginProps) => {
 
                     {isFirstUser && !error && (
                         <Alert severity="info" sx={{ mb: 3 }}>
-                            Choose any username and password - this will become your admin account.
+                            Choose unknown username and password - this will become your admin account.
                         </Alert>
                     )}
 

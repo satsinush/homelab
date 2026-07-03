@@ -22,10 +22,10 @@ import {
     Divider,
     List,
     ListItem,
-    ListItemText,
-    Paper
+    ListItemText
 } from '@mui/material';
 import { PlayArrow as PlayIcon, Settings as SettingsIcon, ContentCopy as CopyIcon } from '@mui/icons-material';
+import { LetterBoxedResultState, GameStatus } from '../types/api';
 
 interface LetterBoxedGridProps {
     letters: string;
@@ -48,27 +48,40 @@ const LetterBoxedGrid = ({ letters }: LetterBoxedGridProps) => {
 
     const sides = formatLetters(letters);
 
+    if (sides.length === 0) return null;
+
     return (
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
+            {/* Box Layout */}
             <Box
                 sx={{
+                    position: 'relative',
                     width: 200,
                     height: 200,
-                    position: 'relative',
-                    border: '2px solid',
-                    borderColor: 'divider',
-                    borderRadius: 2,
-                    backgroundColor: 'background.paper'
+                    border: '3px solid',
+                    borderColor: 'primary.main',
+                    borderRadius: 1,
+                    bgcolor: 'background.paper'
                 }}
             >
-                {/* Top side */}
-                <Box sx={{ position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 1 }}>
+                {/* Top Side (0, 1, 2) */}
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        top: -20,
+                        left: 0,
+                        right: 0,
+                        display: 'flex',
+                        justifyContent: 'space-around',
+                        px: 2
+                    }}
+                >
                     {sides[0]?.map((letter, i) => (
                         <Box
                             key={i}
                             sx={{
-                                width: 30,
-                                height: 30,
+                                width: 32,
+                                height: 32,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -83,19 +96,30 @@ const LetterBoxedGrid = ({ letters }: LetterBoxedGridProps) => {
                     ))}
                 </Box>
 
-                {/* Right side */}
-                <Box sx={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {/* Right Side (3, 4, 5) */}
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        right: -20,
+                        top: 0,
+                        bottom: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-around',
+                        py: 2
+                    }}
+                >
                     {sides[1]?.map((letter, i) => (
                         <Box
                             key={i}
                             sx={{
-                                width: 30,
-                                height: 30,
+                                width: 32,
+                                height: 32,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                backgroundColor: 'secondary.main',
-                                color: 'secondary.contrastText',
+                                backgroundColor: 'primary.main',
+                                color: 'primary.contrastText',
                                 fontWeight: 'bold',
                                 borderRadius: 1
                             }}
@@ -105,19 +129,29 @@ const LetterBoxedGrid = ({ letters }: LetterBoxedGridProps) => {
                     ))}
                 </Box>
 
-                {/* Bottom side */}
-                <Box sx={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 1 }}>
+                {/* Bottom Side (6, 7, 8) */}
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        bottom: -20,
+                        left: 0,
+                        right: 0,
+                        display: 'flex',
+                        justifyContent: 'space-around',
+                        px: 2
+                    }}
+                >
                     {sides[2]?.map((letter, i) => (
                         <Box
                             key={i}
                             sx={{
-                                width: 30,
-                                height: 30,
+                                width: 32,
+                                height: 32,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                backgroundColor: 'success.main',
-                                color: 'success.contrastText',
+                                backgroundColor: 'primary.main',
+                                color: 'primary.contrastText',
                                 fontWeight: 'bold',
                                 borderRadius: 1
                             }}
@@ -127,19 +161,30 @@ const LetterBoxedGrid = ({ letters }: LetterBoxedGridProps) => {
                     ))}
                 </Box>
 
-                {/* Left side */}
-                <Box sx={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {/* Left Side (9, 10, 11) */}
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        left: -20,
+                        top: 0,
+                        bottom: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-around',
+                        py: 2
+                    }}
+                >
                     {sides[3]?.map((letter, i) => (
                         <Box
                             key={i}
                             sx={{
-                                width: 30,
-                                height: 30,
+                                width: 32,
+                                height: 32,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                backgroundColor: 'warning.main',
-                                color: 'warning.contrastText',
+                                backgroundColor: 'primary.main',
+                                color: 'primary.contrastText',
                                 fontWeight: 'bold',
                                 borderRadius: 1
                             }}
@@ -155,7 +200,17 @@ const LetterBoxedGrid = ({ letters }: LetterBoxedGridProps) => {
 
 interface LetterBoxedResultsProps {
     solutions: string[];
-    lastGameData: any;
+    lastGameData: {
+        letters: string;
+        config: number;
+        totalSolutions: number;
+        actualTotalFound: number;
+        isLimited: boolean;
+        executionTime: number;
+        start: number;
+        end: number;
+        resultsFile: string;
+    } | null;
     isLoading: boolean;
     onLoadMore: (type: string) => void;
     onCopyToClipboard: (text: string) => void;
@@ -175,12 +230,14 @@ const LetterBoxedResults = React.memo(({
 
     if (!solutions || (solutions.length === 0 && !lastGameData)) return null;
 
+    const totalSolutionsCount = lastGameData?.actualTotalFound || lastGameData?.totalSolutions || 0;
+
     return (
         <Card sx={{ mt: 3 }}>
             <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h5" component="h2" sx={{ fontWeight: 600 }}>
-                        Solutions ({solutions.length}/{lastGameData?.actualTotalFound || lastGameData?.totalSolutions || 0})
+                        Solutions ({solutions.length}/{totalSolutionsCount})
                     </Typography>
                     {solutions.length > 0 && (
                         <Button
@@ -194,54 +251,47 @@ const LetterBoxedResults = React.memo(({
                     )}
                 </Box>
 
-                {solutions.length > 0 ? (
-                    <>
-                        <Paper
-                            variant="outlined"
-                            sx={{
-                                maxHeight: 400,
-                                overflowY: 'auto',
-                                bgcolor: 'background.default'
-                            }}
-                        >
-                            <List dense>
-                                {solutions.map((solution, index) => (
-                                    <React.Fragment key={index}>
-                                        <ListItem
-                                            onClick={() => onCopyToClipboard(solution)}
-                                            sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
-                                        >
-                                            <ListItemText
-                                                primary={solution}
-                                                slotProps={{
-                                                    primary: {
-                                                        fontFamily: 'monospace',
-                                                        fontSize: '1rem',
-                                                        fontWeight: 'bold'
-                                                    }
-                                                }}
-                                            />
-                                        </ListItem>
-                                        {index < solutions.length - 1 && <Divider />}
-                                    </React.Fragment>
-                                ))}
-                            </List>
-                        </Paper>
-                        {lastGameData && solutions.length < (lastGameData.actualTotalFound || lastGameData.totalSolutions || 0) && (
-                            <Button
-                                variant="contained"
-                                onClick={() => onLoadMore('solutions')}
-                                disabled={isLoading}
-                                sx={{ mt: 2 }}
-                            >
-                                Load More
-                            </Button>
-                        )}
-                    </>
-                ) : (
-                    <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                        No solutions found. Check that all inputs are valid and try again.
-                    </Typography>
+                <Box
+                    sx={{
+                        maxHeight: 400,
+                        overflowY: 'auto',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        bgcolor: 'background.default'
+                    }}
+                >
+                    <List dense>
+                        {solutions.map((sol, index) => {
+                            const words = sol.split('-');
+                            return (
+                                <React.Fragment key={index}>
+                                    <ListItem>
+                                        <ListItemText
+                                            primary={
+                                                <Typography variant="subtitle1" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+                                                    {sol}
+                                                </Typography>
+                                            }
+                                            secondary={`Words: ${words.length} | Length: ${sol.replace(/-/g, '').length}`}
+                                        />
+                                    </ListItem>
+                                    {index < solutions.length - 1 && <Divider />}
+                                </React.Fragment>
+                            );
+                        })}
+                    </List>
+                </Box>
+
+                {lastGameData && lastGameData.isLimited && solutions.length < totalSolutionsCount && (
+                    <Button
+                        variant="contained"
+                        onClick={() => onLoadMore('results')}
+                        disabled={isLoading}
+                        sx={{ mt: 2 }}
+                    >
+                        Load More
+                    </Button>
                 )}
             </CardContent>
         </Card>
@@ -263,12 +313,12 @@ interface GameConfig extends PresetConfig {
 }
 
 interface LetterBoxedGameProps {
-    gameStatus: any;
+    gameStatus: GameStatus | null;
     isLoading: boolean;
-    onSolve: (gameType: string, params: any) => Promise<void>;
+    onSolve: (gameType: string, params: unknown) => Promise<void>;
     onClear: () => void;
     showError: (message: string) => void;
-    results: any;
+    results: LetterBoxedResultState | null;
     onLoadMore: (type: string) => void;
 }
 
@@ -299,44 +349,10 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
         return { ...presetConfigs[config.preset], preset: config.preset };
     }, [config, presetConfigs]);
 
-    const isConfigValid = useCallback(() => {
-        const currentConfig = getCurrentConfig();
-        return currentConfig &&
-            currentConfig.maxDepth !== null && currentConfig.maxDepth > 0 &&
-            currentConfig.minWordLength !== null && currentConfig.minWordLength > 0 &&
-            currentConfig.minUniqueLetters !== null && currentConfig.minUniqueLetters > 0;
-    }, [getCurrentConfig]);
-
     const handleLetterBoxedChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        const cleanValue = e.target.value.replace(/[^a-zA-Z]/g, '').slice(0, 12);
+        const cleanValue = e.target.value.replace(/[^a-zA-Z]/g, '');
         setLetterBoxedLetters(cleanValue);
     }, []);
-
-    const handleOpenSettings = useCallback(() => {
-        setTempConfig(config);
-        setSettingsOpen(true);
-    }, [config]);
-
-    const handlePresetChange = useCallback((e: any) => {
-        const preset = Number(e.target.value);
-        if (preset === 0) {
-            setTempConfig(prev => ({ ...prev, preset: 0 }));
-        } else {
-            setTempConfig({
-                preset,
-                ...presetConfigs[preset]
-            });
-        }
-    }, [presetConfigs]);
-
-    const handleTempConfigChange = useCallback((field: keyof GameConfig, value: any) => {
-        setTempConfig(prev => ({ ...prev, [field]: value }));
-    }, []);
-
-    const handleSaveSettings = useCallback(() => {
-        setConfig(tempConfig);
-        setSettingsOpen(false);
-    }, [tempConfig]);
 
     const handleSolve = useCallback(async () => {
         if (!letterBoxedLetters.trim()) {
@@ -345,7 +361,7 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
         }
 
         const currentConfig = getCurrentConfig();
-        const requestData: any = {
+        const requestData: Record<string, unknown> = {
             letters: letterBoxedLetters.trim(),
             preset: config.preset,
             start: 0,
@@ -374,6 +390,38 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
 
     const isCustom = tempConfig.preset === 0;
 
+    const handleOpenSettings = () => {
+        setTempConfig(config);
+        setSettingsOpen(true);
+    };
+
+    const handleTempConfigChange = (field: keyof GameConfig, value: number | boolean) => {
+        setTempConfig(prev => ({
+            ...prev,
+            [field]: value
+        }));
+    };
+
+    const handlePresetChange = (preset: number) => {
+        if (preset === 0) {
+            setTempConfig(prev => ({
+                ...prev,
+                preset: 0
+            }));
+        } else {
+            const pConfig = presetConfigs[preset];
+            setTempConfig({
+                preset,
+                ...pConfig
+            });
+        }
+    };
+
+    const handleSaveSettings = () => {
+        setConfig(tempConfig);
+        setSettingsOpen(false);
+    };
+
     return (
         <>
             <Card>
@@ -395,96 +443,78 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                             Letter Boxed
                         </Typography>
                         <Typography variant="body1" color="text.secondary">
-                            Enter the 12 letters from the Letter Boxed puzzle (clockwise from top)
+                            Enter the 12 letters from your puzzle sides (3 letters per side).
                         </Typography>
                     </Box>
 
-                    {/* Input Field */}
-                    <Grid container spacing={3} justifyContent="center" sx={{ mb: 3 }}>
-                        <Grid size={{ xs: 12, md: 8 }}>
+                    {/* Box Display */}
+                    {letterBoxedLetters.length > 0 && (
+                        <LetterBoxedGrid letters={letterBoxedLetters} />
+                    )}
+
+                    <Grid container spacing={2} sx={{ mt: 2 }}>
+                        <Grid size={{ xs: 12, md: 6 }}>
                             <TextField
-                                label="Enter 12 letters (clockwise from top)"
+                                fullWidth
+                                label="Puzzle Letters (12 letters)"
+                                variant="outlined"
                                 value={letterBoxedLetters}
                                 onChange={handleLetterBoxedChange}
-                                fullWidth
-                                slotProps={{
-                                    htmlInput: {
-                                        maxLength: 12,
-                                        style: {
-                                            textAlign: 'center',
-                                            fontSize: '1.2rem',
-                                            fontWeight: 'bold',
-                                            letterSpacing: '3px',
-                                            textTransform: 'uppercase'
-                                        },
-                                        autoComplete: 'off',
-                                        autoCorrect: 'off',
-                                        autoCapitalize: 'off',
-                                        spellCheck: 'false'
-                                    }
-                                }}
-                                helperText={`${letterBoxedLetters.length}/12 letters entered`}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        e.preventDefault();
-                                        handleSolve();
-                                    }
-                                }}
+                                placeholder="E.g., ABCDEFGHIJKL"
+                                disabled={isLoading}
+                                slotProps={{ htmlInput: { maxLength: 12, autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'off', spellCheck: 'false' } }}
                             />
                         </Grid>
-                    </Grid>
-
-                    {/* Letter Grid Display */}
-                    <LetterBoxedGrid letters={letterBoxedLetters} />
-
-                    <Grid container spacing={3} justifyContent="center">
                         <Grid size={{ xs: 12, md: 6 }}>
                             <Button
-                                variant="contained"
-                                onClick={handleSolve}
-                                disabled={isLoading || gameStatus?.status !== 'available' || !letterBoxedLetters.trim() || !isConfigValid()}
-                                startIcon={isLoading ? <CircularProgress size={20} /> : <PlayIcon />}
                                 fullWidth
+                                variant="contained"
                                 size="large"
-                                color="primary"
+                                onClick={handleSolve}
+                                disabled={isLoading || letterBoxedLetters.length < 3 || gameStatus?.status !== 'available'}
+                                startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
                             >
-                                Solve
+                                {isLoading ? 'Solving...' : 'Solve Puzzle'}
                             </Button>
                         </Grid>
                     </Grid>
 
-                    {/* Settings Dialog */}
-                    <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="sm" fullWidth>
+                    {/* Custom Settings Dialog */}
+                    <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="xs" fullWidth>
                         <DialogTitle>Letter Boxed Settings</DialogTitle>
                         <DialogContent>
-                            <Stack spacing={3} sx={{ mt: 1 }}>
+                            <Stack spacing={2} sx={{ mt: 1 }}>
                                 <FormControl fullWidth>
-                                    <InputLabel>Preset</InputLabel>
+                                    <InputLabel>Difficulty Preset</InputLabel>
                                     <Select
                                         value={tempConfig.preset}
-                                        label="Preset"
-                                        onChange={handlePresetChange}
+                                        label="Difficulty Preset"
+                                        onChange={(e) => handlePresetChange(Number(e.target.value))}
                                     >
-                                        <MenuItem value={1}>Default (2 words)</MenuItem>
-                                        <MenuItem value={2}>Fast (2 words)</MenuItem>
-                                        <MenuItem value={3}>Thorough (3 words)</MenuItem>
+                                        <MenuItem value={1}>1: Normal (Depth 2)</MenuItem>
+                                        <MenuItem value={2}>2: Strict (Depth 2 + Pruning)</MenuItem>
+                                        <MenuItem value={3}>3: Deep (Depth 3)</MenuItem>
                                         <MenuItem value={0}>Custom</MenuItem>
                                     </Select>
                                 </FormControl>
 
                                 <Divider />
 
-                                <Box >
-                                    <Grid container spacing={2} >
-                                        <Grid size={6}>
+                                <Box>
+                                    <Typography variant="subtitle2" gutterBottom>
+                                        Custom Settings {!isCustom && '(read-only for presets)'}
+                                    </Typography>
+
+                                    <Grid container spacing={2}>
+                                        <Grid size={12}>
                                             <TextField
-                                                label="Max Depth"
+                                                label="Max Depth (Words)"
                                                 type="number"
                                                 value={tempConfig.maxDepth}
                                                 onChange={(e) => handleTempConfigChange('maxDepth', parseInt(e.target.value) || 0)}
                                                 fullWidth
                                                 disabled={!isCustom}
-                                                slotProps={{ htmlInput: { min: 1, max: 3 } }}
+                                                slotProps={{ htmlInput: { min: 1, max: 5 } }}
                                             />
                                         </Grid>
                                         <Grid size={6}>
@@ -495,7 +525,7 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                                                 onChange={(e) => handleTempConfigChange('minWordLength', parseInt(e.target.value) || 0)}
                                                 fullWidth
                                                 disabled={!isCustom}
-                                                slotProps={{ htmlInput: { min: 1, max: 20 } }}
+                                                slotProps={{ htmlInput: { min: 3, max: 15 } }}
                                             />
                                         </Grid>
                                         <Grid size={6}>

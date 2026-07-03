@@ -35,79 +35,62 @@ import MastermindGame from './MastermindGame';
 import HangmanGame from './HangmanGame';
 import DungleonGame from './DungleonGame';
 import GameHelpModal from './GameHelpModal';
-
-interface SolutionsResult {
-    solutions: string[];
-    gameData: any;
-}
-
-interface WordleResult {
-    possibleWords: string[];
-    guessesWithEntropy: any[];
-    gameData: any;
-}
-
-interface MastermindResult {
-    possiblePatterns: string[];
-    guessesWithEntropy: any[];
-    gameData: any;
-}
-
-interface HangmanResult {
-    letterSuggestions: any[];
-    possibleWords: string[];
-    gameData: any;
-}
-
-interface DungleonResult {
-    possiblePatterns: string[];
-    guessesWithEntropy: any[];
-    gameData: any;
-}
+import {
+    LetterBoxedResultState,
+    SpellingBeeResultState,
+    WordleResultState,
+    MastermindResultState,
+    HangmanResultState,
+    DungleonResultState,
+    GameStatus,
+    LetterBoxedResponse,
+    SpellingBeeResponse,
+    WordleResponse,
+    MastermindResponse,
+    HangmanResponse,
+    DungleonResponse,
+    LoadMoreResponse,
+    LetterBoxedRequest,
+    SpellingBeeRequest,
+    WordleRequest,
+    MastermindRequest,
+    HangmanRequest,
+    DungleonRequest
+} from '../types/api';
 
 const WordGames = () => {
-    const [gameStatus, setGameStatus] = useState<any>(null);
+    const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<number>(0);
     const [helpModalOpen, setHelpModalOpen] = useState(false);
 
-    // Game refs
-    const [wordleRef, setWordleRef] = useState<any>(null);
-    const [mastermindRef, setMastermindRef] = useState<any>(null);
-    const [hangmanRef, setHangmanRef] = useState<any>(null);
-    const [dungleonRef, setDungleonRef] = useState<any>(null);
 
-    // Game refs callbacks
-    const handleWordleRef = useCallback((node: any) => setWordleRef(node), []);
-    const handleMastermindRef = useCallback((node: any) => setMastermindRef(node), []);
-    const handleHangmanRef = useCallback((node: any) => setHangmanRef(node), []);
-    const handleDungleonRef = useCallback((node: any) => setDungleonRef(node), []);
 
     // Game results state - separate for each game
-    const [letterBoxedResults, setLetterBoxedResults] = useState<SolutionsResult>({
+    const [letterBoxedResults, setLetterBoxedResults] = useState<LetterBoxedResultState>({
         solutions: [],
         gameData: null
     });
-    const [spellingBeeResults, setSpellingBeeResults] = useState<SolutionsResult>({
+    const [spellingBeeResults, setSpellingBeeResults] = useState<SpellingBeeResultState>({
         solutions: [],
         gameData: null
     });
-    const [wordleResults, setWordleResults] = useState<WordleResult>({
+    const [wordleResults, setWordleResults] = useState<WordleResultState>({
         possibleWords: [],
         guessesWithEntropy: [],
         gameData: null
     });
-    const [mastermindResults, setMastermindResults] = useState<MastermindResult>({
+    const [mastermindResults, setMastermindResults] = useState<MastermindResultState>({
         possiblePatterns: [],
         guessesWithEntropy: [],
         gameData: null
     });
-    const [hangmanResults, setHangmanResults] = useState<HangmanResult>({
+    const [hangmanResults, setHangmanResults] = useState<HangmanResultState>({
         letterSuggestions: [],
         possibleWords: [],
         gameData: null
     });
-    const [dungleonResults, setDungleonResults] = useState<DungleonResult>({
+    const [dungleonResults, setDungleonResults] = useState<DungleonResultState>({
         possiblePatterns: [],
         guessesWithEntropy: [],
         gameData: null
@@ -115,28 +98,29 @@ const WordGames = () => {
 
     const { showError, showSuccess } = useNotification();
 
-    useEffect(() => {
-        checkGameStatus();
-    }, []);
-
-    const checkGameStatus = async () => {
+    const checkGameStatus = useCallback(async () => {
         setIsLoading(true);
         try {
             const response = await tryApiCall('/wordgames/status', {
                 method: 'GET'
             });
-            setGameStatus(response.data);
-        } catch (error: any) {
+            setGameStatus(response.data as GameStatus);
+        } catch (error: unknown) {
             console.error('Failed to check game status:', error);
+            const err = error as Error;
             setGameStatus({
                 status: 'unavailable',
                 message: 'Word games service is not available',
-                error: error.message
+                error: err.message || 'Unknown error'
             });
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        checkGameStatus();
+    }, [checkGameStatus]);
 
     const handleClear = useCallback((gameType: string) => {
         if (gameType === 'letterboxed' || gameType === 'all') {
@@ -159,25 +143,24 @@ const WordGames = () => {
         }
     }, []);
 
-    const handleTabChange = useCallback((event: any, newValue: any) => {
+    const handleTabChange = useCallback((_event: unknown, newValue: unknown) => {
         setActiveTab(Number(newValue));
         handleClear('all');
     }, [handleClear]);
 
-    const handleSolve = useCallback(async (gameType: string, gameData: any) => {
+    const handleSolve = useCallback(async (gameType: string, gameData: unknown) => {
         setIsLoading(true);
         try {
-            let response;
-
             if (gameType === 'letterboxed') {
-                response = await tryApiCall('/wordgames/letterboxed', {
+                const req = gameData as LetterBoxedRequest;
+                const response = await tryApiCall<LetterBoxedResponse>('/wordgames/letterboxed', {
                     method: 'POST',
-                    data: gameData,
+                    data: req,
                     timeout: 300000
                 });
                 const newGameData = {
                     letters: response.data.letters,
-                    config: gameData.config || 1,
+                    config: req.preset || 1,
                     totalSolutions: response.data.totalSolutions,
                     actualTotalFound: response.data.actualTotalFound,
                     isLimited: response.data.isLimited,
@@ -195,9 +178,10 @@ const WordGames = () => {
                     : `Found ${response.data.totalSolutions} solutions in ${response.data.executionTime}ms`;
                 showSuccess(message);
             } else if (gameType === 'spellingbee') {
-                response = await tryApiCall('/wordgames/spellingbee', {
+                const req = gameData as SpellingBeeRequest;
+                const response = await tryApiCall<SpellingBeeResponse>('/wordgames/spellingbee', {
                     method: 'POST',
-                    data: gameData,
+                    data: req,
                     timeout: 300000
                 });
                 const newGameData = {
@@ -219,16 +203,17 @@ const WordGames = () => {
                     : `Found ${response.data.totalSolutions} solutions in ${response.data.executionTime}ms`;
                 showSuccess(message);
             } else if (gameType === 'wordle') {
-                response = await tryApiCall('/wordgames/wordle', {
+                const req = gameData as WordleRequest;
+                const response = await tryApiCall<WordleResponse>('/wordgames/wordle', {
                     method: 'POST',
-                    data: gameData,
+                    data: req,
                     timeout: 300000
                 });
                 const newGameData = {
-                    guesses: gameData.guesses,
-                    wordLength: gameData.wordLength,
-                    maxDepth: gameData.maxDepth,
-                    excludeUncommonWords: gameData.excludeUncommonWords,
+                    guesses: req.guesses,
+                    wordLength: req.wordLength,
+                    maxDepth: req.maxDepth,
+                    excludeUncommonWords: req.excludeUncommonWords,
                     possibleWordsCount: response.data.possibleWordsCount,
                     guessesCount: response.data.guessesCount,
                     isLimitedPossible: response.data.isLimitedPossible,
@@ -246,18 +231,18 @@ const WordGames = () => {
                 const message = `Found ${response.data.possibleWordsCount} possible words and ${response.data.guessesCount} suggested guesses in ${response.data.executionTime}ms`;
                 showSuccess(message);
             } else if (gameType === 'mastermind') {
-                response = await tryApiCall('/wordgames/mastermind', {
+                const req = gameData as MastermindRequest;
+                const response = await tryApiCall<MastermindResponse>('/wordgames/mastermind', {
                     method: 'POST',
-                    data: gameData,
+                    data: req,
                     timeout: 300000
                 });
                 const newGameData = {
-                    guesses: gameData.guesses,
-                    pegs: gameData.pegs,
-                    colors: gameData.colors,
-                    allowDuplicates: gameData.allowDuplicates,
-                    maxDepth: gameData.maxDepth,
-                    colorMapping: gameData.colorMapping,
+                    guesses: req.guesses,
+                    pegs: req.pegs,
+                    colors: req.colors,
+                    allowDuplicates: req.allowDuplicates,
+                    colorMapping: req.colorMapping,
                     possibleCount: response.data.possibleCount,
                     guessesCount: response.data.guessesCount,
                     isLimitedPossible: response.data.isLimitedPossible,
@@ -275,15 +260,15 @@ const WordGames = () => {
                 const message = `Found ${response.data.possibleCount} possible patterns and ${response.data.guessesCount} suggested guesses in ${response.data.executionTime}ms`;
                 showSuccess(message);
             } else if (gameType === 'hangman') {
-                response = await tryApiCall('/wordgames/hangman', {
+                const req = gameData as HangmanRequest;
+                const response = await tryApiCall<HangmanResponse>('/wordgames/hangman', {
                     method: 'POST',
-                    data: gameData,
+                    data: req,
                     timeout: 300000
                 });
                 const newGameData = {
                     pattern: response.data.pattern,
                     excludedLetters: response.data.excludedLetters,
-                    maxDepth: gameData.maxDepth,
                     possibleWordsCount: response.data.possibleWordsCount,
                     letterGuessesCount: response.data.letterGuessesCount,
                     isLimited: response.data.isLimited,
@@ -300,18 +285,16 @@ const WordGames = () => {
                 const message = `Found ${response.data.possibleWordsCount} possible words and ${response.data.letterGuessesCount} letter suggestions in ${response.data.executionTime}ms`;
                 showSuccess(message);
             } else if (gameType === 'dungleon') {
-                response = await tryApiCall('/wordgames/dungleon', {
+                const req = gameData as DungleonRequest;
+                const response = await tryApiCall<DungleonResponse>('/wordgames/dungleon', {
                     method: 'POST',
-                    data: gameData,
+                    data: req,
                     timeout: 300000
                 });
 
                 const newGameData = {
-                    guesses: gameData.guesses,
-                    wordLength: gameData.wordLength,
-                    maxDepth: gameData.maxDepth,
-                    excludeUncommonWords: gameData.excludeUncommonWords,
-                    possibleWordsCount: response.data.possiblePatternsCount,
+                    guesses: req.guesses,
+                    possiblePatternsCount: response.data.possiblePatternsCount,
                     guessesCount: response.data.guessesCount,
                     isLimitedPossible: response.data.isLimitedPossible,
                     isLimitedGuesses: response.data.isLimitedGuesses,
@@ -325,190 +308,147 @@ const WordGames = () => {
                     guessesWithEntropy: response.data.guessesWithEntropy || [],
                     gameData: newGameData
                 });
-                const message = `Found ${response.data.possiblePatternsCount} possible words and ${response.data.guessesCount} suggested guesses in ${response.data.executionTime}ms`;
+                const message = `Found ${response.data.possiblePatternsCount} possible patterns and ${response.data.guessesCount} suggested guesses in ${response.data.executionTime}ms`;
                 showSuccess(message);
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(`Failed to solve ${gameType}:`, error);
-            showError(error.message || `Failed to solve ${gameType} puzzle`);
+            const err = error as Error;
+            showError(err.message || `Failed to solve ${gameType} puzzle`);
         } finally {
             setIsLoading(false);
         }
     }, [showError, showSuccess]);
 
-    const handleSuggestedGuessSelect = useCallback((pattern: string) => {
-        if (activeTab === 2 && wordleRef) {
-            wordleRef.fillSuggestedGuess(pattern);
-        } else if (activeTab === 3 && mastermindRef) {
-            mastermindRef.fillSuggestedGuess(pattern);
-        } else if (activeTab === 5 && dungleonRef) {
-            dungleonRef.fillSuggestedGuess(pattern);
-        }
-    }, [activeTab, wordleRef, mastermindRef, dungleonRef]);
-
-    const handlePossibleSolutionSelect = useCallback((solution: string) => {
-        if (activeTab === 2 && wordleRef) {
-            wordleRef.fillSuggestedGuess(solution);
-        } else if (activeTab === 3 && mastermindRef) {
-            mastermindRef.fillSuggestedGuess(solution);
-        } else if (activeTab === 5 && dungleonRef) {
-            dungleonRef.fillSuggestedGuess(solution);
-        }
-    }, [activeTab, wordleRef, mastermindRef, dungleonRef]);
-
     const handleLoadMore = useCallback(async (type: string) => {
-        let gameData: any = null;
-        let currentResults: any = null;
-        if (activeTab === 0) {
-            gameData = letterBoxedResults.gameData;
-            currentResults = letterBoxedResults;
-        } else if (activeTab === 1) {
-            gameData = spellingBeeResults.gameData;
-            currentResults = spellingBeeResults;
-        } else if (activeTab === 2) {
-            gameData = wordleResults.gameData;
-            currentResults = wordleResults;
-        } else if (activeTab === 3) {
-            gameData = mastermindResults.gameData;
-            currentResults = mastermindResults;
-        } else if (activeTab === 5) {
-            gameData = dungleonResults.gameData;
-            currentResults = dungleonResults;
-        }
+        let resultsFile = '';
+        let currentCount = 0;
+        let gameMode = '';
+        let fileType = '';
 
-        if (!gameData) return;
+        if (activeTab === 0) {
+            if (!letterBoxedResults.gameData) return;
+            resultsFile = letterBoxedResults.gameData.resultsFile;
+            currentCount = letterBoxedResults.solutions.length;
+            gameMode = 'letterboxed';
+            fileType = 'results';
+        } else if (activeTab === 1) {
+            if (!spellingBeeResults.gameData) return;
+            resultsFile = spellingBeeResults.gameData.resultsFile;
+            currentCount = spellingBeeResults.solutions.length;
+            gameMode = 'spellingbee';
+            fileType = 'results';
+        } else if (activeTab === 2) {
+            if (!wordleResults.gameData) return;
+            resultsFile = wordleResults.gameData.resultsFile;
+            currentCount = type === 'possible' ? wordleResults.possibleWords.length : wordleResults.guessesWithEntropy.length;
+            gameMode = 'wordle';
+            fileType = type;
+        } else if (activeTab === 3) {
+            if (!mastermindResults.gameData) return;
+            resultsFile = mastermindResults.gameData.resultsFile;
+            currentCount = type === 'possible' ? mastermindResults.possiblePatterns.length : mastermindResults.guessesWithEntropy.length;
+            gameMode = 'mastermind';
+            fileType = type;
+        } else if (activeTab === 5) {
+            if (!dungleonResults.gameData) return;
+            resultsFile = dungleonResults.gameData.resultsFile;
+            currentCount = type === 'possible' ? dungleonResults.possiblePatterns.length : dungleonResults.guessesWithEntropy.length;
+            gameMode = 'dungleon';
+            fileType = type;
+        } else {
+            return;
+        }
 
         setIsLoading(true);
         try {
-            let endpoint = '';
-            let dataToSend = {};
-            let currentCount = 0;
+            const response = await tryApiCall<LoadMoreResponse>('/wordgames/load', {
+                method: 'POST',
+                data: {
+                    start: currentCount,
+                    end: currentCount + 100,
+                    gameMode,
+                    fileType,
+                    filePath: resultsFile
+                }
+            });
 
-            if (activeTab === 2 || activeTab === 3 || activeTab === 5) {
+            if (activeTab === 0) {
+                setLetterBoxedResults(prev => ({
+                    ...prev,
+                    solutions: [...prev.solutions, ...(response.data.solutionsList || [])]
+                }));
+            } else if (activeTab === 1) {
+                setSpellingBeeResults(prev => ({
+                    ...prev,
+                    solutions: [...prev.solutions, ...(response.data.solutionsList || [])]
+                }));
+            } else if (activeTab === 2) {
                 if (type === 'possible') {
-                    currentCount = currentResults.possibleWords ? currentResults.possibleWords.length : currentResults.possiblePatterns.length;
-                    endpoint = '/wordgames/load';
-                    dataToSend = {
-                        start: currentCount,
-                        end: currentCount + 100,
-                        gameMode: activeTab === 2 ? 'wordle' : activeTab === 3 ? 'mastermind' : 'dungleon',
-                        fileType: 'possible',
-                        filePath: gameData.resultsFile
-                    };
-                } else if (type === 'guesses') {
-                    currentCount = currentResults.guessesWithEntropy.length;
-                    endpoint = '/wordgames/load';
-                    dataToSend = {
-                        start: currentCount,
-                        end: currentCount + 100,
-                        gameMode: activeTab === 2 ? 'wordle' : activeTab === 3 ? 'mastermind' : 'dungleon',
-                        fileType: 'guesses',
-                        filePath: gameData.resultsFile
-                    };
-                }
-
-                const response = await tryApiCall(endpoint, {
-                    method: 'POST',
-                    data: dataToSend
-                });
-
-                if (type === 'possible') {
-                    if (activeTab === 2) {
-                        const newSolutions = response.data.solutions || {};
-                        setWordleResults(prev => ({
-                            ...prev,
-                            possibleWords: [...prev.possibleWords, ...(newSolutions.possibleWords || [])]
-                        }));
-                    } else if (activeTab === 3) {
-                        const newSolutions = response.data.solutions || {};
-                        setMastermindResults(prev => ({
-                            ...prev,
-                            possiblePatterns: [...prev.possiblePatterns, ...(newSolutions.possiblePatterns || [])]
-                        }));
-                    } else if (activeTab === 5) {
-                        const newSolutions = response.data.solutions || {};
-                        setDungleonResults(prev => ({
-                            ...prev,
-                            possiblePatterns: [...prev.possiblePatterns, ...(newSolutions.possiblePatterns || [])]
-                        }));
-                    }
-                } else if (type === 'guesses') {
-                    if (activeTab === 2) {
-                        const newSolutions = response.data.solutions || {};
-                        setWordleResults(prev => ({
-                            ...prev,
-                            guessesWithEntropy: [...prev.guessesWithEntropy, ...(newSolutions.guessesWithEntropy || [])]
-                        }));
-                    } else if (activeTab === 3) {
-                        const newSolutions = response.data.solutions || {};
-                        setMastermindResults(prev => ({
-                            ...prev,
-                            guessesWithEntropy: [...prev.guessesWithEntropy, ...(newSolutions.guessesWithEntropy || [])]
-                        }));
-                    } else if (activeTab === 5) {
-                        const newSolutions = response.data.solutions || {};
-                        setDungleonResults(prev => ({
-                            ...prev,
-                            guessesWithEntropy: [...prev.guessesWithEntropy, ...(newSolutions.guessesWithEntropy || [])]
-                        }));
-                    }
-                }
-            } else {
-                currentCount = currentResults.solutions.length;
-
-                if (activeTab === 0) {
-                    endpoint = '/wordgames/load';
-                    dataToSend = {
-                        start: currentCount,
-                        end: currentCount + 100,
-                        gameMode: 'letterboxed',
-                        fileType: 'results',
-                        filePath: gameData.resultsFile
-                    };
-                } else {
-                    endpoint = '/wordgames/load';
-                    dataToSend = {
-                        start: currentCount,
-                        end: currentCount + 100,
-                        gameMode: 'spellingbee',
-                        fileType: 'results',
-                        filePath: gameData.resultsFile
-                    };
-                }
-
-                const response = await tryApiCall(endpoint, {
-                    method: 'POST',
-                    data: dataToSend
-                });
-
-                if (activeTab === 0) {
-                    setLetterBoxedResults(prev => ({
+                    setWordleResults(prev => ({
                         ...prev,
-                        solutions: [...prev.solutions, ...(response.data.solutions || [])]
+                        possibleWords: [...prev.possibleWords, ...(response.data.solutions?.possibleWords || [])]
                     }));
                 } else {
-                    setSpellingBeeResults(prev => ({
+                    setWordleResults(prev => ({
                         ...prev,
-                        solutions: [...prev.solutions, ...(response.data.solutions || [])]
+                        guessesWithEntropy: [
+                            ...prev.guessesWithEntropy,
+                            ...(response.data.solutions?.guessesWithEntropy || []).map(g => ({
+                                word: g.word || '',
+                                probability: g.probability,
+                                entropy: g.entropy
+                            }))
+                        ]
+                    }));
+                }
+            } else if (activeTab === 3) {
+                if (type === 'possible') {
+                    setMastermindResults(prev => ({
+                        ...prev,
+                        possiblePatterns: [...prev.possiblePatterns, ...(response.data.solutions?.possiblePatterns || [])]
+                    }));
+                } else {
+                    setMastermindResults(prev => ({
+                        ...prev,
+                        guessesWithEntropy: [
+                            ...prev.guessesWithEntropy,
+                            ...(response.data.solutions?.guessesWithEntropy || []).map(g => ({
+                                pattern: g.pattern || '',
+                                probability: g.probability,
+                                entropy: g.entropy
+                            }))
+                        ]
+                    }));
+                }
+            } else if (activeTab === 5) {
+                if (type === 'possible') {
+                    setDungleonResults(prev => ({
+                        ...prev,
+                        possiblePatterns: [...prev.possiblePatterns, ...(response.data.solutions?.possiblePatterns || [])]
+                    }));
+                } else {
+                    setDungleonResults(prev => ({
+                        ...prev,
+                        guessesWithEntropy: [
+                            ...prev.guessesWithEntropy,
+                            ...(response.data.solutions?.guessesWithEntropy || []).map(g => ({
+                                pattern: g.pattern || '',
+                                probability: g.probability,
+                                entropy: g.entropy
+                            }))
+                        ]
                     }));
                 }
             }
 
             showSuccess(`Loaded more ${type} results`);
-        } catch (error) {
+        } catch (_error) {
             showError('Failed to load more results');
         } finally {
             setIsLoading(false);
         }
-    }, [activeTab, letterBoxedResults, spellingBeeResults, wordleResults, mastermindResults, dungleonResults, showError, showSuccess]);
-
-    const copyToClipboard = useCallback((text: string) => {
-        navigator.clipboard.writeText(text).then(() => {
-            showSuccess('Copied to clipboard');
-        }).catch(() => {
-            showError('Failed to copy to clipboard');
-        });
-    }, [showSuccess, showError]);
+    }, [activeTab, letterBoxedResults, spellingBeeResults, wordleResults, mastermindResults, dungleonResults, showSuccess, showError]);
 
     const handleHelpOpen = useCallback(() => {
         setHelpModalOpen(true);
@@ -648,8 +588,6 @@ const WordGames = () => {
                     )}
                     {activeTab === 2 && (
                         <WordleGame
-                            ref={handleWordleRef}
-                            gameStatus={gameStatus}
                             isLoading={isLoading}
                             onSolve={handleSolve}
                             onClear={() => handleClear('wordle')}
@@ -660,7 +598,6 @@ const WordGames = () => {
                     )}
                     {activeTab === 3 && (
                         <MastermindGame
-                            ref={handleMastermindRef}
                             gameStatus={gameStatus}
                             isLoading={isLoading}
                             onSolve={handleSolve}
@@ -682,7 +619,6 @@ const WordGames = () => {
                     )}
                     {activeTab === 5 && (
                         <DungleonGame
-                            ref={handleDungleonRef}
                             gameStatus={gameStatus}
                             isLoading={isLoading}
                             onSolve={handleSolve}

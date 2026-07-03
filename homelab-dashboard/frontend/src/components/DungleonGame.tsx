@@ -26,7 +26,8 @@ import {
     Settings as SettingsIcon,
     ContentCopy as CopyIcon
 } from '@mui/icons-material';
-import GameSettingsDialog, { FieldDefinition } from './GameSettingsDialog';
+import GameSettingsDialog, { FieldDefinition, DialogConfig } from './GameSettingsDialog';
+import { DungleonResultState, GameStatus } from '../types/api';
 
 // Character data matching C++ definition
 const CHARACTERS = [
@@ -100,7 +101,7 @@ const DungleonPatternDisplay = ({ pattern }: DungleonPatternDisplayProps) => {
                             src={getDungleonAssetPath(id)}
                             alt={id}
                             style={{ width: 28, height: 28, objectFit: 'contain' }}
-                            onError={(e: any) => { e.target.style.display = 'none'; }}
+                            onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                         />
                     </Tooltip>
                 </Box>
@@ -118,7 +119,7 @@ interface GuessWithEntropyItem {
 interface DungleonResultsProps {
     possiblePatterns: string[];
     guessesWithEntropy: GuessWithEntropyItem[];
-    lastGameData: any;
+    lastGameData: DungleonResultState['gameData'];
     isLoading: boolean;
     onLoadMore: (type: string) => void;
     onCopyToClipboard: (text: string) => void;
@@ -336,12 +337,12 @@ interface DungleonSolution {
 }
 
 interface DungleonGameProps {
-    gameStatus: any;
+    gameStatus: GameStatus | null;
     isLoading: boolean;
-    onSolve: (gameType: string, params: any) => Promise<void>;
+    onSolve: (gameType: string, params: unknown) => Promise<void>;
     onClear: () => void;
     showError: (message: string) => void;
-    results: any;
+    results: DungleonResultState | null;
     onLoadMore: (type: string) => void;
 }
 
@@ -358,6 +359,13 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
         maxDepth: 0,
         excludeImpossible: true
     });
+
+    const handleConfigSave = useCallback((newConfig: DialogConfig) => {
+        setConfig({
+            maxDepth: Number(newConfig.maxDepth),
+            excludeImpossible: Boolean(newConfig.excludeImpossible)
+        });
+    }, []);
 
     const settingsFields: FieldDefinition[] = [
         {
@@ -788,7 +796,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                     <GameSettingsDialog
                         open={settingsOpen}
                         onClose={() => setSettingsOpen(false)}
-                        onSave={setConfig}
+                        onSave={handleConfigSave}
                         title="Dungleon Settings"
                         config={config}
                         fields={settingsFields}

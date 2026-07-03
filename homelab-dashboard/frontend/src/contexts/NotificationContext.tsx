@@ -1,9 +1,10 @@
 // src/contexts/NotificationContext.tsx
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { useState, useCallback, ReactNode } from 'react';
 import {
     Snackbar,
     Alert,
     Slide,
+    SlideProps,
     Dialog,
     DialogTitle,
     DialogContent,
@@ -11,50 +12,14 @@ import {
     Button,
     Typography
 } from '@mui/material';
+import { NotificationContext, AppNotification, ConfirmDialogOptions, NotificationContextType } from './NotificationContextCore';
 
-export interface AppNotification {
-    id: number;
-    message: string;
-    severity: 'success' | 'error' | 'warning' | 'info';
-    duration: number;
-    open: boolean;
-}
+// Re-export for backwards compatibility
+export { useNotification } from './useNotification';
+export type { AppNotification, ConfirmDialogOptions, NotificationContextType } from './NotificationContextCore';
 
-export interface ConfirmDialogOptions {
-    title?: string;
-    message?: string;
-    confirmText?: string;
-    cancelText?: string;
-    confirmColor?: 'primary' | 'secondary' | 'error' | 'warning' | 'info' | 'success' | 'inherit';
-    onConfirm?: (() => void) | null;
-    onCancel?: (() => void) | null;
-}
-
-export interface NotificationContextType {
-    showNotification: (message: string, severity?: 'success' | 'error' | 'warning' | 'info', duration?: number) => number;
-    showSuccess: (message: string, duration?: number) => number;
-    showError: (message: string, duration?: number) => number;
-    showWarning: (message: string, duration?: number) => number;
-    showInfo: (message: string, duration?: number) => number;
-    hideNotification: (id: number) => void;
-    clearAll: () => void;
-    showConfirmDialog: (options: ConfirmDialogOptions) => void;
-    hideConfirmDialog: () => void;
-}
-
-const NotificationContext = createContext<NotificationContextType | null>(null);
-
-export const useNotification = (): NotificationContextType => {
-    const context = useContext(NotificationContext);
-    if (!context) {
-        throw new Error('useNotification must be used within a NotificationProvider');
-    }
-    return context;
-};
-
-function SlideTransition(props: any) {
-    return <Slide {...props} direction="down" />;
-}
+function SlideTransition(props: SlideProps) {
+    return <Slide {...props} direction="down" />;}
 
 interface NotificationProviderProps {
     children: ReactNode;
@@ -177,14 +142,14 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             confirmDialog.onConfirm();
         }
         hideConfirmDialog();
-    }, [confirmDialog.onConfirm, hideConfirmDialog]);
+    }, [confirmDialog, hideConfirmDialog]);
 
     const handleConfirmDialogCancel = useCallback(() => {
         if (confirmDialog.onCancel) {
             confirmDialog.onCancel();
         }
         hideConfirmDialog();
-    }, [confirmDialog.onCancel, hideConfirmDialog]);
+    }, [confirmDialog, hideConfirmDialog]);
 
     const value: NotificationContextType = {
         showNotification,

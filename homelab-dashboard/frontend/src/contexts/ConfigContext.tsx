@@ -1,34 +1,12 @@
 // src/contexts/ConfigContext.tsx
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { useState, useEffect, ReactNode } from 'react';
 import { tryApiCall } from '../utils/api';
+import { ConfigResponse } from '../types/api';
+import { ConfigContext, AppConfig } from './ConfigContextCore';
 
-export interface AppConfig {
-    disableLocalAuth: boolean;
-    ssoEnabled: boolean;
-    hostnames: {
-        pihole: string;
-        dockhand: string;
-        vaultwarden: string;
-        gatus: string;
-        gotify: string;
-        authentik: string;
-    };
-}
-
-interface ConfigContextType {
-    config: AppConfig;
-    loading: boolean;
-}
-
-const ConfigContext = createContext<ConfigContextType | null>(null);
-
-export const useConfig = () => {
-    const context = useContext(ConfigContext);
-    if (!context) {
-        throw new Error('useConfig must be used within a ConfigProvider');
-    }
-    return context;
-};
+// Re-export for backwards compatibility
+export { useConfig } from './useConfig';
+export type { AppConfig } from './ConfigContextCore';
 
 interface ConfigProviderProps {
     children: ReactNode;
@@ -52,7 +30,7 @@ export const ConfigProvider = ({ children }: ConfigProviderProps) => {
     useEffect(() => {
         const fetchConfig = async () => {
             try {
-                const result = await tryApiCall('/config');
+                const result = await tryApiCall<ConfigResponse>('/config');
                 if (result.data) {
                     const d = result.data;
                     setConfig({

@@ -10,9 +10,7 @@ import {
     Grid,
     Container,
     Chip,
-    Avatar,
-    Divider,
-    Link
+    Avatar
 } from '@mui/material';
 import {
     Dashboard as DashboardIcon,
@@ -20,17 +18,11 @@ import {
     Inventory as PackagesIcon,
     Settings as SettingsIcon,
     Person as PersonIcon,
-    Security as SecurityIcon,
-    Router as RouterIcon,
-    Computer as ComputerIcon,
-    Storage as StorageIcon,
-    Speed as SpeedIcon,
-    OpenInNew as ExternalLinkIcon,
     Games as GamesIcon,
     Chat as ChatIcon,
     People as PeopleIcon,
 } from '@mui/icons-material';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../contexts/useAuth';
 import { useConfig } from '../contexts/ConfigContext';
 import PiHoleLogo from '../assets/pi_hole_logo.png';
@@ -38,7 +30,6 @@ import VaultwardenLogo from '../assets/vaultwarden_logo.png';
 import GatusLogo from '../assets/gatus_logo.png';
 import AuthIcon from '../assets/auth_icon.png';
 import DockhandLogo from '../assets/dockhand_logo.png';
-import UsersIcon from '../assets/users_icon.png';
 
 interface QuickLink {
     title: string;
@@ -50,7 +41,6 @@ interface QuickLink {
 }
 
 const Home = () => {
-    const navigate = useNavigate();
     const { user, hasPermission } = useAuth();
     const { config } = useConfig();
     const hostnames = config.hostnames || {};

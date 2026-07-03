@@ -1,24 +1,11 @@
 // src/contexts/ThemeContext.tsx
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { createTheme, Theme } from '@mui/material/styles';
+import React, { useState, useEffect, ReactNode } from 'react';
+import { createTheme } from '@mui/material/styles';
 import { useMediaQuery } from '@mui/material';
+import { ThemeContext } from './ThemeContextCore';
 
-interface ThemeContextType {
-    themeMode: string;
-    setThemeMode: React.Dispatch<React.SetStateAction<string>>;
-    actualMode: 'light' | 'dark';
-    theme: Theme;
-}
-
-const ThemeContext = createContext<ThemeContextType | null>(null);
-
-export const useThemeMode = () => {
-    const context = useContext(ThemeContext);
-    if (!context) {
-        throw new Error('useThemeMode must be used within a ThemeProvider');
-    }
-    return context;
-};
+// Re-export for backwards compatibility
+export { useThemeMode } from './useThemeMode';
 
 interface ThemeModeProviderProps {
     children: ReactNode;

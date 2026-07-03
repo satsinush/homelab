@@ -43,8 +43,8 @@ const Users = () => {
     const fetchUsers = useCallback(async () => {
         setLoading(true);
         try {
-            const result = await tryApiCall('/users');
-            setUsersList((result.data.users || []) as UserListItem[]);
+            const result = await tryApiCall<{ users: UserListItem[] }>('/users');
+            setUsersList(result.data.users || []);
         } catch (err) {
             const error = err as Error;
             showError(`Failed to load users: ${error.message}`);

@@ -19,7 +19,8 @@ import {
     Settings as SettingsIcon,
     ContentCopy as CopyIcon
 } from '@mui/icons-material';
-import GameSettingsDialog, { FieldDefinition } from './GameSettingsDialog';
+import GameSettingsDialog, { FieldDefinition, DialogConfig } from './GameSettingsDialog';
+import { WordleResultState } from '../types/api';
 
 interface GuessWithEntropyItem {
     word: string;
@@ -30,7 +31,7 @@ interface GuessWithEntropyItem {
 interface WordleResultsProps {
     possibleWords: string[];
     guessesWithEntropy: GuessWithEntropyItem[];
-    lastGameData: any;
+    lastGameData: WordleResultState['gameData'];
     isLoading: boolean;
     onLoadMore: (type: string) => void;
     onCopyToClipboard: (text: string) => void;
@@ -249,12 +250,11 @@ interface WordleGuessItem {
 }
 
 interface WordleGameProps {
-    gameStatus: any;
     isLoading: boolean;
-    onSolve: (gameType: string, params: any) => Promise<void>;
+    onSolve: (gameType: string, params: unknown) => Promise<void>;
     onClear: () => void;
     showError: (message: string) => void;
-    results: any;
+    results: WordleResultState | null;
     onLoadMore: (type: string) => void;
 }
 
@@ -262,7 +262,7 @@ export interface WordleGameRef {
     fillSuggestedGuess: (word: string) => void;
 }
 
-const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ gameStatus, isLoading, onSolve, onClear, showError, results, onLoadMore }, ref) => {
+const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSolve, onClear, showError, results, onLoadMore }, ref) => {
     const [wordleGuesses, setWordleGuesses] = useState<WordleGuessItem[]>([]);
     const [currentGuess, setCurrentGuess] = useState('');
     const [currentGuessColors, setCurrentGuessColors] = useState<number[]>([0, 0, 0, 0, 0]);
@@ -306,13 +306,18 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ gameStatus, isL
     }), []);
 
     // Handle config changes (especially wordLength)
-    const handleConfigSave = useCallback((newConfig: any) => {
-        if (newConfig.wordLength !== config.wordLength) {
-            setCurrentGuessColors(Array(newConfig.wordLength).fill(0));
+    const handleConfigSave = useCallback((newConfig: DialogConfig) => {
+        const newWordLength = Number(newConfig.wordLength);
+        if (newWordLength !== config.wordLength) {
+            setCurrentGuessColors(Array(newWordLength).fill(0));
             setCurrentGuess('');
             setWordleGuesses([]);
         }
-        setConfig(newConfig);
+        setConfig({
+            wordLength: newWordLength,
+            maxDepth: Number(newConfig.maxDepth),
+            excludeUncommonWords: Boolean(newConfig.excludeUncommonWords)
+        });
     }, [config.wordLength]);
 
     useImperativeHandle(ref, () => ({

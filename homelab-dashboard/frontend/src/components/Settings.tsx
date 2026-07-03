@@ -31,23 +31,23 @@ import {
     Palette as ThemeIcon,
     LightMode as LightIcon,
     DarkMode as DarkIcon,
-    SettingsBrightness as DeviceIcon,
-    NetworkWifi as NetworkIcon
+    SettingsBrightness as DeviceIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
+import { ServerSettings, UserSettings } from '../types/api';
 import { useThemeMode } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/useAuth';
 
 const Settings = () => {
-    const [serverSettings, setServerSettings] = useState<any>(null);
-    const [userSettings, setUserSettings] = useState<any>(null);
+    const [serverSettings, setServerSettings] = useState<ServerSettings | null>(null);
+    const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
     const [loading, setLoading] = useState(true);
     const [autoSaving, setAutoSaving] = useState(false);
     const [tabValue, setTabValue] = useState(0);
     const { themeMode, setThemeMode, actualMode } = useThemeMode();
     const { showSuccess, showError } = useNotification();
-    const { user, hasPermission } = useAuth();
+    const { hasPermission } = useAuth();
     const canManageSettings = hasPermission('dashboard-settings-user');
 
     const tabsList = useMemo(() => {
@@ -70,9 +70,9 @@ const Settings = () => {
     const currentTabId = tabsList[tabValue]?.id || 'user';
 
     // Debounce utility function
-    function debounce(func: (...args: any[]) => void, wait: number) {
+    function debounce(func: (...args: unknown[]) => void, wait: number) {
         let timeout: ReturnType<typeof setTimeout>;
-        return function executedFunction(...args: any[]) {
+        return function executedFunction(...args: unknown[]) {
             const later = () => {
                 clearTimeout(timeout);
                 func(...args);
@@ -83,8 +83,8 @@ const Settings = () => {
     }
 
     // Auto-save server settings (admin only)
-    const debouncedSaveServer = useCallback(
-        debounce(async (settingsToSave: any) => {
+    const debouncedSaveServer = useMemo(
+        () => debounce(async (settingsToSave: unknown) => {
             setAutoSaving(true);
             try {
                 await tryApiCall('/settings', {
@@ -103,8 +103,8 @@ const Settings = () => {
     );
 
     // Auto-save user settings
-    const debouncedSaveUser = useCallback(
-        debounce(async (settingsToSave: any) => {
+    const debouncedSaveUser = useMemo(
+        () => debounce(async (settingsToSave: unknown) => {
             setAutoSaving(true);
             try {
                 await tryApiCall('/user-settings', {
@@ -141,16 +141,16 @@ const Settings = () => {
         fetchAll();
     }, [showError]);
 
-    const handleServerSettingChange = (key: string, value: any) => {
-        const newSettings = { ...serverSettings, [key]: value };
+    const handleServerSettingChange = (key: string, value: unknown) => {
+        const newSettings = { ...(serverSettings || {}), [key]: value };
         setServerSettings(newSettings);
         if (canManageSettings) {
             debouncedSaveServer(newSettings);
         }
     };
 
-    const handleUserSettingChange = (key: string, value: any) => {
-        const newSettings = { ...userSettings, [key]: value };
+    const handleUserSettingChange = (key: string, value: unknown) => {
+        const newSettings = { ...(userSettings || {}), [key]: value };
         setUserSettings(newSettings);
         debouncedSaveUser(newSettings);
     };
@@ -339,7 +339,7 @@ const Settings = () => {
                                             <FormControlLabel
                                                 control={
                                                     <Switch
-                                                        checked={userSettings.showOfflineDevices ?? true}
+                                                        checked={Boolean(userSettings.showOfflineDevices ?? true)}
                                                         onChange={(e) => handleUserSettingChange('showOfflineDevices', e.target.checked)}
                                                     />
                                                 }
@@ -348,7 +348,7 @@ const Settings = () => {
                                             <FormControlLabel
                                                 control={
                                                     <Switch
-                                                        checked={userSettings.compactMode ?? false}
+                                                        checked={Boolean(userSettings.compactMode ?? false)}
                                                         onChange={(e) => handleUserSettingChange('compactMode', e.target.checked)}
                                                     />
                                                 }

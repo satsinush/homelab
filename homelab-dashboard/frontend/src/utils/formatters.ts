@@ -48,13 +48,17 @@ export const normalizeMacForApi = (mac: string): string => {
     return mac.replace(/[:-]/g, '').toLowerCase();
 };
 
+interface BaseDevice {
+    mac: string;
+}
+
 /**
  * Format device data for display by applying MAC formatting
- * @param {any} device - Device object with MAC address
- * @returns {any} Device object with formatted MAC address
+ * @param {T} device - Device object with MAC address
+ * @returns {T & { macNormalized: string }} Device object with formatted MAC address
  */
-export const formatDeviceForDisplay = (device: any): any => {
-    if (!device) return device;
+export const formatDeviceForDisplay = <T extends BaseDevice>(device: T): T & { macNormalized: string } => {
+    if (!device) return device as unknown as T & { macNormalized: string };
     
     return {
         ...device,
@@ -66,13 +70,13 @@ export const formatDeviceForDisplay = (device: any): any => {
 
 /**
  * Format multiple devices for display
- * @param {any[]} devices - Array of device objects
- * @returns {any[]} Array of devices with formatted MAC addresses
+ * @param {T[]} devices - Array of device objects
+ * @returns {(T & { macNormalized: string })[]} Array of devices with formatted MAC addresses
  */
-export const formatDevicesForDisplay = (devices: any[]): any[] => {
-    if (!Array.isArray(devices)) return devices;
+export const formatDevicesForDisplay = <T extends BaseDevice>(devices: T[]): (T & { macNormalized: string })[] => {
+    if (!Array.isArray(devices)) return [];
     
-    return devices.map(device => formatDeviceForDisplay(device));
+    return devices.map(device => formatDeviceForDisplay<T>(device));
 };
 
 /**

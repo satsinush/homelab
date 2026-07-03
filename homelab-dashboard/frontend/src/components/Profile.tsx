@@ -20,7 +20,8 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    Chip
+    Chip,
+    Theme
 } from '@mui/material';
 import {
     Person as PersonIcon,
@@ -28,7 +29,6 @@ import {
     Visibility as VisibilityIcon,
     VisibilityOff as VisibilityOffIcon,
     Edit as EditIcon,
-    AccountCircle as AccountCircleIcon,
     Shield as AdminIcon,
     Cloud as SSOIcon,
     Computer as LocalIcon
@@ -37,7 +37,7 @@ import { useAuth } from '../contexts/useAuth';
 import { useNotification } from '../contexts/NotificationContext';
 import { tryApiCall } from '../utils/api';
 
-const autofillSx = (theme: any) => ({
+const autofillSx = (theme: Theme) => ({
     '& input:-webkit-autofill': {
         WebkitBoxShadow: '0 0 0 1000px transparent inset',
         WebkitTextFillColor: `${theme.palette.text.primary} !important`,
@@ -326,7 +326,7 @@ const ChangePasswordModal = ({ open, onClose }: ChangePasswordModalProps) => {
 };
 
 const Profile = () => {
-    const { user, refreshUser, hasPermission } = useAuth();
+    const { user, refreshUser } = useAuth();
     const isSSO = user?.is_sso_user;
     const isAdmin = user?.roles?.includes('homelab-admin');
     const [usernameModalOpen, setUsernameModalOpen] = useState(false);

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import { tryApiCall } from '../utils/api';
 import { AuthContext, UserProfile, AuthContextType } from './AuthContextCore';
+import { VerifyResponse, LoginResponse, LogoutResponse } from '../types/api';
 
 interface AuthProviderProps {
     children: ReactNode;
@@ -15,7 +16,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                const result = await tryApiCall('/users/verify', {
+                const result = await tryApiCall<VerifyResponse>('/users/verify', {
                     method: 'POST'
                 });
                 setUser(result.data.user);
@@ -30,7 +31,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     const loginLocal = async (username: string, password: string) => {
         try {
-            const result = await tryApiCall('/users/login', {
+            const result = await tryApiCall<LoginResponse>('/users/login', {
                 method: 'POST',
                 data: {
                     username,
@@ -38,7 +39,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                 }
             });
 
-            const userProfile = result.data.user as UserProfile;
+            const userProfile = result.data.user;
             setUser(userProfile);
             return { success: true, user: userProfile };
         } catch (error: unknown) {
@@ -58,7 +59,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     const logout = async () => {
         try {
-            const result = await tryApiCall('/users/logout', {
+            const result = await tryApiCall<LogoutResponse>('/users/logout', {
                 method: 'POST'
             });
 
@@ -82,10 +83,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Refresh user info
     const refreshUser = async (): Promise<UserProfile | null> => {
         try {
-            const result = await tryApiCall('/users/verify', {
+            const result = await tryApiCall<VerifyResponse>('/users/verify', {
                 method: 'POST'
             });
-            const userProfile = result.data.user as UserProfile;
+            const userProfile = result.data.user;
             setUser(userProfile);
             return userProfile;
         } catch (error) {

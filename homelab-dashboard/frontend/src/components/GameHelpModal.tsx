@@ -68,7 +68,7 @@ const GameHelpModal = ({ open, onClose, gameType }: GameHelpModalProps) => {
                                 <ListItem>
                                     <ListItemText
                                         primary="Prune Redundant Paths"
-                                        secondary="Eliminates paths that include words which don't use any new letters"
+                                        secondary="Eliminates paths that include words which don't use unknown new letters"
                                     />
                                 </ListItem>
                                 <ListItem>
