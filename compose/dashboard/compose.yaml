@@ -16,10 +16,8 @@ services:
       - homelab-net
     extra_hosts:
       - "host.docker.internal:host-gateway"
-      - "${AUTHENTIK_WEB_HOSTNAME}:10.10.30.100"
+      - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:10.10.30.100"
     environment:
-      - AUTHENTIK_WEB_HOSTNAME=${AUTHENTIK_WEB_HOSTNAME}
-      - DASHBOARD_WEB_HOSTNAME=${DASHBOARD_WEB_HOSTNAME}
       - HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
       - HOMELAB_USERNAME=${HOMELAB_USERNAME}
       - HOMELAB_EMAIL=${HOMELAB_EMAIL}
@@ -28,11 +26,13 @@ services:
       - DASHBOARD_OIDC_SECRET_FILE=/run/secrets/dashboard_oidc_secret
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
       - RUSTDESK_PUBKEY_PATH=/app/public-configs/rustdesk_public_key
-      - PIHOLE_WEB_HOSTNAME=${PIHOLE_WEB_HOSTNAME}
-      - DOCKHAND_WEB_HOSTNAME=${DOCKHAND_WEB_HOSTNAME}
-      - VAULTWARDEN_WEB_HOSTNAME=${VAULTWARDEN_WEB_HOSTNAME}
-      - GATUS_WEB_HOSTNAME=${GATUS_WEB_HOSTNAME}
-      - GOTIFY_WEB_HOSTNAME=${GOTIFY_WEB_HOSTNAME}
+      - DASHBOARD_SERVICE_NAME=${DASHBOARD_SERVICE_NAME}
+      - PIHOLE_SERVICE_NAME=${PIHOLE_SERVICE_NAME}
+      - DOCKHAND_SERVICE_NAME=${DOCKHAND_SERVICE_NAME}
+      - VAULTWARDEN_SERVICE_NAME=${VAULTWARDEN_SERVICE_NAME}
+      - GATUS_SERVICE_NAME=${GATUS_SERVICE_NAME}
+      - GOTIFY_SERVICE_NAME=${GOTIFY_SERVICE_NAME}
+      - AUTHENTIK_SERVICE_NAME=${AUTHENTIK_SERVICE_NAME}
 
     secrets:
       - homelab_password
@@ -48,7 +48,7 @@ services:
     labels:
       - "traefik.enable=true"
       # Canonical dashboard route
-      - "traefik.http.routers.dashboard.rule=Host(`${DASHBOARD_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.dashboard.rule=Host(`${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
       - "traefik.http.routers.dashboard.entrypoints=websecure"
       - "traefik.http.routers.dashboard.tls=true"
       - "traefik.http.routers.dashboard.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
@@ -61,7 +61,7 @@ services:
       - "traefik.http.routers.dashboard-redirect.middlewares=dashboard-redirect-to-canonical@docker"
       - "traefik.http.routers.dashboard-redirect.service=dashboard"
       - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.regex=^https?://(?:${HOMELAB_HOSTNAME}|[0-9.]+)(.*)"
-      - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.replacement=https://${DASHBOARD_WEB_HOSTNAME}$${1}"
+      - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.replacement=https://${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}$${1}"
       - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.permanent=true"
       # Catch-All Router for unknown subdomains (Lowest Priority) - Redirects to canonical dashboard
       - "traefik.http.routers.dashboard-catchall.rule=HostRegexp(`^.+\\.${HOMELAB_HOSTNAME}$$`)"
@@ -73,7 +73,7 @@ services:
       
       # Middleware to redirect any host to canonical dashboard
       - "traefik.http.middlewares.dashboard-catchall-redirect.redirectregex.regex=^https?://[^/]+(.*)"
-      - "traefik.http.middlewares.dashboard-catchall-redirect.redirectregex.replacement=https://${DASHBOARD_WEB_HOSTNAME}$${1}"
+      - "traefik.http.middlewares.dashboard-catchall-redirect.redirectregex.replacement=https://${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}$${1}"
       - "traefik.http.middlewares.dashboard-catchall-redirect.redirectregex.permanent=true"
     healthcheck:
       test: [ "CMD", "wget", "-q", "--spider", "http://localhost:5000" ]

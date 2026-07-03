@@ -129,17 +129,7 @@ export const NotificationProvider = ({ children }) => {
         }));
     }, []);
 
-    // Convenience method for delete confirmations
-    const showDeleteConfirmation = useCallback((itemName, onConfirm, onCancel = null) => {
-        showConfirmDialog({
-            title: 'Delete Item',
-            message: `Are you sure you want to delete "${itemName}"? This action cannot be undone.`,
-            confirmText: 'Delete',
-            confirmColor: 'error',
-            onConfirm,
-            onCancel
-        });
-    }, [showConfirmDialog]);
+
 
     const handleConfirmDialogConfirm = useCallback(() => {
         if (confirmDialog.onConfirm) {
@@ -164,7 +154,6 @@ export const NotificationProvider = ({ children }) => {
         hideNotification,
         clearAll,
         showConfirmDialog,
-        showDeleteConfirmation,
         hideConfirmDialog
     };
 

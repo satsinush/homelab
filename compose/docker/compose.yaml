@@ -11,7 +11,7 @@ services:
       - homelab-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.dockhand.rule=Host(`${DOCKHAND_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.dockhand.rule=Host(`${DOCKHAND_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
       - "traefik.http.routers.dockhand.entrypoints=websecure"
       - "traefik.http.routers.dockhand.tls=true"
       - "traefik.http.routers.dockhand.middlewares=authentik-auth@file"

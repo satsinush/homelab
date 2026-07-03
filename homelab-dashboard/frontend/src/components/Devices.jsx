@@ -149,7 +149,7 @@ const Devices = () => {
     const [loading, setLoading] = useState(true);
     const [refreshingAll, setRefreshingAll] = useState(false);
     const [clearingCache, setClearingCache] = useState(false);
-    const { showSuccess, showError, showDeleteConfirmation, showConfirmDialog } = useNotification();
+    const { showSuccess, showError, showConfirmDialog } = useNotification();
 
     // Device management states
     const [deviceDialog, setDeviceDialog] = useState(false);
@@ -158,8 +158,6 @@ const Devices = () => {
     const [rustdeskConfig, setRustdeskConfig] = useState({ available: false, relayHost: '', publicKey: '' });
 
     // Filter and search states
-    const [filterStatus, setFilterStatus] = useState('all');
-    const [searchTerm, setSearchTerm] = useState('');
     const [viewMode, setViewMode] = useState(() => {
         return localStorage.getItem('devicesViewMode') || 'cards';
     }); // 'cards' or 'table'
@@ -208,8 +206,7 @@ const Devices = () => {
         if (!device.rustdeskId) return;
 
         if (!rustdeskConfig.available) {
-            showError('RustDesk relay configuration is missing or public key is unavailable on the server.');
-            return;
+            showError('Warning: RustDesk config is unavailable on the server. Launching client anyway...');
         }
 
         const url = `rustdesk://${device.rustdeskId.replace(/\s+/g, '')}`;
@@ -421,8 +418,6 @@ const Devices = () => {
         setMacFilter('');
         setIpFilter('');
         setStatusFilter('');
-        setFilterStatus('all');
-        setSearchTerm('');
         setSortBy('name');
         setSortOrder('asc');
     };

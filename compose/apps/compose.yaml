@@ -72,14 +72,14 @@ services:
       - vaultwarden_data:/data
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
     extra_hosts:
-      - "${AUTHENTIK_WEB_HOSTNAME}:10.10.30.100"
+      - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:10.10.30.100"
     networks:
       - homelab-net
     environment:
       - SSL_CERT_FILE=/etc/ssl/certs/homelab-ca.crt
       - WEBSOCKET_ENABLED=true
       - SIGNUPS_ALLOWED=false
-      - DOMAIN=https://${VAULTWARDEN_WEB_HOSTNAME}
+      - DOMAIN=https://${VAULTWARDEN_SERVICE_NAME}.${HOMELAB_HOSTNAME}
       - SMTP_SSL_CA_CERT=/etc/ssl/certs/homelab-ca.crt
       - SMTP_HOST=apprise-api
       - SMTP_PORT=8025
@@ -87,7 +87,7 @@ services:
       - SMTP_FROM=vaultwarden@${HOMELAB_HOSTNAME}
       - SSO_ENABLED=true
       - SSO_CLIENT_ID=vaultwarden
-      - SSO_AUTHORITY=https://${AUTHENTIK_WEB_HOSTNAME}/application/o/vaultwarden/
+      - SSO_AUTHORITY=https://${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}/application/o/vaultwarden/
       - SSO_SCOPES=openid email profile offline_access groups
       - SSO_CLIENT_SECRET_FILE=/run/secrets/vaultwarden_oidc_secret
       - ADMIN_TOKEN_FILE=/run/secrets/vaultwarden_admin_token
@@ -96,7 +96,7 @@ services:
       - vaultwarden_admin_token
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.vaultwarden.rule=Host(`${VAULTWARDEN_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.vaultwarden.rule=Host(`${VAULTWARDEN_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
       - "traefik.http.routers.vaultwarden.entrypoints=websecure"
       - "traefik.http.routers.vaultwarden.tls=true"
       - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
@@ -124,7 +124,7 @@ services:
       - homelab-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.gotify.rule=Host(`${GOTIFY_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.gotify.rule=Host(`${GOTIFY_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
       - "traefik.http.routers.gotify.entrypoints=websecure"
       - "traefik.http.routers.gotify.tls=true"
       - "traefik.http.routers.gotify.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"

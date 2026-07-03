@@ -53,7 +53,7 @@ services:
       AUTHENTIK_BOOTSTRAP_EMAIL: authentik@${HOMELAB_HOSTNAME}
       AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
       HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
-      AUTHENTIK_WEB_HOSTNAME: ${AUTHENTIK_WEB_HOSTNAME}
+      AUTHENTIK_WEB_HOSTNAME: ${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}
       HOMELAB_USERNAME: ${HOMELAB_USERNAME}
       DASHBOARD_SERVICE_NAME: ${DASHBOARD_SERVICE_NAME}
       PIHOLE_SERVICE_NAME: ${PIHOLE_SERVICE_NAME}
@@ -84,7 +84,7 @@ services:
       - homelab-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.authentik.rule=Host(`${AUTHENTIK_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.authentik.rule=Host(`${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
       - "traefik.http.routers.authentik.entrypoints=websecure"
       - "traefik.http.routers.authentik.tls=true"
       - "traefik.http.routers.authentik.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
@@ -119,7 +119,7 @@ services:
       AUTHENTIK_BOOTSTRAP_EMAIL: authentik@${HOMELAB_HOSTNAME}
       AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
       HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
-      AUTHENTIK_WEB_HOSTNAME: ${AUTHENTIK_WEB_HOSTNAME}
+      AUTHENTIK_WEB_HOSTNAME: ${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}
       HOMELAB_USERNAME: ${HOMELAB_USERNAME}
       DASHBOARD_SERVICE_NAME: ${DASHBOARD_SERVICE_NAME}
       PIHOLE_SERVICE_NAME: ${PIHOLE_SERVICE_NAME}

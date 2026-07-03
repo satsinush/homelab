@@ -12,7 +12,7 @@ services:
       - FTLCONF_dns_upstreams=unbound#53
       - FTLCONF_dns_domain=${HOMELAB_HOSTNAME}
       - FTLCONF_dns_piholePTR=HOSTNAMEFQDN
-      - FTLCONF_webserver_domain=${PIHOLE_WEB_HOSTNAME}
+      - FTLCONF_webserver_domain=${PIHOLE_SERVICE_NAME}.${HOMELAB_HOSTNAME}
       - FTLCONF_dns_listeningMode=all
       - FTLCONF_webserver_port=80
       - DNSMASQ_LISTENING=all
@@ -26,7 +26,7 @@ services:
       - homelab-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.pihole.rule=Host(`${PIHOLE_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.pihole.rule=Host(`${PIHOLE_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
       - "traefik.http.routers.pihole.entrypoints=websecure"
       - "traefik.http.routers.pihole.tls=true"
       - "traefik.http.routers.pihole.middlewares=authentik-auth@file"

@@ -102,7 +102,7 @@ class UserController {
             });
 
             // Build authorization URL parameters
-            const redirect_uri = `https://${process.env.DASHBOARD_WEB_HOSTNAME}/api/users/sso-callback`;
+            const redirect_uri = `https://${config.dashBoardWebHostname}/api/users/sso-callback`;
             const scope = 'openid profile email groups';
             
             const parameters = {
@@ -245,7 +245,7 @@ class UserController {
                 // If user was authenticated via SSO, return redirect URL for frontend to handle
                 if (isSSO) {
                     console.log('SSO user logout - returning redirect URL');
-                    const APP_URL = `https://${process.env.DASHBOARD_WEB_HOSTNAME}`;
+                    const APP_URL = `https://${config.dashBoardWebHostname}`;
                     
                     (async () => {
                         let logoutUrl;
@@ -259,7 +259,7 @@ class UserController {
                             console.error('Failed to get dynamic end_session_endpoint for logout:', e);
                         }
                         if (!logoutUrl) {
-                            logoutUrl = `https://${process.env.AUTHENTIK_WEB_HOSTNAME}/application/o/homelab-dashboard/end-session/?post_logout_redirect_uri=${encodeURIComponent(APP_URL)}`;
+                            logoutUrl = `https://${config.authentikWebHostname}/application/o/homelab-dashboard/end-session/?post_logout_redirect_uri=${encodeURIComponent(APP_URL)}`;
                         }
                         
                         return sendSuccess(res, { 

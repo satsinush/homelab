@@ -14,7 +14,7 @@ services:
       - homelab-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.gatus.rule=Host(`${GATUS_WEB_HOSTNAME}`)"
+      - "traefik.http.routers.gatus.rule=Host(`${GATUS_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
       - "traefik.http.routers.gatus.entrypoints=websecure"
       - "traefik.http.routers.gatus.tls=true"
       - "traefik.http.routers.gatus.middlewares=authentik-auth@file"

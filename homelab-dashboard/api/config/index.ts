@@ -20,6 +20,23 @@ if (!DASHBOARD_OIDC_SECRET) {
     process.exit(1);
 }
 
+const homelabHostname = process.env.HOMELAB_HOSTNAME || '';
+const dashboardServiceName = process.env.DASHBOARD_SERVICE_NAME || 'dashboard';
+const authentikServiceName = process.env.AUTHENTIK_SERVICE_NAME || 'authentik';
+const piholeServiceName = process.env.PIHOLE_SERVICE_NAME || 'pihole';
+const dockhandServiceName = process.env.DOCKHAND_SERVICE_NAME || 'dockhand';
+const vaultwardenServiceName = process.env.VAULTWARDEN_SERVICE_NAME || 'vaultwarden';
+const gatusServiceName = process.env.GATUS_SERVICE_NAME || 'gatus';
+const gotifyServiceName = process.env.GOTIFY_SERVICE_NAME || 'gotify';
+
+const DASHBOARD_WEB_HOSTNAME = `${dashboardServiceName}.${homelabHostname}`;
+const AUTHENTIK_WEB_HOSTNAME = `${authentikServiceName}.${homelabHostname}`;
+const PIHOLE_WEB_HOSTNAME = `${piholeServiceName}.${homelabHostname}`;
+const DOCKHAND_WEB_HOSTNAME = `${dockhandServiceName}.${homelabHostname}`;
+const VAULTWARDEN_WEB_HOSTNAME = `${vaultwardenServiceName}.${homelabHostname}`;
+const GATUS_WEB_HOSTNAME = `${gatusServiceName}.${homelabHostname}`;
+const GOTIFY_WEB_HOSTNAME = `${gotifyServiceName}.${homelabHostname}`;
+
 export interface DefaultSettings {
     scanTimeout: number;
     cacheTimeout: number;
@@ -54,7 +71,7 @@ async function initializeOIDCClient(): Promise<client.Configuration> {
 
     initializationPromise = (async () => {
         try {
-            const server = new URL(`https://${process.env.AUTHENTIK_WEB_HOSTNAME}/application/o/homelab-dashboard/`);
+            const server = new URL(`https://${AUTHENTIK_WEB_HOSTNAME}/application/o/homelab-dashboard/`);
             const clientId = 'homelab_dashboard';
             const clientSecret = DASHBOARD_OIDC_SECRET!;
 
@@ -96,8 +113,8 @@ const config = {
     cors: {
         origins: [
             'http://localhost:5173',
-            `https://${process.env.DASHBOARD_WEB_HOSTNAME}`,
-            `http://${process.env.DASHBOARD_WEB_HOSTNAME}`,
+            `https://${DASHBOARD_WEB_HOSTNAME}`,
+            `http://${DASHBOARD_WEB_HOSTNAME}`,
         ]
     },
     rateLimit: {
@@ -122,16 +139,16 @@ const config = {
     apprise: {
         url: 'http://apprise-api'
     },
-    dashBoardWebHostname: process.env.DASHBOARD_WEB_HOSTNAME || '',
-    authentikWebHostname: process.env.AUTHENTIK_WEB_HOSTNAME || '',
-    homelabHostname: process.env.HOMELAB_HOSTNAME || '',
+    dashBoardWebHostname: DASHBOARD_WEB_HOSTNAME,
+    authentikWebHostname: AUTHENTIK_WEB_HOSTNAME,
+    homelabHostname: homelabHostname,
     rustdeskPubKeyPath: process.env.RUSTDESK_PUBKEY_PATH || '',
     disableLocalAuth: (process.env.DISABLE_LOCAL_AUTH ?? 'true') === 'true',
-    piholeWebHostname: process.env.PIHOLE_WEB_HOSTNAME || '',
-    dockhandWebHostname: process.env.DOCKHAND_WEB_HOSTNAME || '',
-    vaultwardenWebHostname: process.env.VAULTWARDEN_WEB_HOSTNAME || '',
-    gatusWebHostname: process.env.GATUS_WEB_HOSTNAME || '',
-    gotifyWebHostname: process.env.GOTIFY_WEB_HOSTNAME || '',
+    piholeWebHostname: PIHOLE_WEB_HOSTNAME,
+    dockhandWebHostname: DOCKHAND_WEB_HOSTNAME,
+    vaultwardenWebHostname: VAULTWARDEN_WEB_HOSTNAME,
+    gatusWebHostname: GATUS_WEB_HOSTNAME,
+    gotifyWebHostname: GOTIFY_WEB_HOSTNAME,
     ssoEnabled: !!DASHBOARD_OIDC_SECRET,
     defaultSettings: DEFAULT_SETTINGS,
     getOIDCConfig: getOIDCConfig,

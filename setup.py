@@ -345,7 +345,7 @@ print(f"📋 Access Information:\n   Username: {env.get('HOMELAB_USERNAME')}\n  
 gotify_pwd = os.environ.get("GOTIFY_ADMIN_PASSWORD", "")
 
 print(f"\n🌐 Web Access:")
-print(f"   Dashboard:  https://{env.get('DASHBOARD_WEB_HOSTNAME')}")
+print(f"   Dashboard:  https://{env.get('DASHBOARD_SERVICE_NAME')}.{hostname}")
 ssl_mode = 'Self-signed (private)' if cert_resolver != 'letsencrypt' else "Public (Let's Encrypt)"
 print(f"\n🔒 SSL Mode: {ssl_mode}")
 if cert_resolver != "letsencrypt":
