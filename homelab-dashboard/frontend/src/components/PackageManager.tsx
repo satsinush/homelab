@@ -203,95 +203,117 @@ const PackageManager = () => {
                 </Box>
             </Box>
 
-            {/* Filter controls */}
-            <Card sx={{ mb: 4 }}>
-                <CardContent>
-                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                        <TextField
-                            label="Search Packages"
-                            size="small"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            slotProps={{
-                                input: {
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <SearchIcon />
-                                        </InputAdornment>
-                                    )
-                                }
-                            }}
-                            sx={{ flexGrow: 1, minWidth: '200px' }}
-                        />
+            {packages.length === 0 ? (
+                <Card sx={{ textAlign: 'center', py: 8 }}>
+                    <CardContent>
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                            No packages available
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                            Package information could not be retrieved. This feature requires an Arch Linux host with package management configured.
+                        </Typography>
+                        <Button
+                            variant="outlined"
+                            startIcon={<RefreshIcon />}
+                            onClick={fetchPackages}
+                        >
+                            Retry
+                        </Button>
+                    </CardContent>
+                </Card>
+            ) : (
+                <>
+                    {/* Filter controls */}
+                    <Card sx={{ mb: 4 }}>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                                <TextField
+                                    label="Search Packages"
+                                    size="small"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    slotProps={{
+                                        input: {
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <SearchIcon />
+                                                </InputAdornment>
+                                            )
+                                        }
+                                    }}
+                                    sx={{ flexGrow: 1, minWidth: '200px' }}
+                                />
 
-                        <TextField
-                            label="Search Versions"
-                            size="small"
-                            value={versionSearchTerm}
-                            onChange={(e) => setVersionSearchTerm(e.target.value)}
-                            slotProps={{
-                                input: {
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <SearchIcon />
-                                        </InputAdornment>
-                                    )
-                                }
-                            }}
-                            sx={{ flexGrow: 1, minWidth: '200px' }}
-                        />
+                                <TextField
+                                    label="Search Versions"
+                                    size="small"
+                                    value={versionSearchTerm}
+                                    onChange={(e) => setVersionSearchTerm(e.target.value)}
+                                    slotProps={{
+                                        input: {
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <SearchIcon />
+                                                </InputAdornment>
+                                            )
+                                        }
+                                    }}
+                                    sx={{ flexGrow: 1, minWidth: '200px' }}
+                                />
 
-                        <FormControl size="small" sx={{ minWidth: '180px' }}>
-                            <InputLabel>Status</InputLabel>
-                            <Select
-                                value={filterStatus}
-                                label="Status"
-                                onChange={(e) => setFilterStatus(e.target.value)}
-                            >
-                                <MenuItem value="all">All ({getStatsForFilter('all')})</MenuItem>
-                                <MenuItem value="updates">Updates Available ({getStatsForFilter('updates')})</MenuItem>
-                                <MenuItem value="uptodate">Up to Date ({getStatsForFilter('uptodate')})</MenuItem>
-                            </Select>
-                        </FormControl>
-                    </Box>
-                </CardContent>
-            </Card>
+                                <FormControl size="small" sx={{ minWidth: '180px' }}>
+                                    <InputLabel>Status</InputLabel>
+                                    <Select
+                                        value={filterStatus}
+                                        label="Status"
+                                        onChange={(e) => setFilterStatus(e.target.value)}
+                                    >
+                                        <MenuItem value="all">All ({getStatsForFilter('all')})</MenuItem>
+                                        <MenuItem value="updates">Updates Available ({getStatsForFilter('updates')})</MenuItem>
+                                        <MenuItem value="uptodate">Up to Date ({getStatsForFilter('uptodate')})</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Box>
+                        </CardContent>
+                    </Card>
 
-            {/* Packages Table */}
-            <Card>
-                <TableContainer component={Paper}>
-                    <Table>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>Package Name</TableCell>
-                                <TableCell>Status</TableCell>
-                                <TableCell>Installed Version</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {filteredPackages.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={3} align="center" sx={{ py: 6 }}>
-                                        <Typography variant="body1" color="text.secondary">
-                                            No packages found matching search criteria.
-                                        </Typography>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                filteredPackages.map((pkg) => (
-                                    <TableRow key={pkg.name}>
-                                        <TableCell sx={{ fontWeight: 500 }}>{pkg.name}</TableCell>
-                                        <TableCell>{getUpdateStatusChip(pkg)}</TableCell>
-                                        <TableCell sx={{ fontFamily: 'monospace' }}>
-                                            {getVersionDisplay(pkg)}
-                                        </TableCell>
+                    {/* Packages Table */}
+                    <Card>
+                        <TableContainer component={Paper}>
+                            <Table>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell>Package Name</TableCell>
+                                        <TableCell>Status</TableCell>
+                                        <TableCell>Installed Version</TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-            </Card>
+                                </TableHead>
+                                <TableBody>
+                                    {filteredPackages.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={3} align="center" sx={{ py: 6 }}>
+                                                <Typography variant="body1" color="text.secondary">
+                                                    No packages found matching search criteria.
+                                                </Typography>
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        filteredPackages.map((pkg) => (
+                                            <TableRow key={pkg.name}>
+                                                <TableCell sx={{ fontWeight: 500 }}>{pkg.name}</TableCell>
+                                                <TableCell>{getUpdateStatusChip(pkg)}</TableCell>
+                                                <TableCell sx={{ fontFamily: 'monospace' }}>
+                                                    {getVersionDisplay(pkg)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </Card>
+                </>
+            )}
         </Container>
     );
 };

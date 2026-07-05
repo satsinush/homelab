@@ -51,7 +51,7 @@ const Secrets = () => {
         try {
             const result = await tryApiCall<SecretsResponse>('/system/secrets');
             setSecrets((result.data.secrets || []).map(s => ({
-                name: s.key,
+                name: s.name,
                 value: s.value,
                 description: s.description
             })));
@@ -80,7 +80,7 @@ const Secrets = () => {
     };
 
     const filteredSecrets = secrets.filter(sec => 
-        sec.name.toLowerCase().includes(searchQuery.toLowerCase())
+        (sec.name ?? '').toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     if (loading) {
@@ -149,10 +149,10 @@ const Secrets = () => {
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    filteredSecrets.map((sec) => {
+                                    filteredSecrets.map((sec, index) => {
                                         const isVisible = !!visibleSecrets[sec.name];
                                         return (
-                                            <TableRow key={sec.name} hover>
+                                            <TableRow key={sec.name || index} hover>
                                                 <TableCell sx={{ fontFamily: 'monospace', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                     {sec.name}
                                                 </TableCell>

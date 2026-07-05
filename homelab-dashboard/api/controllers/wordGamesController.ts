@@ -562,21 +562,30 @@ class WordGamesController {
     // Get CLI solver binary status
     async getStatus(req: Request, res: Response) {
         try {
-            const result = await this.executeCommand('--help', 30000);
-            const status = result.success ? 'online' : 'offline';
+            const versionResult = await this.executeCommand('--version', 10000);
+            const healthy = versionResult.success;
+            const status = healthy ? 'online' : 'offline';
+            
+            // Extract version string from stdout and trim whitespace
+            let version = 'Unknown';
+            if (healthy && versionResult.stdout) {
+                version = `${versionResult.stdout.trim()}`;
+            }
             
             return sendSuccess(res, {
                 status,
-                version: '1.0.0 (C++ Solver)',
+                healthy,
+                version,
                 path: path.join(this.executableDir, this.executableFile),
                 timestamp: new Date().toISOString(),
-                error: result.error || undefined
+                error: versionResult.error || undefined
             });
         } catch (error) {
             console.error('Solver binary status error:', error);
             return sendSuccess(res, {
                 status: 'offline',
-                error: 'Word games CLI binary is not available or executable failed',
+                healthy: false,
+                version: 'Unknown',
                 path: path.join(this.executableDir, this.executableFile),
                 timestamp: new Date().toISOString()
             });

@@ -109,7 +109,8 @@ const WordGames = () => {
             console.error('Failed to check game status:', error);
             const err = error as Error;
             setGameStatus({
-                status: 'unavailable',
+                status: 'offline',
+                healthy: false,
                 message: 'Word games service is not available',
                 error: err.message || 'Unknown error'
             });
@@ -458,15 +459,8 @@ const WordGames = () => {
         setHelpModalOpen(false);
     }, []);
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'available':
-                return 'success';
-            case 'unavailable':
-                return 'error';
-            default:
-                return 'warning';
-        }
+    const getStatusColor = (healthy?: boolean) => {
+        return healthy ? 'success' : 'error';
     };
 
     return (
@@ -485,8 +479,8 @@ const WordGames = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     {gameStatus && (
                         <Chip
-                            label={gameStatus.status === 'available' ? 'Online' : 'Offline'}
-                            color={getStatusColor(gameStatus.status)}
+                            label={gameStatus.healthy ? 'Online' : 'Offline'}
+                            color={getStatusColor(gameStatus.healthy)}
                             size="small"
                         />
                     )}
@@ -501,7 +495,7 @@ const WordGames = () => {
             </Box>
 
             {/* Status Alert */}
-            {gameStatus && gameStatus.status !== 'available' && (
+            {gameStatus && !gameStatus.healthy && (
                 <Alert severity="error" sx={{ mb: 3 }}>
                     {gameStatus.message || 'Word games service is not available'}
                 </Alert>

@@ -70,7 +70,7 @@ export interface FavoriteResponse {
 }
 
 export interface Secret {
-    key: string;
+    name: string;
     value: string;
     description?: string;
 }
@@ -131,6 +131,7 @@ export interface SystemDataResponse {
 
 export interface GameStatus {
     status: string;
+    healthy?: boolean;
     message?: string;
     error?: string;
 }
