@@ -58,7 +58,7 @@ import {
     Warning as WarningIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
-import { useNotification } from '../contexts/NotificationContext';
+import { useNotification } from '../contexts/useNotification';
 import { formatDevicesForDisplay, formatMacForDisplay, normalizeMacForApi } from '../utils/formatters';
 
 interface DeviceDialogProps {

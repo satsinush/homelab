@@ -27,7 +27,7 @@ import {
     Castle as DungleonIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
-import { useNotification } from '../contexts/NotificationContext';
+import { useNotification } from '../contexts/useNotification';
 import LetterBoxedGame from './LetterBoxedGame';
 import SpellingBeeGame from './SpellingBeeGame';
 import WordleGame from './WordleGame';

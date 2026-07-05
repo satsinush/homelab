@@ -17,7 +17,7 @@ import {
     AccountCircle as AccountIcon
 } from '@mui/icons-material';
 import LocalLogin from './LocalLogin';
-import { useConfig } from '../contexts/ConfigContext';
+import { useConfig } from '../contexts/useConfig';
 
 const LoginChoice = () => {
     const [showLocalLogin, setShowLocalLogin] = useState(false);

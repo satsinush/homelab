@@ -28,7 +28,7 @@ import {
     VpnKey as KeyIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
-import { useNotification } from '../contexts/NotificationContext';
+import { useNotification } from '../contexts/useNotification';
 import { SecretsResponse } from '../types/api';
 
 interface SecretItem {

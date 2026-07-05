@@ -21,7 +21,7 @@ import {
     Settings as SetupIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/useAuth';
-import { useNotification } from '../contexts/NotificationContext';
+import { useNotification } from '../contexts/useNotification';
 import { tryApiCall } from '../utils/api';
 
 const useFirstUserCheck = () => {

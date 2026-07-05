@@ -1,5 +1,5 @@
 // src/components/Settings.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Box,
     Card,
@@ -35,8 +35,8 @@ import {
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { ServerSettings, UserSettings } from '../types/api';
-import { useThemeMode } from '../contexts/ThemeContext';
-import { useNotification } from '../contexts/NotificationContext';
+import { useThemeMode } from '../contexts/useThemeMode';
+import { useNotification } from '../contexts/useNotification';
 import { useAuth } from '../contexts/useAuth';
 
 const Settings = () => {

@@ -14,10 +14,6 @@ import {
 } from '@mui/material';
 import { NotificationContext, AppNotification, ConfirmDialogOptions, NotificationContextType } from './NotificationContextCore';
 
-// Re-export for backwards compatibility
-export { useNotification } from './useNotification';
-export type { AppNotification, ConfirmDialogOptions, NotificationContextType } from './NotificationContextCore';
-
 function SlideTransition(props: SlideProps) {
     return <Slide {...props} direction="down" />;}
 

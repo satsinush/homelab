@@ -28,7 +28,7 @@ import {
     Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
-import { useNotification } from '../contexts/NotificationContext';
+import { useNotification } from '../contexts/useNotification';
 
 interface SystemPackage {
     name: string;
@@ -50,7 +50,7 @@ const PackageManager = () => {
     const [versionSearchTerm, setVersionSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'updates', 'uptodate'
     const [lastSynced, setLastSynced] = useState<string | null>(null);
-    const { showError, showSuccess } = useNotification();
+    const { showError } = useNotification();
 
     const fetchPackages = useCallback(async () => {
         setLoading(true);

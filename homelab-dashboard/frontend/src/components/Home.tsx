@@ -24,7 +24,7 @@ import {
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../contexts/useAuth';
-import { useConfig } from '../contexts/ConfigContext';
+import { useConfig } from '../contexts/useConfig';
 import PiHoleLogo from '../assets/pi_hole_logo.png';
 import VaultwardenLogo from '../assets/vaultwarden_logo.png';
 import GatusLogo from '../assets/gatus_logo.png';

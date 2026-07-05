@@ -4,9 +4,6 @@ import { createTheme } from '@mui/material/styles';
 import { useMediaQuery } from '@mui/material';
 import { ThemeContext } from './ThemeContextCore';
 
-// Re-export for backwards compatibility
-export { useThemeMode } from './useThemeMode';
-
 interface ThemeModeProviderProps {
     children: ReactNode;
 }

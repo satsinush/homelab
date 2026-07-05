@@ -34,9 +34,9 @@ import {
     People as PeopleIcon,
     VpnKey as KeyIcon
 } from '@mui/icons-material';
-import { useThemeMode } from '../contexts/ThemeContext';
+import { useThemeMode } from '../contexts/useThemeMode';
 import { useAuth } from '../contexts/useAuth';
-import { useNotification } from '../contexts/NotificationContext';
+import { useNotification } from '../contexts/useNotification';
 
 interface NavigationProps {
     activeTab: string;

@@ -27,7 +27,7 @@ import {
     // Other icons...
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
-import { useNotification } from '../contexts/NotificationContext';
+import { useNotification } from '../contexts/useNotification';
 import { SystemInfo, ResourceMetrics, SystemTemperature, NetworkInfo, SystemDataResponse } from '../types/api';
 
 // --- Helper Components for better visualization (Suggestion) ---

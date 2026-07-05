@@ -41,7 +41,7 @@ import {
     Delete as DeleteIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
-import { useNotification } from '../contexts/NotificationContext';
+import { useNotification } from '../contexts/useNotification';
 import { OllamaStatus } from '../types/api';
 
 interface HistoryMessageItem {

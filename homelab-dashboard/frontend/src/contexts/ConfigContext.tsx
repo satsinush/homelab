@@ -4,10 +4,6 @@ import { tryApiCall } from '../utils/api';
 import { ConfigResponse } from '../types/api';
 import { ConfigContext, AppConfig } from './ConfigContextCore';
 
-// Re-export for backwards compatibility
-export { useConfig } from './useConfig';
-export type { AppConfig } from './ConfigContextCore';
-
 interface ConfigProviderProps {
     children: ReactNode;
 }

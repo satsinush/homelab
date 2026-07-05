@@ -2,11 +2,13 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider, CssBaseline, Box, CircularProgress, Typography } from '@mui/material';
-import { ThemeModeProvider, useThemeMode } from './contexts/ThemeContext';
+import { ThemeModeProvider } from './contexts/ThemeContext';
+import { useThemeMode } from './contexts/useThemeMode';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/useAuth';
-import { ConfigProvider, useConfig } from './contexts/ConfigContext';
+import { ConfigProvider } from './contexts/ConfigContext';
+import { useConfig } from './contexts/useConfig';
 import AuthGuard from './components/AuthGuard';
 import Navigation from './components/Navigation';
 import Home from './components/Home';
