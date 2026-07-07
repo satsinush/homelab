@@ -90,7 +90,7 @@ class WordGamesController {
             const username = req.user?.username || 'user';
             const resultsFilename = this.generateResultsFilename(username, 'letterboxed');
 
-            // Build command with new CLI format
+            // Build command with CLI format: letterboxed --letters <12letters> [--preset N] [-o file]
             const args = [
                 'letterboxed',
                 `--letters ${cleanLetters}`,
@@ -112,12 +112,17 @@ class WordGamesController {
 
             const command = args.join(' ');
             console.log(`Executing Letter Boxed solver: ${command}`);
-            const result = await this.executeCommand(command);
 
-            // Parse output: count and filename
+            const startTime = Date.now();
+            const result = await this.executeCommand(command);
+            const executionTime = Date.now() - startTime;
+
+            // Parse output: the C++ headless mode outputs:
+            //   line 1: solution count
+            //   line 2: output filename (no trailing newline)
             const outputLines = result.stdout.trim().split('\n');
-            const totalFound = parseInt(outputLines[0]);
-            const actualResultsFile = outputLines[1];
+            const totalFound = parseInt(outputLines[0]) || 0;
+            const actualResultsFile = (outputLines[1] || resultsFilename).trim();
 
             // Verify file exists
             const fullResultsPath = path.join(this.executableDir, actualResultsFile);
@@ -133,13 +138,20 @@ class WordGamesController {
             // Schedule deletion after 1 hour
             this.scheduleFileCleanup(actualResultsFile);
 
+            const isLimited = totalFound > (endIndex - startIndex);
+
             return sendSuccess(res, {
                 success: true,
-                total: totalFound,
+                totalSolutions: Math.min(totalFound, endIndex - startIndex),
+                actualTotalFound: totalFound,
+                isLimited,
+                executionTime,
+                start: startIndex,
+                end: endIndex,
                 solutions: solutions,
                 resultsFile: actualResultsFile,
+                actualResultsFile: actualResultsFile,
                 letters: cleanLetters,
-                range: { start: startIndex, end: endIndex },
                 timestamp: new Date().toISOString()
             });
 
@@ -192,15 +204,30 @@ class WordGamesController {
             const username = req.user?.username || 'user';
             const resultsFilename = this.generateResultsFilename(username, 'spellingbee');
 
-            // Build command with new CLI format
-            const command = `spellingbee --center ${cleanCenter} --outer ${cleanOuter} --min-len ${parseInt(minWordLength)} -o ${resultsFilename}`;
-            console.log(`Executing Spelling Bee solver: ${command}`);
-            const result = await this.executeCommand(command);
+            // Build command with CLI format: spellingbee --letters <letters> [options] -o <file>
+            // The C++ CLI expects --letters with center letter first, followed by outer letters
+            const allLetters = cleanCenter + cleanOuter;
+            const args = [
+                'spellingbee',
+                `--letters ${allLetters}`,
+                `--must-include-first-letter 1`,
+                `--reuse-letters 1`,
+                `-o ${resultsFilename}`
+            ];
 
-            // Parse output: count and filename
+            const command = args.join(' ');
+            console.log(`Executing Spelling Bee solver: ${command}`);
+
+            const startTime = Date.now();
+            const result = await this.executeCommand(command);
+            const executionTime = Date.now() - startTime;
+
+            // Parse output: the C++ headless mode outputs:
+            //   line 1: word count
+            //   line 2: output filename (no trailing newline)
             const outputLines = result.stdout.trim().split('\n');
-            const totalFound = parseInt(outputLines[0]);
-            const actualResultsFile = outputLines[1];
+            const totalFound = parseInt(outputLines[0]) || 0;
+            const actualResultsFile = (outputLines[1] || resultsFilename).trim();
 
             // Verify file exists
             const fullResultsPath = path.join(this.executableDir, actualResultsFile);
@@ -208,22 +235,30 @@ class WordGamesController {
                 return sendError(res, 500, 'Solver executed but results file was not found');
             }
 
-            // Read the requested chunk
+            // Read the requested chunk (SpellingBee results file has NO header rows, just words)
             const startIndex = parseInt(start) || 0;
             const endIndex = parseInt(end) || 100;
-            const solutions = await this.readResultsChunk(actualResultsFile, startIndex, endIndex);
+            const solutions = await this.readResultsChunkNoHeader(actualResultsFile, startIndex, endIndex);
 
             // Schedule deletion after 1 hour
             this.scheduleFileCleanup(actualResultsFile);
 
+            const isLimited = totalFound > (endIndex - startIndex);
+
             return sendSuccess(res, {
                 success: true,
-                total: totalFound,
+                totalSolutions: Math.min(totalFound, endIndex - startIndex),
+                actualTotalFound: totalFound,
+                isLimited,
+                executionTime,
+                start: startIndex,
+                end: endIndex,
                 solutions: solutions,
                 resultsFile: actualResultsFile,
+                actualResultsFile: actualResultsFile,
+                letters: allLetters,
                 centerLetter: cleanCenter,
                 outerLetters: cleanOuter,
-                range: { start: startIndex, end: endIndex },
                 timestamp: new Date().toISOString()
             });
 
@@ -241,9 +276,8 @@ class WordGamesController {
                 guesses = [],
                 results = [],
                 wordLength = 5,
-                dictionary = 'wordle',
-                possibleWordsCount = 20,
-                guessesCount = 20
+                maxDepth = 0,
+                excludeUncommonWords = 0
             } = req.body;
 
             if (!req.body || typeof req.body !== 'object') {
@@ -271,29 +305,78 @@ class WordGamesController {
                 }
             }
 
+            const username = req.user?.username || 'user';
+            const resultsFilename = this.generateResultsFilename(username, 'wordle');
+
+            // Build command with CLI format: wordle --word-length N --max-depth N --guesses "WORD COLORS;..." -o file
+            // The C++ CLI expects --guesses with format "WORD COLORS;WORD2 COLORS2"
+            // where COLORS uses 0=grey, 1=yellow, 2=green
             const args = [
                 'wordle',
-                `--len ${len}`,
-                `--dict ${dictionary}`,
-                `--limit-words ${parseInt(possibleWordsCount)}`,
-                `--limit-guesses ${parseInt(guessesCount)}`
+                `--word-length ${len}`,
+                `--max-depth ${parseInt(maxDepth) || 0}`,
+                `--exclude-uncommon-words ${excludeUncommonWords ? 1 : 0}`,
+                `-o ${resultsFilename}`
             ];
 
-            // Add guesses and results in format: --guess G1:R1 --guess G2:R2
-            for (let i = 0; i < guesses.length; i++) {
-                args.push(`--guess ${guesses[i].toLowerCase()}:${results[i].toUpperCase()}`);
+            // Build the --guesses string: convert G/Y/X feedback to 0/1/2 numeric format
+            if (guesses.length > 0) {
+                const feedbackColorMap: Record<string, string> = { 'X': '0', 'Y': '1', 'G': '2' };
+                const guessPairs = guesses.map((guess: string, i: number) => {
+                    const word = guess.toLowerCase();
+                    const colors = results[i].toUpperCase().split('').map((c: string) => feedbackColorMap[c] || '0').join('');
+                    return `${word} ${colors}`;
+                });
+                args.push(`--guesses "${guessPairs.join(';')}"`);
             }
 
             const command = args.join(' ');
             console.log(`Executing Wordle solver: ${command}`);
-            const result = await this.executeCommand(command);
 
-            const parsed = this.parseWordleOutput(result.stdout, possibleWordsCount);
+            const startTime = Date.now();
+            const resultVal = await this.executeCommand(command);
+            const executionTime = Date.now() - startTime;
+
+            // Parse stdout: the C++ headless mode outputs:
+            //   line 1: total possible words count
+            //   line 2: total sorted guesses count
+            //   line 3: output filename (no trailing newline)
+            const outputLines = resultVal.stdout.trim().split('\n');
+            const possibleWordsCount = parseInt(outputLines[0]) || 0;
+            const guessesCount = parseInt(outputLines[1]) || 0;
+            const actualResultsFile = (outputLines[2] || resultsFilename).trim();
+
+            // Read the results file to get words and entropy data
+            // File format: possible words (one per line), then CSV lines: word,entropy,probability
+            let possibleWords: string[] = [];
+            let guessesWithEntropy: GuessWithEntropy[] = [];
+
+            const fullPath = path.join(this.executableDir, actualResultsFile);
+            if (fs.existsSync(fullPath)) {
+                const fileContent = fs.readFileSync(fullPath, 'utf8');
+                const parsed = this.parseWordleOutput(fileContent, possibleWordsCount);
+                possibleWords = parsed.possibleWords;
+                guessesWithEntropy = parsed.guessesWithEntropy;
+
+                // Schedule deletion after 1 hour
+                this.scheduleFileCleanup(actualResultsFile);
+            }
+
+            const isLimitedPossible = possibleWords.length > 100;
+            const isLimitedGuesses = guessesWithEntropy.length > 100;
 
             return sendSuccess(res, {
                 success: true,
-                possibleWords: parsed.possibleWords,
-                guessesWithEntropy: parsed.guessesWithEntropy,
+                possibleWordsCount,
+                guessesCount,
+                isLimitedPossible,
+                isLimitedGuesses,
+                executionTime,
+                start: 0,
+                end: 100,
+                possibleWords: possibleWords.slice(0, 100),
+                guessesWithEntropy: guessesWithEntropy.slice(0, 100),
+                resultsFile: actualResultsFile,
                 timestamp: new Date().toISOString()
             });
 
@@ -314,8 +397,7 @@ class WordGamesController {
                 slots = 4,
                 colors = 6,
                 duplicates = true,
-                possiblePatternsCount = 20,
-                guessesCount = 20
+                maxDepth = 1
             } = req.body;
 
             if (!req.body || typeof req.body !== 'object') {
@@ -354,30 +436,78 @@ class WordGamesController {
                 }
             }
 
+            const username = req.user?.username || 'user';
+            const resultsFilename = this.generateResultsFilename(username, 'mastermind');
+
+            // Build command with CLI format: mastermind --pegs N --colors "CHARS" --allow-duplicates N --max-depth N --guesses "PATTERN B W;..." -o file
+            // Generate the color character string (e.g., 6 colors -> "ABCDEF")
+            let colorChars = '';
+            for (let i = 0; i < colorsCount; i++) {
+                colorChars += String.fromCharCode(65 + i);
+            }
+
             const args = [
                 'mastermind',
-                `--slots ${slotsCount}`,
-                `--colors ${colorsCount}`,
-                `--dups ${duplicates ? 1 : 0}`,
-                `--limit-patterns ${parseInt(possiblePatternsCount)}`,
-                `--limit-guesses ${parseInt(guessesCount)}`
+                `--pegs ${slotsCount}`,
+                `--colors "${colorChars}"`,
+                `--allow-duplicates ${duplicates ? 1 : 0}`,
+                `--max-depth ${parseInt(maxDepth) || 1}`,
+                `-o ${resultsFilename}`
             ];
 
-            // Add guesses and pegs: --guess PATTERN:B:W
-            for (let i = 0; i < guesses.length; i++) {
-                args.push(`--guess ${guesses[i].toUpperCase()}:${blackPegs[i]}:${whitePegs[i]}`);
+            // Build the --guesses string: "PATTERN B W;PATTERN2 B2 W2"
+            if (guesses.length > 0) {
+                const guessPairs = guesses.map((guess: string, i: number) => {
+                    return `${guess.toUpperCase()} ${blackPegs[i]} ${whitePegs[i]}`;
+                });
+                args.push(`--guesses "${guessPairs.join(';')}"`);
             }
 
             const command = args.join(' ');
             console.log(`Executing Mastermind solver: ${command}`);
-            const result = await this.executeCommand(command);
 
-            const parsed = this.parseMastermindOutput(result.stdout, possiblePatternsCount);
+            const startTime = Date.now();
+            const result = await this.executeCommand(command);
+            const executionTime = Date.now() - startTime;
+
+            // Parse stdout: the C++ headless mode outputs:
+            //   line 1: total possible patterns count
+            //   line 2: total sorted guesses count
+            //   line 3: output filename (no trailing newline)
+            const outputLines = result.stdout.trim().split('\n');
+            const possibleCount = parseInt(outputLines[0]) || 0;
+            const guessesCount = parseInt(outputLines[1]) || 0;
+            const actualResultsFile = (outputLines[2] || resultsFilename).trim();
+
+            // Read the results file
+            let possiblePatterns: string[] = [];
+            let guessesWithEntropy: GuessWithEntropy[] = [];
+
+            const fullPath = path.join(this.executableDir, actualResultsFile);
+            if (fs.existsSync(fullPath)) {
+                const fileContent = fs.readFileSync(fullPath, 'utf8');
+                const parsed = this.parseMastermindOutput(fileContent, possibleCount);
+                possiblePatterns = parsed.possiblePatterns;
+                guessesWithEntropy = parsed.guessesWithEntropy;
+
+                this.scheduleFileCleanup(actualResultsFile);
+            }
+
+            const isLimitedPossible = possiblePatterns.length > 100;
+            const isLimitedGuesses = guessesWithEntropy.length > 100;
 
             return sendSuccess(res, {
                 success: true,
-                possiblePatterns: parsed.possiblePatterns,
-                guessesWithEntropy: parsed.guessesWithEntropy,
+                possibleCount,
+                guessesCount,
+                isLimitedPossible,
+                isLimitedGuesses,
+                executionTime,
+                start: 0,
+                end: 100,
+                possiblePatterns: possiblePatterns.slice(0, 100),
+                guessesWithEntropy: guessesWithEntropy.slice(0, 100),
+                resultsFile: actualResultsFile,
                 timestamp: new Date().toISOString()
             });
 
@@ -394,8 +524,8 @@ class WordGamesController {
             const {
                 guesses = [],
                 results = [],
-                possiblePatternsCount = 20,
-                guessesCount = 20
+                maxDepth = 0,
+                excludeImpossiblePatterns = 0
             } = req.body;
 
             if (!req.body || typeof req.body !== 'object') {
@@ -421,29 +551,77 @@ class WordGamesController {
                 }
             }
 
+            const username = req.user?.username || 'user';
+            const resultsFilename = this.generateResultsFilename(username, 'dungleon');
+
+            // Build command with CLI format: dungleon --max-depth N --guesses "chars colors;..." -o file
+            // The C++ CLI expects --guesses with format "ar kn ma bt dr 01234;ar kn bo ne fr 00010"
+            // where colors are 0-4 (not G/Y/X/R/D)
             const args = [
                 'dungleon',
-                `--limit-patterns ${parseInt(possiblePatternsCount)}`,
-                `--limit-guesses ${parseInt(guessesCount)}`
+                `--max-depth ${parseInt(maxDepth) || 0}`,
+                `--exclude-impossible ${excludeImpossiblePatterns ? 1 : 0}`,
+                `-o ${resultsFilename}`
             ];
 
-            // Add guesses and results in format: --guess "hero monster chest sword shield:GGYYX"
-            for (let i = 0; i < guesses.length; i++) {
-                // Ensure guess is normalized (single spaces, lowercase)
-                const normalizedGuess = guesses[i].toLowerCase().replace(/\s+/g, ' ');
-                args.push(`--guess "${normalizedGuess}:${results[i].toUpperCase()}"`);
+            // Build the --guesses string: convert G/Y/X/R/D to 0-4 numeric format
+            if (guesses.length > 0) {
+                // Dungleon colors: X=0 (not present), Y=1 (wrong pos no more), G=2 (correct pos no more),
+                //                   R=3 (wrong pos one more), D=4 (correct pos one more)
+                const feedbackColorMap: Record<string, string> = { 'X': '0', 'Y': '1', 'G': '2', 'R': '3', 'D': '4' };
+                const guessPairs = guesses.map((guess: string, i: number) => {
+                    const normalizedGuess = guess.toLowerCase().replace(/\s+/g, ' ').trim();
+                    const colors = results[i].toUpperCase().split('').map((c: string) => feedbackColorMap[c] || '0').join('');
+                    return `${normalizedGuess} ${colors}`;
+                });
+                args.push(`--guesses "${guessPairs.join(';')}"`);
             }
 
             const command = args.join(' ');
             console.log(`Executing Dungleon solver: ${command}`);
-            const result = await this.executeCommand(command);
 
-            const parsed = this.parseDungleonOutput(result.stdout, possiblePatternsCount);
+            const startTime = Date.now();
+            const result = await this.executeCommand(command);
+            const executionTime = Date.now() - startTime;
+
+            // Parse stdout: the C++ headless mode outputs:
+            //   line 1: total possible patterns count
+            //   line 2: total sorted guesses count
+            //   line 3: output filename (no trailing newline)
+            const outputLines = result.stdout.trim().split('\n');
+            const possiblePatternsCount = parseInt(outputLines[0]) || 0;
+            const guessesCount = parseInt(outputLines[1]) || 0;
+            const actualResultsFile = (outputLines[2] || resultsFilename).trim();
+
+            // Read the results file
+            let possiblePatterns: string[] = [];
+            let guessesWithEntropy: GuessWithEntropy[] = [];
+
+            const fullPath = path.join(this.executableDir, actualResultsFile);
+            if (fs.existsSync(fullPath)) {
+                const fileContent = fs.readFileSync(fullPath, 'utf8');
+                const parsed = this.parseDungleonOutput(fileContent, possiblePatternsCount);
+                possiblePatterns = parsed.possiblePatterns;
+                guessesWithEntropy = parsed.guessesWithEntropy;
+
+                this.scheduleFileCleanup(actualResultsFile);
+            }
+
+            const isLimitedPossible = possiblePatterns.length > 100;
+            const isLimitedGuesses = guessesWithEntropy.length > 100;
 
             return sendSuccess(res, {
                 success: true,
-                possiblePatterns: parsed.possiblePatterns,
-                guessesWithEntropy: parsed.guessesWithEntropy,
+                possiblePatternsCount,
+                guessesCount,
+                isLimitedPossible,
+                isLimitedGuesses,
+                executionTime,
+                start: 0,
+                end: 100,
+                possiblePatterns: possiblePatterns.slice(0, 100),
+                guessesWithEntropy: guessesWithEntropy.slice(0, 100),
+                resultsFile: actualResultsFile,
                 timestamp: new Date().toISOString()
             });
 
@@ -459,10 +637,9 @@ class WordGamesController {
         try {
             const {
                 pattern,
-                guessedLetters = '',
-                dictionary = 'wordle',
-                letterSuggestionsCount = 26,
-                possibleWordsCount = 20
+                excludedLetters = '',
+                maxDepth = 0,
+                excludeUncommonWords = false
             } = req.body;
 
             if (!req.body || typeof req.body !== 'object') {
@@ -473,36 +650,82 @@ class WordGamesController {
                 return sendError(res, 400, 'Pattern is required and must be a string (e.g., "_PP_E")');
             }
 
-            const cleanPattern = pattern.trim().replace(/\s/g, '').toUpperCase();
-            const cleanGuessed = (typeof guessedLetters === 'string' ? guessedLetters : '').replace(/[^a-z]/gi, '').toUpperCase();
+            // Accept both ? and _ as unknown characters, normalize to _
+            const cleanPattern = pattern.trim().toUpperCase().replace(/\?/g, '_');
+            const cleanGuessed = (typeof excludedLetters === 'string' ? excludedLetters : '').replace(/[^a-z]/gi, '').toUpperCase();
 
-            // Validate pattern (must contain only letters and underscores)
-            if (!/^[A-Z_]+$/.test(cleanPattern)) {
-                return sendError(res, 400, 'Pattern must contain only alphabetic characters and underscores');
+            // Validate pattern (must contain only letters, underscores, and spaces)
+            if (!/^[A-Z_ ]+$/.test(cleanPattern)) {
+                return sendError(res, 400, 'Pattern must contain only alphabetic characters, underscores (_), and spaces');
             }
+
+            const username = req.user?.username || 'user';
+            const resultsFilename = this.generateResultsFilename(username, 'hangman');
+
+            // Build command with CLI format: hangman --input "PATTERN;STRIKES" --max-depth N --exclude-uncommon-words N -o file
+            // The C++ CLI expects --input with format "PATTERN;STRIKES" or separate --pattern and --strikes
+            // Pattern uses _ for unknown letters (lowercase internally)
+            const patternLower = cleanPattern.toLowerCase();
 
             const args = [
                 'hangman',
-                `--pattern ${cleanPattern}`,
-                `--dict ${dictionary}`,
-                `--limit-letters ${parseInt(letterSuggestionsCount)}`,
-                `--limit-words ${parseInt(possibleWordsCount)}`
+                `--max-depth ${parseInt(maxDepth) || 0}`,
+                `--exclude-uncommon-words ${excludeUncommonWords ? 1 : 0}`,
+                `-o ${resultsFilename}`
             ];
 
+            // Use --input format: "pattern;strikes"
             if (cleanGuessed.length > 0) {
-                args.push(`--guessed ${cleanGuessed}`);
+                args.push(`--input "${patternLower};${cleanGuessed.toLowerCase()}"`);
+            } else {
+                args.push(`--pattern "${patternLower}"`);
             }
 
             const command = args.join(' ');
             console.log(`Executing Hangman solver: ${command}`);
-            const result = await this.executeCommand(command);
 
-            const parsed = this.parseHangmanOutput(result.stdout, letterSuggestionsCount);
+            const startTime = Date.now();
+            const result = await this.executeCommand(command);
+            const executionTime = Date.now() - startTime;
+
+            // Parse stdout: the C++ headless mode outputs:
+            //   line 1: total possible words count
+            //   line 2: total letter guesses count
+            //   line 3: output filename (no trailing newline)
+            const outputLines = result.stdout.trim().split('\n');
+            const possibleWordsCount = parseInt(outputLines[0]) || 0;
+            const letterGuessesCount = parseInt(outputLines[1]) || 0;
+            const actualResultsFile = (outputLines[2] || resultsFilename).trim();
+
+            // Read the results file
+            let letterSuggestions: LetterSuggestion[] = [];
+            let possibleWords: string[] = [];
+
+            const fullPath = path.join(this.executableDir, actualResultsFile);
+            if (fs.existsSync(fullPath)) {
+                const fileContent = fs.readFileSync(fullPath, 'utf8');
+                const parsed = this.parseHangmanOutput(fileContent, letterGuessesCount);
+                letterSuggestions = parsed.letterSuggestions;
+                possibleWords = parsed.possibleWords;
+
+                this.scheduleFileCleanup(actualResultsFile);
+            }
+
+            const isLimited = possibleWords.length > 100;
 
             return sendSuccess(res, {
                 success: true,
-                letterSuggestions: parsed.letterSuggestions,
-                possibleWords: parsed.possibleWords,
+                pattern: cleanPattern,
+                excludedLetters: cleanGuessed,
+                possibleWordsCount,
+                letterGuessesCount,
+                isLimited,
+                executionTime,
+                start: 0,
+                end: 100,
+                letterSuggestions,
+                possibleWords: possibleWords.slice(0, 100),
+                resultsFile: actualResultsFile,
                 timestamp: new Date().toISOString()
             });
 
@@ -517,17 +740,20 @@ class WordGamesController {
     async loadResults(req: Request, res: Response) {
         try {
             const {
-                resultsFile,
                 start = 0,
-                end = 100
+                end = 100,
+                gameMode,
+                fileType
             } = req.body;
+
+            const resultsFile = req.body.resultsFile || req.body.filePath;
 
             if (!req.body || typeof req.body !== 'object') {
                 return sendError(res, 400, 'Invalid request body');
             }
 
             if (!resultsFile || typeof resultsFile !== 'string') {
-                return sendError(res, 400, 'resultsFile parameter is required and must be a string');
+                return sendError(res, 400, 'resultsFile or filePath parameter is required and must be a string');
             }
 
             // Prevent path traversal
@@ -542,11 +768,58 @@ class WordGamesController {
             const endIndex = parseInt(end) || 100;
             
             const relativePath = path.join(this.resultsFolder, cleanResultsFile);
-            const solutions = await this.readResultsChunk(relativePath, startIndex, endIndex);
+
+            // Handle pagination based on gameMode
+            if (gameMode === 'wordle' || gameMode === 'mastermind' || gameMode === 'hangman' || gameMode === 'dungleon') {
+                const fileContent = fs.readFileSync(fullResultsPath, 'utf8');
+                let solutions: any = {};
+
+                if (gameMode === 'wordle') {
+                    const parsed = this.parseWordleOutput(fileContent, 0);
+                    if (fileType === 'possible') {
+                        solutions = { possibleWords: parsed.possibleWords.slice(startIndex, endIndex) };
+                    } else {
+                        solutions = { guessesWithEntropy: parsed.guessesWithEntropy.slice(startIndex, endIndex) };
+                    }
+                } else if (gameMode === 'mastermind') {
+                    const parsed = this.parseMastermindOutput(fileContent, 0);
+                    if (fileType === 'possible') {
+                        solutions = { possiblePatterns: parsed.possiblePatterns.slice(startIndex, endIndex) };
+                    } else {
+                        solutions = { guessesWithEntropy: parsed.guessesWithEntropy.slice(startIndex, endIndex) };
+                    }
+                } else if (gameMode === 'hangman') {
+                    const parsed = this.parseHangmanOutput(fileContent, 0);
+                    solutions = { possibleWords: parsed.possibleWords.slice(startIndex, endIndex) };
+                } else if (gameMode === 'dungleon') {
+                    const parsed = this.parseDungleonOutput(fileContent, 0);
+                    if (fileType === 'possible') {
+                        solutions = { possiblePatterns: parsed.possiblePatterns.slice(startIndex, endIndex) };
+                    } else {
+                        solutions = { guessesWithEntropy: parsed.guessesWithEntropy.slice(startIndex, endIndex) };
+                    }
+                }
+
+                return sendSuccess(res, {
+                    success: true,
+                    solutions: solutions,
+                    resultsFile: relativePath,
+                    range: { start: startIndex, end: endIndex },
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            let solutions: string[] = [];
+            if (gameMode === 'spellingbee') {
+                solutions = await this.readResultsChunkNoHeader(relativePath, startIndex, endIndex);
+            } else {
+                solutions = await this.readResultsChunk(relativePath, startIndex, endIndex);
+            }
 
             return sendSuccess(res, {
                 success: true,
                 solutions: solutions,
+                solutionsList: solutions,
                 resultsFile: relativePath,
                 range: { start: startIndex, end: endIndex },
                 timestamp: new Date().toISOString()
@@ -615,7 +888,7 @@ class WordGamesController {
         });
     }
 
-    // Read a specific chunk of lines from a results file (efficiently using readline)
+    // Read a specific chunk of lines from a results file (with 2-line header skip)
     readResultsChunk(resultsFile: string, start: number, end: number): Promise<string[]> {
         return new Promise((resolve, reject) => {
             const fullPath = path.join(this.executableDir, resultsFile);
@@ -659,6 +932,45 @@ class WordGamesController {
         });
     }
 
+    // Read a specific chunk of lines from a results file (no header skip)
+    readResultsChunkNoHeader(resultsFile: string, start: number, end: number): Promise<string[]> {
+        return new Promise((resolve, reject) => {
+            const fullPath = path.join(this.executableDir, resultsFile);
+            
+            if (!fs.existsSync(fullPath)) {
+                return reject(new Error(`Results file not found: ${resultsFile}`));
+            }
+
+            const input = fs.createReadStream(fullPath);
+            const rl = readline.createInterface({
+                input,
+                crlfDelay: Infinity
+            });
+
+            const lines: string[] = [];
+            let lineCount = 0;
+
+            rl.on('line', (line) => {
+                if (lineCount >= start && lineCount < end) {
+                    lines.push(line.trim());
+                }
+                lineCount++;
+                
+                if (lineCount >= end) {
+                    rl.close();
+                }
+            });
+
+            rl.on('close', () => {
+                resolve(lines);
+            });
+
+            rl.on('error', (err) => {
+                reject(err);
+            });
+        });
+    }
+
     // Parse generic word game output
     parseWordGameOutput(output: string): string[] {
         if (!output || typeof output !== 'string') {
@@ -673,7 +985,8 @@ class WordGamesController {
         return solutions;
     }
 
-    // Parse Wordle output
+    // Parse Wordle results file
+    // File format: possible words (plain words, one per line), then CSV lines: word,entropy,probability
     parseWordleOutput(output: string, _possibleCount: number): { possibleWords: string[]; guessesWithEntropy: GuessWithEntropy[] } {
         if (!output || typeof output !== 'string') {
             return { possibleWords: [], guessesWithEntropy: [] };
@@ -707,7 +1020,8 @@ class WordGamesController {
         return { possibleWords, guessesWithEntropy };
     }
 
-    // Parse Mastermind output
+    // Parse Mastermind results file
+    // File format: possible patterns (plain, one per line), then CSV lines: pattern,entropy,probability
     parseMastermindOutput(output: string, _possibleCount: number): { possiblePatterns: string[]; guessesWithEntropy: GuessWithEntropy[] } {
         if (!output || typeof output !== 'string') {
             return { possiblePatterns: [], guessesWithEntropy: [] };
@@ -741,7 +1055,8 @@ class WordGamesController {
         return { possiblePatterns, guessesWithEntropy };
     }
 
-    // Parse Hangman output
+    // Parse Hangman results file
+    // File format: letter guesses (letter entropy probability, space-separated), then possible words (one per line)
     parseHangmanOutput(output: string, _letterCount: number): { letterSuggestions: LetterSuggestion[]; possibleWords: string[] } {
         if (!output || typeof output !== 'string') {
             return { letterSuggestions: [], possibleWords: [] };
@@ -773,7 +1088,8 @@ class WordGamesController {
         return { letterSuggestions, possibleWords };
     }
 
-    // Parse Dungleon output
+    // Parse Dungleon results file
+    // File format: possible patterns (space-separated char pairs, one per line), then CSV lines: pattern,entropy,probability
     parseDungleonOutput(output: string, _possibleCount: number): { possiblePatterns: string[]; guessesWithEntropy: GuessWithEntropy[] } {
         if (!output || typeof output !== 'string') {
             return { possiblePatterns: [], guessesWithEntropy: [] };

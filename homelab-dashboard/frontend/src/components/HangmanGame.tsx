@@ -24,9 +24,11 @@ import { HangmanResultState, GameStatus } from '../types/api';
 interface HangmanResultsProps {
     results: HangmanResultState | null;
     onCopyToClipboard: (text: string) => void;
+    onLoadMore?: (type: string) => void;
+    isLoading?: boolean;
 }
 
-const HangmanResults = React.memo(({ results, onCopyToClipboard }: HangmanResultsProps) => {
+const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isLoading }: HangmanResultsProps) => {
     const formatRoundedNum = (num: number) => {
         if (!num) return '0.00';
         if (num > 0 && num.toFixed(2) === '0.00') return '<0.01';
@@ -47,7 +49,7 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard }: HangmanResult
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                                 <Box>
                                     <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-                                        Possible Words ({results.gameData?.possibleWordsCount || results.possibleWords.length})
+                                        Possible Words ({results.possibleWords.length}/{results.gameData?.possibleWordsCount || results.possibleWords.length})
                                     </Typography>
                                 </Box>
                                 {results.possibleWords.length > 0 && (
@@ -89,10 +91,16 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard }: HangmanResult
                                     ))}
                                 </Stack>
                             </Box>
-                            {results.possibleWords.length > 50 && (
-                                <Typography variant="body2" color="text.secondary" sx={{ mt: 1, fontStyle: 'italic' }}>
-                                    Results may be truncated.
-                                </Typography>
+                            {results.gameData && results.gameData.isLimited && results.possibleWords.length < (results.gameData.possibleWordsCount || 0) && (
+                                <Button
+                                    variant="contained"
+                                    onClick={() => onLoadMore && onLoadMore('possible')}
+                                    disabled={isLoading}
+                                    sx={{ mt: 2 }}
+                                    size="small"
+                                >
+                                    Load More
+                                </Button>
                             )}
                         </CardContent>
                     </Card>
@@ -170,9 +178,10 @@ interface HangmanGameProps {
     onClear: () => void;
     showError: (message: string) => void;
     results: HangmanResultState | null;
+    onLoadMore?: (type: string) => void;
 }
 
-const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, results }: HangmanGameProps) => {
+const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, results, onLoadMore }: HangmanGameProps) => {
     const [pattern, setPattern] = useState('');
     const [excludedLetters, setExcludedLetters] = useState('');
     const [settingsOpen, setSettingsOpen] = useState(false);
@@ -197,7 +206,8 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
     ];
 
     const handlePatternChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        const cleanValue = e.target.value.replace(/[^a-zA-Z? ]/g, '').toUpperCase();
+        // Accept both ? and _ as unknown characters, normalize to _
+        const cleanValue = e.target.value.replace(/[^a-zA-Z?_ ]/g, '').replace(/\?/g, '_').toUpperCase();
         setPattern(cleanValue);
     }, []);
 
@@ -257,7 +267,7 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
                             Hangman Solver
                         </Typography>
                         <Typography variant="body1" color="text.secondary">
-                            Enter the word pattern using ? for unknown letters
+                            Enter the word pattern using _ for unknown letters
                         </Typography>
                     </Box>
 
@@ -296,12 +306,12 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
 
                                 {/* Pattern Input */}
                                 <TextField
-                                    label="Word Pattern (use ? for unknown letters)"
+                                    label="Word Pattern (use _ for unknown letters)"
                                     value={pattern}
                                     onChange={handlePatternChange}
                                     fullWidth
-                                    placeholder="e.g., ?A?? ???"
-                                    helperText="Enter word patterns separated by spaces. Use ? for unknown letters."
+                                    placeholder="e.g., _A__ ___"
+                                    helperText="Enter word patterns separated by spaces. Use _ for unknown letters."
                                     InputProps={{
                                         style: {
                                             fontFamily: 'monospace',
@@ -353,7 +363,7 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
                                 <Button
                                     variant="contained"
                                     onClick={handleSolve}
-                                    disabled={isLoading || gameStatus?.status !== 'available' || !pattern.trim()}
+                                    disabled={isLoading || !gameStatus?.healthy || !pattern.trim()}
                                     startIcon={isLoading ? <CircularProgress size={20} /> : <PlayIcon />}
                                     fullWidth
                                     size="large"
@@ -385,6 +395,8 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
             <HangmanResults
                 results={results}
                 onCopyToClipboard={handleCopyToClipboard}
+                onLoadMore={onLoadMore}
+                isLoading={isLoading}
             />
         </>
     );

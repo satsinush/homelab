@@ -351,6 +351,12 @@ const WordGames = () => {
             currentCount = type === 'possible' ? mastermindResults.possiblePatterns.length : mastermindResults.guessesWithEntropy.length;
             gameMode = 'mastermind';
             fileType = type;
+        } else if (activeTab === 4) {
+            if (!hangmanResults.gameData) return;
+            resultsFile = hangmanResults.gameData.resultsFile;
+            currentCount = hangmanResults.possibleWords.length;
+            gameMode = 'hangman';
+            fileType = 'possible';
         } else if (activeTab === 5) {
             if (!dungleonResults.gameData) return;
             resultsFile = dungleonResults.gameData.resultsFile;
@@ -422,6 +428,11 @@ const WordGames = () => {
                         ]
                     }));
                 }
+            } else if (activeTab === 4) {
+                setHangmanResults(prev => ({
+                    ...prev,
+                    possibleWords: [...prev.possibleWords, ...(response.data.solutions?.possibleWords || [])]
+                }));
             } else if (activeTab === 5) {
                 if (type === 'possible') {
                     setDungleonResults(prev => ({
@@ -449,7 +460,7 @@ const WordGames = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [activeTab, letterBoxedResults, spellingBeeResults, wordleResults, mastermindResults, dungleonResults, showSuccess, showError]);
+    }, [activeTab, letterBoxedResults, spellingBeeResults, wordleResults, mastermindResults, hangmanResults, dungleonResults, showSuccess, showError]);
 
     const handleHelpOpen = useCallback(() => {
         setHelpModalOpen(true);
@@ -464,19 +475,19 @@ const WordGames = () => {
     };
 
     return (
-        <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 } }}>
-            {/* Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                        <GamesIcon sx={{ fontSize: 32, color: 'primary.main' }} />
-                        <Box sx={{ typography: 'h4', fontWeight: 600 }}>Word Games</Box>
-                    </Box>
-                    <Box sx={{ typography: 'body1', color: 'text.secondary' }}>
-                        Solve Letter Boxed, Spelling Bee, Wordle, Mastermind, and Hangman puzzles
-                    </Box>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Container maxWidth={false} sx={{ py: 2, px: { xs: 1, sm: 2, md: 3 } }}>
+            {/* Header / Game Selector Row */}
+            <Box sx={{ 
+                display: 'flex', 
+                flexDirection: { xs: 'column', md: 'row' }, 
+                justifyContent: 'space-between', 
+                alignItems: { xs: 'stretch', md: 'center' }, 
+                mb: 2, 
+                gap: 2 
+            }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <GamesIcon sx={{ fontSize: 28, color: 'primary.main' }} />
+                    <Box sx={{ typography: 'h5', fontWeight: 600 }}>Word Games</Box>
                     {gameStatus && (
                         <Chip
                             label={gameStatus.healthy ? 'Online' : 'Offline'}
@@ -486,77 +497,76 @@ const WordGames = () => {
                     )}
                     <Tooltip title="Refresh Status">
                         <span>
-                            <IconButton onClick={checkGameStatus} color="primary" disabled={isLoading}>
-                                {isLoading ? <CircularProgress size={20} /> : <RefreshIcon />}
+                            <IconButton onClick={checkGameStatus} color="primary" disabled={isLoading} size="small">
+                                {isLoading ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
                             </IconButton>
                         </span>
                     </Tooltip>
+                </Box>
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: { xs: '100%', md: '280px' } }}>
+                    <FormControl fullWidth size="small">
+                        <InputLabel id="game-select-label">Select Game</InputLabel>
+                        <Select
+                            labelId="game-select-label"
+                            id="game-select"
+                            value={activeTab}
+                            onChange={(e) => handleTabChange(e, e.target.value)}
+                            label="Select Game"
+                        >
+                            <MenuItem value={0}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <LetterBoxedIcon fontSize="small" /> Letter Boxed
+                                </Box>
+                            </MenuItem>
+                            <MenuItem value={1}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Bee fontSize="small" /> Spelling Bee
+                                </Box>
+                            </MenuItem>
+                            <MenuItem value={2}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <QuizIcon fontSize="small" /> Wordle
+                                </Box>
+                            </MenuItem>
+                            <MenuItem value={3}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <MastermindIcon fontSize="small" /> Mastermind
+                                </Box>
+                            </MenuItem>
+                            <MenuItem value={4}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <HangmanIcon fontSize="small" /> Hangman
+                                </Box>
+                            </MenuItem>
+                            <MenuItem value={5}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <DungleonIcon fontSize="small" /> Dungleon
+                                </Box>
+                            </MenuItem>
+                        </Select>
+                    </FormControl>
+
+                    <Button
+                        startIcon={<HelpIcon />}
+                        onClick={handleHelpOpen}
+                        size="small"
+                        sx={{ whiteSpace: 'nowrap' }}
+                    >
+                        Help
+                    </Button>
                 </Box>
             </Box>
 
             {/* Status Alert */}
             {gameStatus && !gameStatus.healthy && (
-                <Alert severity="error" sx={{ mb: 3 }}>
+                <Alert severity="error" sx={{ mb: 2, py: 0.5 }}>
                     {gameStatus.message || 'Word games service is not available'}
                 </Alert>
             )}
 
-            {/* Game Selection Dropdown */}
-            <Box sx={{ mb: 3 }}>
-                <FormControl fullWidth variant="outlined">
-                    <InputLabel id="game-select-label">Select Game</InputLabel>
-                    <Select
-                        labelId="game-select-label"
-                        id="game-select"
-                        value={activeTab}
-                        onChange={(e) => handleTabChange(e, e.target.value)}
-                        label="Select Game"
-                    >
-                        <MenuItem value={0}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <LetterBoxedIcon /> Letter Boxed
-                            </Box>
-                        </MenuItem>
-                        <MenuItem value={1}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Bee /> Spelling Bee
-                            </Box>
-                        </MenuItem>
-                        <MenuItem value={2}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <QuizIcon /> Wordle
-                            </Box>
-                        </MenuItem>
-                        <MenuItem value={3}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <MastermindIcon /> Mastermind
-                            </Box>
-                        </MenuItem>
-                        <MenuItem value={4}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <HangmanIcon /> Hangman
-                            </Box>
-                        </MenuItem>
-                        <MenuItem value={5}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <DungleonIcon /> Dungleon
-                            </Box>
-                        </MenuItem>
-                    </Select>
-                </FormControl>
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-                    <Button
-                        startIcon={<HelpIcon />}
-                        onClick={handleHelpOpen}
-                        size="small"
-                    >
-                        How to Play
-                    </Button>
-                </Box>
-            </Box>
-
             {/* Game Content */}
-            <Grid container spacing={3}>
+            <Grid container spacing={2}>
                 <Grid size={12}>
                     {activeTab === 0 && (
                         <LetterBoxedGame
@@ -609,6 +619,7 @@ const WordGames = () => {
                             onClear={() => handleClear('hangman')}
                             showError={showError}
                             results={hangmanResults}
+                            onLoadMore={handleLoadMore}
                         />
                     )}
                     {activeTab === 5 && (

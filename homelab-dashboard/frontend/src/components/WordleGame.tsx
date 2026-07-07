@@ -348,7 +348,8 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
             return;
         }
 
-        const feedback = currentGuessColors.join('');
+        const feedbackMap = ['X', 'Y', 'G'];
+        const feedback = currentGuessColors.map(c => feedbackMap[c] || 'X').join('');
         const newGuess: WordleGuessItem = { word: guess, feedback: feedback, colors: [...currentGuessColors] };
         setWordleGuesses([...wordleGuesses, newGuess]);
         setCurrentGuess('');
@@ -366,10 +367,11 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
             if (idx !== guessIndex) return guess;
             const newColors = [...guess.colors];
             newColors[letterIndex] = (newColors[letterIndex] + 1) % 3;
+            const feedbackMap = ['X', 'Y', 'G'];
             return {
                 ...guess,
                 colors: newColors,
-                feedback: newColors.join('')
+                feedback: newColors.map(c => feedbackMap[c] || 'X').join('')
             };
         }));
     }, []);
@@ -381,7 +383,8 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
 
     const handleSolve = useCallback(async () => {
         await onSolve('wordle', {
-            guesses: wordleGuesses,
+            guesses: wordleGuesses.map(g => g.word),
+            results: wordleGuesses.map(g => g.feedback),
             wordLength: config.wordLength,
             maxDepth: config.maxDepth,
             excludeUncommonWords: config.excludeUncommonWords ? 1 : 0,
@@ -414,103 +417,188 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
     }, []);
 
     return (
-        <>
-            <Card>
-                <CardContent>
-                    {/* Top Left Control Layout */}
-                    <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-                        <Button variant="outlined" onClick={handleClear} disabled={isLoading} size="small">
-                            New Game
-                        </Button>
-                        <Tooltip title="Settings">
-                            <IconButton onClick={() => setSettingsOpen(true)} size="small">
-                                <SettingsIcon />
-                            </IconButton>
-                        </Tooltip>
-                    </Stack>
+        <Grid container spacing={2}>
+            {/* Input & Guess Controls Column */}
+            <Grid size={{ xs: 12, md: 5, lg: 4 }}>
+                <Card>
+                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                        {/* Top Controls */}
+                        <Stack direction="row" spacing={1} sx={{ mb: 1.5 }} justifyContent="space-between" alignItems="center">
+                            <Button variant="outlined" onClick={handleClear} disabled={isLoading} size="small">
+                                New Game
+                            </Button>
+                            <Tooltip title="Settings">
+                                <IconButton onClick={() => setSettingsOpen(true)} size="small">
+                                    <SettingsIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        </Stack>
 
-                    <Box sx={{ textAlign: 'center', mb: 3 }}>
-                        <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 1 }}>
-                            Wordle Solver
-                        </Typography>
-                        <Typography variant="body1" color="text.secondary">
-                            Enter your Wordle guesses and their color feedback to find possible solutions
-                        </Typography>
-                    </Box>
+                        <Box sx={{ mb: 2 }}>
+                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                                Wordle Solver
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                                Enter your Wordle guesses and their color feedback.
+                            </Typography>
+                        </Box>
 
-                    <Grid container spacing={3} justifyContent="center">
-                        <Grid size={{ xs: 12, md: 8 }}>
-                            <Stack spacing={3}>
-                                {/* Add Guess Section */}
-                                <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                                    <Typography variant="h6" sx={{ mb: 2 }}>Add Word</Typography>
-                                    <Stack spacing={2}>
-                                        <TextField
-                                            label={`${config.wordLength}-letter word`}
-                                            value={currentGuess}
-                                            onChange={handleCurrentGuessChange}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    e.preventDefault();
-                                                    if (currentGuess.length === config.wordLength) {
-                                                        addWordleGuess();
-                                                    }
+                        <Stack spacing={2}>
+                            {/* Add Guess Section */}
+                            <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Add Guess</Typography>
+                                <Stack spacing={1.5}>
+                                    <TextField
+                                        label={`${config.wordLength}-letter word`}
+                                        size="small"
+                                        value={currentGuess}
+                                        onChange={handleCurrentGuessChange}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                if (currentGuess.length === config.wordLength) {
+                                                    addWordleGuess();
                                                 }
-                                            }}
-                                            fullWidth
-                                            slotProps={{
-                                                htmlInput: {
-                                                    maxLength: config.wordLength,
-                                                    style: {
-                                                        textAlign: 'center',
-                                                        fontSize: '1.1rem',
-                                                        fontWeight: 'bold',
-                                                        textTransform: 'uppercase'
-                                                    },
-                                                    autoComplete: 'off',
-                                                    autoCorrect: 'off',
-                                                    autoCapitalize: 'off',
-                                                    spellCheck: 'false'
-                                                }
-                                            }}
-                                        />
+                                            }
+                                        }}
+                                        fullWidth
+                                        slotProps={{
+                                            htmlInput: {
+                                                maxLength: config.wordLength,
+                                                style: {
+                                                    textAlign: 'center',
+                                                    fontSize: '1rem',
+                                                    fontWeight: 'bold',
+                                                    textTransform: 'uppercase',
+                                                    fontFamily: 'monospace',
+                                                    letterSpacing: '0.1em'
+                                                },
+                                                autoComplete: 'off',
+                                                autoCorrect: 'off',
+                                                autoCapitalize: 'off',
+                                                spellCheck: 'false'
+                                            }
+                                        }}
+                                    />
 
-                                        {/* Color Feedback Section */}
-                                        {currentGuess.length > 0 && (
-                                            <Box>
-                                                <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary', textAlign: 'center' }}>
-                                                    Click each letter to set its color:
-                                                </Typography>
-                                                <Box sx={{
-                                                    display: 'flex',
-                                                    gap: { xs: 0.5, sm: 1 },
-                                                    justifyContent: 'center',
-                                                    flexWrap: 'wrap'
-                                                }}>
-                                                    {currentGuess.split('').map((letter, index) => {
-                                                        const colors = colorMap[currentGuessColors[index]] || colorMap[0];
+                                    {/* Color Feedback Section */}
+                                    {currentGuess.length > 0 && (
+                                        <Box>
+                                            <Typography variant="caption" sx={{ mb: 0.5, color: 'text.secondary', display: 'block', textAlign: 'center' }}>
+                                                Set colors (click letters):
+                                            </Typography>
+                                            <Box sx={{
+                                                display: 'flex',
+                                                gap: 0.5,
+                                                justifyContent: 'center',
+                                                flexWrap: 'wrap'
+                                            }}>
+                                                {currentGuess.split('').map((letter, index) => {
+                                                    const colors = colorMap[currentGuessColors[index]] || colorMap[0];
+                                                    return (
+                                                        <Box
+                                                            key={index}
+                                                            onClick={() => toggleLetterColor(index)}
+                                                            sx={{
+                                                                width: 36,
+                                                                height: 36,
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                backgroundColor: colors.bg,
+                                                                color: colors.color,
+                                                                fontSize: '1.1rem',
+                                                                fontWeight: 'bold',
+                                                                cursor: 'pointer',
+                                                                border: '2px solid #d3d6da',
+                                                                position: 'relative',
+                                                                borderRadius: 0.5,
+                                                                userSelect: 'none',
+                                                                '&:hover': {
+                                                                    opacity: 0.8
+                                                                }
+                                                            }}
+                                                        >
+                                                            {letter}
+                                                            {colors.symbol && (
+                                                                <Box
+                                                                    component="span"
+                                                                    sx={{
+                                                                        position: 'absolute',
+                                                                        bottom: 1,
+                                                                        right: 2,
+                                                                        fontSize: '0.65rem',
+                                                                        lineHeight: 0.5,
+                                                                        opacity: 0.8,
+                                                                    }}
+                                                                >
+                                                                    {colors.symbol}
+                                                                </Box>
+                                                            )}
+                                                        </Box>
+                                                    );
+                                                })}
+                                            </Box>
+                                        </Box>
+                                    )}
+
+                                    <Button
+                                        variant="outlined"
+                                        onClick={addWordleGuess}
+                                        disabled={currentGuess.length !== config.wordLength}
+                                        startIcon={<AddIcon />}
+                                        size="small"
+                                        fullWidth
+                                    >
+                                        Add Word
+                                    </Button>
+                                </Stack>
+                            </Box>
+
+                            {/* Current Guesses */}
+                            <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                                    {`Current Guesses (${wordleGuesses.length})`}
+                                </Typography>
+                                {wordleGuesses.length > 0 ? (
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                        {wordleGuesses.map((guess, index) => (
+                                            <Box key={index} sx={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                gap: 1
+                                            }}>
+                                                <Box sx={{ display: 'flex', gap: 0.25 }}>
+                                                    {guess.word.split('').map((letter, letterIndex) => {
+                                                        let colorIndex = 0;
+                                                        if (guess.colors) {
+                                                            colorIndex = guess.colors[letterIndex];
+                                                        } else if (guess.feedback) {
+                                                            colorIndex = parseInt(guess.feedback[letterIndex], 10);
+                                                        }
+
+                                                        const colors = colorMap[colorIndex] || colorMap[0];
+
                                                         return (
                                                             <Box
-                                                                key={index}
-                                                                onClick={() => toggleLetterColor(index)}
+                                                                key={letterIndex}
+                                                                onClick={() => toggleExistingGuessColor(index, letterIndex)}
                                                                 sx={{
-                                                                    width: { xs: 45, sm: 50 },
-                                                                    height: { xs: 45, sm: 50 },
+                                                                    width: 28,
+                                                                    height: 28,
                                                                     display: 'flex',
                                                                     alignItems: 'center',
                                                                     justifyContent: 'center',
                                                                     backgroundColor: colors.bg,
                                                                     color: colors.color,
-                                                                    fontSize: { xs: '1.2rem', sm: '1.5rem' },
+                                                                    fontSize: '0.9rem',
                                                                     fontWeight: 'bold',
                                                                     cursor: 'pointer',
-                                                                    border: '2px solid #d3d6da',
-                                                                    position: 'relative',
-                                                                    borderRadius: 1,
+                                                                    border: '1px solid #d3d6da',
+                                                                    borderRadius: 0.5,
                                                                     userSelect: 'none',
-                                                                    '&:hover': {
-                                                                        opacity: 0.8
-                                                                    }
+                                                                    position: 'relative'
                                                                 }}
                                                             >
                                                                 {letter}
@@ -519,11 +607,10 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
                                                                         component="span"
                                                                         sx={{
                                                                             position: 'absolute',
-                                                                            bottom: { xs: 2, sm: 4 },
-                                                                            right: { xs: 2, sm: 4 },
-                                                                            fontSize: { xs: '0.9rem', sm: '1.0rem' },
-                                                                            lineHeight: 0.5,
-                                                                            opacity: 1,
+                                                                            bottom: 1,
+                                                                            right: 1,
+                                                                            fontSize: '0.6rem',
+                                                                            lineHeight: 1
                                                                         }}
                                                                     >
                                                                         {colors.symbol}
@@ -533,134 +620,52 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
                                                         );
                                                     })}
                                                 </Box>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => removeWordleGuess(index)}
+                                                    color="error"
+                                                    sx={{ p: 0.5 }}
+                                                >
+                                                    <CloseIcon fontSize="small" />
+                                                </IconButton>
                                             </Box>
-                                        )}
-
-                                        <Button
-                                            variant="contained"
-                                            onClick={addWordleGuess}
-                                            disabled={currentGuess.length !== config.wordLength}
-                                            startIcon={<AddIcon />}
-                                            size="large"
-                                            fullWidth
-                                        >
-                                            Add Word
-                                        </Button>
-                                    </Stack>
-                                </Box>
-
-                                {/* Current Guesses */}
-                                <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                                    <Typography variant="h6" sx={{ mb: 2 }}>
-                                        {`Current Guesses (${wordleGuesses.length})`}
+                                        ))}
+                                    </Box>
+                                ) : (
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', display: 'block', textAlign: 'center' }}>
+                                        No guesses added yet.
                                     </Typography>
-                                    {wordleGuesses.length > 0 ? (
-                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                                            {wordleGuesses.map((guess, index) => (
-                                                <Box key={index} sx={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: { xs: 1, sm: 2 },
-                                                    flexWrap: 'wrap',
-                                                    justifyContent: 'center'
-                                                }}>
-                                                    <Box sx={{ display: 'flex', gap: { xs: 0.5, sm: 0.5 } }}>
-                                                        {guess.word.split('').map((letter, letterIndex) => {
-                                                            let colorIndex = 0;
-                                                            if (guess.colors) {
-                                                                colorIndex = guess.colors[letterIndex];
-                                                            } else if (guess.feedback) {
-                                                                colorIndex = parseInt(guess.feedback[letterIndex], 10);
-                                                            }
+                                )}
+                            </Box>
 
-                                                            const colors = colorMap[colorIndex] || colorMap[0];
+                            <Button
+                                variant="contained"
+                                onClick={handleSolve}
+                                disabled={isLoading}
+                                startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
+                                fullWidth
+                                size="medium"
+                            >
+                                {isLoading ? 'Solving...' : 'Solve'}
+                            </Button>
+                        </Stack>
 
-                                                            return (
-                                                                <Box
-                                                                    key={letterIndex}
-                                                                    onClick={() => toggleExistingGuessColor(index, letterIndex)}
-                                                                    sx={{
-                                                                        width: { xs: 35, sm: 40 },
-                                                                        height: { xs: 35, sm: 40 },
-                                                                        display: 'flex',
-                                                                        alignItems: 'center',
-                                                                        justifyContent: 'center',
-                                                                        backgroundColor: colors.bg,
-                                                                        color: colors.color,
-                                                                        fontSize: { xs: '1rem', sm: '1.2rem' },
-                                                                        fontWeight: 'bold',
-                                                                        cursor: 'pointer',
-                                                                        border: '1px solid #d3d6da',
-                                                                        borderRadius: 0.5,
-                                                                        userSelect: 'none',
-                                                                        position: 'relative'
-                                                                    }}
-                                                                >
-                                                                    {letter}
-                                                                    {colors.symbol && (
-                                                                        <Box
-                                                                            component="span"
-                                                                            sx={{
-                                                                                position: 'absolute',
-                                                                                bottom: 2,
-                                                                                right: 2,
-                                                                                fontSize: '0.7rem',
-                                                                                lineHeight: 1
-                                                                            }}
-                                                                        >
-                                                                            {colors.symbol}
-                                                                        </Box>
-                                                                    )}
-                                                                </Box>
-                                                            );
-                                                        })}
-                                                    </Box>
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => removeWordleGuess(index)}
-                                                        color="error"
-                                                    >
-                                                        <CloseIcon />
-                                                    </IconButton>
-                                                </Box>
-                                            ))}
-                                        </Box>
-                                    ) : (
-                                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', textAlign: 'center' }}>
-                                            No guesses added yet.
-                                        </Typography>
-                                    )}
-                                </Box>
+                        {/* Settings Dialog */}
+                        <GameSettingsDialog
+                            open={settingsOpen}
+                            onClose={() => setSettingsOpen(false)}
+                            onSave={handleConfigSave}
+                            title="Wordle Settings"
+                            config={config}
+                            fields={settingsFields}
+                        />
+                    </CardContent>
+                </Card>
+            </Grid>
 
-                                <Button
-                                    variant="contained"
-                                    onClick={handleSolve}
-                                    disabled={isLoading}
-                                    startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
-                                    fullWidth
-                                    size="large"
-                                >
-                                    {isLoading ? 'Solving...' : 'Solve'}
-                                </Button>
-                            </Stack>
-                        </Grid>
-                    </Grid>
-
-                    {/* Settings Dialog */}
-                    <GameSettingsDialog
-                        open={settingsOpen}
-                        onClose={() => setSettingsOpen(false)}
-                        onSave={handleConfigSave}
-                        title="Wordle Settings"
-                        config={config}
-                        fields={settingsFields}
-                    />
-                </CardContent>
-            </Card>
-
-            {/* Results Component - Outside Card for full width */}
-            {results && (
-                <Box sx={{ mt: 3 }}>
+            {/* Results Column */}
+            <Grid size={{ xs: 12, md: 7, lg: 8 }}>
+                {results && (
                     <WordleResults
                         possibleWords={results.possibleWords || []}
                         guessesWithEntropy={results.guessesWithEntropy || []}
@@ -671,9 +676,9 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
                         onPossibleSolutionSelect={handlePossibleSolutionSelect}
                         onSuggestedGuessSelect={handleSuggestedGuessSelect}
                     />
-                </Box>
-            )}
-        </>
+                )}
+            </Grid>
+        </Grid>
     );
 });
 

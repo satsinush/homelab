@@ -1,3 +1,7 @@
+- Fix word games
+- make lint command simpler?
+- stop catching errors as unkown?
+- add rustdesk api server
 - Pcie gen 3?
 - refactor to typescript
 - make sure all containers come up after reboot

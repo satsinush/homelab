@@ -224,20 +224,22 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
     }, []);
 
     const handleSolve = useCallback(async () => {
-        if (!spellingBeeLetters.trim() || spellingBeeLetters.length < 3) {
-            showError('Please enter at least 3 letters for Spelling Bee');
+        if (spellingBeeLetters.length !== 7) {
+            showError('Please enter exactly 7 letters for Spelling Bee');
             return;
         }
 
+        const centerLetter = spellingBeeLetters.charAt(0);
+        const outerLetters = spellingBeeLetters.slice(1);
+
         await onSolve('spellingbee', {
-            letters: spellingBeeLetters.trim(),
-            excludeUncommonWords: config.excludeUncommonWords,
-            mustIncludeFirstLetter: config.mustIncludeFirstLetter,
-            reuseLetters: config.reuseLetters,
+            centerLetter,
+            outerLetters,
+            minWordLength: 4,
             start: 0,
             end: 100
         });
-    }, [spellingBeeLetters, config, onSolve, showError]);
+    }, [spellingBeeLetters, onSolve, showError]);
 
     const handleCopy = useCallback((text: string) => {
         navigator.clipboard.writeText(text);
@@ -249,87 +251,90 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
     }, [onClear]);
 
     return (
-        <>
-            <Card>
-                <CardContent>
-                    {/* Top Controls */}
-                    <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-                        <Button variant="outlined" onClick={handleLocalClear} disabled={isLoading} size="small">
-                            New Game
-                        </Button>
-                        <Tooltip title="Settings">
-                            <IconButton onClick={() => setSettingsOpen(true)} size="small">
-                                <SettingsIcon />
-                            </IconButton>
-                        </Tooltip>
-                    </Stack>
+        <Grid container spacing={2}>
+            {/* Controls & Honeycomb */}
+            <Grid size={{ xs: 12, md: 5, lg: 4 }}>
+                <Card>
+                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                        {/* Top Controls */}
+                        <Stack direction="row" spacing={1} sx={{ mb: 1.5 }} justifyContent="space-between" alignItems="center">
+                            <Button variant="outlined" onClick={handleLocalClear} disabled={isLoading} size="small">
+                                New Game
+                            </Button>
+                            <Tooltip title="Settings">
+                                <IconButton onClick={() => setSettingsOpen(true)} size="small">
+                                    <SettingsIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        </Stack>
 
-                    <Box sx={{ textAlign: 'center', mb: 3 }}>
-                        <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 1 }}>
-                            Spelling Bee Solver
-                        </Typography>
-                        <Typography variant="body1" color="text.secondary">
-                            Enter the 7 letters from your puzzle. The first letter is the Center (required) letter.
-                        </Typography>
-                    </Box>
+                        <Box sx={{ mb: 2 }}>
+                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                                Spelling Bee
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                                Enter 7 letters. The first letter is the Center (required) letter.
+                            </Typography>
+                        </Box>
 
-                    {/* Honeycomb Display */}
-                    {spellingBeeLetters.length > 0 && (
-                        <SpellingBeeDisplay letters={spellingBeeLetters} />
-                    )}
+                        {/* Honeycomb Display */}
+                        {spellingBeeLetters.length > 0 && (
+                            <SpellingBeeDisplay letters={spellingBeeLetters} />
+                        )}
 
-                    <Grid container spacing={2} sx={{ mt: 2 }}>
-                        <Grid size={{ xs: 12, md: 6 }}>
+                        <Stack spacing={1.5} sx={{ mt: 1.5 }}>
                             <TextField
                                 fullWidth
                                 label="Puzzle Letters (Center First)"
                                 variant="outlined"
+                                size="small"
                                 value={spellingBeeLetters}
                                 onChange={handleSpellingBeeChange}
                                 placeholder="E.g., CENTERX"
                                 disabled={isLoading}
-                                slotProps={{ htmlInput: { maxLength: 7, autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'off', spellCheck: 'false' } }}
+                                slotProps={{ htmlInput: { maxLength: 7, autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'off', spellCheck: 'false', style: { fontFamily: 'monospace', letterSpacing: '0.1em' } } }}
                             />
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 6 }}>
+                            
                             <Button
                                 fullWidth
                                 variant="contained"
-                                size="large"
+                                size="medium"
                                 onClick={handleSolve}
-                                disabled={isLoading || spellingBeeLetters.length < 3 || gameStatus?.status !== 'available'}
-                                startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
+                                disabled={isLoading || spellingBeeLetters.length !== 7 || !gameStatus?.healthy}
+                                startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
                             >
-                                {isLoading ? 'Solving...' : 'Solve Puzzle'}
+                                {isLoading ? 'Solving...' : 'Solve'}
                             </Button>
-                        </Grid>
-                    </Grid>
+                        </Stack>
 
-                    <GameSettingsDialog
-                        open={settingsOpen}
-                        onClose={() => setSettingsOpen(false)}
-                        onSave={(newConfig: DialogConfig) => setConfig({
-                            excludeUncommonWords: Boolean(newConfig.excludeUncommonWords),
-                            mustIncludeFirstLetter: Boolean(newConfig.mustIncludeFirstLetter),
-                            reuseLetters: Boolean(newConfig.reuseLetters)
-                        })}
-                        title="Spelling Bee Settings"
-                        config={config}
-                        fields={settingsFields}
+                        <GameSettingsDialog
+                            open={settingsOpen}
+                            onClose={() => setSettingsOpen(false)}
+                            onSave={(newConfig: DialogConfig) => setConfig({
+                                excludeUncommonWords: Boolean(newConfig.excludeUncommonWords),
+                                mustIncludeFirstLetter: Boolean(newConfig.mustIncludeFirstLetter),
+                                reuseLetters: Boolean(newConfig.reuseLetters)
+                            })}
+                            title="Spelling Bee Settings"
+                            config={config}
+                            fields={settingsFields}
+                        />
+                    </CardContent>
+                </Card>
+            </Grid>
+
+            {/* Results */}
+            <Grid size={{ xs: 12, md: 7, lg: 8 }}>
+                {results && (
+                    <SpellingBeeResults
+                        results={results}
+                        onCopy={handleCopy}
+                        onLoadMore={onLoadMore}
+                        isLoading={isLoading}
                     />
-                </CardContent>
-            </Card>
-
-            {/* Results Table */}
-            {results && (
-                <SpellingBeeResults
-                    results={results}
-                    onCopy={handleCopy}
-                    onLoadMore={onLoadMore}
-                    isLoading={isLoading}
-                />
-            )}
-        </>
+                )}
+            </Grid>
+        </Grid>
     );
 };
 

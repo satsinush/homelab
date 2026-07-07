@@ -354,6 +354,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
     const [guesses, setGuesses] = useState<DungleonGuess[]>([]);
     const [solutions, setSolutions] = useState<DungleonSolution[]>([]);
     const [currentPattern, setCurrentPattern] = useState<string[]>([]);
+    const [currentFeedback, setCurrentFeedback] = useState<number[]>([0, 0, 0, 0, 0]);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [config, setConfig] = useState({
         maxDepth: 0,
@@ -389,6 +390,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
         const newPattern = patternStr.trim().split(/\s+/);
         if (newPattern.length === 5) {
             setCurrentPattern(newPattern);
+            setCurrentFeedback([0, 0, 0, 0, 0]);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     }, []);
@@ -408,12 +410,23 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
     }, [currentPattern]);
 
     const handleBackspace = useCallback(() => {
-        setCurrentPattern(prev => prev.slice(0, -1));
+        setCurrentPattern(prev => {
+            const nextPattern = prev.slice(0, -1);
+            return nextPattern;
+        });
     }, []);
 
     const handleSlotClick = useCallback((e: React.MouseEvent, index: number) => {
         e.preventDefault();
         setCurrentPattern(prev => prev.filter((_, i) => i !== index));
+    }, []);
+
+    const toggleCurrentFeedback = useCallback((index: number) => {
+        setCurrentFeedback(prev => {
+            const nextFeedback = [...prev];
+            nextFeedback[index] = (nextFeedback[index] + 1) % 5;
+            return nextFeedback;
+        });
     }, []);
 
     const submitGuess = useCallback(() => {
@@ -425,11 +438,12 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
         const newGuess: DungleonGuess = {
             pattern: currentPattern.join(' '),
             patternArray: [...currentPattern],
-            feedback: [0, 0, 0, 0, 0]
+            feedback: [...currentFeedback]
         };
         setGuesses([...guesses, newGuess]);
         setCurrentPattern([]);
-    }, [currentPattern, guesses, showError]);
+        setCurrentFeedback([0, 0, 0, 0, 0]);
+    }, [currentPattern, currentFeedback, guesses, showError]);
 
     const submitSolution = useCallback(() => {
         if (currentPattern.length !== 5) {
@@ -466,20 +480,27 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
     }, []);
 
     const handleSolve = useCallback(async () => {
+        // Feedback mapping from numbers 0,1,2,3,4 -> G, Y, X, R, D
+        // style index feedback colors:
+        // 0: Red (X - not present)
+        // 1: Yellow (Y - wrong pos)
+        // 2: Green (G - correct pos)
+        // 3: Yellow + 1 more (R - wrong pos + 1 more)
+        // 4: Green + 1 more (D - correct pos + 1 more)
+        const feedbackMapping = ['X', 'Y', 'G', 'R', 'D'];
+
+        const requestGuesses = guesses.map(g => g.pattern);
+        const requestResults = guesses.map(g => g.feedback.map(val => feedbackMapping[val] || 'X').join(''));
+
         await onSolve('dungleon', {
-            guesses: guesses.map(g => ({
-                pattern: g.pattern,
-                feedback: g.feedback.join('')
-            })),
-            solutions: solutions.map(s => ({
-                pattern: s.pattern
-            })),
+            guesses: requestGuesses,
+            results: requestResults,
             maxDepth: config.maxDepth,
             excludeImpossiblePatterns: config.excludeImpossible ? 1 : 0,
             start: 0,
             end: 100
         });
-    }, [guesses, solutions, config, onSolve]);
+    }, [guesses, config, onSolve]);
 
     const handleClear = useCallback(() => {
         setGuesses([]);
@@ -568,32 +589,55 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                     gap: 1,
                                     minHeight: 60
                                 }}>
-                                    {Array.from({ length: 5 }).map((_, i) => (
-                                        <Box
-                                            key={i}
-                                            onContextMenu={(e) => handleSlotClick(e, i)}
-                                            sx={{
-                                                width: 50,
-                                                height: 50,
-                                                border: '2px solid',
-                                                borderColor: 'divider',
-                                                borderRadius: 1,
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                cursor: currentPattern[i] ? 'pointer' : 'default',
-                                                backgroundColor: currentPattern[i] ? 'background.paper' : 'action.disabledBackground'
-                                            }}
-                                        >
-                                            {currentPattern[i] && (
-                                                <img
-                                                    src={getAssetPath(currentPattern[i])}
-                                                    alt={currentPattern[i]}
-                                                    style={{ width: 40, height: 40, objectFit: 'contain' }}
-                                                />
-                                            )}
-                                        </Box>
-                                    ))}
+                                    {Array.from({ length: 5 }).map((_, i) => {
+                                        const charId = currentPattern[i];
+                                        const feedbackVal = currentFeedback[i] ?? 0;
+                                        const style = charId ? (FEEDBACK_STYLES[feedbackVal] || FEEDBACK_STYLES[0]) : null;
+
+                                        return (
+                                            <Box
+                                                key={i}
+                                                onContextMenu={(e) => handleSlotClick(e, i)}
+                                                onClick={() => charId && toggleCurrentFeedback(i)}
+                                                sx={{
+                                                    width: 50,
+                                                    height: 50,
+                                                    border: '2px solid',
+                                                    borderColor: style ? style.borderColor : 'divider',
+                                                    backgroundColor: style ? style.bgColor : 'action.disabledBackground',
+                                                    borderRadius: 1,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    cursor: charId ? 'pointer' : 'default',
+                                                    position: 'relative'
+                                                }}
+                                            >
+                                                {charId && (
+                                                    <>
+                                                        <img
+                                                            src={getAssetPath(charId)}
+                                                            alt={charId}
+                                                            style={{ width: 40, height: 40, objectFit: 'contain' }}
+                                                        />
+                                                        {style?.badge && (
+                                                            <Box
+                                                                component="img"
+                                                                src="/assets/dungleon/plus.png"
+                                                                sx={{
+                                                                    position: 'absolute',
+                                                                    top: 1,
+                                                                    right: 1,
+                                                                    width: 12,
+                                                                    height: 12
+                                                                }}
+                                                            />
+                                                        )}
+                                                    </>
+                                                )}
+                                            </Box>
+                                        );
+                                    })}
                                     <IconButton
                                         onClick={handleBackspace}
                                         disabled={currentPattern.length === 0}
@@ -781,7 +825,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                 <Button
                                     variant="contained"
                                     onClick={handleSolve}
-                                    disabled={isLoading || gameStatus?.status !== 'available'}
+                                    disabled={isLoading || !gameStatus?.healthy}
                                     startIcon={isLoading ? <CircularProgress size={20} /> : <PlayIcon />}
                                     fullWidth
                                     size="large"
