@@ -376,7 +376,10 @@ const WordGames = () => {
                     end: currentCount + 100,
                     gameMode,
                     fileType,
-                    filePath: resultsFile
+                    filePath: resultsFile,
+                    possibleCount: gameMode === 'wordle' ? wordleResults.gameData?.possibleWordsCount :
+                                   gameMode === 'mastermind' ? mastermindResults.gameData?.possibleCount :
+                                   gameMode === 'dungleon' ? dungleonResults.gameData?.possiblePatternsCount : 0
                 }
             });
 
@@ -394,7 +397,19 @@ const WordGames = () => {
                 if (type === 'possible') {
                     setWordleResults(prev => ({
                         ...prev,
-                        possibleWords: [...prev.possibleWords, ...(response.data.solutions?.possibleWords || [])]
+                        possibleWords: [
+                            ...prev.possibleWords,
+                            ...(response.data.solutions?.possibleWords || []).map(w => {
+                                if (typeof w === 'string') {
+                                    return { word: w, probability: 1.0, entropy: 0.0 };
+                                }
+                                return {
+                                    word: (w as any).word || '',
+                                    probability: (w as any).probability,
+                                    entropy: (w as any).entropy
+                                };
+                            }) as { word: string; probability: number | null; entropy: number | null }[]
+                        ]
                     }));
                 } else {
                     setWordleResults(prev => ({
@@ -413,7 +428,19 @@ const WordGames = () => {
                 if (type === 'possible') {
                     setMastermindResults(prev => ({
                         ...prev,
-                        possiblePatterns: [...prev.possiblePatterns, ...(response.data.solutions?.possiblePatterns || [])]
+                        possiblePatterns: [
+                            ...prev.possiblePatterns,
+                            ...(response.data.solutions?.possiblePatterns || []).map(p => {
+                                if (typeof p === 'string') {
+                                    return { pattern: p, probability: 1.0, entropy: 0.0 };
+                                }
+                                return {
+                                    pattern: (p as any).pattern || '',
+                                    probability: (p as any).probability,
+                                    entropy: (p as any).entropy
+                                };
+                            }) as { pattern: string; probability: number | null; entropy: number | null }[]
+                        ]
                     }));
                 } else {
                     setMastermindResults(prev => ({
@@ -431,13 +458,31 @@ const WordGames = () => {
             } else if (activeTab === 4) {
                 setHangmanResults(prev => ({
                     ...prev,
-                    possibleWords: [...prev.possibleWords, ...(response.data.solutions?.possibleWords || [])]
+                    possibleWords: [
+                        ...prev.possibleWords,
+                        ...(response.data.solutions?.possibleWords || []).map(w => {
+                            if (typeof w === 'string') return w;
+                            return (w as any).word || '';
+                        }) as string[]
+                    ]
                 }));
             } else if (activeTab === 5) {
                 if (type === 'possible') {
                     setDungleonResults(prev => ({
                         ...prev,
-                        possiblePatterns: [...prev.possiblePatterns, ...(response.data.solutions?.possiblePatterns || [])]
+                        possiblePatterns: [
+                            ...prev.possiblePatterns,
+                            ...(response.data.solutions?.possiblePatterns || []).map(p => {
+                                if (typeof p === 'string') {
+                                    return { pattern: p, probability: 1.0, entropy: 0.0 };
+                                }
+                                return {
+                                    pattern: (p as any).pattern || '',
+                                    probability: (p as any).probability,
+                                    entropy: (p as any).entropy
+                                };
+                            }) as { pattern: string; probability: number | null; entropy: number | null }[]
+                        ]
                     }));
                 } else {
                     setDungleonResults(prev => ({
@@ -475,7 +520,15 @@ const WordGames = () => {
     };
 
     return (
-        <Container maxWidth={false} sx={{ py: 2, px: { xs: 1, sm: 2, md: 3 } }}>
+        <Box sx={{
+            height: { md: '100vh' },
+            maxHeight: { md: '100vh' },
+            display: 'flex',
+            flexDirection: 'column',
+            p: { xs: 1.5, sm: 2, md: 3 },
+            overflow: 'hidden',
+            boxSizing: 'border-box'
+        }}>
             {/* Header / Game Selector Row */}
             <Box sx={{ 
                 display: 'flex', 
@@ -483,7 +536,8 @@ const WordGames = () => {
                 justifyContent: 'space-between', 
                 alignItems: { xs: 'stretch', md: 'center' }, 
                 mb: 2, 
-                gap: 2 
+                gap: 2,
+                flexShrink: 0
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <GamesIcon sx={{ fontSize: 28, color: 'primary.main' }} />
@@ -560,85 +614,84 @@ const WordGames = () => {
 
             {/* Status Alert */}
             {gameStatus && !gameStatus.healthy && (
-                <Alert severity="error" sx={{ mb: 2, py: 0.5 }}>
+                <Alert severity="error" sx={{ mb: 2, py: 0.5, flexShrink: 0 }}>
                     {gameStatus.message || 'Word games service is not available'}
                 </Alert>
             )}
 
             {/* Game Content */}
-            <Grid container spacing={2}>
-                <Grid size={12}>
-                    {activeTab === 0 && (
-                        <LetterBoxedGame
-                            gameStatus={gameStatus}
-                            isLoading={isLoading}
-                            onSolve={handleSolve}
-                            onClear={() => handleClear('letterboxed')}
-                            showError={showError}
-                            results={letterBoxedResults}
-                            onLoadMore={handleLoadMore}
-                        />
-                    )}
-                    {activeTab === 1 && (
-                        <SpellingBeeGame
-                            gameStatus={gameStatus}
-                            isLoading={isLoading}
-                            onSolve={handleSolve}
-                            onClear={() => handleClear('spellingbee')}
-                            showError={showError}
-                            results={spellingBeeResults}
-                            onLoadMore={() => handleLoadMore('solutions')}
-                        />
-                    )}
-                    {activeTab === 2 && (
-                        <WordleGame
-                            isLoading={isLoading}
-                            onSolve={handleSolve}
-                            onClear={() => handleClear('wordle')}
-                            showError={showError}
-                            results={wordleResults}
-                            onLoadMore={handleLoadMore}
-                        />
-                    )}
-                    {activeTab === 3 && (
-                        <MastermindGame
-                            gameStatus={gameStatus}
-                            isLoading={isLoading}
-                            onSolve={handleSolve}
-                            onClear={() => handleClear('mastermind')}
-                            showError={showError}
-                            results={mastermindResults}
-                            onLoadMore={handleLoadMore}
-                        />
-                    )}
-                    {activeTab === 4 && (
-                        <HangmanGame
-                            gameStatus={gameStatus}
-                            isLoading={isLoading}
-                            onSolve={handleSolve}
-                            onClear={() => handleClear('hangman')}
-                            showError={showError}
-                            results={hangmanResults}
-                            onLoadMore={handleLoadMore}
-                        />
-                    )}
-                    {activeTab === 5 && (
-                        <DungleonGame
-                            gameStatus={gameStatus}
-                            isLoading={isLoading}
-                            onSolve={handleSolve}
-                            onClear={() => handleClear('dungleon')}
-                            showError={showError}
-                            results={dungleonResults}
-                            onLoadMore={handleLoadMore}
-                        />
-                    )}
-                </Grid>
-            </Grid>
-
-            {/* Results */}
-            <Box sx={{ mt: 3 }}>
-
+            <Box sx={{ 
+                flexGrow: 1, 
+                height: 0, 
+                minHeight: 0, 
+                display: 'flex', 
+                flexDirection: 'column'
+            }}>
+                {activeTab === 0 && (
+                    <LetterBoxedGame
+                        gameStatus={gameStatus}
+                        isLoading={isLoading}
+                        onSolve={handleSolve}
+                        onClear={() => handleClear('letterboxed')}
+                        showError={showError}
+                        results={letterBoxedResults}
+                        onLoadMore={handleLoadMore}
+                    />
+                )}
+                {activeTab === 1 && (
+                    <SpellingBeeGame
+                        gameStatus={gameStatus}
+                        isLoading={isLoading}
+                        onSolve={handleSolve}
+                        onClear={() => handleClear('spellingbee')}
+                        showError={showError}
+                        results={spellingBeeResults}
+                        onLoadMore={() => handleLoadMore('solutions')}
+                    />
+                )}
+                {activeTab === 2 && (
+                    <WordleGame
+                        isLoading={isLoading}
+                        onSolve={handleSolve}
+                        onClear={() => handleClear('wordle')}
+                        showError={showError}
+                        results={wordleResults}
+                        onLoadMore={handleLoadMore}
+                    />
+                )}
+                {activeTab === 3 && (
+                    <MastermindGame
+                        gameStatus={gameStatus}
+                        isLoading={isLoading}
+                        onSolve={handleSolve}
+                        onClear={() => handleClear('mastermind')}
+                        showError={showError}
+                        results={mastermindResults}
+                        onLoadMore={handleLoadMore}
+                    />
+                )}
+                {activeTab === 4 && (
+                    <HangmanGame
+                        gameStatus={gameStatus}
+                        isLoading={isLoading}
+                        onSolve={handleSolve}
+                        onClear={() => handleClear('hangman')}
+                        showError={showError}
+                        results={hangmanResults}
+                        onLoadMore={handleLoadMore}
+                    />
+                )}
+                {activeTab === 5 && (
+                    <DungleonGame
+                        gameStatus={gameStatus}
+                        isLoading={isLoading}
+                        onSolve={handleSolve}
+                        onClear={() => handleClear('dungleon')}
+                        showError={showError}
+                        results={dungleonResults}
+                        onLoadMore={handleLoadMore}
+                    />
+                )}
             </Box>
 
             {/* Help Modal */}
@@ -647,7 +700,7 @@ const WordGames = () => {
                 onClose={handleHelpClose}
                 gameType={activeTab === 0 ? 'letterboxed' : activeTab === 1 ? 'spellingbee' : activeTab === 2 ? 'wordle' : activeTab === 3 ? 'mastermind' : activeTab === 4 ? 'hangman' : 'dungleon'}
             />
-        </Container>
+        </Box>
     );
 };
 

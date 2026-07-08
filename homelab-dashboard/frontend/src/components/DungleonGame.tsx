@@ -16,7 +16,10 @@ import {
     TableCell,
     TableContainer,
     TableHead,
-    TableRow
+    TableRow,
+    Tabs,
+    Tab,
+    Divider
 } from '@mui/material';
 
 import {
@@ -117,7 +120,7 @@ interface GuessWithEntropyItem {
 }
 
 interface DungleonResultsProps {
-    possiblePatterns: string[];
+    possiblePatterns: GuessWithEntropyItem[];
     guessesWithEntropy: GuessWithEntropyItem[];
     lastGameData: DungleonResultState['gameData'];
     isLoading: boolean;
@@ -137,6 +140,12 @@ const DungleonResults = React.memo(({
     onPossibleSolutionSelect,
     onSuggestedGuessSelect
 }: DungleonResultsProps) => {
+    const [tabVal, setTabVal] = useState(0);
+
+    const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+        setTabVal(newValue);
+    };
+
     const copyPossiblePatterns = () => {
         const patternsText = possiblePatterns.join('\n');
         onCopyToClipboard(patternsText);
@@ -148,7 +157,7 @@ const DungleonResults = React.memo(({
     };
 
     const formatRoundedNum = (num: number) => {
-        if (!num) return '0.00';
+        if (num === 0) return '0.0';
         if (num > 0 && num.toFixed(2) === '0.00') return '<0.01';
         return `${num.toFixed(2)}`;
     };
@@ -156,172 +165,141 @@ const DungleonResults = React.memo(({
     const showPossible = possiblePatterns && possiblePatterns.length > 0;
     const showSuggestions = guessesWithEntropy && guessesWithEntropy.length > 0;
 
-    if (!showPossible && !showSuggestions) return null;
+    if (!showPossible && !showSuggestions && !lastGameData) return null;
 
     return (
-        <Grid container spacing={3} sx={{ width: '100%' }}>
-            {/* Possible Patterns */}
-            {showPossible && (
-                <Grid size={{ xs: 12, lg: showSuggestions ? 6 : 12 }}>
-                    <Card sx={{ height: '100%' }}>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                <Box>
-                                    <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-                                        Possible Patterns ({possiblePatterns.length}/{lastGameData?.possiblePatternsCount || possiblePatterns.length})
-                                    </Typography>
-                                    {onPossibleSolutionSelect && (
-                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                            Click a pattern to fill the guess form
-                                        </Typography>
-                                    )}
-                                </Box>
-                                <Button
-                                    variant="outlined"
-                                    size="small"
-                                    onClick={copyPossiblePatterns}
-                                    startIcon={<CopyIcon />}
-                                >
-                                    Copy
-                                </Button>
+        <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+                <Tabs value={tabVal} onChange={handleTabChange} aria-label="dungleon results tabs">
+                    <Tab label={`Suggested Guesses (${guessesWithEntropy.length}/${lastGameData?.guessesCount || guessesWithEntropy.length})`} />
+                    <Tab label={`Possible Patterns (${possiblePatterns.length}/${lastGameData?.possiblePatternsCount || possiblePatterns.length})`} />
+                </Tabs>
+                {tabVal === 0 && showSuggestions && (
+                    <Button variant="outlined" size="small" onClick={copyGuesses} startIcon={<CopyIcon />}>Copy</Button>
+                )}
+                {tabVal === 1 && showPossible && (
+                    <Button variant="outlined" size="small" onClick={copyPossiblePatterns} startIcon={<CopyIcon />}>Copy</Button>
+                )}
+            </Box>
+            <CardContent sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                {tabVal === 0 && (
+                    showSuggestions ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                            <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
+                                <TableContainer sx={{ maxHeight: '100%', bgcolor: 'background.default' }}>
+                                    <Table size="small" stickyHeader>
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell sx={{ fontWeight: 'bold' }}>Pattern</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>ENT</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {guessesWithEntropy.map((guess, index) => (
+                                                <TableRow
+                                                    key={index}
+                                                    hover
+                                                    onClick={() => onSuggestedGuessSelect && onSuggestedGuessSelect(guess.pattern)}
+                                                    sx={{
+                                                        cursor: onSuggestedGuessSelect ? 'pointer' : 'default'
+                                                    }}
+                                                >
+                                                    <TableCell>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                                            <DungleonPatternDisplay pattern={guess.pattern} />
+                                                        </Box>
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        <Typography variant="body2">
+                                                            {guess.probability !== null ? `${formatRoundedNum(guess.probability * 100)}%` : '-'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        <Typography variant="body2">
+                                                            {guess.entropy !== null && guess.entropy !== undefined && !isNaN(Number(guess.entropy)) ? formatRoundedNum(Number(guess.entropy)) : '-'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
                             </Box>
-
-                            <Box
-                                sx={{
-                                    maxHeight: 300,
-                                    overflowY: 'auto',
-                                    bgcolor: 'background.default',
-                                    border: '1px solid',
-                                    borderColor: 'divider',
-                                    borderRadius: 1
-                                }}
-                            >
-                                <Stack divider={<Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }} />}>
-                                    {possiblePatterns.map((pattern, index) => (
-                                        <Box
-                                            key={index}
-                                            onClick={() => onPossibleSolutionSelect ? onPossibleSolutionSelect(pattern) : onCopyToClipboard(pattern)}
-                                            sx={{
-                                                p: 1,
-                                                cursor: 'pointer',
-                                                '&:hover': { bgcolor: 'action.hover' },
-                                                pl: 2
-                                            }}
-                                        >
-                                            <DungleonPatternDisplay pattern={pattern} />
-                                        </Box>
-                                    ))}
-                                </Stack>
+                            {lastGameData && lastGameData.isLimitedGuesses && guessesWithEntropy.length < (lastGameData.guessesCount || 0) && (
+                                <Button variant="contained" onClick={() => onLoadMore('guesses')} disabled={isLoading} sx={{ mt: 2, alignSelf: 'flex-start' }} size="small">
+                                    Load More
+                                </Button>
+                            )}
+                        </Box>
+                    ) : (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                            No suggested guesses available.
+                        </Typography>
+                    )
+                )}
+                {tabVal === 1 && (
+                    showPossible ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                            <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
+                                <TableContainer sx={{ maxHeight: '100%', bgcolor: 'background.default' }}>
+                                    <Table size="small" stickyHeader>
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell sx={{ fontWeight: 'bold' }}>Pattern</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>ENT</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {possiblePatterns.map((guess, index) => (
+                                                <TableRow
+                                                    key={index}
+                                                    hover
+                                                    onClick={() => onPossibleSolutionSelect && onPossibleSolutionSelect(guess.pattern)}
+                                                    sx={{
+                                                        cursor: onPossibleSolutionSelect ? 'pointer' : 'default'
+                                                    }}
+                                                >
+                                                    <TableCell>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                                            <DungleonPatternDisplay pattern={guess.pattern} />
+                                                        </Box>
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        <Typography variant="body2">
+                                                            {guess.probability !== null ? `${formatRoundedNum(guess.probability * 100)}%` : '-'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        <Typography variant="body2">
+                                                            {guess.entropy !== null && guess.entropy !== undefined && !isNaN(Number(guess.entropy)) ? formatRoundedNum(Number(guess.entropy)) : '-'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
                             </Box>
                             {lastGameData && lastGameData.isLimitedPossible && possiblePatterns.length < (lastGameData.possiblePatternsCount || 0) && (
-                                <Button
-                                    variant="contained"
-                                    onClick={() => onLoadMore('possible')}
-                                    disabled={isLoading}
-                                    sx={{ mt: 2 }}
-                                    size="small"
-                                >
+                                <Button variant="contained" onClick={() => onLoadMore('possible')} disabled={isLoading} sx={{ mt: 2, alignSelf: 'flex-start' }} size="small">
                                     Load More
                                 </Button>
                             )}
-                        </CardContent>
-                    </Card>
-                </Grid>
-            )}
-
-            {/* Suggested Guesses with Entropy */}
-            {showSuggestions && (
-                <Grid size={{ xs: 12, lg: showPossible ? 6 : 12 }}>
-                    <Card sx={{ height: '100%' }}>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                <Box>
-                                    <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-                                        Suggested Guesses ({guessesWithEntropy.length}/{lastGameData?.guessesCount || guessesWithEntropy.length})
-                                    </Typography>
-                                    {onSuggestedGuessSelect && (
-                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                            Click a pattern to fill the guess form
-                                        </Typography>
-                                    )}
-                                </Box>
-                                <Button
-                                    variant="outlined"
-                                    size="small"
-                                    onClick={copyGuesses}
-                                    startIcon={<CopyIcon />}
-                                >
-                                    Copy
-                                </Button>
-                            </Box>
-                            <TableContainer
-                                component={Paper}
-                                variant="outlined"
-                                sx={{
-                                    maxHeight: 300,
-                                    overflowY: 'auto',
-                                    bgcolor: 'background.default'
-                                }}
-                            >
-                                <Table size="small" stickyHeader>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell sx={{ fontWeight: 'bold' }}>Pattern</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 'bold' }}>ENT</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {guessesWithEntropy.map((guess, index) => (
-                                            <TableRow
-                                                key={index}
-                                                hover
-                                                onClick={() => onSuggestedGuessSelect && onSuggestedGuessSelect(guess.pattern)}
-                                                sx={{
-                                                    cursor: onSuggestedGuessSelect ? 'pointer' : 'default',
-                                                    '&:hover': onSuggestedGuessSelect ? {
-                                                        backgroundColor: 'action.hover'
-                                                    } : {}
-                                                }}
-                                            >
-                                                <TableCell>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                        <DungleonPatternDisplay pattern={guess.pattern} />
-                                                    </Box>
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    <Typography variant="body2">
-                                                        {guess.probability !== null ? `${formatRoundedNum(guess.probability * 100)}%` : '-'}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    <Typography variant="body2">
-                                                        {guess.entropy !== null ? formatRoundedNum(guess.entropy) : '-'}
-                                                    </Typography>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                            {lastGameData && lastGameData.isLimitedGuesses && guessesWithEntropy.length < (lastGameData.guessesCount || 0) && (
-                                <Button
-                                    variant="contained"
-                                    onClick={() => onLoadMore('guesses')}
-                                    disabled={isLoading}
-                                    sx={{ mt: 2 }}
-                                    size="small"
-                                >
-                                    Load More
-                                </Button>
-                            )}
-                        </CardContent>
-                    </Card>
-                </Grid>
-            )}
-        </Grid>
+                        </Box>
+                    ) : (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                            No possible patterns found.
+                        </Typography>
+                    )
+                )}
+            </CardContent>
+        </Card>
     );
 });
+
+DungleonResults.displayName = 'DungleonResults';
 
 DungleonResults.displayName = 'DungleonResults';
 
@@ -491,16 +469,18 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
 
         const requestGuesses = guesses.map(g => g.pattern);
         const requestResults = guesses.map(g => g.feedback.map(val => feedbackMapping[val] || 'X').join(''));
+        const requestSolutions = solutions.map(s => s.pattern);
 
         await onSolve('dungleon', {
             guesses: requestGuesses,
             results: requestResults,
+            solutions: requestSolutions,
             maxDepth: config.maxDepth,
             excludeImpossiblePatterns: config.excludeImpossible ? 1 : 0,
             start: 0,
             end: 100
         });
-    }, [guesses, config, onSolve]);
+    }, [guesses, solutions, config, onSolve]);
 
     const handleClear = useCallback(() => {
         setGuesses([]);
@@ -516,342 +496,346 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
     };
 
     return (
-        <>
-            <Card>
-                <CardContent>
-                    {/* Top Left Control Layout */}
-                    <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-                        <Button variant="outlined" onClick={handleClear} disabled={isLoading} size="small">
-                            New Game
-                        </Button>
-                        <Tooltip title="Settings">
-                            <IconButton onClick={() => setSettingsOpen(true)} size="small">
-                                <SettingsIcon />
-                            </IconButton>
-                        </Tooltip>
-                    </Stack>
+        <Grid container spacing={2} sx={{ height: '100%', minHeight: 0, flexGrow: 1 }}>
+            {/* Input & Character Bank Column */}
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                    <CardContent sx={{ 
+                        p: 2, 
+                        flexGrow: 1, 
+                        overflowY: 'auto', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: 2,
+                        minHeight: 0,
+                        '&:last-child': { pb: 2 } 
+                    }}>
+                        {/* Top Controls */}
+                        <Stack direction="row" spacing={1} sx={{ mb: 0.5 }} justifyContent="space-between" alignItems="center" flexShrink={0}>
+                            <Button variant="outlined" onClick={handleClear} disabled={isLoading} size="small">
+                                New Game
+                            </Button>
+                            <Tooltip title="Settings">
+                                <IconButton onClick={() => setSettingsOpen(true)} size="small">
+                                    <SettingsIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        </Stack>
 
-                    <Box sx={{ textAlign: 'center', mb: 3 }}>
-                        <Typography variant="h4" component="h1" sx={{ fontWeight: 600, mb: 1 }}>
-                            Dungleon Solver
-                        </Typography>
-                        <Typography variant="body1" color="text.secondary">
-                            Select characters, add guesses, and set feedback colors to solve
-                        </Typography>
-                    </Box>
+                        <Box sx={{ mb: 0.5, flexShrink: 0 }}>
+                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                                Dungleon Solver
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                                Select characters, add guesses, and set feedback colors to solve.
+                            </Typography>
+                        </Box>
 
-                    <Grid container spacing={3} justifyContent="center">
-                        <Grid size={{ xs: 12, md: 10 }}>
-                            <Stack spacing={3}>
-                                {/* Character Bank */}
-                                <Box sx={{
-                                    p: 2,
-                                    border: '1px solid',
-                                    borderColor: 'divider',
-                                    borderRadius: 1,
-                                    display: 'flex',
-                                    flexWrap: 'wrap',
-                                    gap: 1,
-                                    justifyContent: 'center',
-                                    backgroundColor: 'action.hover'
-                                }}>
-                                    {CHARACTERS.map((char) => (
-                                        <Tooltip key={char.id} title={char.name}>
-                                            <IconButton
-                                                onClick={() => handleCharacterClick(char.id)}
-                                                disabled={currentPattern.length >= 5}
-                                                sx={{
-                                                    width: 48,
-                                                    height: 48,
-                                                    border: '1px solid',
-                                                    borderColor: 'divider',
-                                                    borderRadius: 1,
-                                                    backgroundColor: 'background.paper',
-                                                    p: 0.5,
-                                                    '&:hover': { backgroundColor: 'action.selected' }
-                                                }}
-                                            >
-                                                <img
-                                                    src={getAssetPath(char.id)}
-                                                    alt={char.name}
-                                                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                                />
-                                            </IconButton>
-                                        </Tooltip>
-                                    ))}
-                                </Box>
-
-                                {/* Current Input */}
-                                <Box sx={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: 1,
-                                    minHeight: 60
-                                }}>
-                                    {Array.from({ length: 5 }).map((_, i) => {
-                                        const charId = currentPattern[i];
-                                        const feedbackVal = currentFeedback[i] ?? 0;
-                                        const style = charId ? (FEEDBACK_STYLES[feedbackVal] || FEEDBACK_STYLES[0]) : null;
-
-                                        return (
-                                            <Box
-                                                key={i}
-                                                onContextMenu={(e) => handleSlotClick(e, i)}
-                                                onClick={() => charId && toggleCurrentFeedback(i)}
-                                                sx={{
-                                                    width: 50,
-                                                    height: 50,
-                                                    border: '2px solid',
-                                                    borderColor: style ? style.borderColor : 'divider',
-                                                    backgroundColor: style ? style.bgColor : 'action.disabledBackground',
-                                                    borderRadius: 1,
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    cursor: charId ? 'pointer' : 'default',
-                                                    position: 'relative'
-                                                }}
-                                            >
-                                                {charId && (
-                                                    <>
-                                                        <img
-                                                            src={getAssetPath(charId)}
-                                                            alt={charId}
-                                                            style={{ width: 40, height: 40, objectFit: 'contain' }}
-                                                        />
-                                                        {style?.badge && (
-                                                            <Box
-                                                                component="img"
-                                                                src="/assets/dungleon/plus.png"
-                                                                sx={{
-                                                                    position: 'absolute',
-                                                                    top: 1,
-                                                                    right: 1,
-                                                                    width: 12,
-                                                                    height: 12
-                                                                }}
-                                                            />
-                                                        )}
-                                                    </>
-                                                )}
-                                            </Box>
-                                        );
-                                    })}
-                                    <IconButton
-                                        onClick={handleBackspace}
-                                        disabled={currentPattern.length === 0}
-                                        color="error"
-                                        sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
-                                    >
-                                        <BackspaceIcon />
-                                    </IconButton>
-                                </Box>
-
-                                {/* Submit Buttons - Separate like Qt UI */}
-                                <Stack direction="row" spacing={2}>
-                                    <Button
-                                        variant="contained"
-                                        onClick={submitGuess}
-                                        disabled={currentPattern.length !== 5}
-                                        fullWidth
-                                        color="primary"
-                                    >
-                                        Submit Guess
-                                    </Button>
-                                    <Tooltip title="Gauntlet Mode: Add past solutions to exclude">
-                                        <Button
-                                            variant="contained"
-                                            onClick={submitSolution}
-                                            disabled={currentPattern.length !== 5}
-                                            fullWidth
-                                            color="secondary"
+                        <Stack spacing={2} sx={{ flexGrow: 1, overflowY: 'auto', pr: 0.5, minHeight: 0 }}>
+                            {/* Character Bank */}
+                            <Box sx={{
+                                p: 1.5,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                borderRadius: 1,
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                gap: 1,
+                                justifyContent: 'center',
+                                backgroundColor: 'action.hover'
+                            }}>
+                                {CHARACTERS.map((char) => (
+                                    <Tooltip key={char.id} title={char.name}>
+                                        <IconButton
+                                            onClick={() => handleCharacterClick(char.id)}
+                                            disabled={currentPattern.length >= 5}
+                                            sx={{
+                                                width: 40,
+                                                height: 40,
+                                                border: '1px solid',
+                                                borderColor: 'divider',
+                                                borderRadius: 1,
+                                                backgroundColor: 'background.paper',
+                                                p: 0.5,
+                                                '&:hover': { backgroundColor: 'action.selected' }
+                                            }}
                                         >
-                                            Submit Solution
-                                        </Button>
+                                            <img
+                                                src={getAssetPath(char.id)}
+                                                alt={char.name}
+                                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                            />
+                                        </IconButton>
                                     </Tooltip>
-                                </Stack>
+                                ))}
+                            </Box>
 
-                                {/* Side-by-side Guesses and Solutions */}
-                                <Grid container spacing={2}>
-                                    {/* Guesses Column */}
-                                    <Grid size={{ xs: 12, md: 6 }}>
-                                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                                            Guesses:
-                                        </Typography>
-                                        <Box sx={{
-                                            maxHeight: 320,
-                                            overflow: 'auto',
-                                            border: '1px solid',
-                                            borderColor: 'divider',
-                                            borderRadius: 1,
-                                            p: 1,
-                                            minHeight: 100,
-                                            backgroundColor: 'background.default'
-                                        }}>
-                                            {guesses.length > 0 ? (
-                                                <Stack spacing={1}>
-                                                    {guesses.map((guess, guessIndex) => (
-                                                        <Box key={guessIndex} sx={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: 0.5
-                                                        }}>
-                                                            {guess.patternArray.map((charId, slotIndex) => {
-                                                                const feedbackState = guess.feedback[slotIndex];
-                                                                const style = FEEDBACK_STYLES[feedbackState] || FEEDBACK_STYLES[0];
-                                                                return (
-                                                                    <Box
-                                                                        key={slotIndex}
-                                                                        onClick={() => toggleFeedback(guessIndex, slotIndex)}
-                                                                        sx={{
-                                                                            width: 48,
-                                                                            height: 48,
-                                                                            border: '2px solid',
-                                                                            borderColor: style.borderColor,
-                                                                            backgroundColor: style.bgColor,
-                                                                            borderRadius: 1,
-                                                                            display: 'flex',
-                                                                            alignItems: 'center',
-                                                                            justifyContent: 'center',
-                                                                            cursor: 'pointer',
-                                                                            position: 'relative'
-                                                                        }}
-                                                                    >
-                                                                        <img
-                                                                            src={getAssetPath(charId)}
-                                                                            alt={charId}
-                                                                            style={{ width: 38, height: 38, objectFit: 'contain' }}
-                                                                        />
-                                                                        {style.badge && (
-                                                                            <Box
-                                                                                component="img"
-                                                                                src="/assets/dungleon/plus.png"
-                                                                                sx={{
-                                                                                    position: 'absolute',
-                                                                                    top: 2,
-                                                                                    right: 2,
-                                                                                    width: 14,
-                                                                                    height: 14
-                                                                                }}
-                                                                            />
-                                                                        )}
-                                                                    </Box>
-                                                                );
-                                                            })}
-                                                            <IconButton
-                                                                onClick={() => removeGuess(guessIndex)}
-                                                                color="error"
-                                                                size="small"
-                                                            >
-                                                                <CloseIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </Box>
-                                                    ))}
-                                                </Stack>
-                                            ) : (
-                                                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                                                    No guesses yet
-                                                </Typography>
+                            {/* Current Input */}
+                            <Box sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 1,
+                                minHeight: 60
+                            }}>
+                                {Array.from({ length: 5 }).map((_, i) => {
+                                    const charId = currentPattern[i];
+                                    const feedbackVal = currentFeedback[i] ?? 0;
+                                    const style = charId ? (FEEDBACK_STYLES[feedbackVal] || FEEDBACK_STYLES[0]) : null;
+
+                                    return (
+                                        <Box
+                                            key={i}
+                                            onContextMenu={(e) => handleSlotClick(e, i)}
+                                            onClick={() => charId && toggleCurrentFeedback(i)}
+                                            sx={{
+                                                width: 48,
+                                                height: 48,
+                                                border: '2px solid',
+                                                borderColor: style ? style.borderColor : 'divider',
+                                                backgroundColor: style ? style.bgColor : 'action.disabledBackground',
+                                                borderRadius: 1,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                cursor: charId ? 'pointer' : 'default',
+                                                position: 'relative'
+                                            }}
+                                        >
+                                            {charId && (
+                                                <>
+                                                    <img
+                                                        src={getAssetPath(charId)}
+                                                        alt={charId}
+                                                        style={{ width: 38, height: 38, objectFit: 'contain' }}
+                                                    />
+                                                    {style?.badge && (
+                                                        <Box
+                                                            component="img"
+                                                            src="/assets/dungleon/plus.png"
+                                                            sx={{
+                                                                position: 'absolute',
+                                                                top: 1,
+                                                                right: 1,
+                                                                width: 12,
+                                                                height: 12
+                                                            }}
+                                                        />
+                                                    )}
+                                                </>
                                             )}
                                         </Box>
-                                    </Grid>
+                                    );
+                                })}
+                                <IconButton
+                                    onClick={handleBackspace}
+                                    disabled={currentPattern.length === 0}
+                                    color="error"
+                                    sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
+                                >
+                                    <BackspaceIcon />
+                                </IconButton>
+                            </Box>
 
-                                    {/* Solutions Column */}
-                                    <Grid size={{ xs: 12, md: 6 }}>
-                                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                                            Past Solutions:
-                                        </Typography>
-                                        <Box sx={{
-                                            maxHeight: 320,
-                                            overflow: 'auto',
-                                            border: '1px solid',
-                                            borderColor: 'divider',
-                                            borderRadius: 1,
-                                            p: 1,
-                                            minHeight: 100,
-                                            backgroundColor: 'background.default'
-                                        }}>
-                                            {solutions.length > 0 ? (
-                                                <Stack spacing={1}>
-                                                    {solutions.map((sol, index) => (
-                                                        <Box key={index} sx={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: 0.5
-                                                        }}>
-                                                            {sol.patternArray.map((charId, slotIndex) => (
+                            {/* Submit Buttons */}
+                            <Stack direction="row" spacing={2} sx={{ flexShrink: 0 }}>
+                                <Button
+                                    variant="contained"
+                                    onClick={submitGuess}
+                                    disabled={currentPattern.length !== 5}
+                                    fullWidth
+                                    color="primary"
+                                    size="small"
+                                >
+                                    Submit Guess
+                                </Button>
+                                <Tooltip title="Gauntlet Mode: Add past solutions to exclude">
+                                    <Button
+                                        variant="contained"
+                                        onClick={submitSolution}
+                                        disabled={currentPattern.length !== 5}
+                                        fullWidth
+                                        color="secondary"
+                                        size="small"
+                                    >
+                                        Submit Solution
+                                    </Button>
+                                </Tooltip>
+                            </Stack>
+
+                            {/* Guesses and Solutions Column */}
+                            <Stack spacing={1.5}>
+                                {/* Guesses Section */}
+                                <Box>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                                        Guesses:
+                                    </Typography>
+                                    <Box sx={{
+                                        maxHeight: 120,
+                                        overflow: 'auto',
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        borderRadius: 1,
+                                        p: 1,
+                                        minHeight: 60,
+                                        backgroundColor: 'background.default'
+                                    }}>
+                                        {guesses.length > 0 ? (
+                                            <Stack spacing={1}>
+                                                {guesses.map((guess, guessIndex) => (
+                                                    <Box key={guessIndex} sx={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: 0.5
+                                                    }}>
+                                                        {guess.patternArray.map((charId, slotIndex) => {
+                                                            const feedbackState = guess.feedback[slotIndex];
+                                                            const style = FEEDBACK_STYLES[feedbackState] || FEEDBACK_STYLES[0];
+                                                            return (
                                                                 <Box
                                                                     key={slotIndex}
+                                                                    onClick={() => toggleFeedback(guessIndex, slotIndex)}
                                                                     sx={{
-                                                                        width: 48,
-                                                                        height: 48,
+                                                                        width: 36,
+                                                                        height: 36,
                                                                         border: '2px solid',
-                                                                        borderColor: 'divider',
-                                                                        backgroundColor: 'background.paper',
+                                                                        borderColor: style.borderColor,
+                                                                        backgroundColor: style.bgColor,
                                                                         borderRadius: 1,
                                                                         display: 'flex',
                                                                         alignItems: 'center',
-                                                                        justifyContent: 'center'
+                                                                        justifyContent: 'center',
+                                                                        cursor: 'pointer',
+                                                                        position: 'relative'
                                                                     }}
                                                                 >
                                                                     <img
                                                                         src={getAssetPath(charId)}
                                                                         alt={charId}
-                                                                        style={{ width: 38, height: 38, objectFit: 'contain' }}
+                                                                        style={{ width: 28, height: 28, objectFit: 'contain' }}
                                                                     />
+                                                                    {style.badge && (
+                                                                        <Box
+                                                                            component="img"
+                                                                            src="/assets/dungleon/plus.png"
+                                                                            sx={{
+                                                                                position: 'absolute',
+                                                                                top: 2,
+                                                                                right: 2,
+                                                                                width: 10,
+                                                                                height: 10
+                                                                            }}
+                                                                        />
+                                                                    )}
                                                                 </Box>
-                                                            ))}
-                                                            <IconButton
-                                                                onClick={() => removeSolution(index)}
-                                                                color="error"
-                                                                size="small"
+                                                            );
+                                                        })}
+                                                        <IconButton
+                                                            onClick={() => removeGuess(guessIndex)}
+                                                            color="error"
+                                                            size="small"
+                                                            sx={{ p: 0.25 }}
+                                                        >
+                                                            <CloseIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Box>
+                                                ))}
+                                            </Stack>
+                                        ) : (
+                                            <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', py: 1, display: 'block', fontStyle: 'italic' }}>
+                                                No guesses yet
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Box>
+
+                                <Divider />
+
+                                {/* Solutions Section */}
+                                <Box>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                                        Past Solutions:
+                                    </Typography>
+                                    <Box sx={{
+                                        maxHeight: 120,
+                                        overflow: 'auto',
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        borderRadius: 1,
+                                        p: 1,
+                                        minHeight: 60,
+                                        backgroundColor: 'background.default'
+                                    }}>
+                                        {solutions.length > 0 ? (
+                                            <Stack spacing={1}>
+                                                {solutions.map((sol, index) => (
+                                                    <Box key={index} sx={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: 0.5
+                                                    }}>
+                                                        {sol.patternArray.map((charId, slotIndex) => (
+                                                            <Box
+                                                                key={slotIndex}
+                                                                sx={{
+                                                                    width: 36,
+                                                                    height: 36,
+                                                                    border: '2px solid',
+                                                                    borderColor: 'divider',
+                                                                    backgroundColor: 'background.paper',
+                                                                    borderRadius: 1,
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center'
+                                                                }}
                                                             >
-                                                                <CloseIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </Box>
-                                                    ))}
-                                                </Stack>
-                                            ) : (
-                                                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                                                    No past solutions
-                                                </Typography>
-                                            )}
-                                        </Box>
-                                    </Grid>
-                                </Grid>
-
-                                {/* Solve Button */}
-                                <Button
-                                    variant="contained"
-                                    onClick={handleSolve}
-                                    disabled={isLoading || !gameStatus?.healthy}
-                                    startIcon={isLoading ? <CircularProgress size={20} /> : <PlayIcon />}
-                                    fullWidth
-                                    size="large"
-                                >
-                                    Solve
-                                </Button>
+                                                                <img
+                                                                    src={getAssetPath(charId)}
+                                                                    alt={charId}
+                                                                    style={{ width: 28, height: 28, objectFit: 'contain' }}
+                                                                />
+                                                            </Box>
+                                                        ))}
+                                                        <IconButton
+                                                            onClick={() => removeSolution(index)}
+                                                            color="error"
+                                                            size="small"
+                                                            sx={{ p: 0.25 }}
+                                                        >
+                                                            <CloseIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Box>
+                                                ))}
+                                            </Stack>
+                                        ) : (
+                                            <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', py: 1, display: 'block', fontStyle: 'italic' }}>
+                                                No past solutions
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </Box>
                             </Stack>
-                        </Grid>
-                    </Grid>
+                        </Stack>
 
-                    {/* Settings Dialog */}
-                    <GameSettingsDialog
-                        open={settingsOpen}
-                        onClose={() => setSettingsOpen(false)}
-                        onSave={handleConfigSave}
-                        title="Dungleon Settings"
-                        config={config}
-                        fields={settingsFields}
-                    />
+                        {/* Solve Button */}
+                        <Button
+                            variant="contained"
+                            onClick={handleSolve}
+                            disabled={isLoading || !gameStatus?.healthy}
+                            startIcon={isLoading ? <CircularProgress size={16} /> : <PlayIcon />}
+                            fullWidth
+                            size="medium"
+                            sx={{ mt: 1.5, flexShrink: 0 }}
+                        >
+                            Solve
+                        </Button>
+                    </CardContent>
+                </Card>
+            </Grid>
 
-                </CardContent>
-            </Card>
-
-            {/* Results Component - Outside Card for full width */}
-            {results && (
-                <Box sx={{ mt: 3 }}>
+            {/* Results Column */}
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                {results && results.gameData ? (
                     <DungleonResults
                         possiblePatterns={results.possiblePatterns || []}
                         guessesWithEntropy={results.guessesWithEntropy || []}
@@ -862,9 +846,27 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                         onPossibleSolutionSelect={fillSuggestedGuess}
                         onSuggestedGuessSelect={fillSuggestedGuess}
                     />
-                </Box>
-            )}
-        </>
+                ) : (
+                    <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <CardContent>
+                            <Typography variant="h6" color="text.secondary" align="center">
+                                Run Solver
+                            </Typography>
+                        </CardContent>
+                    </Card>
+                )}
+            </Grid>
+
+            {/* Settings Dialog */}
+            <GameSettingsDialog
+                open={settingsOpen}
+                onClose={() => setSettingsOpen(false)}
+                onSave={handleConfigSave}
+                title="Dungleon Settings"
+                config={config}
+                fields={settingsFields}
+            />
+        </Grid>
     );
 });
 

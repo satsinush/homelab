@@ -233,10 +233,10 @@ const LetterBoxedResults = React.memo(({
     const totalSolutionsCount = lastGameData?.actualTotalFound || lastGameData?.totalSolutions || 0;
 
     return (
-        <Card sx={{ mt: 3 }}>
-            <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h5" component="h2" sx={{ fontWeight: 600 }}>
+        <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <CardContent sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', minHeight: 0, '&:last-child': { pb: 2 } }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexShrink: 0 }}>
+                    <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
                         Solutions ({solutions.length}/{totalSolutionsCount})
                     </Typography>
                     {solutions.length > 0 && (
@@ -253,12 +253,13 @@ const LetterBoxedResults = React.memo(({
 
                 <Box
                     sx={{
-                        maxHeight: 400,
+                        flexGrow: 1,
                         overflowY: 'auto',
                         border: '1px solid',
                         borderColor: 'divider',
                         borderRadius: 1,
-                        bgcolor: 'background.default'
+                        bgcolor: 'background.default',
+                        minHeight: 0
                     }}
                 >
                     <List dense>
@@ -288,7 +289,8 @@ const LetterBoxedResults = React.memo(({
                         variant="contained"
                         onClick={() => onLoadMore('results')}
                         disabled={isLoading}
-                        sx={{ mt: 2 }}
+                        sx={{ mt: 2, alignSelf: 'flex-start', flexShrink: 0 }}
+                        size="small"
                     >
                         Load More
                     </Button>
@@ -423,13 +425,22 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
     };
 
     return (
-        <Grid container spacing={2}>
+        <Grid container spacing={2} sx={{ height: '100%', minHeight: 0, flexGrow: 1 }}>
             {/* Input & Control Column */}
-            <Grid size={{ xs: 12, md: 5, lg: 4 }}>
-                <Card>
-                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                    <CardContent sx={{ 
+                        p: 2, 
+                        flexGrow: 1, 
+                        overflowY: 'auto', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: 2,
+                        minHeight: 0,
+                        '&:last-child': { pb: 2 } 
+                    }}>
                         {/* Control Buttons */}
-                        <Stack direction="row" spacing={1} sx={{ mb: 1.5 }} justifyContent="space-between" alignItems="center">
+                        <Stack direction="row" spacing={1} sx={{ mb: 0.5 }} justifyContent="space-between" alignItems="center" flexShrink={0}>
                             <Button variant="outlined" onClick={handleClear} disabled={isLoading} size="small">
                                 New Game
                             </Button>
@@ -440,7 +451,7 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                             </Tooltip>
                         </Stack>
 
-                        <Box sx={{ mb: 2 }}>
+                        <Box sx={{ mb: 0.5, flexShrink: 0 }}>
                             <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
                                 Letter Boxed
                             </Typography>
@@ -449,12 +460,14 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                             </Typography>
                         </Box>
 
-                        {/* Box Display */}
-                        {letterBoxedLetters.length > 0 && (
-                            <LetterBoxedGrid letters={letterBoxedLetters} />
-                        )}
+                        <Stack spacing={2} sx={{ flexGrow: 1, overflowY: 'auto', pr: 0.5, minHeight: 0 }}>
+                            {/* Box Display */}
+                            {letterBoxedLetters.length > 0 && (
+                                <Box sx={{ flexShrink: 0 }}>
+                                    <LetterBoxedGrid letters={letterBoxedLetters} />
+                                </Box>
+                            )}
 
-                        <Stack spacing={1.5} sx={{ mt: 1.5 }}>
                             <TextField
                                 fullWidth
                                 label="Puzzle Letters (12 letters)"
@@ -466,18 +479,19 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                                 disabled={isLoading}
                                 slotProps={{ htmlInput: { maxLength: 12, autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'off', spellCheck: 'false', style: { fontFamily: 'monospace', letterSpacing: '0.1em' } } }}
                             />
-                            
-                            <Button
-                                fullWidth
-                                variant="contained"
-                                size="medium"
-                                onClick={handleSolve}
-                                disabled={isLoading || letterBoxedLetters.length !== 12 || !gameStatus?.healthy}
-                                startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
-                            >
-                                {isLoading ? 'Solving...' : 'Solve'}
-                            </Button>
                         </Stack>
+
+                        <Button
+                            fullWidth
+                            variant="contained"
+                            size="medium"
+                            onClick={handleSolve}
+                            disabled={isLoading || letterBoxedLetters.length !== 12 || !gameStatus?.healthy}
+                            startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
+                            sx={{ mt: 1.5, flexShrink: 0 }}
+                        >
+                            {isLoading ? 'Solving...' : 'Solve'}
+                        </Button>
 
                         {/* Custom Settings Dialog */}
                         <Dialog open={settingsOpen} onClose={() => setSettingsOpen(false)} maxWidth="xs" fullWidth>
@@ -582,8 +596,8 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
             </Grid>
 
             {/* Results Column */}
-            <Grid size={{ xs: 12, md: 7, lg: 8 }}>
-                {results && (
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                {results && results.gameData ? (
                     <LetterBoxedResults
                         solutions={results.solutions || []}
                         lastGameData={results.gameData}
@@ -591,6 +605,14 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                         onLoadMore={onLoadMore}
                         onCopyToClipboard={handleCopyToClipboard}
                     />
+                ) : (
+                    <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <CardContent>
+                            <Typography variant="h6" color="text.secondary" align="center">
+                                Run Solver
+                            </Typography>
+                        </CardContent>
+                    </Card>
                 )}
             </Grid>
         </Grid>

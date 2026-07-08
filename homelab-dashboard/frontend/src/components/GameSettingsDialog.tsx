@@ -39,12 +39,13 @@ interface GameSettingsDialogProps {
     title: string;
     config: DialogConfig;
     fields: FieldDefinition[];
+    children?: React.ReactNode;
 }
 
 /**
  * Reusable settings dialog for word games.
  */
-const GameSettingsDialog = ({ open, onClose, onSave, title, config, fields }: GameSettingsDialogProps) => {
+const GameSettingsDialog = ({ open, onClose, onSave, title, config, fields, children }: GameSettingsDialogProps) => {
     const [localConfig, setLocalConfig] = useState<DialogConfig>(config);
 
     useEffect(() => {
@@ -133,6 +134,7 @@ const GameSettingsDialog = ({ open, onClose, onSave, title, config, fields }: Ga
             <DialogContent>
                 <Stack spacing={2} sx={{ mt: 1 }}>
                     {fields.map(renderField)}
+                    {children}
                 </Stack>
             </DialogContent>
             <DialogActions>

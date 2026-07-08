@@ -348,7 +348,7 @@ class WordGamesController {
 
             // Read the results file to get words and entropy data
             // File format: possible words (one per line), then CSV lines: word,entropy,probability
-            let possibleWords: string[] = [];
+            let possibleWords: GuessWithEntropy[] = [];
             let guessesWithEntropy: GuessWithEntropy[] = [];
 
             const fullPath = path.join(this.executableDir, actualResultsFile);
@@ -410,7 +410,8 @@ class WordGamesController {
             }
 
             const slotsCount = parseInt(slots) || 4;
-            const colorsCount = parseInt(colors) || 6;
+            const colorsCount = typeof colors === 'string' ? colors.length : (parseInt(colors) || 6);
+            const colorChars = typeof colors === 'string' ? colors.toUpperCase() : Array.from({ length: colorsCount }, (_, i) => String.fromCharCode(65 + i)).join('');
 
             // Validate guesses
             for (let i = 0; i < guesses.length; i++) {
@@ -419,11 +420,9 @@ class WordGamesController {
                     return sendError(res, 400, `Guess at index ${i} must be a string of length ${slotsCount}`);
                 }
                 
-                // Colors are letters starting from A, e.g. 6 colors -> A-F
-                const maxChar = String.fromCharCode(65 + colorsCount - 1);
-                const charRegex = new RegExp(`^[A-${maxChar}]+$`, 'i');
+                const charRegex = new RegExp(`^[${colorChars}]+$`, 'i');
                 if (!charRegex.test(guess)) {
-                    return sendError(res, 400, `Guess at index ${i} must only contain letters A-${maxChar} (case-insensitive)`);
+                    return sendError(res, 400, `Guess at index ${i} must only contain letters ${colorChars} (case-insensitive)`);
                 }
 
                 const b = parseInt(blackPegs[i]);
@@ -438,13 +437,6 @@ class WordGamesController {
 
             const username = req.user?.username || 'user';
             const resultsFilename = this.generateResultsFilename(username, 'mastermind');
-
-            // Build command with CLI format: mastermind --pegs N --colors "CHARS" --allow-duplicates N --max-depth N --guesses "PATTERN B W;..." -o file
-            // Generate the color character string (e.g., 6 colors -> "ABCDEF")
-            let colorChars = '';
-            for (let i = 0; i < colorsCount; i++) {
-                colorChars += String.fromCharCode(65 + i);
-            }
 
             const args = [
                 'mastermind',
@@ -480,7 +472,7 @@ class WordGamesController {
             const actualResultsFile = (outputLines[2] || resultsFilename).trim();
 
             // Read the results file
-            let possiblePatterns: string[] = [];
+            let possiblePatterns: GuessWithEntropy[] = [];
             let guessesWithEntropy: GuessWithEntropy[] = [];
 
             const fullPath = path.join(this.executableDir, actualResultsFile);
@@ -524,6 +516,7 @@ class WordGamesController {
             const {
                 guesses = [],
                 results = [],
+                solutions = [],
                 maxDepth = 0,
                 excludeImpossiblePatterns = 0
             } = req.body;
@@ -532,8 +525,8 @@ class WordGamesController {
                 return sendError(res, 400, 'Invalid request body');
             }
 
-            if (!Array.isArray(guesses) || !Array.isArray(results) || guesses.length !== results.length) {
-                return sendError(res, 400, 'Guesses and results must be arrays of the same length');
+            if (!Array.isArray(guesses) || !Array.isArray(results) || guesses.length !== results.length || !Array.isArray(solutions)) {
+                return sendError(res, 400, 'Guesses and results must be arrays of the same length, and solutions must be an array');
             }
 
             // Validate guesses and results
@@ -551,10 +544,18 @@ class WordGamesController {
                 }
             }
 
+            // Validate solutions
+            for (let i = 0; i < solutions.length; i++) {
+                const sol = solutions[i];
+                if (typeof sol !== 'string' || sol.trim().split(/\s+/).length !== 5) {
+                    return sendError(res, 400, `Solution at index ${i} must be a space-separated string of exactly 5 character IDs`);
+                }
+            }
+
             const username = req.user?.username || 'user';
             const resultsFilename = this.generateResultsFilename(username, 'dungleon');
 
-            // Build command with CLI format: dungleon --max-depth N --guesses "chars colors;..." -o file
+            // Build command with CLI format: dungleon --max-depth N --guesses "chars colors;..." --solutions "chars;..." -o file
             // The C++ CLI expects --guesses with format "ar kn ma bt dr 01234;ar kn bo ne fr 00010"
             // where colors are 0-4 (not G/Y/X/R/D)
             const args = [
@@ -577,6 +578,14 @@ class WordGamesController {
                 args.push(`--guesses "${guessPairs.join(';')}"`);
             }
 
+            // Build the --solutions string
+            if (solutions.length > 0) {
+                const solutionPairs = solutions.map((sol: string) => {
+                    return sol.toLowerCase().replace(/\s+/g, ' ').trim();
+                });
+                args.push(`--solutions "${solutionPairs.join(';')}"`);
+            }
+
             const command = args.join(' ');
             console.log(`Executing Dungleon solver: ${command}`);
 
@@ -594,7 +603,7 @@ class WordGamesController {
             const actualResultsFile = (outputLines[2] || resultsFilename).trim();
 
             // Read the results file
-            let possiblePatterns: string[] = [];
+            let possiblePatterns: GuessWithEntropy[] = [];
             let guessesWithEntropy: GuessWithEntropy[] = [];
 
             const fullPath = path.join(this.executableDir, actualResultsFile);
@@ -743,7 +752,8 @@ class WordGamesController {
                 start = 0,
                 end = 100,
                 gameMode,
-                fileType
+                fileType,
+                possibleCount = 0
             } = req.body;
 
             const resultsFile = req.body.resultsFile || req.body.filePath;
@@ -775,14 +785,14 @@ class WordGamesController {
                 let solutions: any = {};
 
                 if (gameMode === 'wordle') {
-                    const parsed = this.parseWordleOutput(fileContent, 0);
+                    const parsed = this.parseWordleOutput(fileContent, possibleCount);
                     if (fileType === 'possible') {
                         solutions = { possibleWords: parsed.possibleWords.slice(startIndex, endIndex) };
                     } else {
                         solutions = { guessesWithEntropy: parsed.guessesWithEntropy.slice(startIndex, endIndex) };
                     }
                 } else if (gameMode === 'mastermind') {
-                    const parsed = this.parseMastermindOutput(fileContent, 0);
+                    const parsed = this.parseMastermindOutput(fileContent, possibleCount);
                     if (fileType === 'possible') {
                         solutions = { possiblePatterns: parsed.possiblePatterns.slice(startIndex, endIndex) };
                     } else {
@@ -792,7 +802,7 @@ class WordGamesController {
                     const parsed = this.parseHangmanOutput(fileContent, 0);
                     solutions = { possibleWords: parsed.possibleWords.slice(startIndex, endIndex) };
                 } else if (gameMode === 'dungleon') {
-                    const parsed = this.parseDungleonOutput(fileContent, 0);
+                    const parsed = this.parseDungleonOutput(fileContent, possibleCount);
                     if (fileType === 'possible') {
                         solutions = { possiblePatterns: parsed.possiblePatterns.slice(startIndex, endIndex) };
                     } else {
@@ -986,8 +996,8 @@ class WordGamesController {
     }
 
     // Parse Wordle results file
-    // File format: possible words (plain words, one per line), then CSV lines: word,entropy,probability
-    parseWordleOutput(output: string, _possibleCount: number): { possibleWords: string[]; guessesWithEntropy: GuessWithEntropy[] } {
+    // File format: possible words (CSV lines: word,entropy,probability), then CSV lines: word,entropy,probability
+    parseWordleOutput(output: string, possibleCount: number): { possibleWords: GuessWithEntropy[]; guessesWithEntropy: GuessWithEntropy[] } {
         if (!output || typeof output !== 'string') {
             return { possibleWords: [], guessesWithEntropy: [] };
         }
@@ -996,33 +1006,45 @@ class WordGamesController {
             .map(line => line.trim())
             .filter(line => line.length > 0);
 
-        const possibleWords: string[] = [];
+        const possibleWords: GuessWithEntropy[] = [];
         const guessesWithEntropy: GuessWithEntropy[] = [];
 
+        let lineIdx = 0;
         for (const line of lines) {
             if (line.includes(',')) {
                 const parts = line.split(',');
                 if (parts.length >= 3) {
-                    guessesWithEntropy.push({
+                    const item = {
                         word: parts[0].toUpperCase(),
                         entropy: parseFloat(parts[1]),
                         probability: parseFloat(parts[2])
-                    });
+                    };
+                    if (lineIdx < possibleCount) {
+                        possibleWords.push(item);
+                    } else {
+                        guessesWithEntropy.push(item);
+                    }
                 }
             } else {
+                // Backward compatibility if any old file style is read
                 const word = line.toUpperCase();
                 if (/^[A-Z]+$/.test(word)) {
-                    possibleWords.push(word);
+                    possibleWords.push({
+                        word,
+                        entropy: 0.0,
+                        probability: 1.0
+                    });
                 }
             }
+            lineIdx++;
         }
 
         return { possibleWords, guessesWithEntropy };
     }
 
     // Parse Mastermind results file
-    // File format: possible patterns (plain, one per line), then CSV lines: pattern,entropy,probability
-    parseMastermindOutput(output: string, _possibleCount: number): { possiblePatterns: string[]; guessesWithEntropy: GuessWithEntropy[] } {
+    // File format: possible patterns (CSV lines: pattern,entropy,probability), then CSV lines: pattern,entropy,probability
+    parseMastermindOutput(output: string, possibleCount: number): { possiblePatterns: GuessWithEntropy[]; guessesWithEntropy: GuessWithEntropy[] } {
         if (!output || typeof output !== 'string') {
             return { possiblePatterns: [], guessesWithEntropy: [] };
         }
@@ -1031,25 +1053,37 @@ class WordGamesController {
             .map(line => line.trim())
             .filter(line => line.length > 0);
 
-        const possiblePatterns: string[] = [];
+        const possiblePatterns: GuessWithEntropy[] = [];
         const guessesWithEntropy: GuessWithEntropy[] = [];
 
+        let lineIdx = 0;
         for (const line of lines) {
             if (line.includes(',')) {
                 const parts = line.split(',');
                 if (parts.length >= 3) {
-                    guessesWithEntropy.push({
+                    const item = {
                         pattern: parts[0].toUpperCase(),
                         entropy: parseFloat(parts[1]),
                         probability: parseFloat(parts[2])
-                    });
+                    };
+                    if (lineIdx < possibleCount) {
+                        possiblePatterns.push(item);
+                    } else {
+                        guessesWithEntropy.push(item);
+                    }
                 }
             } else {
+                // Backward compatibility
                 const pattern = line.toUpperCase();
                 if (/^[A-Z]+$/.test(pattern)) {
-                    possiblePatterns.push(pattern);
+                    possiblePatterns.push({
+                        pattern,
+                        entropy: 0.0,
+                        probability: 1.0
+                    });
                 }
             }
+            lineIdx++;
         }
 
         return { possiblePatterns, guessesWithEntropy };
@@ -1089,8 +1123,8 @@ class WordGamesController {
     }
 
     // Parse Dungleon results file
-    // File format: possible patterns (space-separated char pairs, one per line), then CSV lines: pattern,entropy,probability
-    parseDungleonOutput(output: string, _possibleCount: number): { possiblePatterns: string[]; guessesWithEntropy: GuessWithEntropy[] } {
+    // File format: possible patterns (CSV lines: pattern,entropy,probability), then CSV lines: pattern,entropy,probability
+    parseDungleonOutput(output: string, possibleCount: number): { possiblePatterns: GuessWithEntropy[]; guessesWithEntropy: GuessWithEntropy[] } {
         if (!output || typeof output !== 'string') {
             return { possiblePatterns: [], guessesWithEntropy: [] };
         }
@@ -1099,24 +1133,36 @@ class WordGamesController {
             .map(line => line.trim())
             .filter(line => line.length > 0);
 
-        const possiblePatterns: string[] = [];
+        const possiblePatterns: GuessWithEntropy[] = [];
         const guessesWithEntropy: GuessWithEntropy[] = [];
 
+        let lineIdx = 0;
         for (const line of lines) {
             if (line.includes(',')) {
                 const parts = line.split(',');
                 if (parts.length >= 3) {
-                    guessesWithEntropy.push({
+                    const item = {
                         pattern: parts[0].trim(),
                         entropy: parseFloat(parts[1]),
                         probability: parseFloat(parts[2])
-                    });
+                    };
+                    if (lineIdx < possibleCount) {
+                        possiblePatterns.push(item);
+                    } else {
+                        guessesWithEntropy.push(item);
+                    }
                 }
             } else {
+                // Backward compatibility
                 if (line.split(/\s+/).length === 5) {
-                    possiblePatterns.push(line);
+                    possiblePatterns.push({
+                        pattern: line,
+                        entropy: 0.0,
+                        probability: 1.0
+                    });
                 }
             }
+            lineIdx++;
         }
 
         return { possiblePatterns, guessesWithEntropy };

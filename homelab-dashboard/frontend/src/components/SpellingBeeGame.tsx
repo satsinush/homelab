@@ -111,17 +111,17 @@ interface SpellingBeeResultsProps {
 }
 
 const SpellingBeeResults = React.memo(({ results, onCopy, onLoadMore, isLoading }: SpellingBeeResultsProps) => {
-    if (!results || !results.solutions || results.solutions.length === 0) return null;
+    if (!results || !results.solutions || (results.solutions.length === 0 && !results.gameData)) return null;
 
     const { solutions, gameData } = results;
     const totalFound = gameData?.actualTotalFound || gameData?.totalSolutions || 0;
     const hasMore = solutions.length < totalFound;
 
     return (
-        <Card sx={{ mt: 3 }}>
-            <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h5" component="h2" sx={{ fontWeight: 600 }}>
+        <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <CardContent sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', minHeight: 0, '&:last-child': { pb: 2 } }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexShrink: 0 }}>
+                    <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
                         Solutions ({solutions.length}/{totalFound})
                     </Typography>
                     {solutions.length > 0 && (
@@ -136,7 +136,7 @@ const SpellingBeeResults = React.memo(({ results, onCopy, onLoadMore, isLoading 
                     )}
                 </Box>
 
-                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 400, overflowY: 'auto' }}>
+                <TableContainer component={Paper} variant="outlined" sx={{ flexGrow: 1, overflowY: 'auto', minHeight: 0 }}>
                     <Table size="small" stickyHeader>
                         <TableHead>
                             <TableRow>
@@ -169,7 +169,8 @@ const SpellingBeeResults = React.memo(({ results, onCopy, onLoadMore, isLoading 
                         variant="contained"
                         onClick={onLoadMore}
                         disabled={isLoading}
-                        sx={{ mt: 2 }}
+                        sx={{ mt: 2, alignSelf: 'flex-start', flexShrink: 0 }}
+                        size="small"
                     >
                         Load More
                     </Button>
@@ -251,13 +252,22 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
     }, [onClear]);
 
     return (
-        <Grid container spacing={2}>
+        <Grid container spacing={2} sx={{ height: '100%', minHeight: 0, flexGrow: 1 }}>
             {/* Controls & Honeycomb */}
-            <Grid size={{ xs: 12, md: 5, lg: 4 }}>
-                <Card>
-                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                    <CardContent sx={{ 
+                        p: 2, 
+                        flexGrow: 1, 
+                        overflowY: 'auto', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: 2,
+                        minHeight: 0,
+                        '&:last-child': { pb: 2 } 
+                    }}>
                         {/* Top Controls */}
-                        <Stack direction="row" spacing={1} sx={{ mb: 1.5 }} justifyContent="space-between" alignItems="center">
+                        <Stack direction="row" spacing={1} sx={{ mb: 0.5 }} justifyContent="space-between" alignItems="center" flexShrink={0}>
                             <Button variant="outlined" onClick={handleLocalClear} disabled={isLoading} size="small">
                                 New Game
                             </Button>
@@ -268,7 +278,7 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                             </Tooltip>
                         </Stack>
 
-                        <Box sx={{ mb: 2 }}>
+                        <Box sx={{ mb: 0.5, flexShrink: 0 }}>
                             <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
                                 Spelling Bee
                             </Typography>
@@ -277,12 +287,14 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                             </Typography>
                         </Box>
 
-                        {/* Honeycomb Display */}
-                        {spellingBeeLetters.length > 0 && (
-                            <SpellingBeeDisplay letters={spellingBeeLetters} />
-                        )}
+                        <Stack spacing={2} sx={{ flexGrow: 1, overflowY: 'auto', pr: 0.5, minHeight: 0 }}>
+                            {/* Honeycomb Display */}
+                            {spellingBeeLetters.length > 0 && (
+                                <Box sx={{ flexShrink: 0 }}>
+                                    <SpellingBeeDisplay letters={spellingBeeLetters} />
+                                </Box>
+                            )}
 
-                        <Stack spacing={1.5} sx={{ mt: 1.5 }}>
                             <TextField
                                 fullWidth
                                 label="Puzzle Letters (Center First)"
@@ -294,18 +306,19 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                                 disabled={isLoading}
                                 slotProps={{ htmlInput: { maxLength: 7, autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'off', spellCheck: 'false', style: { fontFamily: 'monospace', letterSpacing: '0.1em' } } }}
                             />
-                            
-                            <Button
-                                fullWidth
-                                variant="contained"
-                                size="medium"
-                                onClick={handleSolve}
-                                disabled={isLoading || spellingBeeLetters.length !== 7 || !gameStatus?.healthy}
-                                startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
-                            >
-                                {isLoading ? 'Solving...' : 'Solve'}
-                            </Button>
                         </Stack>
+
+                        <Button
+                            fullWidth
+                            variant="contained"
+                            size="medium"
+                            onClick={handleSolve}
+                            disabled={isLoading || spellingBeeLetters.length !== 7 || !gameStatus?.healthy}
+                            startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
+                            sx={{ mt: 1.5, flexShrink: 0 }}
+                        >
+                            {isLoading ? 'Solving...' : 'Solve'}
+                        </Button>
 
                         <GameSettingsDialog
                             open={settingsOpen}
@@ -324,14 +337,22 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
             </Grid>
 
             {/* Results */}
-            <Grid size={{ xs: 12, md: 7, lg: 8 }}>
-                {results && (
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                {results && results.gameData ? (
                     <SpellingBeeResults
                         results={results}
                         onCopy={handleCopy}
                         onLoadMore={onLoadMore}
                         isLoading={isLoading}
                     />
+                ) : (
+                    <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <CardContent>
+                            <Typography variant="h6" color="text.secondary" align="center">
+                                Run Solver
+                            </Typography>
+                        </CardContent>
+                    </Card>
                 )}
             </Grid>
         </Grid>

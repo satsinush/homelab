@@ -1,4 +1,11 @@
-- Fix word games
+- Enter should solve games
+- Add routes for specific word games
+- Add help for dungleon
+- make hangman/letter boxed table same style as others
+- Make "Search Depth" label same for all settings (not solver mode)
+- always show probability/ent with same number of decimals, 0.0% should be 0.00%
+- put letter box under text input
+- Puzzle letters text box label get's cut off on the top when active
 - make lint command simpler?
 - stop catching errors as unkown?
 - add rustdesk api server

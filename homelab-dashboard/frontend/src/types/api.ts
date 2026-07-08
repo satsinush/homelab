@@ -170,7 +170,11 @@ export interface WordleResponse {
     executionTime: number;
     start: number;
     end: number;
-    possibleWords: string[];
+    possibleWords: {
+        word: string;
+        probability: number | null;
+        entropy: number | null;
+    }[];
     guessesWithEntropy: {
         word: string;
         probability: number | null;
@@ -187,7 +191,11 @@ export interface MastermindResponse {
     executionTime: number;
     start: number;
     end: number;
-    possiblePatterns: string[];
+    possiblePatterns: {
+        pattern: string;
+        probability: number | null;
+        entropy: number | null;
+    }[];
     guessesWithEntropy: {
         pattern: string;
         probability: number | null;
@@ -222,7 +230,11 @@ export interface DungleonResponse {
     executionTime: number;
     start: number;
     end: number;
-    possiblePatterns: string[];
+    possiblePatterns: {
+        pattern: string;
+        probability: number | null;
+        entropy: number | null;
+    }[];
     guessesWithEntropy: {
         pattern: string;
         probability: number | null;
@@ -233,8 +245,16 @@ export interface DungleonResponse {
 
 export interface LoadMoreResponse {
     solutions?: {
-        possibleWords?: string[];
-        possiblePatterns?: string[];
+        possibleWords?: (string | {
+            word: string;
+            probability: number | null;
+            entropy: number | null;
+        })[];
+        possiblePatterns?: (string | {
+            pattern: string;
+            probability: number | null;
+            entropy: number | null;
+        })[];
         guessesWithEntropy?: {
             word?: string;
             pattern?: string;
@@ -337,7 +357,11 @@ export interface SpellingBeeResultState {
 }
 
 export interface WordleResultState {
-    possibleWords: string[];
+    possibleWords: {
+        word: string;
+        probability: number | null;
+        entropy: number | null;
+    }[];
     guessesWithEntropy: {
         word: string;
         probability: number | null;
@@ -360,7 +384,11 @@ export interface WordleResultState {
 }
 
 export interface MastermindResultState {
-    possiblePatterns: string[];
+    possiblePatterns: {
+        pattern: string;
+        probability: number | null;
+        entropy: number | null;
+    }[];
     guessesWithEntropy: {
         pattern: string;
         probability: number | null;
@@ -407,7 +435,11 @@ export interface HangmanResultState {
 }
 
 export interface DungleonResultState {
-    possiblePatterns: string[];
+    possiblePatterns: {
+        pattern: string;
+        probability: number | null;
+        entropy: number | null;
+    }[];
     guessesWithEntropy: {
         pattern: string;
         probability: number | null;
@@ -480,7 +512,11 @@ export interface HangmanRequest {
 }
 
 export interface DungleonRequest {
-    guesses: unknown;
+    guesses: string[];
+    results?: string[];
+    solutions?: string[];
+    maxDepth?: number;
+    excludeImpossiblePatterns?: number;
     possiblePatternsCount?: number;
     guessesCount?: number;
     isLimitedPossible?: boolean;

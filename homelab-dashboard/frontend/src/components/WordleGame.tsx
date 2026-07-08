@@ -10,7 +10,15 @@ import {
     CircularProgress,
     Stack,
     IconButton,
-    Tooltip
+    Tooltip,
+    Tabs,
+    Tab,
+    TableContainer,
+    Table,
+    TableHead,
+    TableBody,
+    TableRow,
+    TableCell
 } from '@mui/material';
 import {
     PlayArrow as PlayIcon,
@@ -29,7 +37,7 @@ interface GuessWithEntropyItem {
 }
 
 interface WordleResultsProps {
-    possibleWords: string[];
+    possibleWords: GuessWithEntropyItem[];
     guessesWithEntropy: GuessWithEntropyItem[];
     lastGameData: WordleResultState['gameData'];
     isLoading: boolean;
@@ -49,6 +57,12 @@ const WordleResults = React.memo(({
     onPossibleSolutionSelect,
     onSuggestedGuessSelect
 }: WordleResultsProps) => {
+    const [tabVal, setTabVal] = useState(0);
+
+    const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+        setTabVal(newValue);
+    };
+
     const copyPossibleWords = () => {
         const wordsText = possibleWords.join('\n');
         onCopyToClipboard(wordsText);
@@ -60,7 +74,7 @@ const WordleResults = React.memo(({
     };
 
     const formatRoundedNum = (num: number) => {
-        if (!num) return '0.00';
+        if (num === 0) return '0.0';
         if (num > 0 && num.toFixed(2) === '0.00') return '<0.01';
         return `${num.toFixed(2)}`;
     };
@@ -68,176 +82,118 @@ const WordleResults = React.memo(({
     if (possibleWords.length === 0 && guessesWithEntropy.length === 0 && !lastGameData) return null;
 
     return (
-        <Grid container spacing={3} sx={{ mt: 3 }}>
-            {/* Possible Words */}
-            <Grid size={{ xs: 12, md: guessesWithEntropy.length > 0 || (lastGameData && lastGameData.guessesCount > 0) ? 6 : 12 }}>
-                <Card sx={{ height: '100%' }}>
-                    <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                            <Box>
-                                <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-                                    Possible Words ({possibleWords.length}/{lastGameData?.possibleWordsCount || possibleWords.length})
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                    Click to fill guess form
-                                </Typography>
+        <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+                <Tabs value={tabVal} onChange={handleTabChange} aria-label="wordle results tabs">
+                    <Tab label={`Suggested Guesses (${guessesWithEntropy.length}/${lastGameData?.guessesCount || guessesWithEntropy.length})`} />
+                    <Tab label={`Possible Words (${possibleWords.length}/${lastGameData?.possibleWordsCount || possibleWords.length})`} />
+                </Tabs>
+                {tabVal === 0 && guessesWithEntropy.length > 0 && (
+                    <Button variant="outlined" size="small" onClick={copyGuesses} startIcon={<CopyIcon />}>Copy</Button>
+                )}
+                {tabVal === 1 && possibleWords.length > 0 && (
+                    <Button variant="outlined" size="small" onClick={copyPossibleWords} startIcon={<CopyIcon />}>Copy</Button>
+                )}
+            </Box>
+            <CardContent sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                {tabVal === 0 && (
+                    guessesWithEntropy.length > 0 ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                            <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
+                                <TableContainer sx={{ maxHeight: '100%', bgcolor: 'background.default' }}>
+                                    <Table size="small" stickyHeader>
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell sx={{ fontWeight: 'bold' }}>Word</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>ENT</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {guessesWithEntropy.map((guess, index) => (
+                                                <TableRow
+                                                    key={index}
+                                                    hover
+                                                    onClick={() => onSuggestedGuessSelect(guess.word)}
+                                                    sx={{ cursor: 'pointer' }}
+                                                >
+                                                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+                                                        {guess.word}
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        {guess.probability !== null ? `${formatRoundedNum(guess.probability * 100)}%` : '-'}
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        {guess.entropy !== null && guess.entropy !== undefined && !isNaN(Number(guess.entropy)) ? formatRoundedNum(Number(guess.entropy)) : '-'}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
                             </Box>
-                            {possibleWords.length > 0 && (
-                                <Button
-                                    variant="outlined"
-                                    size="small"
-                                    onClick={copyPossibleWords}
-                                    startIcon={<CopyIcon />}
-                                >
-                                    Copy
+                            {lastGameData && lastGameData.isLimitedGuesses && guessesWithEntropy.length < (lastGameData.guessesCount || 0) && (
+                                <Button variant="contained" onClick={() => onLoadMore('guesses')} disabled={isLoading} sx={{ mt: 2, alignSelf: 'flex-start' }} size="small">
+                                    Load More
                                 </Button>
                             )}
                         </Box>
-
-                        {(possibleWords.length > 0) ? (
-                            <>
-                                <Box
-                                    sx={{
-                                        maxHeight: 300,
-                                        overflowY: 'auto',
-                                        bgcolor: 'background.default',
-                                        border: '1px solid',
-                                        borderColor: 'divider',
-                                        borderRadius: 1
-                                    }}
-                                >
-                                    <Stack divider={<Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }} />}>
-                                        {possibleWords.map((word, index) => (
-                                            <Box
-                                                key={index}
-                                                onClick={() => onPossibleSolutionSelect(word)}
-                                                sx={{
-                                                    p: 1,
-                                                    cursor: 'pointer',
-                                                    '&:hover': { bgcolor: 'action.hover' },
-                                                    fontFamily: 'monospace',
-                                                    fontSize: '1rem',
-                                                    fontWeight: 'bold',
-                                                    pl: 2
-                                                }}
-                                            >
-                                                {word}
-                                            </Box>
-                                        ))}
-                                    </Stack>
-                                </Box>
-                                {lastGameData && lastGameData.isLimitedPossible && possibleWords.length < (lastGameData.possibleWordsCount || 0) && (
-                                    <Button
-                                        variant="contained"
-                                        onClick={() => onLoadMore('possible')}
-                                        disabled={isLoading}
-                                        sx={{ mt: 2 }}
-                                        size="small"
-                                    >
-                                        Load More
-                                    </Button>
-                                )}
-                            </>
-                        ) : (
-                            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                                No solutions found.
-                            </Typography>
-                        )}
-                    </CardContent>
-                </Card>
-            </Grid>
-
-            {/* Suggested Guesses */}
-            {(guessesWithEntropy.length > 0 || (lastGameData && lastGameData.guessesCount > 0)) && (
-                <Grid size={{ xs: 12, md: 6 }}>
-                    <Card sx={{ height: '100%' }}>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                <Box>
-                                    <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
-                                        Suggested Guesses ({guessesWithEntropy.length}/{lastGameData?.guessesCount || guessesWithEntropy.length})
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                        Click to fill guess form
-                                    </Typography>
-                                </Box>
-                                {guessesWithEntropy.length > 0 && (
-                                    <Button
-                                        variant="outlined"
-                                        size="small"
-                                        onClick={copyGuesses}
-                                        startIcon={<CopyIcon />}
-                                    >
-                                        Copy
-                                    </Button>
-                                )}
-                            </Box>
-
-                            {guessesWithEntropy.length > 0 ? (
-                                <>
-                                    <Box
-                                        sx={{
-                                            maxHeight: 300,
-                                            overflowY: 'auto',
-                                            bgcolor: 'background.default',
-                                            border: '1px solid',
-                                            borderColor: 'divider',
-                                            borderRadius: 1
-                                        }}
-                                    >
-                                        <Grid container sx={{ p: 1, bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider', fontWeight: 'bold' }}>
-                                            <Grid size={{ xs: 4 }} sx={{ pl: 1 }}>Word</Grid>
-                                            <Grid size={{ xs: 4 }} sx={{ textAlign: 'right' }}>Probability</Grid>
-                                            <Grid size={{ xs: 4 }} sx={{ textAlign: 'right', pr: 1 }}>ENT</Grid>
-                                        </Grid>
-                                        <Stack divider={<Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }} />}>
-                                            {guessesWithEntropy.map((guess, index) => (
-                                                <Grid
-                                                    container
+                    ) : (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                            No suggested guesses available.
+                        </Typography>
+                    )
+                )}
+                {tabVal === 1 && (
+                    possibleWords.length > 0 ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+                            <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
+                                <TableContainer sx={{ maxHeight: '100%', bgcolor: 'background.default' }}>
+                                    <Table size="small" stickyHeader>
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell sx={{ fontWeight: 'bold' }}>Word</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>ENT</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {possibleWords.map((guess, index) => (
+                                                <TableRow
                                                     key={index}
-                                                    onClick={() => onSuggestedGuessSelect(guess.word)}
-                                                    sx={{
-                                                        p: 1,
-                                                        cursor: 'pointer',
-                                                        '&:hover': { bgcolor: 'action.hover' },
-                                                        alignItems: 'center'
-                                                    }}
+                                                    hover
+                                                    onClick={() => onPossibleSolutionSelect(guess.word)}
+                                                    sx={{ cursor: 'pointer' }}
                                                 >
-                                                    <Grid size={{ xs: 4 }} sx={{ fontFamily: 'monospace', fontWeight: 'bold', pl: 1 }}>
+                                                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
                                                         {guess.word}
-                                                    </Grid>
-                                                    <Grid size={{ xs: 4 }} sx={{ textAlign: 'right' }}>
+                                                    </TableCell>
+                                                    <TableCell align="right">
                                                         {guess.probability !== null ? `${formatRoundedNum(guess.probability * 100)}%` : '-'}
-                                                    </Grid>
-                                                    <Grid size={{ xs: 4 }} sx={{ textAlign: 'right', pr: 1 }}>
-                                                        {guess.entropy !== null ? formatRoundedNum(guess.entropy) : '-'}
-                                                    </Grid>
-                                                </Grid>
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        {guess.entropy !== null && guess.entropy !== undefined && !isNaN(Number(guess.entropy)) ? formatRoundedNum(Number(guess.entropy)) : '-'}
+                                                    </TableCell>
+                                                </TableRow>
                                             ))}
-                                        </Stack>
-                                    </Box>
-                                    {lastGameData && lastGameData.isLimitedGuesses && guessesWithEntropy.length < (lastGameData.guessesCount || 0) && (
-                                        <Button
-                                            variant="contained"
-                                            onClick={() => onLoadMore('guesses')}
-                                            disabled={isLoading}
-                                            sx={{ mt: 2 }}
-                                            size="small"
-                                        >
-                                            Load More
-                                        </Button>
-                                    )}
-                                </>
-                            ) : (
-                                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                                    No suggested guesses available.
-                                </Typography>
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </Box>
+                            {lastGameData && lastGameData.isLimitedPossible && possibleWords.length < (lastGameData.possibleWordsCount || 0) && (
+                                <Button variant="contained" onClick={() => onLoadMore('possible')} disabled={isLoading} sx={{ mt: 2, alignSelf: 'flex-start' }} size="small">
+                                    Load More
+                                </Button>
                             )}
-                        </CardContent>
-                    </Card>
-                </Grid>
-            )}
-        </Grid>
+                        </Box>
+                    ) : (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                            No possible words found.
+                        </Typography>
+                    )
+                )}
+            </CardContent>
+        </Card>
     );
 });
 
@@ -417,13 +373,22 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
     }, []);
 
     return (
-        <Grid container spacing={2}>
+        <Grid container spacing={2} sx={{ height: '100%', minHeight: 0, flexGrow: 1 }}>
             {/* Input & Guess Controls Column */}
-            <Grid size={{ xs: 12, md: 5, lg: 4 }}>
-                <Card>
-                    <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                    <CardContent sx={{ 
+                        p: 2, 
+                        flexGrow: 1, 
+                        overflowY: 'auto', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: 2,
+                        minHeight: 0,
+                        '&:last-child': { pb: 2 } 
+                    }}>
                         {/* Top Controls */}
-                        <Stack direction="row" spacing={1} sx={{ mb: 1.5 }} justifyContent="space-between" alignItems="center">
+                        <Stack direction="row" spacing={1} sx={{ mb: 0.5 }} justifyContent="space-between" alignItems="center" flexShrink={0}>
                             <Button variant="outlined" onClick={handleClear} disabled={isLoading} size="small">
                                 New Game
                             </Button>
@@ -434,7 +399,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
                             </Tooltip>
                         </Stack>
 
-                        <Box sx={{ mb: 2 }}>
+                        <Box sx={{ mb: 0.5, flexShrink: 0 }}>
                             <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
                                 Wordle Solver
                             </Typography>
@@ -443,7 +408,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
                             </Typography>
                         </Box>
 
-                        <Stack spacing={2}>
+                        <Stack spacing={2} sx={{ flexGrow: 1, overflowY: 'auto', pr: 0.5, minHeight: 0 }}>
                             {/* Add Guess Section */}
                             <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                                 <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Add Guess</Typography>
@@ -637,35 +602,26 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
                                     </Typography>
                                 )}
                             </Box>
-
-                            <Button
-                                variant="contained"
-                                onClick={handleSolve}
-                                disabled={isLoading}
-                                startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
-                                fullWidth
-                                size="medium"
-                            >
-                                {isLoading ? 'Solving...' : 'Solve'}
-                            </Button>
                         </Stack>
 
-                        {/* Settings Dialog */}
-                        <GameSettingsDialog
-                            open={settingsOpen}
-                            onClose={() => setSettingsOpen(false)}
-                            onSave={handleConfigSave}
-                            title="Wordle Settings"
-                            config={config}
-                            fields={settingsFields}
-                        />
+                        <Button
+                            variant="contained"
+                            onClick={handleSolve}
+                            disabled={isLoading}
+                            startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
+                            fullWidth
+                            size="medium"
+                            sx={{ mt: 1.5, flexShrink: 0 }}
+                        >
+                            {isLoading ? 'Solving...' : 'Solve'}
+                        </Button>
                     </CardContent>
                 </Card>
             </Grid>
 
             {/* Results Column */}
-            <Grid size={{ xs: 12, md: 7, lg: 8 }}>
-                {results && (
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                {results && results.gameData ? (
                     <WordleResults
                         possibleWords={results.possibleWords || []}
                         guessesWithEntropy={results.guessesWithEntropy || []}
@@ -676,8 +632,26 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
                         onPossibleSolutionSelect={handlePossibleSolutionSelect}
                         onSuggestedGuessSelect={handleSuggestedGuessSelect}
                     />
+                ) : (
+                    <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <CardContent>
+                            <Typography variant="h6" color="text.secondary" align="center">
+                                Run Solver
+                            </Typography>
+                        </CardContent>
+                    </Card>
                 )}
             </Grid>
+
+            {/* Settings Dialog */}
+            <GameSettingsDialog
+                open={settingsOpen}
+                onClose={() => setSettingsOpen(false)}
+                onSave={handleConfigSave}
+                title="Wordle Settings"
+                config={config}
+                fields={settingsFields}
+            />
         </Grid>
     );
 });
