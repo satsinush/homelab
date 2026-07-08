@@ -1,9 +1,8 @@
 // src/components/WordGames.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
     Box,
-    Container,
-    Grid,
     Alert,
     Chip,
     CircularProgress,
@@ -16,7 +15,6 @@ import {
     Button
 } from '@mui/material';
 import {
-    Games as GamesIcon,
     Refresh as RefreshIcon,
     Quiz as QuizIcon,
     ViewModule as LetterBoxedIcon,
@@ -59,10 +57,46 @@ import {
 } from '../types/api';
 
 const WordGames = () => {
+    const { gameName } = useParams<{ gameName?: string }>();
+    const navigate = useNavigate();
+
+    const GAME_TABS = useMemo<Record<string, number>>(() => ({
+        'letterboxed': 0,
+        'spellingbee': 1,
+        'wordle': 2,
+        'mastermind': 3,
+        'hangman': 4,
+        'dungleon': 5
+    }), []);
+
+    const tabKeys = useMemo(() => ['letterboxed', 'spellingbee', 'wordle', 'mastermind', 'hangman', 'dungleon'], []);
+
     const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState<number>(0);
+    const [activeTab, setActiveTab] = useState<number>(() => {
+        if (gameName) {
+            return GAME_TABS[gameName.toLowerCase()] ?? 0;
+        }
+        return 0;
+    });
     const [helpModalOpen, setHelpModalOpen] = useState(false);
+
+    // Sync route change to tab state
+    useEffect(() => {
+        if (gameName) {
+            const mappedTab = GAME_TABS[gameName.toLowerCase()];
+            if (mappedTab !== undefined && mappedTab !== activeTab) {
+                setActiveTab(mappedTab);
+            }
+        }
+    }, [gameName, activeTab, GAME_TABS]);
+
+    // Redirect to default game if URL is just "/wordgames"
+    useEffect(() => {
+        if (!gameName) {
+            navigate('/wordgames/letterboxed', { replace: true });
+        }
+    }, [gameName, navigate]);
 
 
 
@@ -145,9 +179,11 @@ const WordGames = () => {
     }, []);
 
     const handleTabChange = useCallback((_event: unknown, newValue: unknown) => {
-        setActiveTab(Number(newValue));
+        const tabIndex = Number(newValue);
+        setActiveTab(tabIndex);
         handleClear('all');
-    }, [handleClear]);
+        navigate(`/wordgames/${tabKeys[tabIndex]}`);
+    }, [handleClear, navigate, tabKeys]);
 
     const handleSolve = useCallback(async (gameType: string, gameData: unknown) => {
         setIsLoading(true);
@@ -403,10 +439,11 @@ const WordGames = () => {
                                 if (typeof w === 'string') {
                                     return { word: w, probability: 1.0, entropy: 0.0 };
                                 }
+                                const obj = w as unknown as { word?: string; probability?: number; entropy?: number };
                                 return {
-                                    word: (w as any).word || '',
-                                    probability: (w as any).probability,
-                                    entropy: (w as any).entropy
+                                    word: obj.word || '',
+                                    probability: obj.probability ?? null,
+                                    entropy: obj.entropy ?? null
                                 };
                             }) as { word: string; probability: number | null; entropy: number | null }[]
                         ]
@@ -434,10 +471,11 @@ const WordGames = () => {
                                 if (typeof p === 'string') {
                                     return { pattern: p, probability: 1.0, entropy: 0.0 };
                                 }
+                                const obj = p as unknown as { pattern?: string; probability?: number; entropy?: number };
                                 return {
-                                    pattern: (p as any).pattern || '',
-                                    probability: (p as any).probability,
-                                    entropy: (p as any).entropy
+                                    pattern: obj.pattern || '',
+                                    probability: obj.probability ?? null,
+                                    entropy: obj.entropy ?? null
                                 };
                             }) as { pattern: string; probability: number | null; entropy: number | null }[]
                         ]
@@ -462,7 +500,7 @@ const WordGames = () => {
                         ...prev.possibleWords,
                         ...(response.data.solutions?.possibleWords || []).map(w => {
                             if (typeof w === 'string') return w;
-                            return (w as any).word || '';
+                            return (w as unknown as { word?: string }).word || '';
                         }) as string[]
                     ]
                 }));
@@ -476,10 +514,11 @@ const WordGames = () => {
                                 if (typeof p === 'string') {
                                     return { pattern: p, probability: 1.0, entropy: 0.0 };
                                 }
+                                const obj = p as unknown as { pattern?: string; probability?: number; entropy?: number };
                                 return {
-                                    pattern: (p as any).pattern || '',
-                                    probability: (p as any).probability,
-                                    entropy: (p as any).entropy
+                                    pattern: obj.pattern || '',
+                                    probability: obj.probability ?? null,
+                                    entropy: obj.entropy ?? null
                                 };
                             }) as { pattern: string; probability: number | null; entropy: number | null }[]
                         ]
@@ -540,8 +579,8 @@ const WordGames = () => {
                 flexShrink: 0
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <GamesIcon sx={{ fontSize: 28, color: 'primary.main' }} />
-                    <Box sx={{ typography: 'h5', fontWeight: 600 }}>Word Games</Box>
+                    <Box component="img" src="/assets/puzzle_icon.svg" sx={{ width: 28, height: 28 }} alt="Puzzle++ Logo" />
+                    <Box sx={{ typography: 'h5', fontWeight: 600 }}>Puzzle++</Box>
                     {gameStatus && (
                         <Chip
                             label={gameStatus.healthy ? 'Online' : 'Offline'}
@@ -622,10 +661,11 @@ const WordGames = () => {
             {/* Game Content */}
             <Box sx={{ 
                 flexGrow: 1, 
-                height: 0, 
+                height: { xs: 'auto', md: 0 }, 
                 minHeight: 0, 
                 display: 'flex', 
-                flexDirection: 'column'
+                flexDirection: 'column',
+                overflowY: { xs: 'auto', md: 'visible' }
             }}>
                 {activeTab === 0 && (
                     <LetterBoxedGame

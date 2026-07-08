@@ -133,7 +133,7 @@ class WordGamesController {
             // Read the requested chunk
             const startIndex = parseInt(start) || 0;
             const endIndex = parseInt(end) || 100;
-            const solutions = await this.readResultsChunk(actualResultsFile, startIndex, endIndex);
+            const solutions = await this.readResultsChunkNoHeader(actualResultsFile, startIndex, endIndex);
 
             // Schedule deletion after 1 hour
             this.scheduleFileCleanup(actualResultsFile);
@@ -819,12 +819,9 @@ class WordGamesController {
                 });
             }
 
-            let solutions: string[] = [];
-            if (gameMode === 'spellingbee') {
-                solutions = await this.readResultsChunkNoHeader(relativePath, startIndex, endIndex);
-            } else {
-                solutions = await this.readResultsChunk(relativePath, startIndex, endIndex);
-            }
+            // Only spellingbee and letterboxed games reach here (others return early above)
+            // Both of these games write solved lists directly without a header.
+            const solutions = await this.readResultsChunkNoHeader(relativePath, startIndex, endIndex);
 
             return sendSuccess(res, {
                 success: true,
@@ -898,49 +895,6 @@ class WordGamesController {
         });
     }
 
-    // Read a specific chunk of lines from a results file (with 2-line header skip)
-    readResultsChunk(resultsFile: string, start: number, end: number): Promise<string[]> {
-        return new Promise((resolve, reject) => {
-            const fullPath = path.join(this.executableDir, resultsFile);
-            
-            if (!fs.existsSync(fullPath)) {
-                return reject(new Error(`Results file not found: ${resultsFile}`));
-            }
-
-            const input = fs.createReadStream(fullPath);
-            const rl = readline.createInterface({
-                input,
-                crlfDelay: Infinity
-            });
-
-            const lines: string[] = [];
-            let lineCount = 0;
-
-            rl.on('line', (line) => {
-                // Header rows are the first 2 lines
-                if (lineCount >= 2) {
-                    const actualIndex = lineCount - 2;
-                    if (actualIndex >= start && actualIndex < end) {
-                        lines.push(line);
-                    }
-                }
-                lineCount++;
-                
-                // Stop reading if we've reached the end
-                if (lineCount - 2 >= end) {
-                    rl.close();
-                }
-            });
-
-            rl.on('close', () => {
-                resolve(lines);
-            });
-
-            rl.on('error', (err) => {
-                reject(err);
-            });
-        });
-    }
 
     // Read a specific chunk of lines from a results file (no header skip)
     readResultsChunkNoHeader(resultsFile: string, start: number, end: number): Promise<string[]> {

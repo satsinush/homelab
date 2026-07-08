@@ -144,6 +144,7 @@ function AppContent() {
                 <Route path="/devices" element={<ProtectedRoute role="dashboard-devices-user"><Devices /></ProtectedRoute>} />
                 <Route path="/chat" element={<ProtectedRoute role="dashboard-chat-user"><Chat /></ProtectedRoute>} />
                 <Route path="/wordgames" element={<ProtectedRoute role="dashboard-wordgames-user"><WordGames /></ProtectedRoute>} />
+                <Route path="/wordgames/:gameName" element={<ProtectedRoute role="dashboard-wordgames-user"><WordGames /></ProtectedRoute>} />
                 <Route path="/packages" element={<ProtectedRoute role="dashboard-packages-user"><PackageManager /></ProtectedRoute>} />
                 <Route path="/users" element={<ProtectedRoute role="dashboard-users-user"><Users /></ProtectedRoute>} />
                 <Route path="/secrets" element={<ProtectedRoute role="dashboard-secrets-user"><Secrets /></ProtectedRoute>} />

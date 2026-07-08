@@ -239,12 +239,14 @@ const Settings = () => {
                                                 onChange={(e) => handleServerSettingChange('scanTimeout', parseInt(e.target.value))}
                                                 fullWidth
                                                 helperText="Timeout for network scan operations"
-                                                InputProps={{
-                                                    sx: {
-                                                        '& input[type=number]': { MozAppearance: 'textfield' },
-                                                        '& input[type=number]::-webkit-outer-spin-button': { WebkitAppearance: 'none', margin: 0 },
-                                                        '& input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
-                                                    },
+                                                slotProps={{
+                                                    input: {
+                                                        sx: {
+                                                            '& input[type=number]': { MozAppearance: 'textfield' },
+                                                            '& input[type=number]::-webkit-outer-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                                                            '& input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                                                        },
+                                                    }
                                                 }}
                                             />
                                             <TextField
@@ -254,12 +256,14 @@ const Settings = () => {
                                                 onChange={(e) => handleServerSettingChange('cacheTimeout', parseInt(e.target.value))}
                                                 fullWidth
                                                 helperText="How long to cache device status"
-                                                InputProps={{
-                                                    sx: {
-                                                        '& input[type=number]': { MozAppearance: 'textfield' },
-                                                        '& input[type=number]::-webkit-outer-spin-button': { WebkitAppearance: 'none', margin: 0 },
-                                                        '& input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
-                                                    },
+                                                slotProps={{
+                                                    input: {
+                                                        sx: {
+                                                            '& input[type=number]': { MozAppearance: 'textfield' },
+                                                            '& input[type=number]::-webkit-outer-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                                                            '& input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                                                        },
+                                                    }
                                                 }}
                                             />
                                         </Stack>
@@ -328,12 +332,14 @@ const Settings = () => {
                                                 onChange={(e) => handleUserSettingChange('devicesPerPage', Math.max(5, Math.min(100, parseInt(e.target.value) || 25)))}
                                                 fullWidth
                                                 helperText="Number of devices shown per page (5-100)"
-                                                InputProps={{
-                                                    sx: {
-                                                        '& input[type=number]': { MozAppearance: 'textfield' },
-                                                        '& input[type=number]::-webkit-outer-spin-button': { WebkitAppearance: 'none', margin: 0 },
-                                                        '& input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
-                                                    },
+                                                slotProps={{
+                                                    input: {
+                                                        sx: {
+                                                            '& input[type=number]': { MozAppearance: 'textfield' },
+                                                            '& input[type=number]::-webkit-outer-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                                                            '& input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                                                        },
+                                                    }
                                                 }}
                                             />
                                             <FormControlLabel

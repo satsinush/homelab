@@ -1,22 +1,7 @@
-- Enter should solve games
-- Add routes for specific word games
-- Add help for dungleon
-- make hangman/letter boxed table same style as others
-- Make "Search Depth" label same for all settings (not solver mode)
-- always show probability/ent with same number of decimals, 0.0% should be 0.00%
-- put letter box under text input
-- Puzzle letters text box label get's cut off on the top when active
-- click on suggested guesses or possible patterns should auto fill for mastermind (only works for some patterns apparently)
-- get correct colors for wordle and dungleon
-- add auto mode for ent solvers? Calculate optimal depth based on number of possible solutions?
 - why is feedback/guesses not being used in dungleon generateAllPossiblePatterns?
-- not all letter boxed solutions show up in the list (ioykprnegvhd) only 1 of 3 load
-- put "Puzzle++" in place of "Word Games" for titles and use the icon from resources
-- use hexagons for spelling bee
-- make letter box actually look like letter boxed
-- typing a letter in hangman should not put cursor at the end
-- hangman is not right, for "_AS_I__T__", "FASCINATED" should not be valid since "A" has already been guessed but the second "A" is not revealed so it must not be an an "A"
-- only load 100 possible words for hangman at a time
+- add auto mode for ent solvers? Calculate optimal depth based on number of possible solutions?
+
+- split up load more call into separate requests for each game
 - make lint command simpler?
 - stop catching errors as unkown?
 - add rustdesk api server

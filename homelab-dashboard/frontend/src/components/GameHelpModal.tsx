@@ -284,9 +284,51 @@ const GameHelpModal = ({ open, onClose, gameType }: GameHelpModalProps) => {
                     )
                 };
 
+            case 'dungleon':
+                return {
+                    title: 'Dungleon Solver Help',
+                    content: (
+                        <Box>
+                            <Typography variant="h6" gutterBottom>How to Use:</Typography>
+                            <List dense>
+                                <ListItem>
+                                    <ListItemText primary="Enter your guesses of 5 characters and their feedback" />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText primary="Click on character slots to set feedback colors:" />
+                                </ListItem>
+                                <ListItem sx={{ pl: 4 }}>
+                                    <ListItemText primary="• Red: Character not present in the secret dungeon composition" />
+                                </ListItem>
+                                <ListItem sx={{ pl: 4 }}>
+                                    <ListItemText primary="• Yellow: Character present but in a different position" />
+                                </ListItem>
+                                <ListItem sx={{ pl: 4 }}>
+                                    <ListItemText primary="• Green: Character in correct position" />
+                                </ListItem>
+                                <ListItem sx={{ pl: 4 }}>
+                                    <ListItemText primary="• Add '+' badge: Check badge/indicator if there is more than 1 copy of this character" />
+                                </ListItem>
+                            </List>
+
+                            <Divider sx={{ my: 2 }} />
+
+                            <Typography variant="h6" gutterBottom>Configuration:</Typography>
+                            <List dense>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="Solver Mode"
+                                        secondary="0: Fastest (simple filter), 1: Balanced (ENT calculations), 2: Deep (slower but optimal next guesses)"
+                                    />
+                                </ListItem>
+                            </List>
+                        </Box>
+                    )
+                };
+
             default:
                 return {
-                    title: 'Word Games Help',
+                    title: 'Puzzle++ Help',
                     content: <Typography>Select a game to see specific help information.</Typography>
                 };
         }

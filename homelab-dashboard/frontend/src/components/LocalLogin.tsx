@@ -207,19 +207,21 @@ const LocalLogin = ({ onBack }: LocalLoginProps) => {
                                 disabled={loading || checkingFirstUser}
                                 autoComplete={isFirstUser ? "new-password" : "current-password"}
                                 helperText={isFirstUser ? "This will be your admin password" : ""}
-                                InputProps={{
-                                    endAdornment: (
-                                        <InputAdornment position="end">
-                                            <IconButton
-                                                aria-label="toggle password visibility"
-                                                onClick={handleTogglePasswordVisibility}
-                                                edge="end"
-                                                disabled={loading || checkingFirstUser}
-                                            >
-                                                {showPassword ? <VisibilityOff /> : <Visibility />}
-                                            </IconButton>
-                                        </InputAdornment>
-                                    ),
+                                slotProps={{
+                                    input: {
+                                        endAdornment: (
+                                            <InputAdornment position="end">
+                                                <IconButton
+                                                    aria-label="toggle password visibility"
+                                                    onClick={handleTogglePasswordVisibility}
+                                                    edge="end"
+                                                    disabled={loading || checkingFirstUser}
+                                                >
+                                                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ),
+                                    }
                                 }}
                             />
 

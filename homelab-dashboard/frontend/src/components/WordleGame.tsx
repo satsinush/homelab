@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useCallback, useMemo, forwardRef, useImperativeHandle, useRef, useEffect } from 'react';
 import {
     Box,
     Card,
@@ -18,7 +18,8 @@ import {
     TableHead,
     TableBody,
     TableRow,
-    TableCell
+    TableCell,
+    Paper
 } from '@mui/material';
 import {
     PlayArrow as PlayIcon,
@@ -47,6 +48,184 @@ interface WordleResultsProps {
     onSuggestedGuessSelect: (word: string) => void;
 }
 
+interface WordleGuessInputProps {
+    wordLength: number;
+    onAddGuess: (word: string, colors: number[]) => void;
+    onSolve: () => void;
+    hasGuesses: boolean;
+    showError: (message: string) => void;
+    colorMap: Record<number, { bg: string; color: string; symbol: string | null }>;
+}
+
+export interface WordleGuessInputRef {
+    setGuess: (word: string) => void;
+}
+
+const WordleGuessInput = forwardRef<WordleGuessInputRef, WordleGuessInputProps>(({
+    wordLength,
+    onAddGuess,
+    onSolve,
+    hasGuesses,
+    showError,
+    colorMap
+}, ref) => {
+    const [localGuess, setLocalGuess] = useState('');
+    const [localGuessColors, setLocalGuessColors] = useState<number[]>(Array(wordLength).fill(0));
+
+    useImperativeHandle(ref, () => ({
+        setGuess: (word: string) => {
+            const cleanWord = word.trim().toUpperCase();
+            if (cleanWord.length === wordLength && /^[A-Z]+$/.test(cleanWord)) {
+                setLocalGuess(cleanWord);
+                setLocalGuessColors(Array(wordLength).fill(0));
+            }
+        }
+    }), [wordLength]);
+
+    useEffect(() => {
+        setLocalGuess('');
+        setLocalGuessColors(Array(wordLength).fill(0));
+    }, [wordLength]);
+
+    const handleLocalGuessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const cleanValue = e.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, wordLength);
+        setLocalGuess(cleanValue);
+    };
+
+    const toggleLetterColor = (index: number) => {
+        setLocalGuessColors(prev => {
+            const next = [...prev];
+            next[index] = (next[index] + 1) % 3;
+            return next;
+        });
+    };
+
+    const handleAdd = () => {
+        const guess = localGuess.trim().toUpperCase();
+        if (guess.length !== wordLength) {
+            showError(`Guess must be exactly ${wordLength} letters`);
+            return;
+        }
+        onAddGuess(guess, [...localGuessColors]);
+        setLocalGuess('');
+        setLocalGuessColors(Array(wordLength).fill(0));
+    };
+
+    return (
+        <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Add Guess</Typography>
+            <Stack spacing={1.5}>
+                <TextField
+                    label={`${wordLength}-letter word`}
+                    size="small"
+                    value={localGuess}
+                    onChange={handleLocalGuessChange}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (localGuess.length === wordLength) {
+                                handleAdd();
+                            } else if (localGuess.length === 0 && hasGuesses) {
+                                onSolve();
+                            }
+                        }
+                    }}
+                    fullWidth
+                    slotProps={{
+                        htmlInput: {
+                            maxLength: wordLength,
+                            style: {
+                                textAlign: 'center',
+                                fontSize: '1rem',
+                                fontWeight: 'bold',
+                                textTransform: 'uppercase',
+                                fontFamily: 'monospace',
+                                letterSpacing: '0.1em'
+                            },
+                            autoComplete: 'off',
+                            autoCorrect: 'off',
+                            autoCapitalize: 'off',
+                            spellCheck: 'false'
+                        }
+                    }}
+                />
+
+                {localGuess.length > 0 && (
+                    <Box>
+                        <Typography variant="caption" sx={{ mb: 0.5, color: 'text.secondary', display: 'block', textAlign: 'center' }}>
+                            Set colors (click letters):
+                        </Typography>
+                        <Box sx={{
+                            display: 'flex',
+                            gap: 0.5,
+                            justifyContent: 'center',
+                            flexWrap: 'wrap'
+                        }}>
+                            {localGuess.split('').map((letter, index) => {
+                                const colors = colorMap[localGuessColors[index]] || colorMap[0];
+                                return (
+                                    <Box
+                                        key={index}
+                                        onClick={() => toggleLetterColor(index)}
+                                        sx={{
+                                            width: 36,
+                                            height: 36,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            backgroundColor: colors.bg,
+                                            color: colors.color,
+                                            fontSize: '1.1rem',
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            border: '2px solid #d3d6da',
+                                            position: 'relative',
+                                            borderRadius: 0.5,
+                                            userSelect: 'none',
+                                            '&:hover': {
+                                                opacity: 0.8
+                                            }
+                                        }}
+                                    >
+                                        {letter}
+                                        {colors.symbol && (
+                                            <Box
+                                                component="span"
+                                                sx={{
+                                                    position: 'absolute',
+                                                    bottom: 1,
+                                                    right: 2,
+                                                    fontSize: '0.65rem',
+                                                    lineHeight: 0.5,
+                                                    opacity: 0.8,
+                                                }}
+                                            >
+                                                {colors.symbol}
+                                            </Box>
+                                        )}
+                                    </Box>
+                                );
+                            })}
+                        </Box>
+                    </Box>
+                )}
+
+                <Button
+                    variant="outlined"
+                    onClick={handleAdd}
+                    disabled={localGuess.length !== wordLength}
+                    startIcon={<AddIcon />}
+                    size="small"
+                    fullWidth
+                >
+                    Add Word
+                </Button>
+            </Stack>
+        </Box>
+    );
+});
+WordleGuessInput.displayName = 'WordleGuessInput';
+
 const WordleResults = React.memo(({
     possibleWords,
     guessesWithEntropy,
@@ -74,7 +253,7 @@ const WordleResults = React.memo(({
     };
 
     const formatRoundedNum = (num: number) => {
-        if (num === 0) return '0.0';
+        if (num === 0) return '0.00';
         if (num > 0 && num.toFixed(2) === '0.00') return '<0.01';
         return `${num.toFixed(2)}`;
     };
@@ -82,7 +261,7 @@ const WordleResults = React.memo(({
     if (possibleWords.length === 0 && guessesWithEntropy.length === 0 && !lastGameData) return null;
 
     return (
-        <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                 <Tabs value={tabVal} onChange={handleTabChange} aria-label="wordle results tabs">
                     <Tab label={`Suggested Guesses (${guessesWithEntropy.length}/${lastGameData?.guessesCount || guessesWithEntropy.length})`} />
@@ -100,7 +279,7 @@ const WordleResults = React.memo(({
                     guessesWithEntropy.length > 0 ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                             <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
-                                <TableContainer sx={{ maxHeight: '100%', bgcolor: 'background.default' }}>
+                                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
                                     <Table size="small" stickyHeader>
                                         <TableHead>
                                             <TableRow>
@@ -117,8 +296,8 @@ const WordleResults = React.memo(({
                                                     onClick={() => onSuggestedGuessSelect(guess.word)}
                                                     sx={{ cursor: 'pointer' }}
                                                 >
-                                                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
-                                                        {guess.word}
+                                                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
+                                                        {guess.word.toUpperCase()}
                                                     </TableCell>
                                                     <TableCell align="right">
                                                         {guess.probability !== null ? `${formatRoundedNum(guess.probability * 100)}%` : '-'}
@@ -148,7 +327,7 @@ const WordleResults = React.memo(({
                     possibleWords.length > 0 ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                             <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
-                                <TableContainer sx={{ maxHeight: '100%', bgcolor: 'background.default' }}>
+                                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
                                     <Table size="small" stickyHeader>
                                         <TableHead>
                                             <TableRow>
@@ -165,8 +344,8 @@ const WordleResults = React.memo(({
                                                     onClick={() => onPossibleSolutionSelect(guess.word)}
                                                     sx={{ cursor: 'pointer' }}
                                                 >
-                                                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
-                                                        {guess.word}
+                                                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
+                                                        {guess.word.toUpperCase()}
                                                     </TableCell>
                                                     <TableCell align="right">
                                                         {guess.probability !== null ? `${formatRoundedNum(guess.probability * 100)}%` : '-'}
@@ -220,14 +399,14 @@ export interface WordleGameRef {
 
 const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSolve, onClear, showError, results, onLoadMore }, ref) => {
     const [wordleGuesses, setWordleGuesses] = useState<WordleGuessItem[]>([]);
-    const [currentGuess, setCurrentGuess] = useState('');
-    const [currentGuessColors, setCurrentGuessColors] = useState<number[]>([0, 0, 0, 0, 0]);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [config, setConfig] = useState({
         wordLength: 5,
         maxDepth: 1,
         excludeUncommonWords: true
     });
+
+    const guessInputRef = useRef<WordleGuessInputRef>(null);
 
     const settingsFields: FieldDefinition[] = [
         {
@@ -239,7 +418,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
         },
         {
             name: 'maxDepth',
-            label: 'Solver Mode',
+            label: 'Search Depth',
             type: 'select',
             options: [
                 { value: 0, label: '0: Fastest' },
@@ -265,8 +444,6 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
     const handleConfigSave = useCallback((newConfig: DialogConfig) => {
         const newWordLength = Number(newConfig.wordLength);
         if (newWordLength !== config.wordLength) {
-            setCurrentGuessColors(Array(newWordLength).fill(0));
-            setCurrentGuess('');
             setWordleGuesses([]);
         }
         setConfig({
@@ -278,45 +455,16 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
 
     useImperativeHandle(ref, () => ({
         fillSuggestedGuess: (word: string) => {
-            const cleanWord = word.trim().toUpperCase();
-            if (cleanWord.length === config.wordLength && /^[A-Z]+$/.test(cleanWord)) {
-                setCurrentGuess(cleanWord);
-                setCurrentGuessColors(Array(config.wordLength).fill(0));
-            }
+            guessInputRef.current?.setGuess(word);
         }
-    }), [config.wordLength]);
+    }), []);
 
-    const handleCurrentGuessChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        const cleanValue = e.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, config.wordLength);
-        setCurrentGuess(cleanValue);
-    }, [config.wordLength]);
-
-    const addWordleGuess = useCallback(() => {
-        const guess = currentGuess.trim().toUpperCase();
-
-        if (guess.length !== config.wordLength) {
-            showError(`Guess must be exactly ${config.wordLength} letters`);
-            return;
-        }
-
-        if (!/^[A-Z]+$/.test(guess)) {
-            showError('Guess must contain only letters');
-            return;
-        }
-
+    const addWordleGuess = useCallback((word: string, colors: number[]) => {
         const feedbackMap = ['X', 'Y', 'G'];
-        const feedback = currentGuessColors.map(c => feedbackMap[c] || 'X').join('');
-        const newGuess: WordleGuessItem = { word: guess, feedback: feedback, colors: [...currentGuessColors] };
-        setWordleGuesses([...wordleGuesses, newGuess]);
-        setCurrentGuess('');
-        setCurrentGuessColors(Array(config.wordLength).fill(0));
-    }, [currentGuess, currentGuessColors, wordleGuesses, config.wordLength, showError]);
-
-    const toggleLetterColor = useCallback((index: number) => {
-        const newColors = [...currentGuessColors];
-        newColors[index] = (newColors[index] + 1) % 3;
-        setCurrentGuessColors(newColors);
-    }, [currentGuessColors]);
+        const feedback = colors.map(c => feedbackMap[c] || 'X').join('');
+        const newGuess: WordleGuessItem = { word, feedback, colors };
+        setWordleGuesses(prev => [...prev, newGuess]);
+    }, []);
 
     const toggleExistingGuessColor = useCallback((guessIndex: number, letterIndex: number) => {
         setWordleGuesses(prev => prev.map((guess, idx) => {
@@ -333,9 +481,8 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
     }, []);
 
     const removeWordleGuess = useCallback((index: number) => {
-        const newGuesses = wordleGuesses.filter((_, i) => i !== index);
-        setWordleGuesses(newGuesses);
-    }, [wordleGuesses]);
+        setWordleGuesses(prev => prev.filter((_, i) => i !== index));
+    }, []);
 
     const handleSolve = useCallback(async () => {
         await onSolve('wordle', {
@@ -351,32 +498,28 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
 
     const handleClear = useCallback(() => {
         setWordleGuesses([]);
-        setCurrentGuess('');
-        setCurrentGuessColors(Array(config.wordLength).fill(0));
         onClear();
-    }, [config.wordLength, onClear]);
+    }, [onClear]);
 
     const handleCopyToClipboard = useCallback((text: string) => {
         navigator.clipboard.writeText(text);
     }, []);
 
     const handlePossibleSolutionSelect = useCallback((word: string) => {
-        setCurrentGuess(word);
-        setCurrentGuessColors(Array(word.length).fill(0));
+        guessInputRef.current?.setGuess(word);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, []);
 
     const handleSuggestedGuessSelect = useCallback((word: string) => {
-        setCurrentGuess(word);
-        setCurrentGuessColors(Array(word.length).fill(0));
+        guessInputRef.current?.setGuess(word);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, []);
 
     return (
-        <Grid container spacing={2} sx={{ height: '100%', minHeight: 0, flexGrow: 1 }}>
+        <Grid container spacing={2} sx={{ height: { xs: 'auto', md: '100%' }, minHeight: 0, flexGrow: 1 }}>
             {/* Input & Guess Controls Column */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                     <CardContent sx={{ 
                         p: 2, 
                         flexGrow: 1, 
@@ -410,115 +553,15 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
 
                         <Stack spacing={2} sx={{ flexGrow: 1, overflowY: 'auto', pr: 0.5, minHeight: 0 }}>
                             {/* Add Guess Section */}
-                            <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Add Guess</Typography>
-                                <Stack spacing={1.5}>
-                                    <TextField
-                                        label={`${config.wordLength}-letter word`}
-                                        size="small"
-                                        value={currentGuess}
-                                        onChange={handleCurrentGuessChange}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                if (currentGuess.length === config.wordLength) {
-                                                    addWordleGuess();
-                                                }
-                                            }
-                                        }}
-                                        fullWidth
-                                        slotProps={{
-                                            htmlInput: {
-                                                maxLength: config.wordLength,
-                                                style: {
-                                                    textAlign: 'center',
-                                                    fontSize: '1rem',
-                                                    fontWeight: 'bold',
-                                                    textTransform: 'uppercase',
-                                                    fontFamily: 'monospace',
-                                                    letterSpacing: '0.1em'
-                                                },
-                                                autoComplete: 'off',
-                                                autoCorrect: 'off',
-                                                autoCapitalize: 'off',
-                                                spellCheck: 'false'
-                                            }
-                                        }}
-                                    />
-
-                                    {/* Color Feedback Section */}
-                                    {currentGuess.length > 0 && (
-                                        <Box>
-                                            <Typography variant="caption" sx={{ mb: 0.5, color: 'text.secondary', display: 'block', textAlign: 'center' }}>
-                                                Set colors (click letters):
-                                            </Typography>
-                                            <Box sx={{
-                                                display: 'flex',
-                                                gap: 0.5,
-                                                justifyContent: 'center',
-                                                flexWrap: 'wrap'
-                                            }}>
-                                                {currentGuess.split('').map((letter, index) => {
-                                                    const colors = colorMap[currentGuessColors[index]] || colorMap[0];
-                                                    return (
-                                                        <Box
-                                                            key={index}
-                                                            onClick={() => toggleLetterColor(index)}
-                                                            sx={{
-                                                                width: 36,
-                                                                height: 36,
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                                backgroundColor: colors.bg,
-                                                                color: colors.color,
-                                                                fontSize: '1.1rem',
-                                                                fontWeight: 'bold',
-                                                                cursor: 'pointer',
-                                                                border: '2px solid #d3d6da',
-                                                                position: 'relative',
-                                                                borderRadius: 0.5,
-                                                                userSelect: 'none',
-                                                                '&:hover': {
-                                                                    opacity: 0.8
-                                                                }
-                                                            }}
-                                                        >
-                                                            {letter}
-                                                            {colors.symbol && (
-                                                                <Box
-                                                                    component="span"
-                                                                    sx={{
-                                                                        position: 'absolute',
-                                                                        bottom: 1,
-                                                                        right: 2,
-                                                                        fontSize: '0.65rem',
-                                                                        lineHeight: 0.5,
-                                                                        opacity: 0.8,
-                                                                    }}
-                                                                >
-                                                                    {colors.symbol}
-                                                                </Box>
-                                                            )}
-                                                        </Box>
-                                                    );
-                                                })}
-                                            </Box>
-                                        </Box>
-                                    )}
-
-                                    <Button
-                                        variant="outlined"
-                                        onClick={addWordleGuess}
-                                        disabled={currentGuess.length !== config.wordLength}
-                                        startIcon={<AddIcon />}
-                                        size="small"
-                                        fullWidth
-                                    >
-                                        Add Word
-                                    </Button>
-                                </Stack>
-                            </Box>
+                            <WordleGuessInput
+                                ref={guessInputRef}
+                                wordLength={config.wordLength}
+                                onAddGuess={addWordleGuess}
+                                onSolve={handleSolve}
+                                hasGuesses={wordleGuesses.length > 0}
+                                showError={showError}
+                                colorMap={colorMap}
+                            />
 
                             {/* Current Guesses */}
                             <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
@@ -526,7 +569,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
                                     {`Current Guesses (${wordleGuesses.length})`}
                                 </Typography>
                                 {wordleGuesses.length > 0 ? (
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 160, overflowY: 'auto', pr: 0.5, pb: 1.5 }}>
                                         {wordleGuesses.map((guess, index) => (
                                             <Box key={index} sx={{
                                                 display: 'flex',
@@ -620,7 +663,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
             </Grid>
 
             {/* Results Column */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: { xs: 350, md: 0 } }}>
                 {results && results.gameData ? (
                     <WordleResults
                         possibleWords={results.possibleWords || []}
@@ -633,7 +676,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
                         onSuggestedGuessSelect={handleSuggestedGuessSelect}
                     />
                 ) : (
-                    <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', alignItems: 'center', justifyContent: 'center', py: { xs: 6, md: 0 }, flexGrow: 1 }}>
                         <CardContent>
                             <Typography variant="h6" color="text.secondary" align="center">
                                 Run Solver

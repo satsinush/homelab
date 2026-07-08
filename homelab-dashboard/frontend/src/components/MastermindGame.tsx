@@ -16,12 +16,12 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Chip,
     Divider,
     Tabs,
     Tab,
     FormControlLabel,
-    Checkbox
+    Checkbox,
+    Paper
 } from '@mui/material';
 import {
     PlayArrow as PlayIcon,
@@ -207,7 +207,7 @@ const MastermindResults = React.memo(({
     };
 
     const formatRoundedNum = (num: number) => {
-        if (num === 0) return '0.0';
+        if (num === 0) return '0.00';
         if (num > 0 && num.toFixed(2) === '0.00') return '<0.01';
         return `${num.toFixed(2)}`;
     };
@@ -218,7 +218,7 @@ const MastermindResults = React.memo(({
     if (!showPossible && !showSuggestions && !lastGameData) return null;
 
     return (
-        <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                 <Tabs value={tabVal} onChange={handleTabChange} aria-label="mastermind results tabs">
                     <Tab label={`Suggested Guesses (${guessesWithEntropy.length}/${lastGameData?.guessesCount || guessesWithEntropy.length})`} />
@@ -236,7 +236,7 @@ const MastermindResults = React.memo(({
                     showSuggestions ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                             <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
-                                <TableContainer>
+                                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
                                     <Table size="small" stickyHeader>
                                         <TableHead>
                                             <TableRow>
@@ -260,17 +260,17 @@ const MastermindResults = React.memo(({
                                                                 size="small"
                                                                 colorMapping={lastGameData?.colorMapping}
                                                             />
-                                                            <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary', ml: 1 }}>
-                                                                {guess.pattern}
+                                                            <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary', ml: 1, fontSize: '1rem', fontWeight: 'bold' }}>
+                                                                {guess.pattern.toUpperCase()}
                                                             </Typography>
                                                         </Box>
                                                     </TableCell>
                                                     <TableCell align="right">
                                                         {guess.probability !== null ? `${formatRoundedNum(guess.probability * 100)}%` : '-'}
                                                     </TableCell>
-                                                     <TableCell align="right">
-                                                         {guess.entropy !== null && guess.entropy !== undefined && !isNaN(Number(guess.entropy)) ? formatRoundedNum(Number(guess.entropy)) : '-'}
-                                                     </TableCell>
+                                                    <TableCell align="right">
+                                                        {guess.entropy !== null && guess.entropy !== undefined && !isNaN(Number(guess.entropy)) ? formatRoundedNum(Number(guess.entropy)) : '-'}
+                                                    </TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -293,7 +293,7 @@ const MastermindResults = React.memo(({
                     showPossible ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                             <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
-                                <TableContainer>
+                                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
                                     <Table size="small" stickyHeader>
                                         <TableHead>
                                             <TableRow>
@@ -317,8 +317,8 @@ const MastermindResults = React.memo(({
                                                                 size="small"
                                                                 colorMapping={lastGameData?.colorMapping}
                                                             />
-                                                            <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary', ml: 1 }}>
-                                                                {guess.pattern}
+                                                            <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary', ml: 1, fontSize: '1rem', fontWeight: 'bold' }}>
+                                                                {guess.pattern.toUpperCase()}
                                                             </Typography>
                                                         </Box>
                                                     </TableCell>
@@ -353,109 +353,7 @@ const MastermindResults = React.memo(({
 
 MastermindResults.displayName = 'MastermindResults';
 
-interface ColorSelectorProps {
-    enabledColors: Record<number, boolean>;
-    setEnabledColors: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
-    onColorSelect: (colorIndex: number) => void;
-    colorMapping: ColorMapping;
-}
 
-const ColorSelector = ({ enabledColors, setEnabledColors, onColorSelect, colorMapping }: ColorSelectorProps) => {
-    const handleToggleColor = (colorIndex: number, e: React.MouseEvent) => {
-        e.stopPropagation();
-        setEnabledColors(prev => {
-            const next = { ...prev, [colorIndex]: !prev[colorIndex] };
-            const enabledCount = Object.values(next).filter(Boolean).length;
-            if (enabledCount === 0) {
-                return prev; // must enable at least one color
-            }
-            return next;
-        });
-    };
-
-    return (
-        <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>Enabled Colors</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Toggle colors to enable/disable. Click a color to use it for the current guess.
-            </Typography>
-            <Grid container spacing={1}>
-                {PEG_COLORS.map((color, index) => {
-                    const isEnabled = enabledColors[index];
-                    const mastermindIdx = colorMapping.originalToMastermind[index];
-
-                    return (
-                        <Grid size={{ xs: 6, sm: 4, md: 2.4 }} key={index}>
-                            <Box
-                                onClick={() => isEnabled && onColorSelect(index)}
-                                sx={{
-                                    p: 1,
-                                    borderRadius: 1,
-                                    border: '1px solid',
-                                    borderColor: isEnabled ? 'divider' : 'transparent',
-                                    backgroundColor: isEnabled ? 'action.selected' : 'action.disabledBackground',
-                                    cursor: isEnabled ? 'pointer' : 'not-allowed',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    gap: 1,
-                                    position: 'relative',
-                                    opacity: isEnabled ? 1 : 0.5,
-                                    '&:hover': {
-                                        backgroundColor: isEnabled ? 'action.hover' : 'action.disabledBackground'
-                                    }
-                                }}
-                            >
-                                <Box
-                                    sx={{
-                                        width: 32,
-                                        height: 32,
-                                        borderRadius: '50%',
-                                        backgroundColor: color,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontWeight: 'bold',
-                                        color: PEG_TEXT_COLORS[index],
-                                        boxShadow: 1
-                                    }}
-                                >
-                                    {PEG_COLOR_CHARS[index]}
-                                </Box>
-                                <Typography variant="caption" noWrap sx={{ maxWidth: '100%', fontSize: '0.75rem' }}>
-                                    {PEG_COLOR_NAMES[index]}
-                                </Typography>
-                                {isEnabled && mastermindIdx !== undefined && (
-                                    <Chip
-                                        label={`#${mastermindIdx}`}
-                                        size="small"
-                                        color="primary"
-                                        sx={{
-                                            position: 'absolute',
-                                            top: -5,
-                                            right: -5,
-                                            height: 16,
-                                            fontSize: '0.65rem',
-                                            '.MuiChip-label': { px: 0.5 }
-                                        }}
-                                    />
-                                )}
-                                <Button
-                                    size="small"
-                                    onClick={(e) => handleToggleColor(index, e)}
-                                    color={isEnabled ? "error" : "success"}
-                                    sx={{ minWidth: 0, px: 1, py: 0, fontSize: '0.65rem', mt: 0.5 }}
-                                >
-                                    {isEnabled ? 'Disable' : 'Enable'}
-                                </Button>
-                            </Box>
-                        </Grid>
-                    );
-                })}
-            </Grid>
-        </Box>
-    );
-};
 
 interface MastermindGameProps {
     gameStatus: GameStatus | null;
@@ -535,25 +433,29 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
     const fillPatternFromSelection = useCallback((pattern: string) => {
         if (!pattern) return;
 
-        const isColorCharFormat = /^[RGBYMCOPWK]+$/i.test(pattern.trim());
+        const trimmed = pattern.trim();
+        const parts = trimmed.split(/\s+/);
+        const isNumeric = parts.every(p => !isNaN(parseInt(p, 10)) && /^\d+$/.test(p));
 
-        if (isColorCharFormat) {
-            const chars = pattern.trim().toUpperCase().split('');
-            if (chars.length === state.numPegs) {
-                const newPattern = chars.map(char => {
-                    const originalIdx = PEG_COLOR_CHARS.indexOf(char);
-                    return originalIdx !== -1 ? originalIdx : null;
+        if (isNumeric) {
+            let numericParts = parts;
+            if (parts.length === 1 && trimmed.length === state.numPegs) {
+                numericParts = trimmed.split('');
+            }
+            if (numericParts.length === state.numPegs) {
+                const newPattern = numericParts.map(part => {
+                    const mastermindIdx = parseInt(part, 10);
+                    const originalIdx = colorMapping.mastermindToOriginal[mastermindIdx];
+                    return originalIdx !== undefined ? originalIdx : null;
                 });
                 setState(prev => ({ ...prev, currentPattern: newPattern }));
             }
         } else {
-            const parts = pattern.trim().split(/\s+/);
-            if (parts.length === state.numPegs) {
-                const newPattern = parts.map(part => {
-                    const mastermindIdx = parseInt(part, 10);
-                    if (isNaN(mastermindIdx)) return null;
-                    const originalIdx = colorMapping.mastermindToOriginal[mastermindIdx];
-                    return originalIdx !== undefined ? originalIdx : null;
+            const chars = trimmed.replace(/\s+/g, '').toUpperCase().split('');
+            if (chars.length === state.numPegs) {
+                const newPattern = chars.map(char => {
+                    const originalIdx = PEG_COLOR_CHARS.indexOf(char);
+                    return originalIdx !== -1 ? originalIdx : null;
                 });
                 setState(prev => ({ ...prev, currentPattern: newPattern }));
             }
@@ -700,7 +602,23 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
             start: 0,
             end: 100
         });
-    }, [state.guesses, state.numPegs, enabledColors, state.allowDuplicates, state.maxDepth, colorMapping, onSolve]);
+    }, [state.guesses, state.numPegs, enabledColors, state.allowDuplicates, state.maxDepth, onSolve]);
+
+    React.useEffect(() => {
+        const handleGlobalKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter') {
+                const activeEl = document.activeElement;
+                if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+                    return;
+                }
+                if (state.guesses.length > 0 && !isLoading && gameStatus?.healthy) {
+                    handleSolve();
+                }
+            }
+        };
+        window.addEventListener('keydown', handleGlobalKeyDown);
+        return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+    }, [state.guesses, isLoading, gameStatus, handleSolve]);
 
     const settingsFields: FieldDefinition[] = [
         {
@@ -721,7 +639,7 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
         },
         {
             name: 'maxDepth',
-            label: 'Solver Mode',
+            label: 'Search Depth',
             type: 'select',
             options: [
                 { value: 0, label: '0: Fastest' },
@@ -732,10 +650,10 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
     ];
 
     return (
-        <Grid container spacing={2} sx={{ height: '100%', minHeight: 0, flexGrow: 1 }}>
+        <Grid container spacing={2} sx={{ height: { xs: 'auto', md: '100%' }, minHeight: 0, flexGrow: 1 }}>
             {/* Control & Guesses Inputs Column */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                     <CardContent sx={{ 
                         p: 2, 
                         flexGrow: 1, 
@@ -1068,7 +986,7 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
             </Grid>
 
             {/* Results Column */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: { xs: 350, md: 0 } }}>
                 {results && results.gameData ? (
                     <MastermindResults
                         possiblePatterns={results.possiblePatterns || []}
@@ -1081,7 +999,7 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                         onSuggestedGuessSelect={fillPatternFromSelection}
                     />
                 ) : (
-                    <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', alignItems: 'center', justifyContent: 'center', py: { xs: 6, md: 0 }, flexGrow: 1 }}>
                         <CardContent>
                             <Typography variant="h6" color="text.secondary" align="center">
                                 Run Solver

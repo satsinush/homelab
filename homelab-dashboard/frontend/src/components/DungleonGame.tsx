@@ -10,7 +10,6 @@ import {
     Stack,
     IconButton,
     Tooltip,
-    Paper,
     Table,
     TableBody,
     TableCell,
@@ -64,11 +63,11 @@ const CHARACTER_MAP = CHARACTERS.reduce((acc, char, index) => {
 
 // Feedback styles using theme-compatible colors
 const FEEDBACK_STYLES: Record<number, { borderColor: string; bgColor: string; badge: boolean }> = {
-    0: { borderColor: 'error.main', bgColor: 'error.main', badge: false }, // Not present (Red)
-    1: { borderColor: 'warning.main', bgColor: 'warning.main', badge: false }, // Wrong pos (Yellow)
-    2: { borderColor: 'success.main', bgColor: 'success.main', badge: false }, // Correct pos (Green)
-    3: { borderColor: 'warning.main', bgColor: 'warning.main', badge: true },  // Wrong pos + 1 more
-    4: { borderColor: 'success.main', bgColor: 'success.main', badge: true }   // Correct pos + 1 more
+    0: { borderColor: '#d34bb1', bgColor: '#d34bb1', badge: false }, // Not present (Red)
+    1: { borderColor: '#c0cd3c', bgColor: '#c0cd3c', badge: false }, // Wrong pos (Yellow)
+    2: { borderColor: '#37c45c', bgColor: '#37c45c', badge: false }, // Correct pos (Green)
+    3: { borderColor: '#c0cd3c', bgColor: '#c0cd3c', badge: true },  // Wrong pos + 1 more
+    4: { borderColor: '#37c45c', bgColor: '#37c45c', badge: true }   // Correct pos + 1 more
 };
 
 const getDungleonAssetPath = (charId: string) => {
@@ -157,7 +156,7 @@ const DungleonResults = React.memo(({
     };
 
     const formatRoundedNum = (num: number) => {
-        if (num === 0) return '0.0';
+        if (num === 0) return '0.00';
         if (num > 0 && num.toFixed(2) === '0.00') return '<0.01';
         return `${num.toFixed(2)}`;
     };
@@ -168,7 +167,7 @@ const DungleonResults = React.memo(({
     if (!showPossible && !showSuggestions && !lastGameData) return null;
 
     return (
-        <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                 <Tabs value={tabVal} onChange={handleTabChange} aria-label="dungleon results tabs">
                     <Tab label={`Suggested Guesses (${guessesWithEntropy.length}/${lastGameData?.guessesCount || guessesWithEntropy.length})`} />
@@ -482,6 +481,22 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
         });
     }, [guesses, solutions, config, onSolve]);
 
+    React.useEffect(() => {
+        const handleGlobalKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Enter') {
+                const activeEl = document.activeElement;
+                if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+                    return;
+                }
+                if (guesses.length > 0 && !isLoading && gameStatus?.healthy) {
+                    handleSolve();
+                }
+            }
+        };
+        window.addEventListener('keydown', handleGlobalKeyDown);
+        return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+    }, [guesses, isLoading, gameStatus, handleSolve]);
+
     const handleClear = useCallback(() => {
         setGuesses([]);
         setSolutions([]);
@@ -496,10 +511,10 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
     };
 
     return (
-        <Grid container spacing={2} sx={{ height: '100%', minHeight: 0, flexGrow: 1 }}>
+        <Grid container spacing={2} sx={{ height: { xs: 'auto', md: '100%' }, minHeight: 0, flexGrow: 1 }}>
             {/* Input & Character Bank Column */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                     <CardContent sx={{ 
                         p: 2, 
                         flexGrow: 1, 
@@ -546,26 +561,28 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                             }}>
                                 {CHARACTERS.map((char) => (
                                     <Tooltip key={char.id} title={char.name}>
-                                        <IconButton
-                                            onClick={() => handleCharacterClick(char.id)}
-                                            disabled={currentPattern.length >= 5}
-                                            sx={{
-                                                width: 40,
-                                                height: 40,
-                                                border: '1px solid',
-                                                borderColor: 'divider',
-                                                borderRadius: 1,
-                                                backgroundColor: 'background.paper',
-                                                p: 0.5,
-                                                '&:hover': { backgroundColor: 'action.selected' }
-                                            }}
-                                        >
-                                            <img
-                                                src={getAssetPath(char.id)}
-                                                alt={char.name}
-                                                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                            />
-                                        </IconButton>
+                                        <span>
+                                            <IconButton
+                                                onClick={() => handleCharacterClick(char.id)}
+                                                disabled={currentPattern.length >= 5}
+                                                sx={{
+                                                    width: 40,
+                                                    height: 40,
+                                                    border: '1px solid',
+                                                    borderColor: 'divider',
+                                                    borderRadius: 1,
+                                                    backgroundColor: 'background.paper',
+                                                    p: 0.5,
+                                                    '&:hover': { backgroundColor: 'action.selected' }
+                                                }}
+                                            >
+                                                <img
+                                                    src={getAssetPath(char.id)}
+                                                    alt={char.name}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                                />
+                                            </IconButton>
+                                        </span>
                                     </Tooltip>
                                 ))}
                             </Box>
@@ -617,8 +634,8 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                                                 position: 'absolute',
                                                                 top: 1,
                                                                 right: 1,
-                                                                width: 12,
-                                                                height: 12
+                                                                width: 16,
+                                                                height: 16
                                                             }}
                                                         />
                                                     )}
@@ -646,20 +663,23 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                     fullWidth
                                     color="primary"
                                     size="small"
+                                    sx={{ flex: 1 }}
                                 >
                                     Submit Guess
                                 </Button>
                                 <Tooltip title="Gauntlet Mode: Add past solutions to exclude">
-                                    <Button
-                                        variant="contained"
-                                        onClick={submitSolution}
-                                        disabled={currentPattern.length !== 5}
-                                        fullWidth
-                                        color="secondary"
-                                        size="small"
-                                    >
-                                        Submit Solution
-                                    </Button>
+                                    <Box component="span" sx={{ flex: 1, display: 'inline-flex' }}>
+                                        <Button
+                                            variant="contained"
+                                            onClick={submitSolution}
+                                            disabled={currentPattern.length !== 5}
+                                            fullWidth
+                                            color="secondary"
+                                            size="small"
+                                        >
+                                            Submit Solution
+                                        </Button>
+                                    </Box>
                                 </Tooltip>
                             </Stack>
 
@@ -720,10 +740,10 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                                                             src="/assets/dungleon/plus.png"
                                                                             sx={{
                                                                                 position: 'absolute',
-                                                                                top: 2,
-                                                                                right: 2,
-                                                                                width: 10,
-                                                                                height: 10
+                                                                                top: 1,
+                                                                                right: 1,
+                                                                                width: 12,
+                                                                                height: 12
                                                                             }}
                                                                         />
                                                                     )}
@@ -834,7 +854,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
             </Grid>
 
             {/* Results Column */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: { xs: 350, md: 0 } }}>
                 {results && results.gameData ? (
                     <DungleonResults
                         possiblePatterns={results.possiblePatterns || []}
@@ -847,7 +867,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                         onSuggestedGuessSelect={fillSuggestedGuess}
                     />
                 ) : (
-                    <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', alignItems: 'center', justifyContent: 'center', py: { xs: 6, md: 0 }, flexGrow: 1 }}>
                         <CardContent>
                             <Typography variant="h6" color="text.secondary" align="center">
                                 Run Solver

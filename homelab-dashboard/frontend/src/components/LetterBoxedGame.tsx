@@ -20,9 +20,13 @@ import {
     DialogContent,
     DialogActions,
     Divider,
-    List,
-    ListItem,
-    ListItemText
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Paper
 } from '@mui/material';
 import { PlayArrow as PlayIcon, Settings as SettingsIcon, ContentCopy as CopyIcon } from '@mui/icons-material';
 import { LetterBoxedResultState, GameStatus } from '../types/api';
@@ -34,9 +38,8 @@ interface LetterBoxedGridProps {
 // Letter grid display component
 const LetterBoxedGrid = ({ letters }: LetterBoxedGridProps) => {
     const formatLetters = (lettersVal: string) => {
-        if (!lettersVal || lettersVal.length === 0) return [];
-
-        const letterArray = lettersVal.toUpperCase().split('');
+        const padded = (lettersVal || '').toUpperCase().padEnd(12, ' ');
+        const letterArray = padded.split('');
 
         return [
             letterArray.slice(0, 3),
@@ -48,151 +51,71 @@ const LetterBoxedGrid = ({ letters }: LetterBoxedGridProps) => {
 
     const sides = formatLetters(letters);
 
-    if (sides.length === 0) return null;
-
     return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
-            {/* Box Layout */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
             <Box
+                component="svg"
+                viewBox="0 0 240 240"
                 sx={{
-                    position: 'relative',
-                    width: 200,
-                    height: 200,
-                    border: '3px solid',
-                    borderColor: 'primary.main',
-                    borderRadius: 1,
-                    bgcolor: 'background.paper'
+                    width: 240,
+                    height: 240,
+                    overflow: 'visible'
                 }}
             >
+                {/* Central Square */}
+                <rect
+                    x="50"
+                    y="50"
+                    width="140"
+                    height="140"
+                    fill="none"
+                    stroke="#1976d2"
+                    strokeWidth="3"
+                />
+
                 {/* Top Side (0, 1, 2) */}
-                <Box
-                    sx={{
-                        position: 'absolute',
-                        top: -20,
-                        left: 0,
-                        right: 0,
-                        display: 'flex',
-                        justifyContent: 'space-around',
-                        px: 2
-                    }}
-                >
-                    {sides[0]?.map((letter, i) => (
-                        <Box
-                            key={i}
-                            sx={{
-                                width: 32,
-                                height: 32,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                backgroundColor: 'primary.main',
-                                color: 'primary.contrastText',
-                                fontWeight: 'bold',
-                                borderRadius: 1
-                            }}
-                        >
-                            {letter}
-                        </Box>
-                    ))}
-                </Box>
+                {sides[0]?.map((letter, i) => {
+                    const x = 75 + i * 45;
+                    return (
+                        <g key={`top-${i}`}>
+                            <circle cx={x} cy="50" r="5" fill="#1976d2" />
+                            <text x={x} y="32" fill="currentColor" textAnchor="middle" style={{ fontWeight: 'bold', fontSize: '15px', fontFamily: 'sans-serif' }}>{letter !== ' ' ? letter : ''}</text>
+                        </g>
+                    );
+                })}
 
                 {/* Right Side (3, 4, 5) */}
-                <Box
-                    sx={{
-                        position: 'absolute',
-                        right: -20,
-                        top: 0,
-                        bottom: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-around',
-                        py: 2
-                    }}
-                >
-                    {sides[1]?.map((letter, i) => (
-                        <Box
-                            key={i}
-                            sx={{
-                                width: 32,
-                                height: 32,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                backgroundColor: 'primary.main',
-                                color: 'primary.contrastText',
-                                fontWeight: 'bold',
-                                borderRadius: 1
-                            }}
-                        >
-                            {letter}
-                        </Box>
-                    ))}
-                </Box>
+                {sides[1]?.map((letter, i) => {
+                    const y = 75 + i * 45;
+                    return (
+                        <g key={`right-${i}`}>
+                            <circle cx="190" cy={y} r="5" fill="#1976d2" />
+                            <text x="208" y={y + 5} fill="currentColor" textAnchor="start" style={{ fontWeight: 'bold', fontSize: '15px', fontFamily: 'sans-serif' }}>{letter !== ' ' ? letter : ''}</text>
+                        </g>
+                    );
+                })}
 
                 {/* Bottom Side (6, 7, 8) */}
-                <Box
-                    sx={{
-                        position: 'absolute',
-                        bottom: -20,
-                        left: 0,
-                        right: 0,
-                        display: 'flex',
-                        justifyContent: 'space-around',
-                        px: 2
-                    }}
-                >
-                    {sides[2]?.map((letter, i) => (
-                        <Box
-                            key={i}
-                            sx={{
-                                width: 32,
-                                height: 32,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                backgroundColor: 'primary.main',
-                                color: 'primary.contrastText',
-                                fontWeight: 'bold',
-                                borderRadius: 1
-                            }}
-                        >
-                            {letter}
-                        </Box>
-                    ))}
-                </Box>
+                {sides[2]?.map((letter, i) => {
+                    const x = 75 + i * 45;
+                    return (
+                        <g key={`bottom-${i}`}>
+                            <circle cx={x} cy="190" r="5" fill="#1976d2" />
+                            <text x={x} y="214" fill="currentColor" textAnchor="middle" style={{ fontWeight: 'bold', fontSize: '15px', fontFamily: 'sans-serif' }}>{letter !== ' ' ? letter : ''}</text>
+                        </g>
+                    );
+                })}
 
                 {/* Left Side (9, 10, 11) */}
-                <Box
-                    sx={{
-                        position: 'absolute',
-                        left: -20,
-                        top: 0,
-                        bottom: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-around',
-                        py: 2
-                    }}
-                >
-                    {sides[3]?.map((letter, i) => (
-                        <Box
-                            key={i}
-                            sx={{
-                                width: 32,
-                                height: 32,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                backgroundColor: 'primary.main',
-                                color: 'primary.contrastText',
-                                fontWeight: 'bold',
-                                borderRadius: 1
-                            }}
-                        >
-                            {letter}
-                        </Box>
-                    ))}
-                </Box>
+                {sides[3]?.map((letter, i) => {
+                    const y = 75 + i * 45;
+                    return (
+                        <g key={`left-${i}`}>
+                            <circle cx="50" cy={y} r="5" fill="#1976d2" />
+                            <text x="32" y={y + 5} fill="currentColor" textAnchor="end" style={{ fontWeight: 'bold', fontSize: '15px', fontFamily: 'sans-serif' }}>{letter !== ' ' ? letter : ''}</text>
+                        </g>
+                    );
+                })}
             </Box>
         </Box>
     );
@@ -233,7 +156,7 @@ const LetterBoxedResults = React.memo(({
     const totalSolutionsCount = lastGameData?.actualTotalFound || lastGameData?.totalSolutions || 0;
 
     return (
-        <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <CardContent sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', minHeight: 0, '&:last-child': { pb: 2 } }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexShrink: 0 }}>
                     <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
@@ -251,38 +174,40 @@ const LetterBoxedResults = React.memo(({
                     )}
                 </Box>
 
-                <Box
-                    sx={{
-                        flexGrow: 1,
-                        overflowY: 'auto',
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        bgcolor: 'background.default',
-                        minHeight: 0
-                    }}
-                >
-                    <List dense>
-                        {solutions.map((sol, index) => {
-                            const words = sol.split('-');
-                            return (
-                                <React.Fragment key={index}>
-                                    <ListItem>
-                                        <ListItemText
-                                            primary={
-                                                <Typography variant="subtitle1" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
-                                                    {sol}
-                                                </Typography>
-                                            }
-                                            secondary={`Words: ${words.length} | Length: ${sol.replace(/-/g, '').length}`}
-                                        />
-                                    </ListItem>
-                                    {index < solutions.length - 1 && <Divider />}
-                                </React.Fragment>
-                            );
-                        })}
-                    </List>
-                </Box>
+                <TableContainer component={Paper} variant="outlined" sx={{ flexGrow: 1, overflowY: 'auto', minHeight: 0 }}>
+                    <Table size="small" stickyHeader>
+                        <TableHead>
+                            <TableRow>
+                                <TableCell sx={{ fontWeight: 'bold' }}>Solution</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Words</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Letters</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Unique</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {solutions.map((sol, index) => {
+                                const words = sol.split(' ');
+                                const lettersCount = sol.replace(/\s/g, '').length;
+                                const uniqueLettersCount = new Set(sol.replace(/\s/g, '').toLowerCase().split('')).size;
+                                return (
+                                    <TableRow
+                                        key={index}
+                                        hover
+                                        onClick={() => onCopyToClipboard(sol)}
+                                        sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
+                                    >
+                                        <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
+                                            {sol.toUpperCase()}
+                                        </TableCell>
+                                        <TableCell align="right">{words.length}</TableCell>
+                                        <TableCell align="right">{lettersCount}</TableCell>
+                                        <TableCell align="right">{uniqueLettersCount}</TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
 
                 {lastGameData && lastGameData.isLimited && solutions.length < totalSolutionsCount && (
                     <Button
@@ -425,10 +350,10 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
     };
 
     return (
-        <Grid container spacing={2} sx={{ height: '100%', minHeight: 0, flexGrow: 1 }}>
+        <Grid container spacing={2} sx={{ height: { xs: 'auto', md: '100%' }, minHeight: 0, flexGrow: 1 }}>
             {/* Input & Control Column */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                     <CardContent sx={{ 
                         p: 2, 
                         flexGrow: 1, 
@@ -460,14 +385,7 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                             </Typography>
                         </Box>
 
-                        <Stack spacing={2} sx={{ flexGrow: 1, overflowY: 'auto', pr: 0.5, minHeight: 0 }}>
-                            {/* Box Display */}
-                            {letterBoxedLetters.length > 0 && (
-                                <Box sx={{ flexShrink: 0 }}>
-                                    <LetterBoxedGrid letters={letterBoxedLetters} />
-                                </Box>
-                            )}
-
+                        <Stack spacing={2} sx={{ flexGrow: 1, overflowY: 'auto', pr: 0.5, pt: 1.5, minHeight: 0 }}>
                             <TextField
                                 fullWidth
                                 label="Puzzle Letters (12 letters)"
@@ -478,7 +396,17 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                                 placeholder="E.g., ABCDEFGHIJKL"
                                 disabled={isLoading}
                                 slotProps={{ htmlInput: { maxLength: 12, autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'off', spellCheck: 'false', style: { fontFamily: 'monospace', letterSpacing: '0.1em' } } }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !isLoading && letterBoxedLetters.length === 12 && gameStatus?.healthy) {
+                                        handleSolve();
+                                    }
+                                }}
                             />
+
+                            {/* Box Display */}
+                            <Box sx={{ flexShrink: 0 }}>
+                                <LetterBoxedGrid letters={letterBoxedLetters} />
+                            </Box>
                         </Stack>
 
                         <Button
@@ -596,7 +524,7 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
             </Grid>
 
             {/* Results Column */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: { xs: 350, md: 0 } }}>
                 {results && results.gameData ? (
                     <LetterBoxedResults
                         solutions={results.solutions || []}
@@ -606,7 +534,7 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                         onCopyToClipboard={handleCopyToClipboard}
                     />
                 ) : (
-                    <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', alignItems: 'center', justifyContent: 'center', py: { xs: 6, md: 0 }, flexGrow: 1 }}>
                         <CardContent>
                             <Typography variant="h6" color="text.secondary" align="center">
                                 Run Solver

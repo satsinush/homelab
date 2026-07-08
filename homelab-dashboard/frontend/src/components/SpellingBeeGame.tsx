@@ -29,7 +29,8 @@ interface SpellingBeeDisplayProps {
 
 // Spelling Bee display component
 const SpellingBeeDisplay = ({ letters }: SpellingBeeDisplayProps) => {
-    const letterArray = letters.toUpperCase().split('');
+    const padded = (letters || '').toUpperCase().padEnd(7, ' ');
+    const letterArray = padded.split('');
     const centerLetter = letterArray[0];
     const outerLetters = letterArray.slice(1, 7);
 
@@ -38,35 +39,34 @@ const SpellingBeeDisplay = ({ letters }: SpellingBeeDisplayProps) => {
             {/* Hexagon Layout */}
             <Box sx={{ position: 'relative', width: 220, height: 220 }}>
                 {/* Center Letter */}
-                {centerLetter && (
-                    <Box
-                        sx={{
-                            position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            transform: 'translate(-50%, -50%)',
-                            width: 60,
-                            height: 60,
-                            borderRadius: '50%',
-                            bgcolor: 'warning.main',
-                            color: 'warning.contrastText',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '1.5rem',
-                            fontWeight: 'bold',
-                            boxShadow: 3,
-                            zIndex: 2
-                        }}
-                    >
-                        {centerLetter}
-                    </Box>
-                )}
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: 56,
+                        height: 48,
+                        clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
+                        bgcolor: 'warning.main',
+                        color: 'warning.contrastText',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '1.5rem',
+                        fontWeight: 'bold',
+                        filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.15))',
+                        zIndex: 2
+                    }}
+                >
+                    {centerLetter !== ' ' ? centerLetter : ''}
+                </Box>
 
                 {/* Outer Letters */}
                 {outerLetters.map((letter, index) => {
-                    const angle = (index * 60 * Math.PI) / 180;
-                    const radius = 70; // Distance from center
+                    // Offset angle by 30 degrees so flat edges align perfectly in honeycomb tiling
+                    const angle = ((index * 60 + 30) * Math.PI) / 180;
+                    const radius = 56; // Taller radius adds a bit more spacing/gap
                     const x = Math.round(radius * Math.cos(angle));
                     const y = Math.round(radius * Math.sin(angle));
 
@@ -78,23 +78,21 @@ const SpellingBeeDisplay = ({ letters }: SpellingBeeDisplayProps) => {
                                 top: `calc(50% + ${y}px)`,
                                 left: `calc(50% + ${x}px)`,
                                 transform: 'translate(-50%, -50%)',
-                                width: 50,
-                                height: 50,
-                                borderRadius: '50%',
-                                bgcolor: 'background.paper',
+                                width: 56,
+                                height: 48,
+                                clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
+                                bgcolor: 'action.hover',
                                 color: 'text.primary',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 fontSize: '1.25rem',
                                 fontWeight: 'bold',
-                                boxShadow: 1,
-                                border: '1px solid',
-                                borderColor: 'divider',
+                                filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.15))',
                                 zIndex: 1
                             }}
                         >
-                            {letter}
+                            {letter !== ' ' ? letter : ''}
                         </Box>
                     );
                 })}
@@ -118,7 +116,7 @@ const SpellingBeeResults = React.memo(({ results, onCopy, onLoadMore, isLoading 
     const hasMore = solutions.length < totalFound;
 
     return (
-        <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <CardContent sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', minHeight: 0, '&:last-child': { pb: 2 } }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexShrink: 0 }}>
                     <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
@@ -154,7 +152,7 @@ const SpellingBeeResults = React.memo(({ results, onCopy, onLoadMore, isLoading 
                                     sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
                                 >
                                     <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
-                                        {solution}
+                                        {solution.toUpperCase()}
                                     </TableCell>
                                     <TableCell align="right">{solution.length}</TableCell>
                                     <TableCell align="right">{new Set(solution.split('')).size}</TableCell>
@@ -220,8 +218,14 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
     ];
 
     const handleSpellingBeeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        const cleanValue = e.target.value.replace(/[^a-zA-Z]/g, '');
+        const input = e.target;
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        const cleanValue = input.value.replace(/[^a-zA-Z]/g, '').toUpperCase();
         setSpellingBeeLetters(cleanValue);
+        requestAnimationFrame(() => {
+            input.setSelectionRange(start, end);
+        });
     }, []);
 
     const handleSolve = useCallback(async () => {
@@ -252,10 +256,10 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
     }, [onClear]);
 
     return (
-        <Grid container spacing={2} sx={{ height: '100%', minHeight: 0, flexGrow: 1 }}>
+        <Grid container spacing={2} sx={{ height: { xs: 'auto', md: '100%' }, minHeight: 0, flexGrow: 1 }}>
             {/* Controls & Honeycomb */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                     <CardContent sx={{ 
                         p: 2, 
                         flexGrow: 1, 
@@ -287,14 +291,7 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                             </Typography>
                         </Box>
 
-                        <Stack spacing={2} sx={{ flexGrow: 1, overflowY: 'auto', pr: 0.5, minHeight: 0 }}>
-                            {/* Honeycomb Display */}
-                            {spellingBeeLetters.length > 0 && (
-                                <Box sx={{ flexShrink: 0 }}>
-                                    <SpellingBeeDisplay letters={spellingBeeLetters} />
-                                </Box>
-                            )}
-
+                        <Stack spacing={2} sx={{ flexGrow: 1, overflowY: 'auto', pr: 0.5, pt: 1.5, minHeight: 0 }}>
                             <TextField
                                 fullWidth
                                 label="Puzzle Letters (Center First)"
@@ -305,7 +302,17 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                                 placeholder="E.g., CENTERX"
                                 disabled={isLoading}
                                 slotProps={{ htmlInput: { maxLength: 7, autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'off', spellCheck: 'false', style: { fontFamily: 'monospace', letterSpacing: '0.1em' } } }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !isLoading && spellingBeeLetters.length === 7 && gameStatus?.healthy) {
+                                        handleSolve();
+                                    }
+                                }}
                             />
+
+                            {/* Honeycomb Display */}
+                            <Box sx={{ flexShrink: 0 }}>
+                                <SpellingBeeDisplay letters={spellingBeeLetters} />
+                            </Box>
                         </Stack>
 
                         <Button
@@ -337,7 +344,7 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
             </Grid>
 
             {/* Results */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: { xs: 350, md: 0 } }}>
                 {results && results.gameData ? (
                     <SpellingBeeResults
                         results={results}
@@ -346,7 +353,7 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                         isLoading={isLoading}
                     />
                 ) : (
-                    <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', alignItems: 'center', justifyContent: 'center', py: { xs: 6, md: 0 }, flexGrow: 1 }}>
                         <CardContent>
                             <Typography variant="h6" color="text.secondary" align="center">
                                 Run Solver

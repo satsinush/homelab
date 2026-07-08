@@ -71,7 +71,7 @@ const Home = () => {
             role: 'dashboard-chat-user'
         },
         {
-            title: 'Word Games',
+            title: 'Puzzle++',
             description: 'Use solvers to word games like Letterboxed',
             icon: <GamesIcon />,
             path: '/wordgames',

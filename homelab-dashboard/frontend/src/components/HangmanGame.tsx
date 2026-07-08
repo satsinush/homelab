@@ -13,7 +13,14 @@ import {
     IconButton,
     Tooltip,
     Tabs,
-    Tab
+    Tab,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Paper
 } from '@mui/material';
 import {
     PlayArrow as PlayIcon,
@@ -38,7 +45,7 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isL
     };
 
     const formatRoundedNum = (num: number) => {
-        if (num === 0) return '0.0';
+        if (num === 0) return '0.00';
         if (num > 0 && num.toFixed(2) === '0.00') return '<0.01';
         return `${num.toFixed(2)}`;
     };
@@ -51,7 +58,7 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isL
     const showPossible = results.possibleWords && results.possibleWords.length > 0;
 
     return (
-        <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                 <Tabs value={tabVal} onChange={handleTabChange} aria-label="hangman results tabs">
                     <Tab label="Letter Suggestions" />
@@ -73,38 +80,34 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isL
                     showSuggestions ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                             <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
-                                <Grid container sx={{ p: 1, bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider', fontWeight: 'bold', position: 'sticky', top: 0, zIndex: 1 }}>
-                                    <Grid size={{ xs: 2 }} sx={{ pl: 1 }}>Rank</Grid>
-                                    <Grid size={{ xs: 2 }} sx={{ textAlign: 'center' }}>Letter</Grid>
-                                    <Grid size={{ xs: 4 }} sx={{ textAlign: 'right', pr: 1 }}>Probability</Grid>
-                                    <Grid size={{ xs: 4 }} sx={{ textAlign: 'right' }}>ENT</Grid>
-                                </Grid>
-                                <Stack divider={<Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }} />}>
-                                    {results.letterSuggestions.map((suggestion, index) => (
-                                        <Grid
-                                            container
-                                            key={index}
-                                            sx={{
-                                                p: 1,
-                                                alignItems: 'center',
-                                                '&:hover': { bgcolor: 'action.hover' }
-                                            }}
-                                        >
-                                            <Grid size={{ xs: 2 }} sx={{ pl: 1 }}>
-                                                {index + 1}
-                                            </Grid>
-                                            <Grid size={{ xs: 2 }} sx={{ textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold' }}>
-                                                {suggestion.letter}
-                                            </Grid>
-                                            <Grid size={{ xs: 4 }} sx={{ textAlign: 'right', pr: 1 }}>
-                                                {suggestion.probability !== null ? `${formatRoundedNum(suggestion.probability * 100)}%` : '-'}
-                                            </Grid>
-                                            <Grid size={{ xs: 4 }} sx={{ textAlign: 'right' }}>
-                                                {suggestion.entropy !== null && suggestion.entropy !== undefined && !isNaN(Number(suggestion.entropy)) ? formatRoundedNum(Number(suggestion.entropy)) : '-'}
-                                            </Grid>
-                                        </Grid>
-                                    ))}
-                                </Stack>
+                                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
+                                    <Table size="small" stickyHeader>
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell sx={{ fontWeight: 'bold' }}>Rank</TableCell>
+                                                <TableCell align="center" sx={{ fontWeight: 'bold' }}>Letter</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>ENT</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {results.letterSuggestions.map((suggestion, index) => (
+                                                <TableRow key={index} hover>
+                                                    <TableCell>{index + 1}</TableCell>
+                                                    <TableCell align="center" sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
+                                                        {suggestion.letter.toUpperCase()}
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        {suggestion.probability !== null ? `${formatRoundedNum(suggestion.probability * 100)}%` : '-'}
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        {suggestion.entropy !== null && suggestion.entropy !== undefined && !isNaN(Number(suggestion.entropy)) ? formatRoundedNum(Number(suggestion.entropy)) : '-'}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
                             </Box>
                         </Box>
                     ) : (
@@ -117,22 +120,26 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isL
                     showPossible ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                             <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
-                                <Stack divider={<Box sx={{ borderBottom: '1px solid', borderColor: 'divider' }} />}>
-                                    {results.possibleWords.map((word, index) => (
-                                        <Box
-                                            key={index}
-                                            sx={{
-                                                p: 1.5,
-                                                fontFamily: 'monospace',
-                                                fontSize: '1rem',
-                                                fontWeight: 'bold',
-                                                pl: 2
-                                            }}
-                                        >
-                                            {word}
-                                        </Box>
-                                    ))}
-                                </Stack>
+                                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
+                                    <Table size="small" stickyHeader>
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell sx={{ fontWeight: 'bold' }}>#</TableCell>
+                                                <TableCell sx={{ fontWeight: 'bold' }}>Word</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {results.possibleWords.map((word, index) => (
+                                                <TableRow key={index} hover>
+                                                    <TableCell>{index + 1}</TableCell>
+                                                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
+                                                        {word.toUpperCase()}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
                             </Box>
                             {results.gameData && results.gameData.isLimited && results.possibleWords.length < (results.gameData.possibleWordsCount || 0) && (
                                 <Button
@@ -181,7 +188,7 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
     const settingsFields: FieldDefinition[] = [
         {
             name: 'maxDepth',
-            label: 'Solver Mode',
+            label: 'Search Depth',
             type: 'number',
             min: 0,
             max: 2
@@ -194,14 +201,26 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
     ];
 
     const handlePatternChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const input = e.target;
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
         // Accept both ? and _ as unknown characters, normalize to _
-        const cleanValue = e.target.value.replace(/[^a-zA-Z?_ ]/g, '').replace(/\?/g, '_').toUpperCase();
+        const cleanValue = input.value.replace(/[^a-zA-Z?_ ]/g, '').replace(/\?/g, '_').toUpperCase();
         setPattern(cleanValue);
+        requestAnimationFrame(() => {
+            input.setSelectionRange(start, end);
+        });
     }, []);
 
     const handleExcludedLettersChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        const cleanValue = e.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase();
+        const input = e.target;
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        const cleanValue = input.value.replace(/[^a-zA-Z]/g, '').toUpperCase();
         setExcludedLetters(cleanValue);
+        requestAnimationFrame(() => {
+            input.setSelectionRange(start, end);
+        });
     }, []);
 
     const handleSolve = useCallback(async () => {
@@ -235,10 +254,10 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
     const excludedLettersList = [...new Set(excludedLetters.split(''))];
 
     return (
-        <Grid container spacing={2} sx={{ height: '100%', minHeight: 0, flexGrow: 1 }}>
+        <Grid container spacing={2} sx={{ height: { xs: 'auto', md: '100%' }, minHeight: 0, flexGrow: 1 }}>
             {/* Control & Guesses Inputs Column */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                     <CardContent sx={{ 
                         p: 2, 
                         flexGrow: 1, 
@@ -309,20 +328,22 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
                                 fullWidth
                                 placeholder="e.g., _A__ ___"
                                 helperText="Enter word patterns separated by spaces. Use _ for unknown letters."
-                                InputProps={{
-                                    style: {
-                                        fontFamily: 'monospace',
-                                        fontSize: '1.2rem',
-                                        fontWeight: 'bold',
-                                        letterSpacing: '3px',
-                                        textTransform: 'uppercase'
+                                slotProps={{
+                                    input: {
+                                        style: {
+                                            fontFamily: 'monospace',
+                                            fontSize: '1.2rem',
+                                            fontWeight: 'bold',
+                                            letterSpacing: '3px',
+                                            textTransform: 'uppercase'
+                                        }
+                                    },
+                                    htmlInput: {
+                                        autoComplete: 'off',
+                                        autoCorrect: 'off',
+                                        autoCapitalize: 'off',
+                                        spellCheck: 'false'
                                     }
-                                }}
-                                inputProps={{
-                                    autoComplete: 'off',
-                                    autoCorrect: 'off',
-                                    autoCapitalize: 'off',
-                                    spellCheck: 'false'
                                 }}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
@@ -340,19 +361,27 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
                                 fullWidth
                                 placeholder="e.g., RSTLNE"
                                 helperText="Enter letters that have been guessed and are NOT in the word"
-                                InputProps={{
-                                    style: {
-                                        fontFamily: 'monospace',
-                                        fontSize: '1.1rem',
-                                        letterSpacing: '2px',
-                                        textTransform: 'uppercase'
+                                slotProps={{
+                                    input: {
+                                        style: {
+                                            fontFamily: 'monospace',
+                                            fontSize: '1.1rem',
+                                            letterSpacing: '2px',
+                                            textTransform: 'uppercase'
+                                        }
+                                    },
+                                    htmlInput: {
+                                        autoComplete: 'off',
+                                        autoCorrect: 'off',
+                                        autoCapitalize: 'off',
+                                        spellCheck: 'false'
                                     }
                                 }}
-                                inputProps={{
-                                    autoComplete: 'off',
-                                    autoCorrect: 'off',
-                                    autoCapitalize: 'off',
-                                    spellCheck: 'false'
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleSolve();
+                                    }
                                 }}
                             />
                         </Stack>
@@ -374,7 +403,7 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
             </Grid>
 
             {/* Results Column */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: { xs: 350, md: 0 } }}>
                 {results && results.gameData ? (
                     <HangmanResults
                         results={results}
@@ -383,7 +412,7 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
                         isLoading={isLoading}
                     />
                 ) : (
-                    <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', alignItems: 'center', justifyContent: 'center', py: { xs: 6, md: 0 }, flexGrow: 1 }}>
                         <CardContent>
                             <Typography variant="h6" color="text.secondary" align="center">
                                 Run Solver
