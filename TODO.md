@@ -1,4 +1,3 @@
-- why is feedback/guesses not being used in dungleon generateAllPossiblePatterns?
 - add auto mode for ent solvers? Calculate optimal depth based on number of possible solutions?
 
 - split up load more call into separate requests for each game

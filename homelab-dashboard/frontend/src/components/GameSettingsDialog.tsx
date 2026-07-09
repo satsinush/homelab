@@ -27,6 +27,7 @@ export interface FieldDefinition {
     options?: FieldOption[];
     min?: number;
     max?: number;
+    disabled?: (config: DialogConfig) => boolean;
 }
 
 type ConfigValue = string | number | boolean;
@@ -63,11 +64,12 @@ const GameSettingsDialog = ({ open, onClose, onSave, title, config, fields, chil
 
     const renderField = (field: FieldDefinition) => {
         const value = localConfig[field.name];
+        const isDisabled = field.disabled ? field.disabled(localConfig) : false;
 
         switch (field.type) {
             case 'select':
                 return (
-                    <FormControl fullWidth size="small" key={field.name}>
+                    <FormControl fullWidth size="small" key={field.name} disabled={isDisabled}>
                         <InputLabel>{field.label}</InputLabel>
                         <Select
                             value={value ?? ''}
@@ -87,6 +89,7 @@ const GameSettingsDialog = ({ open, onClose, onSave, title, config, fields, chil
                 return (
                     <FormControlLabel
                         key={field.name}
+                        disabled={isDisabled}
                         control={
                             <Checkbox
                                 checked={Boolean(value)}
@@ -105,6 +108,7 @@ const GameSettingsDialog = ({ open, onClose, onSave, title, config, fields, chil
                         type="number"
                         size="small"
                         fullWidth
+                        disabled={isDisabled}
                         value={value ?? ''}
                         onChange={(e) => {
                             const val = e.target.value;

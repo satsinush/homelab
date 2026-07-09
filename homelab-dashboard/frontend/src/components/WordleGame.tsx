@@ -403,6 +403,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
     const [config, setConfig] = useState({
         wordLength: 5,
         maxDepth: 1,
+        autoDepth: true,
         excludeUncommonWords: true
     });
 
@@ -417,14 +418,20 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
             max: 32
         },
         {
+            name: 'autoDepth',
+            label: 'Auto Depth (Recommended)',
+            type: 'checkbox'
+        },
+        {
             name: 'maxDepth',
-            label: 'Search Depth',
+            label: 'Manual Search Depth',
             type: 'select',
             options: [
                 { value: 0, label: '0: Fastest' },
                 { value: 1, label: '1: Balanced' },
                 { value: 2, label: '2: Deep' }
-            ]
+            ],
+            disabled: (configVal) => Boolean(configVal.autoDepth)
         },
         {
             name: 'excludeUncommonWords',
@@ -449,6 +456,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
         setConfig({
             wordLength: newWordLength,
             maxDepth: Number(newConfig.maxDepth),
+            autoDepth: Boolean(newConfig.autoDepth),
             excludeUncommonWords: Boolean(newConfig.excludeUncommonWords)
         });
     }, [config.wordLength]);
@@ -490,6 +498,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
             results: wordleGuesses.map(g => g.feedback),
             wordLength: config.wordLength,
             maxDepth: config.maxDepth,
+            autoDepth: config.autoDepth,
             excludeUncommonWords: config.excludeUncommonWords ? 1 : 0,
             start: 0,
             end: 100

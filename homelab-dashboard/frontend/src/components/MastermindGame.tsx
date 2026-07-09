@@ -377,7 +377,8 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
         correctColor: 0,
         numPegs: 4,
         allowDuplicates: 1,
-        maxDepth: 0
+        maxDepth: 0,
+        autoDepth: true
     });
 
     const [enabledColors, setEnabledColors] = useState<Record<number, boolean>>(() => {
@@ -599,10 +600,11 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
             colors: enabledColorChars,
             duplicates: state.allowDuplicates === 1,
             maxDepth: state.maxDepth,
+            autoDepth: state.autoDepth,
             start: 0,
             end: 100
         });
-    }, [state.guesses, state.numPegs, enabledColors, state.allowDuplicates, state.maxDepth, onSolve]);
+    }, [state.guesses, state.numPegs, enabledColors, state.allowDuplicates, state.maxDepth, state.autoDepth, onSolve]);
 
     React.useEffect(() => {
         const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -638,14 +640,20 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
             ]
         },
         {
+            name: 'autoDepth',
+            label: 'Auto Depth (Recommended)',
+            type: 'checkbox'
+        },
+        {
             name: 'maxDepth',
-            label: 'Search Depth',
+            label: 'Manual Search Depth',
             type: 'select',
             options: [
                 { value: 0, label: '0: Fastest' },
                 { value: 1, label: '1: Balanced' },
                 { value: 2, label: '2: Deep' }
-            ]
+            ],
+            disabled: (configVal) => Boolean(configVal.autoDepth)
         }
     ];
 
@@ -923,6 +931,7 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                                             numPegs: newNumPegs,
                                             allowDuplicates: newConfig.allowDuplicates ? 1 : 0,
                                             maxDepth: Number(newConfig.maxDepth),
+                                            autoDepth: Boolean(newConfig.autoDepth),
                                             currentPattern: Array(newNumPegs).fill(null),
                                             correctPosition: 0,
                                             correctColor: 0,
@@ -934,7 +943,8 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                                         ...prev,
                                         numPegs: newNumPegs,
                                         allowDuplicates: newConfig.allowDuplicates ? 1 : 0,
-                                        maxDepth: Number(newConfig.maxDepth)
+                                        maxDepth: Number(newConfig.maxDepth),
+                                        autoDepth: Boolean(newConfig.autoDepth)
                                     };
                                 });
                             }}
@@ -942,7 +952,8 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                             config={{
                                 numPegs: state.numPegs,
                                 allowDuplicates: state.allowDuplicates,
-                                maxDepth: state.maxDepth
+                                maxDepth: state.maxDepth,
+                                autoDepth: state.autoDepth
                             }}
                             fields={settingsFields}
                         >

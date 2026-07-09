@@ -277,6 +277,7 @@ class WordGamesController {
                 results = [],
                 wordLength = 5,
                 maxDepth = 0,
+                autoDepth = false,
                 excludeUncommonWords = 0
             } = req.body;
 
@@ -311,13 +312,17 @@ class WordGamesController {
             // Build command with CLI format: wordle --word-length N --max-depth N --guesses "WORD COLORS;..." -o file
             // The C++ CLI expects --guesses with format "WORD COLORS;WORD2 COLORS2"
             // where COLORS uses 0=grey, 1=yellow, 2=green
+            const isAuto = autoDepth || maxDepth === 'auto';
             const args = [
                 'wordle',
                 `--word-length ${len}`,
-                `--max-depth ${parseInt(maxDepth) || 0}`,
+                `--max-depth ${isAuto ? 0 : (parseInt(maxDepth) || 0)}`,
                 `--exclude-uncommon-words ${excludeUncommonWords ? 1 : 0}`,
                 `-o ${resultsFilename}`
             ];
+            if (isAuto) {
+                args.push('--auto-depth');
+            }
 
             // Build the --guesses string: convert G/Y/X feedback to 0/1/2 numeric format
             if (guesses.length > 0) {
@@ -397,7 +402,8 @@ class WordGamesController {
                 slots = 4,
                 colors = 6,
                 duplicates = true,
-                maxDepth = 1
+                maxDepth = 1,
+                autoDepth = false
             } = req.body;
 
             if (!req.body || typeof req.body !== 'object') {
@@ -438,14 +444,18 @@ class WordGamesController {
             const username = req.user?.username || 'user';
             const resultsFilename = this.generateResultsFilename(username, 'mastermind');
 
+            const isAuto = autoDepth || maxDepth === 'auto';
             const args = [
                 'mastermind',
                 `--pegs ${slotsCount}`,
                 `--colors "${colorChars}"`,
                 `--allow-duplicates ${duplicates ? 1 : 0}`,
-                `--max-depth ${parseInt(maxDepth) || 1}`,
+                `--max-depth ${isAuto ? 0 : (parseInt(maxDepth) || 1)}`,
                 `-o ${resultsFilename}`
             ];
+            if (isAuto) {
+                args.push('--auto-depth');
+            }
 
             // Build the --guesses string: "PATTERN B W;PATTERN2 B2 W2"
             if (guesses.length > 0) {
@@ -518,6 +528,7 @@ class WordGamesController {
                 results = [],
                 solutions = [],
                 maxDepth = 0,
+                autoDepth = false,
                 excludeImpossiblePatterns = 0
             } = req.body;
 
@@ -558,12 +569,16 @@ class WordGamesController {
             // Build command with CLI format: dungleon --max-depth N --guesses "chars colors;..." --solutions "chars;..." -o file
             // The C++ CLI expects --guesses with format "ar kn ma bt dr 01234;ar kn bo ne fr 00010"
             // where colors are 0-4 (not G/Y/X/R/D)
+            const isAuto = autoDepth || maxDepth === 'auto';
             const args = [
                 'dungleon',
-                `--max-depth ${parseInt(maxDepth) || 0}`,
+                `--max-depth ${isAuto ? 0 : (parseInt(maxDepth) || 0)}`,
                 `--exclude-impossible ${excludeImpossiblePatterns ? 1 : 0}`,
                 `-o ${resultsFilename}`
             ];
+            if (isAuto) {
+                args.push('--auto-depth');
+            }
 
             // Build the --guesses string: convert G/Y/X/R/D to 0-4 numeric format
             if (guesses.length > 0) {

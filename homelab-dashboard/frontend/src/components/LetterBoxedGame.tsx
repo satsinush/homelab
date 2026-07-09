@@ -427,15 +427,15 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                             <DialogContent>
                                 <Stack spacing={2} sx={{ mt: 1 }}>
                                     <FormControl fullWidth size="small">
-                                        <InputLabel>Difficulty Preset</InputLabel>
+                                        <InputLabel>Solver Preset</InputLabel>
                                         <Select
                                             value={tempConfig.preset}
-                                            label="Difficulty Preset"
+                                            label="Solver Preset"
                                             onChange={(e) => handlePresetChange(Number(e.target.value))}
                                         >
-                                            <MenuItem value={1}>1: Normal (Depth 2)</MenuItem>
-                                            <MenuItem value={2}>2: Strict (Depth 2 + Pruning)</MenuItem>
-                                            <MenuItem value={3}>3: Deep (Depth 3)</MenuItem>
+                                            <MenuItem value={1}>1: Default (Depth 2)</MenuItem>
+                                            <MenuItem value={2}>2: Fast (Depth 2 + Pruning)</MenuItem>
+                                            <MenuItem value={3}>3: Thorough (Depth 3)</MenuItem>
                                             <MenuItem value={0}>Custom</MenuItem>
                                         </Select>
                                     </FormControl>

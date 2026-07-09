@@ -335,26 +335,34 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [config, setConfig] = useState({
         maxDepth: 0,
+        autoDepth: true,
         excludeImpossible: true
     });
 
     const handleConfigSave = useCallback((newConfig: DialogConfig) => {
         setConfig({
             maxDepth: Number(newConfig.maxDepth),
+            autoDepth: Boolean(newConfig.autoDepth),
             excludeImpossible: Boolean(newConfig.excludeImpossible)
         });
     }, []);
 
     const settingsFields: FieldDefinition[] = [
         {
+            name: 'autoDepth',
+            label: 'Auto Depth (Recommended)',
+            type: 'checkbox'
+        },
+        {
             name: 'maxDepth',
-            label: 'Search Depth',
+            label: 'Manual Search Depth',
             type: 'select',
             options: [
                 { value: 0, label: '0: Fastest' },
                 { value: 1, label: '1: Balanced' },
                 { value: 2, label: '2: Deep' }
-            ]
+            ],
+            disabled: (configVal) => Boolean(configVal.autoDepth)
         },
         {
             name: 'excludeImpossible',
@@ -475,6 +483,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
             results: requestResults,
             solutions: requestSolutions,
             maxDepth: config.maxDepth,
+            autoDepth: config.autoDepth,
             excludeImpossiblePatterns: config.excludeImpossible ? 1 : 0,
             start: 0,
             end: 100
