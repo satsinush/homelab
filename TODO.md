@@ -1,16 +1,30 @@
-- add auto mode for ent solvers? Calculate optimal depth based on number of possible solutions?
+- hangman needs different sorting priority, ENT solver solve() should really only use prob if R = 1 and then WNT if guaentee exists, otherwise just default to a < b
+- ___ ___E ____, "THE" still shows up as a possible word, and for _IG TI_E _USH, "TUSH" still shows up as a possible word, what is going on??
+- need to include 1 letter "words" for hangman
+- hangman only shows 100 results if pattern is impossible
+
+- if no guarantee to win, why not sort first by ENT?
+- is capped to WNT to R-1?
+- should findMinMetrics minimize WNT, shouldn't our decision criteria match our sorting logic? Maybe we need to implement a new virtual method to decide between two options and use that
+- is WNT always a whole number?
+- show word score in results? probably not since it's pretty arbitrary
+- how can WNT with no guesses be 6, but then using the best guess, no feedback combination gets me a WNT of 5 on the next guess
+- add depth to stout for ENT solvers?
+- show (loaded/total) for guesses and solutions
+- pulse highlight when pattern autofilled
+- dungleon feedback order should go (red, yellow, yellow+, green, green+)
+- fix arrow keys in CLI mode
+- differentiate number of possible words from possible patterns in final hangman output
 
 - split up load more call into separate requests for each game
 - make lint command simpler?
 - stop catching errors as unkown?
 - add rustdesk api server
 - Pcie gen 3?
-- refactor to typescript
 - make sure all containers come up after reboot
 - Add next cloud
 - Add obsidian sync (desktop client and WebDAV for mobile)
 - Add cloud backup for containers (mega.nz, rclone)
-- Refactor dashboard to typescript
 - Ensure API is openapi compliant
 - Setup immich
 - Setup jellyfin

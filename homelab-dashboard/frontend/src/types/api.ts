@@ -174,11 +174,13 @@ export interface WordleResponse {
         word: string;
         probability: number | null;
         entropy: number | null;
+        wnt?: number | null;
     }[];
     guessesWithEntropy: {
         word: string;
         probability: number | null;
         entropy: number | null;
+        wnt?: number | null;
     }[];
     resultsFile: string;
 }
@@ -195,11 +197,13 @@ export interface MastermindResponse {
         pattern: string;
         probability: number | null;
         entropy: number | null;
+        wnt?: number | null;
     }[];
     guessesWithEntropy: {
         pattern: string;
         probability: number | null;
         entropy: number | null;
+        wnt?: number | null;
     }[];
     resultsFile: string;
 }
@@ -217,6 +221,7 @@ export interface HangmanResponse {
         letter: string;
         probability: number | null;
         entropy: number | null;
+        wnt?: number | null;
     }[];
     possibleWords: string[];
     resultsFile: string;
@@ -234,11 +239,13 @@ export interface DungleonResponse {
         pattern: string;
         probability: number | null;
         entropy: number | null;
+        wnt?: number | null;
     }[];
     guessesWithEntropy: {
         pattern: string;
         probability: number | null;
         entropy: number | null;
+        wnt?: number | null;
     }[];
     resultsFile: string;
 }
@@ -249,17 +256,20 @@ export interface LoadMoreResponse {
             word: string;
             probability: number | null;
             entropy: number | null;
+            wnt?: number | null;
         })[];
         possiblePatterns?: (string | {
             pattern: string;
             probability: number | null;
             entropy: number | null;
+            wnt?: number | null;
         })[];
         guessesWithEntropy?: {
             word?: string;
             pattern?: string;
             probability: number | null;
             entropy: number | null;
+            wnt?: number | null;
         }[];
     };
     solutionsList?: string[];
@@ -361,11 +371,13 @@ export interface WordleResultState {
         word: string;
         probability: number | null;
         entropy: number | null;
+        wnt?: number | null;
     }[];
     guessesWithEntropy: {
         word: string;
         probability: number | null;
         entropy: number | null;
+        wnt?: number | null;
     }[];
     gameData: {
         guesses: unknown;
@@ -388,11 +400,13 @@ export interface MastermindResultState {
         pattern: string;
         probability: number | null;
         entropy: number | null;
+        wnt?: number | null;
     }[];
     guessesWithEntropy: {
         pattern: string;
         probability: number | null;
         entropy: number | null;
+        wnt?: number | null;
     }[];
     gameData: {
         guesses: unknown;
@@ -419,6 +433,7 @@ export interface HangmanResultState {
         letter: string;
         probability: number | null;
         entropy: number | null;
+        wnt?: number | null;
     }[];
     possibleWords: string[];
     gameData: {
@@ -439,6 +454,7 @@ export interface DungleonResultState {
         pattern: string;
         probability: number | null;
         entropy: number | null;
+        wnt?: number | null;
     }[];
     guessesWithEntropy: {
         pattern: string;

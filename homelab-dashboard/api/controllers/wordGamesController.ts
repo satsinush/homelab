@@ -9,12 +9,14 @@ interface GuessWithEntropy {
     word?: string;
     pattern?: string;
     entropy: number;
+    wnt?: number;
     probability: number;
 }
 
 interface LetterSuggestion {
     letter: string;
     entropy: number;
+    wnt?: number;
     probability: number;
 }
 
@@ -278,6 +280,7 @@ class WordGamesController {
                 wordLength = 5,
                 maxDepth = 0,
                 autoDepth = false,
+                maxGuesses = 6,
                 excludeUncommonWords = 0
             } = req.body;
 
@@ -317,6 +320,7 @@ class WordGamesController {
                 'wordle',
                 `--word-length ${len}`,
                 `--max-depth ${isAuto ? 0 : (parseInt(maxDepth) || 0)}`,
+                `--max-guesses ${parseInt(maxGuesses) || 6}`,
                 `--exclude-uncommon-words ${excludeUncommonWords ? 1 : 0}`,
                 `-o ${resultsFilename}`
             ];
@@ -403,7 +407,8 @@ class WordGamesController {
                 colors = 6,
                 duplicates = true,
                 maxDepth = 1,
-                autoDepth = false
+                autoDepth = false,
+                maxGuesses = 10
             } = req.body;
 
             if (!req.body || typeof req.body !== 'object') {
@@ -451,6 +456,7 @@ class WordGamesController {
                 `--colors "${colorChars}"`,
                 `--allow-duplicates ${duplicates ? 1 : 0}`,
                 `--max-depth ${isAuto ? 0 : (parseInt(maxDepth) || 1)}`,
+                `--max-guesses ${parseInt(maxGuesses) || 10}`,
                 `-o ${resultsFilename}`
             ];
             if (isAuto) {
@@ -529,6 +535,7 @@ class WordGamesController {
                 solutions = [],
                 maxDepth = 0,
                 autoDepth = false,
+                maxGuesses = 10,
                 excludeImpossiblePatterns = 0
             } = req.body;
 
@@ -573,6 +580,7 @@ class WordGamesController {
             const args = [
                 'dungleon',
                 `--max-depth ${isAuto ? 0 : (parseInt(maxDepth) || 0)}`,
+                `--max-guesses ${parseInt(maxGuesses) || 10}`,
                 `--exclude-impossible ${excludeImpossiblePatterns ? 1 : 0}`,
                 `-o ${resultsFilename}`
             ];
@@ -663,6 +671,7 @@ class WordGamesController {
                 pattern,
                 excludedLetters = '',
                 maxDepth = 0,
+                maxGuesses = 6,
                 excludeUncommonWords = false
             } = req.body;
 
@@ -694,6 +703,7 @@ class WordGamesController {
             const args = [
                 'hangman',
                 `--max-depth ${parseInt(maxDepth) || 0}`,
+                `--max-guesses ${parseInt(maxGuesses) || 6}`,
                 `--exclude-uncommon-words ${excludeUncommonWords ? 1 : 0}`,
                 `-o ${resultsFilename}`
             ];
@@ -982,10 +992,23 @@ class WordGamesController {
         for (const line of lines) {
             if (line.includes(',')) {
                 const parts = line.split(',');
-                if (parts.length >= 3) {
+                if (parts.length >= 4) {
                     const item = {
                         word: parts[0].toUpperCase(),
                         entropy: parseFloat(parts[1]),
+                        wnt: parseFloat(parts[2]),
+                        probability: parseFloat(parts[3])
+                    };
+                    if (lineIdx < possibleCount) {
+                        possibleWords.push(item);
+                    } else {
+                        guessesWithEntropy.push(item);
+                    }
+                } else if (parts.length === 3) {
+                    const item = {
+                        word: parts[0].toUpperCase(),
+                        entropy: parseFloat(parts[1]),
+                        wnt: Math.ceil(parseFloat(parts[1])),
                         probability: parseFloat(parts[2])
                     };
                     if (lineIdx < possibleCount) {
@@ -1001,6 +1024,7 @@ class WordGamesController {
                     possibleWords.push({
                         word,
                         entropy: 0.0,
+                        wnt: 0.0,
                         probability: 1.0
                     });
                 }
@@ -1029,10 +1053,23 @@ class WordGamesController {
         for (const line of lines) {
             if (line.includes(',')) {
                 const parts = line.split(',');
-                if (parts.length >= 3) {
+                if (parts.length >= 4) {
                     const item = {
                         pattern: parts[0].toUpperCase(),
                         entropy: parseFloat(parts[1]),
+                        wnt: parseFloat(parts[2]),
+                        probability: parseFloat(parts[3])
+                    };
+                    if (lineIdx < possibleCount) {
+                        possiblePatterns.push(item);
+                    } else {
+                        guessesWithEntropy.push(item);
+                    }
+                } else if (parts.length === 3) {
+                    const item = {
+                        pattern: parts[0].toUpperCase(),
+                        entropy: parseFloat(parts[1]),
+                        wnt: Math.ceil(parseFloat(parts[1])),
                         probability: parseFloat(parts[2])
                     };
                     if (lineIdx < possibleCount) {
@@ -1048,6 +1085,7 @@ class WordGamesController {
                     possiblePatterns.push({
                         pattern,
                         entropy: 0.0,
+                        wnt: 0.0,
                         probability: 1.0
                     });
                 }
@@ -1074,10 +1112,18 @@ class WordGamesController {
 
         for (const line of lines) {
             const parts = line.split(/[\s,]+/);
-            if (parts.length >= 3 && parts[0].length === 1 && /^[A-Z]$/i.test(parts[0])) {
+            if (parts.length >= 4 && parts[0].length === 1 && /^[A-Z]$/i.test(parts[0])) {
                 letterSuggestions.push({
                     letter: parts[0].toUpperCase(),
                     entropy: parseFloat(parts[1]),
+                    wnt: parseFloat(parts[2]),
+                    probability: parseFloat(parts[3])
+                });
+            } else if (parts.length === 3 && parts[0].length === 1 && /^[A-Z]$/i.test(parts[0])) {
+                letterSuggestions.push({
+                    letter: parts[0].toUpperCase(),
+                    entropy: parseFloat(parts[1]),
+                    wnt: Math.ceil(parseFloat(parts[1])),
                     probability: parseFloat(parts[2])
                 });
             } else {
@@ -1109,10 +1155,23 @@ class WordGamesController {
         for (const line of lines) {
             if (line.includes(',')) {
                 const parts = line.split(',');
-                if (parts.length >= 3) {
+                if (parts.length >= 4) {
                     const item = {
                         pattern: parts[0].trim(),
                         entropy: parseFloat(parts[1]),
+                        wnt: parseFloat(parts[2]),
+                        probability: parseFloat(parts[3])
+                    };
+                    if (lineIdx < possibleCount) {
+                        possiblePatterns.push(item);
+                    } else {
+                        guessesWithEntropy.push(item);
+                    }
+                } else if (parts.length === 3) {
+                    const item = {
+                        pattern: parts[0].trim(),
+                        entropy: parseFloat(parts[1]),
+                        wnt: Math.ceil(parseFloat(parts[1])),
                         probability: parseFloat(parts[2])
                     };
                     if (lineIdx < possibleCount) {
@@ -1127,6 +1186,7 @@ class WordGamesController {
                     possiblePatterns.push({
                         pattern: line,
                         entropy: 0.0,
+                        wnt: 0.0,
                         probability: 1.0
                     });
                 }

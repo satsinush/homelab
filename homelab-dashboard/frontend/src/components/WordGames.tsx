@@ -437,15 +437,16 @@ const WordGames = () => {
                             ...prev.possibleWords,
                             ...(response.data.solutions?.possibleWords || []).map(w => {
                                 if (typeof w === 'string') {
-                                    return { word: w, probability: 1.0, entropy: 0.0 };
+                                    return { word: w, probability: 1.0, entropy: 0.0, wnt: 0.0 };
                                 }
-                                const obj = w as unknown as { word?: string; probability?: number; entropy?: number };
+                                const obj = w as unknown as { word?: string; probability?: number; entropy?: number; wnt?: number };
                                 return {
                                     word: obj.word || '',
                                     probability: obj.probability ?? null,
-                                    entropy: obj.entropy ?? null
+                                    entropy: obj.entropy ?? null,
+                                    wnt: obj.wnt ?? null
                                 };
-                            }) as { word: string; probability: number | null; entropy: number | null }[]
+                            }) as { word: string; probability: number | null; entropy: number | null; wnt: number | null }[]
                         ]
                     }));
                 } else {
@@ -456,7 +457,8 @@ const WordGames = () => {
                             ...(response.data.solutions?.guessesWithEntropy || []).map(g => ({
                                 word: g.word || '',
                                 probability: g.probability,
-                                entropy: g.entropy
+                                entropy: g.entropy,
+                                wnt: g.wnt
                             }))
                         ]
                     }));
@@ -469,15 +471,16 @@ const WordGames = () => {
                             ...prev.possiblePatterns,
                             ...(response.data.solutions?.possiblePatterns || []).map(p => {
                                 if (typeof p === 'string') {
-                                    return { pattern: p, probability: 1.0, entropy: 0.0 };
+                                    return { pattern: p, probability: 1.0, entropy: 0.0, wnt: 0.0 };
                                 }
-                                const obj = p as unknown as { pattern?: string; probability?: number; entropy?: number };
+                                const obj = p as unknown as { pattern?: string; probability?: number; entropy?: number; wnt?: number };
                                 return {
                                     pattern: obj.pattern || '',
                                     probability: obj.probability ?? null,
-                                    entropy: obj.entropy ?? null
+                                    entropy: obj.entropy ?? null,
+                                    wnt: obj.wnt ?? null
                                 };
-                            }) as { pattern: string; probability: number | null; entropy: number | null }[]
+                            }) as { pattern: string; probability: number | null; entropy: number | null; wnt: number | null }[]
                         ]
                     }));
                 } else {
@@ -488,7 +491,8 @@ const WordGames = () => {
                             ...(response.data.solutions?.guessesWithEntropy || []).map(g => ({
                                 pattern: g.pattern || '',
                                 probability: g.probability,
-                                entropy: g.entropy
+                                entropy: g.entropy,
+                                wnt: g.wnt
                             }))
                         ]
                     }));
@@ -512,15 +516,16 @@ const WordGames = () => {
                             ...prev.possiblePatterns,
                             ...(response.data.solutions?.possiblePatterns || []).map(p => {
                                 if (typeof p === 'string') {
-                                    return { pattern: p, probability: 1.0, entropy: 0.0 };
+                                    return { pattern: p, probability: 1.0, entropy: 0.0, wnt: 0.0 };
                                 }
-                                const obj = p as unknown as { pattern?: string; probability?: number; entropy?: number };
+                                const obj = p as unknown as { pattern?: string; probability?: number; entropy?: number; wnt?: number };
                                 return {
                                     pattern: obj.pattern || '',
                                     probability: obj.probability ?? null,
-                                    entropy: obj.entropy ?? null
+                                    entropy: obj.entropy ?? null,
+                                    wnt: obj.wnt ?? null
                                 };
-                            }) as { pattern: string; probability: number | null; entropy: number | null }[]
+                            }) as { pattern: string; probability: number | null; entropy: number | null; wnt: number | null }[]
                         ]
                     }));
                 } else {
@@ -531,7 +536,8 @@ const WordGames = () => {
                             ...(response.data.solutions?.guessesWithEntropy || []).map(g => ({
                                 pattern: g.pattern || '',
                                 probability: g.probability,
-                                entropy: g.entropy
+                                entropy: g.entropy,
+                                wnt: g.wnt
                             }))
                         ]
                     }));

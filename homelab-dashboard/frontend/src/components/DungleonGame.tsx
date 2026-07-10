@@ -116,6 +116,7 @@ interface GuessWithEntropyItem {
     pattern: string;
     probability: number | null;
     entropy: number | null;
+    wnt?: number | null;
 }
 
 interface DungleonResultsProps {
@@ -146,12 +147,12 @@ const DungleonResults = React.memo(({
     };
 
     const copyPossiblePatterns = () => {
-        const patternsText = possiblePatterns.join('\n');
+        const patternsText = possiblePatterns.map(p => `${p.pattern} - ${p.probability} - ${p.entropy} - ${p.wnt}`).join('\n');
         onCopyToClipboard(patternsText);
     };
 
     const copyGuesses = () => {
-        const guessesText = guessesWithEntropy.map(g => `${g.pattern} - ${g.probability} - ${g.entropy}`).join('\n');
+        const guessesText = guessesWithEntropy.map(g => `${g.pattern} - ${g.probability} - ${g.entropy} - ${g.wnt}`).join('\n');
         onCopyToClipboard(guessesText);
     };
 
@@ -168,10 +169,10 @@ const DungleonResults = React.memo(({
 
     return (
         <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                 <Tabs value={tabVal} onChange={handleTabChange} aria-label="dungleon results tabs">
-                    <Tab label={`Suggested Guesses (${guessesWithEntropy.length}/${lastGameData?.guessesCount || guessesWithEntropy.length})`} />
-                    <Tab label={`Possible Patterns (${possiblePatterns.length}/${lastGameData?.possiblePatternsCount || possiblePatterns.length})`} />
+                    <Tab label={`Suggested Guesses (${guessesWithEntropy.length})`} />
+                    <Tab label={`Possible Solutions (${possiblePatterns.length})`} />
                 </Tabs>
                 {tabVal === 0 && showSuggestions && (
                     <Button variant="outlined" size="small" onClick={copyGuesses} startIcon={<CopyIcon />}>Copy</Button>
@@ -192,6 +193,7 @@ const DungleonResults = React.memo(({
                                                 <TableCell sx={{ fontWeight: 'bold' }}>Pattern</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>ENT</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>WNT</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
@@ -217,6 +219,11 @@ const DungleonResults = React.memo(({
                                                     <TableCell align="right">
                                                         <Typography variant="body2">
                                                             {guess.entropy !== null && guess.entropy !== undefined && !isNaN(Number(guess.entropy)) ? formatRoundedNum(Number(guess.entropy)) : '-'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        <Typography variant="body2">
+                                                            {guess.wnt !== null && guess.wnt !== undefined && !isNaN(Number(guess.wnt)) ? formatRoundedNum(Number(guess.wnt)) : '-'}
                                                         </Typography>
                                                     </TableCell>
                                                 </TableRow>
@@ -248,6 +255,7 @@ const DungleonResults = React.memo(({
                                                 <TableCell sx={{ fontWeight: 'bold' }}>Pattern</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>ENT</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>WNT</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
@@ -273,6 +281,11 @@ const DungleonResults = React.memo(({
                                                     <TableCell align="right">
                                                         <Typography variant="body2">
                                                             {guess.entropy !== null && guess.entropy !== undefined && !isNaN(Number(guess.entropy)) ? formatRoundedNum(Number(guess.entropy)) : '-'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        <Typography variant="body2">
+                                                            {guess.wnt !== null && guess.wnt !== undefined && !isNaN(Number(guess.wnt)) ? formatRoundedNum(Number(guess.wnt)) : '-'}
                                                         </Typography>
                                                     </TableCell>
                                                 </TableRow>
@@ -336,6 +349,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
     const [config, setConfig] = useState({
         maxDepth: 0,
         autoDepth: true,
+        maxGuesses: 10,
         excludeImpossible: true
     });
 
@@ -343,6 +357,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
         setConfig({
             maxDepth: Number(newConfig.maxDepth),
             autoDepth: Boolean(newConfig.autoDepth),
+            maxGuesses: Number(newConfig.maxGuesses) || 10,
             excludeImpossible: Boolean(newConfig.excludeImpossible)
         });
     }, []);
@@ -363,6 +378,13 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                 { value: 2, label: '2: Deep' }
             ],
             disabled: (configVal) => Boolean(configVal.autoDepth)
+        },
+        {
+            name: 'maxGuesses',
+            label: 'Maximum Guesses Allowed',
+            type: 'number',
+            min: 1,
+            max: 100
         },
         {
             name: 'excludeImpossible',
@@ -676,7 +698,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                 >
                                     Submit Guess
                                 </Button>
-                                <Tooltip title="Gauntlet Mode: Add past solutions to exclude">
+                                <Tooltip title="Gauntlet Mode: Add past Gauntlet solutions to exclude">
                                     <Box component="span" sx={{ flex: 1, display: 'inline-flex' }}>
                                         <Button
                                             variant="contained"
@@ -783,7 +805,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                 {/* Solutions Section */}
                                 <Box>
                                     <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-                                        Past Solutions:
+                                        Past Gauntlet Solutions:
                                     </Typography>
                                     <Box sx={{
                                         maxHeight: 120,
@@ -838,7 +860,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                             </Stack>
                                         ) : (
                                             <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', py: 1, display: 'block', fontStyle: 'italic' }}>
-                                                No past solutions
+                                                No past Gauntlet solutions
                                             </Typography>
                                         )}
                                     </Box>

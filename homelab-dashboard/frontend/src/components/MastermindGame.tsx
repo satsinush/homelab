@@ -166,11 +166,13 @@ interface MastermindResultsProps {
         pattern: string;
         probability: number | null;
         entropy: number | null;
+        wnt?: number | null;
     }[];
     guessesWithEntropy: {
         pattern: string;
         probability: number | null;
         entropy: number | null;
+        wnt?: number | null;
     }[];
     lastGameData: MastermindResultState['gameData'];
     isLoading: boolean;
@@ -197,12 +199,12 @@ const MastermindResults = React.memo(({
     };
 
     const copyPossiblePatterns = () => {
-        const patternsText = possiblePatterns.join('\n');
+        const patternsText = possiblePatterns.map(p => `${p.pattern} - ${p.probability} - ${p.entropy} - ${p.wnt}`).join('\n');
         onCopyToClipboard(patternsText);
     };
 
     const copyGuesses = () => {
-        const guessesText = guessesWithEntropy.map(g => `${g.pattern} - ${g.probability} - ${g.entropy}`).join('\n');
+        const guessesText = guessesWithEntropy.map(g => `${g.pattern} - ${g.probability} - ${g.entropy} - ${g.wnt}`).join('\n');
         onCopyToClipboard(guessesText);
     };
 
@@ -243,6 +245,7 @@ const MastermindResults = React.memo(({
                                                 <TableCell sx={{ fontWeight: 'bold' }}>Pattern</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>ENT</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>WNT</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
@@ -270,6 +273,9 @@ const MastermindResults = React.memo(({
                                                     </TableCell>
                                                     <TableCell align="right">
                                                         {guess.entropy !== null && guess.entropy !== undefined && !isNaN(Number(guess.entropy)) ? formatRoundedNum(Number(guess.entropy)) : '-'}
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        {guess.wnt !== null && guess.wnt !== undefined && !isNaN(Number(guess.wnt)) ? formatRoundedNum(Number(guess.wnt)) : '-'}
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -300,6 +306,7 @@ const MastermindResults = React.memo(({
                                                 <TableCell sx={{ fontWeight: 'bold' }}>Pattern</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>ENT</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>WNT</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
@@ -327,6 +334,9 @@ const MastermindResults = React.memo(({
                                                     </TableCell>
                                                     <TableCell align="right">
                                                         {guess.entropy !== null && guess.entropy !== undefined && !isNaN(Number(guess.entropy)) ? formatRoundedNum(Number(guess.entropy)) : '-'}
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        {guess.wnt !== null && guess.wnt !== undefined && !isNaN(Number(guess.wnt)) ? formatRoundedNum(Number(guess.wnt)) : '-'}
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -378,7 +388,8 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
         numPegs: 4,
         allowDuplicates: 1,
         maxDepth: 0,
-        autoDepth: true
+        autoDepth: true,
+        maxGuesses: 10
     });
 
     const [enabledColors, setEnabledColors] = useState<Record<number, boolean>>(() => {
@@ -601,10 +612,11 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
             duplicates: state.allowDuplicates === 1,
             maxDepth: state.maxDepth,
             autoDepth: state.autoDepth,
+            maxGuesses: state.maxGuesses,
             start: 0,
             end: 100
         });
-    }, [state.guesses, state.numPegs, enabledColors, state.allowDuplicates, state.maxDepth, state.autoDepth, onSolve]);
+    }, [state.guesses, state.numPegs, enabledColors, state.allowDuplicates, state.maxDepth, state.autoDepth, state.maxGuesses, onSolve]);
 
     React.useEffect(() => {
         const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -654,6 +666,13 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                 { value: 2, label: '2: Deep' }
             ],
             disabled: (configVal) => Boolean(configVal.autoDepth)
+        },
+        {
+            name: 'maxGuesses',
+            label: 'Maximum Guesses Allowed',
+            type: 'number',
+            min: 1,
+            max: 100
         }
     ];
 
@@ -932,6 +951,7 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                                             allowDuplicates: newConfig.allowDuplicates ? 1 : 0,
                                             maxDepth: Number(newConfig.maxDepth),
                                             autoDepth: Boolean(newConfig.autoDepth),
+                                            maxGuesses: Number(newConfig.maxGuesses) || 10,
                                             currentPattern: Array(newNumPegs).fill(null),
                                             correctPosition: 0,
                                             correctColor: 0,
@@ -944,7 +964,8 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                                         numPegs: newNumPegs,
                                         allowDuplicates: newConfig.allowDuplicates ? 1 : 0,
                                         maxDepth: Number(newConfig.maxDepth),
-                                        autoDepth: Boolean(newConfig.autoDepth)
+                                        autoDepth: Boolean(newConfig.autoDepth),
+                                        maxGuesses: Number(newConfig.maxGuesses) || 10
                                     };
                                 });
                             }}
@@ -953,7 +974,8 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                                 numPegs: state.numPegs,
                                 allowDuplicates: state.allowDuplicates,
                                 maxDepth: state.maxDepth,
-                                autoDepth: state.autoDepth
+                                autoDepth: state.autoDepth,
+                                maxGuesses: state.maxGuesses
                             }}
                             fields={settingsFields}
                         >

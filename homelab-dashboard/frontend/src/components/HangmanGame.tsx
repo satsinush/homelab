@@ -88,6 +88,7 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isL
                                                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>Letter</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>ENT</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>WNT</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
@@ -102,6 +103,9 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isL
                                                     </TableCell>
                                                     <TableCell align="right">
                                                         {suggestion.entropy !== null && suggestion.entropy !== undefined && !isNaN(Number(suggestion.entropy)) ? formatRoundedNum(Number(suggestion.entropy)) : '-'}
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        {suggestion.wnt !== null && suggestion.wnt !== undefined && !isNaN(Number(suggestion.wnt)) ? formatRoundedNum(Number(suggestion.wnt)) : '-'}
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -182,6 +186,7 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [config, setConfig] = useState({
         maxDepth: 1,
+        maxGuesses: 6,
         excludeUncommonWords: true
     });
 
@@ -194,6 +199,13 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
             max: 2
         },
         {
+            name: 'maxGuesses',
+            label: 'Maximum Strikes Allowed',
+            type: 'number',
+            min: 1,
+            max: 100
+        },
+        {
             name: 'excludeUncommonWords',
             label: 'Exclude Uncommon Words',
             type: 'checkbox'
@@ -204,8 +216,7 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
         const input = e.target;
         const start = input.selectionStart;
         const end = input.selectionEnd;
-        // Accept both ? and _ as unknown characters, normalize to _
-        const cleanValue = input.value.replace(/[^a-zA-Z?_ ]/g, '').replace(/\?/g, '_').toUpperCase();
+        const cleanValue = input.value.toUpperCase().replace(/[^A-Z_? ]/g, '');
         setPattern(cleanValue);
         requestAnimationFrame(() => {
             input.setSelectionRange(start, end);
@@ -216,7 +227,7 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
         const input = e.target;
         const start = input.selectionStart;
         const end = input.selectionEnd;
-        const cleanValue = input.value.replace(/[^a-zA-Z]/g, '').toUpperCase();
+        const cleanValue = input.value.toUpperCase().replace(/[^A-Z]/g, '');
         setExcludedLetters(cleanValue);
         requestAnimationFrame(() => {
             input.setSelectionRange(start, end);
@@ -233,6 +244,7 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
             pattern: pattern.trim(),
             excludedLetters: excludedLetters.trim(),
             maxDepth: config.maxDepth,
+            maxGuesses: config.maxGuesses,
             excludeUncommonWords: config.excludeUncommonWords,
             start: 0,
             end: 100
@@ -428,6 +440,7 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
                 onClose={() => setSettingsOpen(false)}
                 onSave={(newConfig: DialogConfig) => setConfig({
                     maxDepth: Number(newConfig.maxDepth),
+                    maxGuesses: Number(newConfig.maxGuesses) || 6,
                     excludeUncommonWords: Boolean(newConfig.excludeUncommonWords)
                 })}
                 title="Hangman Settings"

@@ -148,12 +148,30 @@ const GameHelpModal = ({ open, onClose, gameType }: GameHelpModalProps) => {
 
                             <Divider sx={{ my: 2 }} />
 
-                            <Typography variant="h6" gutterBottom>Configuration:</Typography>
+                            <Typography variant="h6" gutterBottom>Configuration & Metrics:</Typography>
                             <List dense>
                                 <ListItem>
                                     <ListItemText
-                                        primary="Solver Mode"
-                                        secondary="What the solver will do (Filter all words for all possible solutions, or get all possible solutions and calculate the best next guesses)"
+                                        primary="Search Depth"
+                                        secondary="How many moves ahead the solver calculates ENT/WNT. Auto-depth dynamically adjusts this for optimal balance of speed and depth."
+                                    />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="Maximum Guesses"
+                                        secondary="The total guesses allowed. The solver tracks remaining guesses (Max Guesses minus history) to dynamically switch to survival sorting when guesses run low."
+                                    />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="ENT Score"
+                                        secondary="Expected Number of Turns. Represents the average number of turns to solve the game from the current state."
+                                    />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="WNT Score"
+                                        secondary="Worst Number of Turns. Represents the maximum number of turns needed in the worst-case scenario. If a guess has WNT <= remaining guesses, a win is guaranteed."
                                     />
                                 </ListItem>
                             </List>
@@ -200,8 +218,14 @@ const GameHelpModal = ({ open, onClose, gameType }: GameHelpModalProps) => {
                                 </ListItem>
                                 <ListItem>
                                     <ListItemText
-                                        primary="Allow Duplicates"
-                                        secondary="Whether the secret pattern can have repeated colors"
+                                        primary="Maximum Guesses"
+                                        secondary="The total number of attempts allowed. Survival-based sorting is enabled when remaining guesses are limited."
+                                    />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="ENT & WNT Scores"
+                                        secondary="ENT represents the expected (average) turns to win. WNT represents the worst-case turns to win. Guesses guaranteeing a win (WNT <= remaining guesses) are sorted first."
                                     />
                                 </ListItem>
                             </List>
@@ -242,8 +266,14 @@ const GameHelpModal = ({ open, onClose, gameType }: GameHelpModalProps) => {
                                 </ListItem>
                                 <ListItem>
                                     <ListItemText
-                                        primary="Set the solver depth"
-                                        secondary="Higher depth = more thorough analysis but slower"
+                                        primary="Maximum Guesses (Strikes)"
+                                        secondary="The number of incorrect letter guesses allowed before losing. Used to adjust suggestion order when strikes are low."
+                                    />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="Search Depth"
+                                        secondary="How many letters ahead the solver simulates. Set to 0 for instant results, or higher for thorough pathfinding."
                                     />
                                 </ListItem>
                             </List>
@@ -256,6 +286,18 @@ const GameHelpModal = ({ open, onClose, gameType }: GameHelpModalProps) => {
                                     <ListItemText
                                         primary="Best Letters"
                                         secondary="The top letters to guess next, ranked by how many possible words they could reveal"
+                                    />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="Best Letters"
+                                        secondary="The top letters to guess next. If strikes are low, letters are sorted by individual probability first, then by ENT/WNT metrics to play it safe."
+                                    />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="ENT & WNT Scores"
+                                        secondary="ENT is the expected turns to narrow the letters down. WNT is the worst-case number of turns."
                                     />
                                 </ListItem>
                                 <ListItem>
@@ -313,12 +355,24 @@ const GameHelpModal = ({ open, onClose, gameType }: GameHelpModalProps) => {
 
                             <Divider sx={{ my: 2 }} />
 
-                            <Typography variant="h6" gutterBottom>Configuration:</Typography>
+                            <Typography variant="h6" gutterBottom>Configuration & Metrics:</Typography>
                             <List dense>
                                 <ListItem>
                                     <ListItemText
-                                        primary="Solver Mode"
-                                        secondary="0: Fastest (simple filter), 1: Balanced (ENT calculations), 2: Deep (slower but optimal next guesses)"
+                                        primary="Search Depth"
+                                        secondary="How many moves ahead the solver calculates ENT/WNT. Auto-depth dynamically calculates the optimal depth based on candidates."
+                                    />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="Maximum Guesses"
+                                        secondary="Maximum attempts allowed to solve. Helps calculate survival-sorting logic when remaining guesses are low."
+                                    />
+                                </ListItem>
+                                <ListItem>
+                                    <ListItemText
+                                        primary="ENT & WNT Scores"
+                                        secondary="ENT is the expected (average) moves to solve. WNT is the worst-case number of moves."
                                     />
                                 </ListItem>
                             </List>

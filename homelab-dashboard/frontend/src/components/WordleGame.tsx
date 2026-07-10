@@ -35,6 +35,7 @@ interface GuessWithEntropyItem {
     word: string;
     probability: number | null;
     entropy: number | null;
+    wnt?: number | null;
 }
 
 interface WordleResultsProps {
@@ -226,30 +227,21 @@ const WordleGuessInput = forwardRef<WordleGuessInputRef, WordleGuessInputProps>(
 });
 WordleGuessInput.displayName = 'WordleGuessInput';
 
-const WordleResults = React.memo(({
-    possibleWords,
-    guessesWithEntropy,
-    lastGameData,
-    isLoading,
-    onLoadMore,
-    onCopyToClipboard,
-    onPossibleSolutionSelect,
-    onSuggestedGuessSelect
-}: WordleResultsProps) => {
+const WordleResults = ({ possibleWords, guessesWithEntropy, lastGameData, isLoading, onLoadMore, onCopyToClipboard, onPossibleSolutionSelect, onSuggestedGuessSelect }: WordleResultsProps) => {
     const [tabVal, setTabVal] = useState(0);
 
     const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
         setTabVal(newValue);
     };
 
-    const copyPossibleWords = () => {
-        const wordsText = possibleWords.join('\n');
-        onCopyToClipboard(wordsText);
+    const copyGuesses = () => {
+        const guessesText = guessesWithEntropy.map(g => `${g.word} - ${g.probability} - ${g.entropy} - ${g.wnt}`).join('\n');
+        onCopyToClipboard(guessesText);
     };
 
-    const copyGuesses = () => {
-        const guessesText = guessesWithEntropy.map(g => `${g.word} - ${g.probability} - ${g.entropy}`).join('\n');
-        onCopyToClipboard(guessesText);
+    const copyPossibleWords = () => {
+        const possibleText = possibleWords.map(w => `${w.word} - ${w.probability} - ${w.entropy} - ${w.wnt}`).join('\n');
+        onCopyToClipboard(possibleText);
     };
 
     const formatRoundedNum = (num: number) => {
@@ -286,6 +278,7 @@ const WordleResults = React.memo(({
                                                 <TableCell sx={{ fontWeight: 'bold' }}>Word</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>ENT</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>WNT</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
@@ -304,6 +297,9 @@ const WordleResults = React.memo(({
                                                     </TableCell>
                                                     <TableCell align="right">
                                                         {guess.entropy !== null && guess.entropy !== undefined && !isNaN(Number(guess.entropy)) ? formatRoundedNum(Number(guess.entropy)) : '-'}
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        {guess.wnt !== null && guess.wnt !== undefined && !isNaN(Number(guess.wnt)) ? formatRoundedNum(Number(guess.wnt)) : '-'}
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -334,6 +330,7 @@ const WordleResults = React.memo(({
                                                 <TableCell sx={{ fontWeight: 'bold' }}>Word</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>ENT</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>WNT</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
@@ -352,6 +349,9 @@ const WordleResults = React.memo(({
                                                     </TableCell>
                                                     <TableCell align="right">
                                                         {guess.entropy !== null && guess.entropy !== undefined && !isNaN(Number(guess.entropy)) ? formatRoundedNum(Number(guess.entropy)) : '-'}
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        {guess.wnt !== null && guess.wnt !== undefined && !isNaN(Number(guess.wnt)) ? formatRoundedNum(Number(guess.wnt)) : '-'}
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -374,7 +374,7 @@ const WordleResults = React.memo(({
             </CardContent>
         </Card>
     );
-});
+};
 
 WordleResults.displayName = 'WordleResults';
 
@@ -404,6 +404,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
         wordLength: 5,
         maxDepth: 1,
         autoDepth: true,
+        maxGuesses: 6,
         excludeUncommonWords: true
     });
 
@@ -434,6 +435,13 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
             disabled: (configVal) => Boolean(configVal.autoDepth)
         },
         {
+            name: 'maxGuesses',
+            label: 'Maximum Guesses Allowed',
+            type: 'number',
+            min: 1,
+            max: 100
+        },
+        {
             name: 'excludeUncommonWords',
             label: 'Exclude Uncommon Words',
             type: 'checkbox'
@@ -457,6 +465,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
             wordLength: newWordLength,
             maxDepth: Number(newConfig.maxDepth),
             autoDepth: Boolean(newConfig.autoDepth),
+            maxGuesses: Number(newConfig.maxGuesses) || 6,
             excludeUncommonWords: Boolean(newConfig.excludeUncommonWords)
         });
     }, [config.wordLength]);
@@ -499,6 +508,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, onSo
             wordLength: config.wordLength,
             maxDepth: config.maxDepth,
             autoDepth: config.autoDepth,
+            maxGuesses: config.maxGuesses,
             excludeUncommonWords: config.excludeUncommonWords ? 1 : 0,
             start: 0,
             end: 100
