@@ -309,6 +309,7 @@ const WordGames = () => {
                     pattern: response.data.pattern,
                     excludedLetters: response.data.excludedLetters,
                     possibleWordsCount: response.data.possibleWordsCount,
+                    possiblePatternsCount: response.data.possiblePatternsCount,
                     letterGuessesCount: response.data.letterGuessesCount,
                     searchDepth: response.data.searchDepth,
                     isLimited: response.data.isLimited,

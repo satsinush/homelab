@@ -21,11 +21,30 @@ import {
     Tab,
     FormControlLabel,
     Checkbox,
-    Paper
+    Paper,
+    keyframes
 } from '@mui/material';
+const pulseKeyframes = keyframes`
+  0% {
+    outline: 3px solid rgba(25, 118, 210, 0.6);
+    outline-offset: 1px;
+    transform: scale(1.01);
+  }
+  50% {
+    outline: 3px solid rgba(25, 118, 210, 0.3);
+    outline-offset: 4px;
+    transform: scale(1.02);
+  }
+  100% {
+    outline: 3px solid rgba(25, 118, 210, 0);
+    outline-offset: 0px;
+    transform: scale(1);
+  }
+`;
 import {
     PlayArrow as PlayIcon,
     Add as AddIcon,
+    Remove as RemoveIcon,
     Close as CloseIcon,
     Settings as SettingsIcon,
     ContentCopy as CopyIcon,
@@ -221,12 +240,30 @@ const MastermindResults = React.memo(({
 
     return (
         <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-                <Tabs value={tabVal} onChange={handleTabChange} aria-label="mastermind results tabs">
-                    <Tab label={`Suggested Guesses (${guessesWithEntropy.length}/${lastGameData?.guessesCount || guessesWithEntropy.length})`} />
-                    <Tab label={`Possible Patterns (${possiblePatterns.length}/${lastGameData?.possibleCount || possiblePatterns.length})`} />
+            <Box sx={{ 
+                borderBottom: 1, 
+                borderColor: 'divider', 
+                px: 2, 
+                display: 'flex', 
+                flexDirection: { xs: 'column', sm: 'row' },
+                justifyContent: 'space-between', 
+                alignItems: { xs: 'stretch', sm: 'center' }, 
+                gap: 1,
+                flexShrink: 0 
+            }}>
+                <Tabs 
+                    value={tabVal} 
+                    onChange={handleTabChange} 
+                    variant="scrollable"
+                    scrollButtons="auto"
+                    allowScrollButtonsMobile
+                    aria-label="mastermind results tabs"
+                    sx={{ minHeight: 48 }}
+                >
+                    <Tab label={`Suggested Guesses (${guessesWithEntropy.length}/${lastGameData?.guessesCount ?? guessesWithEntropy.length})`} />
+                    <Tab label={`Possible Patterns (${possiblePatterns.length}/${lastGameData?.possibleCount ?? possiblePatterns.length})`} />
                 </Tabs>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ pb: 1 }}>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ pb: { xs: 1, sm: 0 }, justifyContent: { xs: 'space-between', sm: 'flex-end' } }}>
                     {lastGameData?.searchDepth !== undefined && lastGameData?.searchDepth !== null && (
                         <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
                             Search Depth: {lastGameData.searchDepth}
@@ -408,6 +445,7 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
     });
 
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [isPulsing, setIsPulsing] = useState(false);
 
     const [tempEnabledColors, setTempEnabledColors] = useState<Record<number, boolean>>(enabledColors);
 
@@ -456,6 +494,7 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
         const parts = trimmed.split(/\s+/);
         const isNumeric = parts.every(p => !isNaN(parseInt(p, 10)) && /^\d+$/.test(p));
 
+        let filled = false;
         if (isNumeric) {
             let numericParts = parts;
             if (parts.length === 1 && trimmed.length === state.numPegs) {
@@ -468,6 +507,7 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                     return originalIdx !== undefined ? originalIdx : null;
                 });
                 setState(prev => ({ ...prev, currentPattern: newPattern }));
+                filled = true;
             }
         } else {
             const chars = trimmed.replace(/\s+/g, '').toUpperCase().split('');
@@ -477,7 +517,13 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                     return originalIdx !== -1 ? originalIdx : null;
                 });
                 setState(prev => ({ ...prev, currentPattern: newPattern }));
+                filled = true;
             }
+        }
+
+        if (filled) {
+            setIsPulsing(true);
+            setTimeout(() => setIsPulsing(false), 800);
         }
     }, [state.numPegs, colorMapping]);
 
@@ -757,10 +803,22 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                             </Box>
 
                             {/* Current Guess Builder */}
-                            <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                            <Box sx={{ 
+                                p: 1.5, 
+                                border: '1px solid', 
+                                borderColor: 'divider', 
+                                borderRadius: 1
+                            }}>
                                 <Typography variant="subtitle2" align="center" sx={{ mb: 1, fontWeight: 600 }}>Build Guess</Typography>
 
-                                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 0.5, mb: 1.5 }}>
+                                <Box sx={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'center', 
+                                    alignItems: 'center', 
+                                    gap: 0.5, 
+                                    mb: 1.5,
+                                    animation: isPulsing ? `${pulseKeyframes} 0.8s ease-in-out` : 'none'
+                                }}>
                                     {state.currentPattern.map((colorIndex, index) => (
                                         <Box
                                             key={index}
@@ -810,11 +868,15 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                                                 ⚫ Position (Black)
                                             </Typography>
                                             <Stack direction="row" spacing={0.5} alignItems="center">
-                                                <IconButton size="small" onClick={() => adjustCorrectPosition(-1)} sx={{ p: 0.25 }}>-</IconButton>
+                                                <IconButton size="small" onClick={() => adjustCorrectPosition(-1)} sx={{ width: 22, height: 22, border: '1px solid', borderColor: 'divider', borderRadius: '50%', p: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <RemoveIcon sx={{ fontSize: '0.9rem' }} />
+                                                </IconButton>
                                                 <Typography variant="body2" sx={{ minWidth: 16, textAlign: 'center', fontWeight: 'bold' }}>
                                                     {state.correctPosition}
                                                 </Typography>
-                                                <IconButton size="small" onClick={() => adjustCorrectPosition(1)} sx={{ p: 0.25 }}>+</IconButton>
+                                                <IconButton size="small" onClick={() => adjustCorrectPosition(1)} sx={{ width: 22, height: 22, border: '1px solid', borderColor: 'divider', borderRadius: '50%', p: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <AddIcon sx={{ fontSize: '0.9rem' }} />
+                                                </IconButton>
                                             </Stack>
                                         </Stack>
 
@@ -824,11 +886,15 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                                                 ⚪ Color (White)
                                             </Typography>
                                             <Stack direction="row" spacing={0.5} alignItems="center">
-                                                <IconButton size="small" onClick={() => adjustCorrectColor(-1)} sx={{ p: 0.25 }}>-</IconButton>
+                                                <IconButton size="small" onClick={() => adjustCorrectColor(-1)} sx={{ width: 22, height: 22, border: '1px solid', borderColor: 'divider', borderRadius: '50%', p: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <RemoveIcon sx={{ fontSize: '0.9rem' }} />
+                                                </IconButton>
                                                 <Typography variant="body2" sx={{ minWidth: 16, textAlign: 'center', fontWeight: 'bold' }}>
                                                     {state.correctColor}
                                                 </Typography>
-                                                <IconButton size="small" onClick={() => adjustCorrectColor(1)} sx={{ p: 0.25 }}>+</IconButton>
+                                                <IconButton size="small" onClick={() => adjustCorrectColor(1)} sx={{ width: 22, height: 22, border: '1px solid', borderColor: 'divider', borderRadius: '50%', p: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <AddIcon sx={{ fontSize: '0.9rem' }} />
+                                                </IconButton>
                                             </Stack>
                                         </Stack>
                                     </Box>
@@ -894,20 +960,28 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                                                         </TableCell>
                                                         <TableCell align="center" sx={{ py: 0.5, px: 1 }}>
                                                             <Stack direction="row" spacing={0.5} justifyContent="center" alignItems="center">
-                                                                <IconButton size="small" onClick={() => adjustExistingGuessFeedback(index, 'correctPosition', -1)} sx={{ p: 0.25 }}>-</IconButton>
+                                                                <IconButton size="small" onClick={() => adjustExistingGuessFeedback(index, 'correctPosition', -1)} sx={{ width: 22, height: 22, border: '1px solid', borderColor: 'divider', borderRadius: '50%', p: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    <RemoveIcon sx={{ fontSize: '0.9rem' }} />
+                                                                </IconButton>
                                                                 <Typography variant="body2">{guess.correctPosition}</Typography>
-                                                                <IconButton size="small" onClick={() => adjustExistingGuessFeedback(index, 'correctPosition', 1)} sx={{ p: 0.25 }}>+</IconButton>
+                                                                <IconButton size="small" onClick={() => adjustExistingGuessFeedback(index, 'correctPosition', 1)} sx={{ width: 22, height: 22, border: '1px solid', borderColor: 'divider', borderRadius: '50%', p: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    <AddIcon sx={{ fontSize: '0.9rem' }} />
+                                                                </IconButton>
                                                             </Stack>
                                                         </TableCell>
                                                         <TableCell align="center" sx={{ py: 0.5, px: 1 }}>
                                                             <Stack direction="row" spacing={0.5} justifyContent="center" alignItems="center">
-                                                                <IconButton size="small" onClick={() => adjustExistingGuessFeedback(index, 'correctColor', -1)} sx={{ p: 0.25 }}>-</IconButton>
+                                                                <IconButton size="small" onClick={() => adjustExistingGuessFeedback(index, 'correctColor', -1)} sx={{ width: 22, height: 22, border: '1px solid', borderColor: 'divider', borderRadius: '50%', p: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    <RemoveIcon sx={{ fontSize: '0.9rem' }} />
+                                                                </IconButton>
                                                                 <Typography variant="body2">{guess.correctColor}</Typography>
-                                                                <IconButton size="small" onClick={() => adjustExistingGuessFeedback(index, 'correctColor', 1)} sx={{ p: 0.25 }}>+</IconButton>
+                                                                <IconButton size="small" onClick={() => adjustExistingGuessFeedback(index, 'correctColor', 1)} sx={{ width: 22, height: 22, border: '1px solid', borderColor: 'divider', borderRadius: '50%', p: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    <AddIcon sx={{ fontSize: '0.9rem' }} />
+                                                                </IconButton>
                                                             </Stack>
                                                         </TableCell>
                                                         <TableCell align="center" sx={{ py: 0.5, px: 1 }}>
-                                                            <IconButton size="small" onClick={() => removeGuess(index)} color="error" sx={{ p: 0.25 }}>
+                                                            <IconButton size="small" onClick={() => removeGuess(index)} color="error" sx={{ p: 0.25, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                 <CloseIcon fontSize="small" />
                                                             </IconButton>
                                                         </TableCell>

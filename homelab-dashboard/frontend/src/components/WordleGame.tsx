@@ -19,7 +19,8 @@ import {
     TableBody,
     TableRow,
     TableCell,
-    Paper
+    Paper,
+    keyframes
 } from '@mui/material';
 import {
     PlayArrow as PlayIcon,
@@ -30,6 +31,24 @@ import {
 } from '@mui/icons-material';
 import GameSettingsDialog, { FieldDefinition, DialogConfig } from './GameSettingsDialog';
 import { WordleResultState } from '../types/api';
+
+const pulseKeyframes = keyframes`
+  0% {
+    outline: 3px solid rgba(25, 118, 210, 0.6);
+    outline-offset: 1px;
+    transform: scale(1.01);
+  }
+  50% {
+    outline: 3px solid rgba(25, 118, 210, 0.3);
+    outline-offset: 4px;
+    transform: scale(1.02);
+  }
+  100% {
+    outline: 3px solid rgba(25, 118, 210, 0);
+    outline-offset: 0px;
+    transform: scale(1);
+  }
+`;
 
 interface GuessWithEntropyItem {
     word: string;
@@ -72,6 +91,7 @@ const WordleGuessInput = forwardRef<WordleGuessInputRef, WordleGuessInputProps>(
 }, ref) => {
     const [localGuess, setLocalGuess] = useState('');
     const [localGuessColors, setLocalGuessColors] = useState<number[]>(Array(wordLength).fill(0));
+    const [isPulsing, setIsPulsing] = useState(false);
 
     useImperativeHandle(ref, () => ({
         setGuess: (word: string) => {
@@ -79,6 +99,8 @@ const WordleGuessInput = forwardRef<WordleGuessInputRef, WordleGuessInputProps>(
             if (cleanWord.length === wordLength && /^[A-Z]+$/.test(cleanWord)) {
                 setLocalGuess(cleanWord);
                 setLocalGuessColors(Array(wordLength).fill(0));
+                setIsPulsing(true);
+                setTimeout(() => setIsPulsing(false), 800);
             }
         }
     }), [wordLength]);
@@ -113,7 +135,12 @@ const WordleGuessInput = forwardRef<WordleGuessInputRef, WordleGuessInputProps>(
     };
 
     return (
-        <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+        <Box sx={{ 
+            p: 1.5, 
+            border: '1px solid', 
+            borderColor: 'divider', 
+            borderRadius: 1
+        }}>
             <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Add Guess</Typography>
             <Stack spacing={1.5}>
                 <TextField
@@ -121,6 +148,9 @@ const WordleGuessInput = forwardRef<WordleGuessInputRef, WordleGuessInputProps>(
                     size="small"
                     value={localGuess}
                     onChange={handleLocalGuessChange}
+                    sx={{
+                        animation: isPulsing ? `${pulseKeyframes} 0.8s ease-in-out` : 'none'
+                    }}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
@@ -254,12 +284,30 @@ const WordleResults = ({ possibleWords, guessesWithEntropy, lastGameData, isLoad
 
     return (
         <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-                <Tabs value={tabVal} onChange={handleTabChange} aria-label="wordle results tabs">
-                    <Tab label={`Suggested Guesses (${guessesWithEntropy.length}/${lastGameData?.guessesCount || guessesWithEntropy.length})`} />
-                    <Tab label={`Possible Words (${possibleWords.length}/${lastGameData?.possibleWordsCount || possibleWords.length})`} />
+            <Box sx={{ 
+                borderBottom: 1, 
+                borderColor: 'divider', 
+                px: 2, 
+                display: 'flex', 
+                flexDirection: { xs: 'column', sm: 'row' },
+                justifyContent: 'space-between', 
+                alignItems: { xs: 'stretch', sm: 'center' }, 
+                gap: 1,
+                flexShrink: 0 
+            }}>
+                <Tabs 
+                    value={tabVal} 
+                    onChange={handleTabChange} 
+                    variant="scrollable"
+                    scrollButtons="auto"
+                    allowScrollButtonsMobile
+                    aria-label="wordle results tabs"
+                    sx={{ minHeight: 48 }}
+                >
+                    <Tab label={`Suggested Guesses (${guessesWithEntropy.length}/${lastGameData?.guessesCount ?? guessesWithEntropy.length})`} />
+                    <Tab label={`Possible Words (${possibleWords.length}/${lastGameData?.possibleWordsCount ?? possibleWords.length})`} />
                 </Tabs>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ pb: 1 }}>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ pb: { xs: 1, sm: 0 }, justifyContent: { xs: 'space-between', sm: 'flex-end' } }}>
                     {lastGameData?.searchDepth !== undefined && lastGameData?.searchDepth !== null && (
                         <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
                             Search Depth: {lastGameData.searchDepth}
