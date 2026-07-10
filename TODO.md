@@ -1,8 +1,3 @@
-- make sure to show (loaded/total) for guesses and solutions
-- show word score in results? probably not since it's pretty arbitrary
-- pulse highlight when pattern autofilled
-- dungleon feedback order should go (red, yellow, yellow+, green, green+)
-- fix arrow keys in CLI mode
 - differentiate number of possible words from possible patterns in final hangman output
 
 - split up load more call into separate requests for each game

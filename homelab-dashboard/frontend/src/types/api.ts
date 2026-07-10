@@ -214,6 +214,7 @@ export interface HangmanResponse {
     pattern: string;
     excludedLetters: string;
     possibleWordsCount: number;
+    possiblePatternsCount?: number;
     letterGuessesCount: number;
     searchDepth?: number | null;
     isLimited: boolean;
@@ -446,6 +447,7 @@ export interface HangmanResultState {
         pattern: string;
         excludedLetters: string;
         possibleWordsCount: number;
+        possiblePatternsCount?: number;
         letterGuessesCount: number;
         searchDepth?: number | null;
         isLimited: boolean;

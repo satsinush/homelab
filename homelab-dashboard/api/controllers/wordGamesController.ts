@@ -733,10 +733,11 @@ class WordGamesController {
             //   line 2: total letter guesses count
             //   line 3: output filename (no trailing newline)
             const outputLines = result.stdout.trim().split('\n');
-            const possibleWordsCount = parseInt(outputLines[0]) || 0;
+            const possiblePatternsCount = parseInt(outputLines[0]) || 0;
             const letterGuessesCount = parseInt(outputLines[1]) || 0;
             const actualResultsFile = (outputLines[2] || resultsFilename).trim();
             const searchDepth = outputLines[3] ? parseInt(outputLines[3]) : null;
+            const possibleWordsCount = outputLines[4] ? (parseInt(outputLines[4]) || 0) : possiblePatternsCount;
 
             // Read the results file
             let letterSuggestions: LetterSuggestion[] = [];
@@ -759,6 +760,7 @@ class WordGamesController {
                 pattern: cleanPattern,
                 excludedLetters: cleanGuessed,
                 possibleWordsCount,
+                possiblePatternsCount,
                 letterGuessesCount,
                 searchDepth,
                 isLimited,

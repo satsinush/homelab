@@ -18,8 +18,26 @@ import {
     TableRow,
     Tabs,
     Tab,
-    Divider
+    Divider,
+    keyframes
 } from '@mui/material';
+const pulseKeyframes = keyframes`
+  0% {
+    outline: 3px solid rgba(25, 118, 210, 0.6);
+    outline-offset: 1px;
+    transform: scale(1.01);
+  }
+  50% {
+    outline: 3px solid rgba(25, 118, 210, 0.3);
+    outline-offset: 4px;
+    transform: scale(1.02);
+  }
+  100% {
+    outline: 3px solid rgba(25, 118, 210, 0);
+    outline-offset: 0px;
+    transform: scale(1);
+  }
+`;
 
 import {
     PlayArrow as PlayIcon,
@@ -63,12 +81,14 @@ const CHARACTER_MAP = CHARACTERS.reduce((acc, char, index) => {
 
 // Feedback styles using theme-compatible colors
 const FEEDBACK_STYLES: Record<number, { borderColor: string; bgColor: string; badge: boolean }> = {
-    0: { borderColor: '#d34bb1', bgColor: '#d34bb1', badge: false }, // Not present (Red)
-    1: { borderColor: '#c0cd3c', bgColor: '#c0cd3c', badge: false }, // Wrong pos (Yellow)
-    2: { borderColor: '#37c45c', bgColor: '#37c45c', badge: false }, // Correct pos (Green)
-    3: { borderColor: '#c0cd3c', bgColor: '#c0cd3c', badge: true },  // Wrong pos + 1 more
-    4: { borderColor: '#37c45c', bgColor: '#37c45c', badge: true }   // Correct pos + 1 more
+    0: { borderColor: '#49191a', bgColor: '#d34bb1', badge: false }, // Not present (Red)
+    1: { borderColor: '#304e17', bgColor: '#c0cd3c', badge: false }, // Wrong pos (Yellow)
+    2: { borderColor: '#124d49', bgColor: '#37c45c', badge: false }, // Correct pos (Green)
+    3: { borderColor: '#304e17', bgColor: '#c0cd3c', badge: true },  // Wrong pos + 1 more
+    4: { borderColor: '#124d49', bgColor: '#37c45c', badge: true }   // Correct pos + 1 more
 };
+
+const FEEDBACK_ORDER = [0, 1, 3, 2, 4];
 
 const getDungleonAssetPath = (charId: string) => {
     if (!charId) return '';
@@ -169,12 +189,30 @@ const DungleonResults = React.memo(({
 
     return (
         <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-                <Tabs value={tabVal} onChange={handleTabChange} aria-label="dungleon results tabs">
-                    <Tab label={`Suggested Guesses (${guessesWithEntropy.length})`} />
-                    <Tab label={`Possible Solutions (${possiblePatterns.length})`} />
+            <Box sx={{ 
+                borderBottom: 1, 
+                borderColor: 'divider', 
+                px: 2, 
+                display: 'flex', 
+                flexDirection: { xs: 'column', sm: 'row' },
+                justifyContent: 'space-between', 
+                alignItems: { xs: 'stretch', sm: 'center' }, 
+                gap: 1,
+                flexShrink: 0 
+            }}>
+                <Tabs 
+                    value={tabVal} 
+                    onChange={handleTabChange} 
+                    variant="scrollable"
+                    scrollButtons="auto"
+                    allowScrollButtonsMobile
+                    aria-label="dungleon results tabs"
+                    sx={{ minHeight: 48 }}
+                >
+                    <Tab label={`Suggested Guesses (${guessesWithEntropy.length}/${lastGameData?.guessesCount ?? guessesWithEntropy.length})`} />
+                    <Tab label={`Possible Solutions (${possiblePatterns.length}/${lastGameData?.possiblePatternsCount ?? possiblePatterns.length})`} />
                 </Tabs>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ pb: 1 }}>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ pb: { xs: 1, sm: 0 }, justifyContent: { xs: 'space-between', sm: 'flex-end' } }}>
                     {lastGameData?.searchDepth !== undefined && lastGameData?.searchDepth !== null && (
                         <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
                             Search Depth: {lastGameData.searchDepth}
@@ -353,6 +391,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
     const [currentPattern, setCurrentPattern] = useState<string[]>([]);
     const [currentFeedback, setCurrentFeedback] = useState<number[]>([0, 0, 0, 0, 0]);
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [isPulsing, setIsPulsing] = useState(false);
     const [config, setConfig] = useState({
         maxDepth: 0,
         autoDepth: true,
@@ -406,6 +445,8 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
             setCurrentPattern(newPattern);
             setCurrentFeedback([0, 0, 0, 0, 0]);
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            setIsPulsing(true);
+            setTimeout(() => setIsPulsing(false), 800);
         }
     }, []);
 
@@ -438,7 +479,10 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
     const toggleCurrentFeedback = useCallback((index: number) => {
         setCurrentFeedback(prev => {
             const nextFeedback = [...prev];
-            nextFeedback[index] = (nextFeedback[index] + 1) % 5;
+            const currentVal = nextFeedback[index];
+            const orderIndex = FEEDBACK_ORDER.indexOf(currentVal);
+            const nextOrderIndex = (orderIndex + 1) % FEEDBACK_ORDER.length;
+            nextFeedback[index] = FEEDBACK_ORDER[nextOrderIndex];
             return nextFeedback;
         });
     }, []);
@@ -631,7 +675,8 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 gap: 1,
-                                minHeight: 60
+                                minHeight: 60,
+                                animation: isPulsing ? `${pulseKeyframes} 0.8s ease-in-out` : 'none'
                             }}>
                                 {Array.from({ length: 5 }).map((_, i) => {
                                     const charId = currentPattern[i];
