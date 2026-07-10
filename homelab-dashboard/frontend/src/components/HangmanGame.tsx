@@ -62,18 +62,25 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isL
             <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, pt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
                 <Tabs value={tabVal} onChange={handleTabChange} aria-label="hangman results tabs">
                     <Tab label="Letter Suggestions" />
-                    <Tab label={`Possible Words (${results.possibleWords.length}/${results.gameData?.possibleWordsCount || results.possibleWords.length})`} />
+                    <Tab label={`Possible Words (${results.possibleWords.length}/${results.gameData?.possibleWordsCount ?? results.possibleWords.length})`} />
                 </Tabs>
-                {tabVal === 1 && showPossible && (
-                    <Button
-                        variant="outlined"
-                        size="small"
-                        onClick={() => onCopyToClipboard(results.possibleWords.join('\n'))}
-                        startIcon={<CopyIcon />}
-                    >
-                        Copy
-                    </Button>
-                )}
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ pb: 1 }}>
+                    {results.gameData?.searchDepth !== undefined && results.gameData?.searchDepth !== null && (
+                        <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                            Search Depth: {results.gameData.searchDepth}
+                        </Typography>
+                    )}
+                    {tabVal === 1 && showPossible && (
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => onCopyToClipboard(results.possibleWords.join('\n'))}
+                            startIcon={<CopyIcon />}
+                        >
+                            Copy
+                        </Button>
+                    )}
+                </Stack>
             </Box>
             <CardContent sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                 {tabVal === 0 && (

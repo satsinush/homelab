@@ -354,6 +354,7 @@ class WordGamesController {
             const possibleWordsCount = parseInt(outputLines[0]) || 0;
             const guessesCount = parseInt(outputLines[1]) || 0;
             const actualResultsFile = (outputLines[2] || resultsFilename).trim();
+            const searchDepth = outputLines[3] ? parseInt(outputLines[3]) : null;
 
             // Read the results file to get words and entropy data
             // File format: possible words (one per line), then CSV lines: word,entropy,probability
@@ -378,6 +379,7 @@ class WordGamesController {
                 success: true,
                 possibleWordsCount,
                 guessesCount,
+                searchDepth,
                 isLimitedPossible,
                 isLimitedGuesses,
                 executionTime,
@@ -486,6 +488,7 @@ class WordGamesController {
             const possibleCount = parseInt(outputLines[0]) || 0;
             const guessesCount = parseInt(outputLines[1]) || 0;
             const actualResultsFile = (outputLines[2] || resultsFilename).trim();
+            const searchDepth = outputLines[3] ? parseInt(outputLines[3]) : null;
 
             // Read the results file
             let possiblePatterns: GuessWithEntropy[] = [];
@@ -508,6 +511,7 @@ class WordGamesController {
                 success: true,
                 possibleCount,
                 guessesCount,
+                searchDepth,
                 isLimitedPossible,
                 isLimitedGuesses,
                 executionTime,
@@ -624,6 +628,7 @@ class WordGamesController {
             const possiblePatternsCount = parseInt(outputLines[0]) || 0;
             const guessesCount = parseInt(outputLines[1]) || 0;
             const actualResultsFile = (outputLines[2] || resultsFilename).trim();
+            const searchDepth = outputLines[3] ? parseInt(outputLines[3]) : null;
 
             // Read the results file
             let possiblePatterns: GuessWithEntropy[] = [];
@@ -646,6 +651,7 @@ class WordGamesController {
                 success: true,
                 possiblePatternsCount,
                 guessesCount,
+                searchDepth,
                 isLimitedPossible,
                 isLimitedGuesses,
                 executionTime,
@@ -730,6 +736,7 @@ class WordGamesController {
             const possibleWordsCount = parseInt(outputLines[0]) || 0;
             const letterGuessesCount = parseInt(outputLines[1]) || 0;
             const actualResultsFile = (outputLines[2] || resultsFilename).trim();
+            const searchDepth = outputLines[3] ? parseInt(outputLines[3]) : null;
 
             // Read the results file
             let letterSuggestions: LetterSuggestion[] = [];
@@ -753,6 +760,7 @@ class WordGamesController {
                 excludedLetters: cleanGuessed,
                 possibleWordsCount,
                 letterGuessesCount,
+                searchDepth,
                 isLimited,
                 executionTime,
                 start: 0,

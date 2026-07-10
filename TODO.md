@@ -1,16 +1,5 @@
-- hangman needs different sorting priority, ENT solver solve() should really only use prob if R = 1 and then WNT if guaentee exists, otherwise just default to a < b
-- ___ ___E ____, "THE" still shows up as a possible word, and for _IG TI_E _USH, "TUSH" still shows up as a possible word, what is going on??
-- need to include 1 letter "words" for hangman
-- hangman only shows 100 results if pattern is impossible
-
-- if no guarantee to win, why not sort first by ENT?
-- is capped to WNT to R-1?
-- should findMinMetrics minimize WNT, shouldn't our decision criteria match our sorting logic? Maybe we need to implement a new virtual method to decide between two options and use that
-- is WNT always a whole number?
+- make sure to show (loaded/total) for guesses and solutions
 - show word score in results? probably not since it's pretty arbitrary
-- how can WNT with no guesses be 6, but then using the best guess, no feedback combination gets me a WNT of 5 on the next guess
-- add depth to stout for ENT solvers?
-- show (loaded/total) for guesses and solutions
 - pulse highlight when pattern autofilled
 - dungleon feedback order should go (red, yellow, yellow+, green, green+)
 - fix arrow keys in CLI mode

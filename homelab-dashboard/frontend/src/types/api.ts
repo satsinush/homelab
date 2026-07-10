@@ -165,6 +165,7 @@ export interface SpellingBeeResponse {
 export interface WordleResponse {
     possibleWordsCount: number;
     guessesCount: number;
+    searchDepth?: number | null;
     isLimitedPossible: boolean;
     isLimitedGuesses: boolean;
     executionTime: number;
@@ -188,6 +189,7 @@ export interface WordleResponse {
 export interface MastermindResponse {
     possibleCount: number;
     guessesCount: number;
+    searchDepth?: number | null;
     isLimitedPossible: boolean;
     isLimitedGuesses: boolean;
     executionTime: number;
@@ -213,6 +215,7 @@ export interface HangmanResponse {
     excludedLetters: string;
     possibleWordsCount: number;
     letterGuessesCount: number;
+    searchDepth?: number | null;
     isLimited: boolean;
     executionTime: number;
     start: number;
@@ -230,6 +233,7 @@ export interface HangmanResponse {
 export interface DungleonResponse {
     possiblePatternsCount: number;
     guessesCount: number;
+    searchDepth?: number | null;
     isLimitedPossible: boolean;
     isLimitedGuesses: boolean;
     executionTime: number;
@@ -386,6 +390,7 @@ export interface WordleResultState {
         excludeUncommonWords: boolean;
         possibleWordsCount: number;
         guessesCount: number;
+        searchDepth?: number | null;
         isLimitedPossible: boolean;
         isLimitedGuesses: boolean;
         executionTime: number;
@@ -419,6 +424,7 @@ export interface MastermindResultState {
         } | null;
         possibleCount: number;
         guessesCount: number;
+        searchDepth?: number | null;
         isLimitedPossible: boolean;
         isLimitedGuesses: boolean;
         executionTime: number;
@@ -441,6 +447,7 @@ export interface HangmanResultState {
         excludedLetters: string;
         possibleWordsCount: number;
         letterGuessesCount: number;
+        searchDepth?: number | null;
         isLimited: boolean;
         executionTime: number;
         start: number;
@@ -465,6 +472,7 @@ export interface DungleonResultState {
         guesses: unknown;
         possiblePatternsCount: number;
         guessesCount: number;
+        searchDepth?: number | null;
         isLimitedPossible: boolean;
         isLimitedGuesses: boolean;
         executionTime: number;

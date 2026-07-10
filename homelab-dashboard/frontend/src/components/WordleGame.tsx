@@ -259,12 +259,19 @@ const WordleResults = ({ possibleWords, guessesWithEntropy, lastGameData, isLoad
                     <Tab label={`Suggested Guesses (${guessesWithEntropy.length}/${lastGameData?.guessesCount || guessesWithEntropy.length})`} />
                     <Tab label={`Possible Words (${possibleWords.length}/${lastGameData?.possibleWordsCount || possibleWords.length})`} />
                 </Tabs>
-                {tabVal === 0 && guessesWithEntropy.length > 0 && (
-                    <Button variant="outlined" size="small" onClick={copyGuesses} startIcon={<CopyIcon />}>Copy</Button>
-                )}
-                {tabVal === 1 && possibleWords.length > 0 && (
-                    <Button variant="outlined" size="small" onClick={copyPossibleWords} startIcon={<CopyIcon />}>Copy</Button>
-                )}
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ pb: 1 }}>
+                    {lastGameData?.searchDepth !== undefined && lastGameData?.searchDepth !== null && (
+                        <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                            Search Depth: {lastGameData.searchDepth}
+                        </Typography>
+                    )}
+                    {tabVal === 0 && guessesWithEntropy.length > 0 && (
+                        <Button variant="outlined" size="small" onClick={copyGuesses} startIcon={<CopyIcon />}>Copy</Button>
+                    )}
+                    {tabVal === 1 && possibleWords.length > 0 && (
+                        <Button variant="outlined" size="small" onClick={copyPossibleWords} startIcon={<CopyIcon />}>Copy</Button>
+                    )}
+                </Stack>
             </Box>
             <CardContent sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                 {tabVal === 0 && (

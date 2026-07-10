@@ -226,12 +226,19 @@ const MastermindResults = React.memo(({
                     <Tab label={`Suggested Guesses (${guessesWithEntropy.length}/${lastGameData?.guessesCount || guessesWithEntropy.length})`} />
                     <Tab label={`Possible Patterns (${possiblePatterns.length}/${lastGameData?.possibleCount || possiblePatterns.length})`} />
                 </Tabs>
-                {tabVal === 0 && showSuggestions && (
-                    <Button variant="outlined" size="small" onClick={copyGuesses} startIcon={<CopyIcon />}>Copy</Button>
-                )}
-                {tabVal === 1 && showPossible && (
-                    <Button variant="outlined" size="small" onClick={copyPossiblePatterns} startIcon={<CopyIcon />}>Copy</Button>
-                )}
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ pb: 1 }}>
+                    {lastGameData?.searchDepth !== undefined && lastGameData?.searchDepth !== null && (
+                        <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
+                            Search Depth: {lastGameData.searchDepth}
+                        </Typography>
+                    )}
+                    {tabVal === 0 && showSuggestions && (
+                        <Button variant="outlined" size="small" onClick={copyGuesses} startIcon={<CopyIcon />}>Copy</Button>
+                    )}
+                    {tabVal === 1 && showPossible && (
+                        <Button variant="outlined" size="small" onClick={copyPossiblePatterns} startIcon={<CopyIcon />}>Copy</Button>
+                    )}
+                </Stack>
             </Box>
             <CardContent sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                 {tabVal === 0 && (
