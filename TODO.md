@@ -1,5 +1,4 @@
 - stop catching errors as unkown?
-- set auto depth threshold based on time and get rough time estimate based on amount of time to filter initial candidates
 
 - add rustdesk api server
 - Pcie gen 3?

@@ -122,7 +122,18 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isL
                                         </TableHead>
                                         <TableBody>
                                             {results.letterSuggestions.map((suggestion, index) => (
-                                                <TableRow key={index} hover>
+                                                <TableRow
+                                                    key={index}
+                                                    hover
+                                                    sx={{
+                                                        backgroundColor: suggestion.probability !== null && suggestion.probability >= 0.9999 ? 'rgba(76, 175, 80, 0.15)' :
+                                                                         suggestion.probability !== null && suggestion.probability > 0 ? 'rgba(255, 235, 59, 0.15)' : 'inherit',
+                                                        '&:hover': {
+                                                            backgroundColor: suggestion.probability !== null && suggestion.probability >= 0.9999 ? 'rgba(76, 175, 80, 0.25) !important' :
+                                                                             suggestion.probability !== null && suggestion.probability > 0 ? 'rgba(255, 235, 59, 0.25) !important' : 'inherit'
+                                                        }
+                                                    }}
+                                                >
                                                     <TableCell align="center" sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
                                                         {suggestion.letter.toUpperCase()}
                                                     </TableCell>
@@ -214,17 +225,27 @@ const HangmanGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, onCl
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [config, setConfig] = useState({
         maxDepth: 1,
+        autoDepth: true,
         maxGuesses: 6,
         excludeUncommonWords: true
     });
 
     const settingsFields: FieldDefinition[] = [
         {
+            name: 'autoDepth',
+            label: 'Auto Depth (Recommended)',
+            type: 'checkbox'
+        },
+        {
             name: 'maxDepth',
-            label: 'Search Depth',
-            type: 'number',
-            min: 0,
-            max: 2
+            label: 'Manual Search Depth',
+            type: 'select',
+            options: [
+                { value: 0, label: '0: Fastest' },
+                { value: 1, label: '1: Balanced' },
+                { value: 2, label: '2: Deep' }
+            ],
+            disabled: (configVal) => Boolean(configVal.autoDepth)
         },
         {
             name: 'maxGuesses',
@@ -292,6 +313,7 @@ const HangmanGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, onCl
             pattern: pattern.trim(),
             excludedLetters: excludedLetters.trim(),
             maxDepth: config.maxDepth,
+            autoDepth: config.autoDepth,
             maxGuesses: config.maxGuesses,
             excludeUncommonWords: config.excludeUncommonWords,
             start: 0,
@@ -488,6 +510,7 @@ const HangmanGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, onCl
                 onClose={() => setSettingsOpen(false)}
                 onSave={(newConfig: DialogConfig) => setConfig({
                     maxDepth: Number(newConfig.maxDepth),
+                    autoDepth: Boolean(newConfig.autoDepth),
                     maxGuesses: Number(newConfig.maxGuesses) || 6,
                     excludeUncommonWords: Boolean(newConfig.excludeUncommonWords)
                 })}

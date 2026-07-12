@@ -532,6 +532,8 @@ export interface HangmanRequest {
     pattern: string;
     excludedLetters: string;
     maxDepth: number;
+    autoDepth?: boolean;
+    maxGuesses?: number;
     excludeUncommonWords: boolean;
     start?: number;
     end?: number;

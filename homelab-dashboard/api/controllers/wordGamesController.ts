@@ -713,6 +713,7 @@ class WordGamesController {
                 pattern,
                 excludedLetters = '',
                 maxDepth = 0,
+                autoDepth = false,
                 maxGuesses = 6,
                 excludeUncommonWords = false
             } = req.body;
@@ -742,13 +743,17 @@ class WordGamesController {
             // Pattern uses _ for unknown letters (lowercase internally)
             const patternLower = cleanPattern.toLowerCase();
 
+            const isAuto = autoDepth || maxDepth === 'auto';
             const args = [
                 'hangman',
-                `--max-depth ${parseInt(maxDepth) || 0}`,
+                `--max-depth ${isAuto ? 0 : (parseInt(maxDepth) || 0)}`,
                 `--max-guesses ${parseInt(maxGuesses) || 6}`,
                 `--exclude-uncommon-words ${excludeUncommonWords ? 1 : 0}`,
                 `-o ${resultsFilename}`
             ];
+            if (isAuto) {
+                args.push('--auto-depth');
+            }
 
             // Use --input format: "pattern;strikes"
             if (cleanGuessed.length > 0) {
