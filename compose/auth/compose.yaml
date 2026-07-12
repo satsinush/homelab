@@ -70,6 +70,7 @@ services:
     volumes:
       - ${PROJECT_ROOT}/authentik/volumes/media:/media
       - ${PROJECT_ROOT}/homelab-dashboard/frontend/public/homelab-icon.svg:/media/public/homelab-icon.svg:ro
+      - ${PROJECT_ROOT}/homelab-dashboard/frontend/src/assets:/media/public/icons:ro
       - ${PROJECT_ROOT}/authentik/volumes/templates:/templates
       - ${PROJECT_ROOT}/authentik/volumes/blueprints:/blueprints/custom
       - ${PROJECT_ROOT}/authentik/blueprints/homelab.yaml:/blueprints/custom/homelab.yaml:ro
@@ -138,6 +139,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${PROJECT_ROOT}/authentik/volumes/media:/media
       - ${PROJECT_ROOT}/homelab-dashboard/frontend/public/homelab-icon.svg:/media/public/homelab-icon.svg:ro
+      - ${PROJECT_ROOT}/homelab-dashboard/frontend/src/assets:/media/public/icons:ro
       - ${PROJECT_ROOT}/authentik/volumes/certs:/certs
       - ${PROJECT_ROOT}/authentik/volumes/templates:/templates
       - ${PROJECT_ROOT}/authentik/volumes/blueprints:/blueprints/custom

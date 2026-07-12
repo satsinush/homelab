@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
     Box,
     Alert,
@@ -726,11 +726,14 @@ const WordGames = () => {
                     {gameCards.map((game) => (
                         <Grid size={{ xs: 12, sm: 6, md: 4 }} key={game.key}>
                             <Card
-                                onClick={() => navigate(`/wordgames/${game.key}`)}
+                                component={RouterLink}
+                                to={`/wordgames/${game.key}`}
                                 sx={{
                                     height: '100%',
                                     display: 'flex',
                                     flexDirection: 'column',
+                                    textDecoration: 'none',
+                                    color: 'inherit',
                                     cursor: 'pointer',
                                     transition: 'transform 0.2s',
                                     '&:hover': {
@@ -760,7 +763,12 @@ const WordGames = () => {
                                     </Typography>
                                 </CardContent>
                                 <CardActions>
-                                    <Button size="small" color={game.color} sx={{ ml: 'auto' }}>
+                                    <Button
+                                        size="small"
+                                        color={game.color}
+                                        component="div"
+                                        sx={{ ml: 'auto' }}
+                                    >
                                         Open
                                     </Button>
                                 </CardActions>

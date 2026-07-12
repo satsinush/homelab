@@ -169,6 +169,7 @@ entries:
       name: Vaultwarden
       slug: vaultwarden
       provider: !KeyOf vaultwarden
+      icon: icons/vaultwarden_logo.png
 
   # Homelab Dashboard
   - model: authentik_providers_oauth2.oauth2provider
@@ -202,6 +203,7 @@ entries:
       name: Homelab Dashboard
       slug: homelab-dashboard
       provider: !KeyOf homelab_dashboard
+      icon: homelab-icon.svg
 
   # =================================================================
   # Proxy Providers for Traefik Forward-Auth
@@ -226,6 +228,7 @@ entries:
       name: Pi-hole
       slug: pihole-app
       provider: !KeyOf pihole-proxy
+      icon: icons/pi_hole_logo.png
 
   # Gatus Proxy
   - model: authentik_providers_proxy.proxyprovider
@@ -246,6 +249,7 @@ entries:
       name: Gatus
       slug: gatus-app
       provider: !KeyOf gatus-proxy
+      icon: icons/gatus_logo.png
 
   # Dockhand Proxy
   - model: authentik_providers_proxy.proxyprovider
@@ -266,6 +270,19 @@ entries:
       name: Dockhand
       slug: dockhand-app
       provider: !KeyOf dockhand-proxy
+      icon: icons/dockhand_logo.png
+
+  # Gotify (bookmark only — no SSO / forward-auth required)
+  - model: authentik_core.application
+    identifiers:
+      slug: gotify-app
+    attrs:
+      name: Gotify
+      slug: gotify-app
+      meta_launch_url: !Format ["https://%s.%s", !Env GOTIFY_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      open_in_new_tab: true
+      meta_description: Self-hosted push notification server
+      icon: icons/gotify_logo.png
 
 
   # =================================================================
@@ -302,6 +319,21 @@ entries:
       group: !Find [authentik_core.group, [name, homelab-admins]]
     attrs:
       order: 0
+
+  # Gotify (visible in library; service itself stays unauthenticated)
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, gotify-app]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
+    attrs:
+      order: 0
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, gotify-app]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 1
 
   # Vaultwarden
   - model: authentik_policies.policybinding
@@ -388,13 +420,6 @@ entries:
             font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
             background-color: #0f172a !important;
             color: #f1f5f9 !important;
-        }
-
-        /* Brand logo styling */
-        .pf-c-brand, .pf-v5-c-brand {
-            height: 48px !important;
-            width: auto !important;
-            filter: drop-shadow(0 2px 8px rgba(59, 130, 246, 0.3)) !important;
         }
 
         /* Background image/pattern - match the dark dashboard style */

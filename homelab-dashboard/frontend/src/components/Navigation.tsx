@@ -123,7 +123,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
                         }
                     }}
                 >
-                    <Box component="img" src="/homelab-icon.svg" alt="Logo" sx={{ width: 32, height: 32 }} />
+                    <Box component="img" src="/homelab-icon.svg" alt="Logo" sx={{ width: 40, height: 40 }} />
                     <Typography variant="h5" component="h2" sx={{
                         fontWeight: 600,
                         color: 'text.primary'
@@ -268,7 +268,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
                         >
                             <MenuIcon />
                         </IconButton>
-                        <Box component="img" src="/homelab-icon.svg" alt="Logo" sx={{ width: 24, height: 24, mr: 1.5 }} />
+                        <Box component="img" src="/homelab-icon.svg" alt="Logo" sx={{ width: 32, height: 32, mr: 1.5 }} />
                         <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
                             Homelab Admin
                         </Typography>

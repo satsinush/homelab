@@ -87,7 +87,7 @@ if not os.path.exists(".env"):
     tz = "UTC"
     if shutil.which("timedatectl"):
         try:
-            tz = run_cmd("timedatectl | grep 'Time zone' | awk '{print $3}'")
+            tz = run_cmd("timedatectl | grep 'Time zone' | awk '{print $3}'") or "UTC"
         except Exception:
             pass
 
@@ -320,11 +320,12 @@ import traefik.setup as traefik_setup
 traefik_setup.setup(env)
 
 # 6. Start docker containers
-print("\n🐳 Starting Docker containers...")
-
 run_cmd("docker network create homelab-net --subnet 10.10.30.0/24 || true")
 
+print("\n🛠️ Building Docker containers...")
 run_cmd("docker compose build")
+
+print("\n🐳 Starting Docker containers...")
 run_cmd("docker compose up -d")
 
 wait_for_containers()

@@ -28,6 +28,7 @@ import { useConfig } from '../contexts/useConfig';
 import PiHoleLogo from '../assets/pi_hole_logo.png';
 import VaultwardenLogo from '../assets/vaultwarden_logo.png';
 import GatusLogo from '../assets/gatus_logo.png';
+import GotifyLogo from '../assets/gotify_logo.png';
 import AuthIcon from '../assets/authentik_logo.png';
 import DockhandLogo from '../assets/dockhand_logo.png';
 
@@ -37,6 +38,15 @@ interface QuickLink {
     icon: React.ReactNode;
     path: string;
     color: 'primary' | 'secondary' | 'info' | 'warning' | 'success' | 'inherit' | 'error';
+    role?: string;
+}
+
+interface ExternalService {
+    title: string;
+    description: string;
+    url: string;
+    logo: string;
+    logoAlt: string;
     role?: string;
 }
 
@@ -103,95 +113,52 @@ const Home = () => {
         }
     ].filter(link => !link.role || hasPermission(link.role)) as QuickLink[];
 
-    const externalServices = [
+    const externalServices: ExternalService[] = [
         {
             title: 'Pi-hole Admin',
             description: 'Network-wide ad blocking and DNS management',
             url: `https://${hostnames.pihole || ''}/admin`,
             role: 'pihole-user',
-            icon: (
-                <Avatar
-                    src={PiHoleLogo}
-                    alt="Pi-hole"
-                    sx={{
-                        width: 32,
-                        height: 32,
-                        bgcolor: 'transparent',
-                    }}
-                />
-            ),
-            color: 'white'
+            logo: PiHoleLogo,
+            logoAlt: 'Pi-hole'
         },
         {
             title: 'Dockhand',
             description: 'Modern Docker management and compose workflows',
             url: `https://${hostnames.dockhand || ''}`,
             role: 'dockhand-user',
-            icon: (
-                <Avatar
-                    src={DockhandLogo}
-                    alt="Dockhand"
-                    sx={{
-                        width: 32,
-                        height: 32,
-                        bgcolor: 'transparent',
-                    }}
-                />
-            ),
-            color: 'white'
+            logo: DockhandLogo,
+            logoAlt: 'Dockhand'
         },
         {
             title: 'Vaultwarden',
             description: 'Self-hosted password management solution',
             url: `https://${hostnames.vaultwarden || ''}`,
             role: 'vaultwarden-user',
-            icon: (
-                <Avatar
-                    src={VaultwardenLogo}
-                    alt="Vaultwarden"
-                    sx={{
-                        width: 32,
-                        height: 32,
-                        bgcolor: 'transparent',
-                    }}
-                />
-            ),
-            color: 'white'
+            logo: VaultwardenLogo,
+            logoAlt: 'Vaultwarden'
         },
         {
             title: 'Gatus',
             description: 'Self-hosted service health status monitoring',
             url: `https://${hostnames.gatus || ''}`,
             role: 'gatus-user',
-            icon: (
-                <Avatar
-                    src={GatusLogo}
-                    alt="Gatus"
-                    sx={{
-                        width: 32,
-                        height: 32,
-                        bgcolor: 'transparent',
-                    }}
-                />
-            ),
-            color: 'white'
+            logo: GatusLogo,
+            logoAlt: 'Gatus'
+        },
+        {
+            title: 'Gotify',
+            description: 'Self-hosted push notification server',
+            url: `https://${hostnames.gotify || ''}`,
+            logo: GotifyLogo,
+            logoAlt: 'Gotify'
         },
         {
             title: 'Authentik',
             description: 'Self-hosted authentication and identity provider',
             url: `https://${hostnames.authentik || ''}`,
-            icon: (
-                <Avatar
-                    src={AuthIcon}
-                    alt="Authentik"
-                    sx={{
-                        width: 32,
-                        height: 32,
-                        bgcolor: 'transparent',
-                    }}
-                />
-            ),
-            color: 'white'
+            logo: AuthIcon,
+            logoAlt: 'Authentik'
         }
     ].filter(service => !service.role || hasPermission(service.role));
 
@@ -301,15 +268,33 @@ const Home = () => {
                             >
                                 <CardContent sx={{ flexGrow: 1 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                        <Avatar
+                                        <Box
                                             sx={{
-                                                bgcolor: `transparent`,
-                                                boxShadow: 5,
-                                                mr: 2
+                                                width: 40,
+                                                height: 40,
+                                                mr: 2,
+                                                flexShrink: 0,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                borderRadius: 1,
+                                                bgcolor: 'background.paper',
+                                                boxShadow: 2,
+                                                p: 0.5
                                             }}
                                         >
-                                            {service.icon}
-                                        </Avatar>
+                                            <Box
+                                                component="img"
+                                                src={service.logo}
+                                                alt={service.logoAlt}
+                                                sx={{
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    objectFit: 'contain',
+                                                    display: 'block'
+                                                }}
+                                            />
+                                        </Box>
                                         <Typography variant="h6" component="h3">
                                             {service.title}
                                         </Typography>

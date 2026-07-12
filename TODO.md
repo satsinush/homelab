@@ -1,5 +1,3 @@
-- CI/CD to run lint and what not, single version file to set C++ frontend, api, and host api version
-- make sure all apps are in dashboard and authentik
 
 - add rustdesk api server
 - Pcie gen 3?
@@ -7,7 +5,6 @@
 - Add next cloud
 - Add obsidian sync (desktop client and WebDAV for mobile)
 - Add cloud backup for containers (mega.nz, rclone)
-- Ensure API is openapi compliant
 - Setup immich
 - Setup jellyfin
 - fail2ban?
@@ -17,3 +14,4 @@
 - update docs
 - add better horizontal scrolling for dashboard components
 - fix aria hidden and other browser warnings
+- CI/CD to run lint and what not, single version file to set C++ frontend, api, and host api version
