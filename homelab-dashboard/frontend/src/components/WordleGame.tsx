@@ -98,6 +98,11 @@ const WordleGuessInput = forwardRef<WordleGuessInputRef, WordleGuessInputProps>(
     useImperativeHandle(ref, () => ({
         setGuess: (word: string) => {
             const cleanWord = word.trim().toUpperCase();
+            if (cleanWord === '') {
+                setLocalGuess('');
+                setLocalGuessColors(Array(wordLength).fill(0));
+                return;
+            }
             if (cleanWord.length === wordLength && /^[A-Z]+$/.test(cleanWord)) {
                 setLocalGuess(cleanWord);
                 setLocalGuessColors(Array(wordLength).fill(0));
@@ -113,8 +118,14 @@ const WordleGuessInput = forwardRef<WordleGuessInputRef, WordleGuessInputProps>(
     }, [wordLength]);
 
     const handleLocalGuessChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const input = e.target;
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
         const cleanValue = e.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, wordLength);
         setLocalGuess(cleanValue);
+        requestAnimationFrame(() => {
+            input.setSelectionRange(start, end);
+        });
     };
 
     const toggleLetterColor = (index: number) => {
@@ -361,7 +372,15 @@ const WordleResults = ({ possibleWords, guessesWithEntropy, lastGameData, isLoad
                                                     key={index}
                                                     hover
                                                     onClick={() => onSuggestedGuessSelect(guess.word)}
-                                                    sx={{ cursor: 'pointer' }}
+                                                    sx={{
+                                                        cursor: 'pointer',
+                                                        backgroundColor: guess.probability !== null && guess.probability >= 0.9999 ? 'rgba(76, 175, 80, 0.15)' :
+                                                                         guess.probability !== null && guess.probability > 0 ? 'rgba(255, 235, 59, 0.15)' : 'inherit',
+                                                        '&:hover': {
+                                                            backgroundColor: guess.probability !== null && guess.probability >= 0.9999 ? 'rgba(76, 175, 80, 0.25) !important' :
+                                                                             guess.probability !== null && guess.probability > 0 ? 'rgba(255, 235, 59, 0.25) !important' : 'inherit'
+                                                        }
+                                                    }}
                                                 >
                                                     <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
                                                         {guess.word.toUpperCase()}
@@ -413,7 +432,15 @@ const WordleResults = ({ possibleWords, guessesWithEntropy, lastGameData, isLoad
                                                     key={index}
                                                     hover
                                                     onClick={() => onPossibleSolutionSelect(guess.word)}
-                                                    sx={{ cursor: 'pointer' }}
+                                                    sx={{
+                                                        cursor: 'pointer',
+                                                        backgroundColor: guess.probability !== null && guess.probability >= 0.9999 ? 'rgba(76, 175, 80, 0.15)' :
+                                                                         guess.probability !== null && guess.probability > 0 ? 'rgba(255, 235, 59, 0.15)' : 'inherit',
+                                                        '&:hover': {
+                                                            backgroundColor: guess.probability !== null && guess.probability >= 0.9999 ? 'rgba(76, 175, 80, 0.25) !important' :
+                                                                             guess.probability !== null && guess.probability > 0 ? 'rgba(255, 235, 59, 0.25) !important' : 'inherit'
+                                                        }
+                                                    }}
                                                 >
                                                     <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
                                                         {guess.word.toUpperCase()}
@@ -570,7 +597,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, isSo
 
         await onSolve('wordle', {
             guesses: updatedGuesses.map(g => g.word),
-            results: updatedGuesses.map(g => g.feedback),
+            results: updatedGuesses.map(g => g.colors),
             wordLength: config.wordLength,
             maxDepth: config.maxDepth,
             autoDepth: config.autoDepth,
@@ -597,7 +624,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, isSo
     const handleSolve = useCallback(async () => {
         await onSolve('wordle', {
             guesses: wordleGuesses.map(g => g.word),
-            results: wordleGuesses.map(g => g.feedback),
+            results: wordleGuesses.map(g => g.colors),
             wordLength: config.wordLength,
             maxDepth: config.maxDepth,
             autoDepth: config.autoDepth,
@@ -609,6 +636,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, isSo
     }, [wordleGuesses, config, onSolve]);
 
     const handleClear = useCallback(() => {
+        guessInputRef.current?.setGuess('');
         setWordleGuesses([]);
         onClear();
     }, [onClear]);
@@ -626,6 +654,16 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, isSo
         guessInputRef.current?.setGuess(word);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, []);
+
+    useEffect(() => {
+        if (results && results.gameData) {
+            if (results.guessesWithEntropy && results.guessesWithEntropy.length > 0) {
+                guessInputRef.current?.setGuess(results.guessesWithEntropy[0].word);
+            } else if (results.possibleWords && results.possibleWords.length > 0) {
+                guessInputRef.current?.setGuess(results.possibleWords[0].word);
+            }
+        }
+    }, [results]);
 
     return (
         <Grid container spacing={2} sx={{ height: { xs: 'auto', md: '100%' }, minHeight: 0, flexGrow: 1 }}>
@@ -676,11 +714,12 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, isSo
                                 colorMap={colorMap}
                             />
 
+                            <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 600 }}>
+                                {`Guesses (${wordleGuesses.length})`}
+                            </Typography>
+
                             {/* Current Guesses */}
                             <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                                    {`Guesses (${wordleGuesses.length})`}
-                                </Typography>
                                 {wordleGuesses.length > 0 ? (
                                     <Box sx={{ 
                                         display: 'flex', 

@@ -287,8 +287,14 @@ const LetterBoxedGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
     }, [config, presetConfigs]);
 
     const handleLetterBoxedChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        const cleanValue = e.target.value.replace(/[^a-zA-Z]/g, '');
+        const input = e.target;
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        const cleanValue = e.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase();
         setLetterBoxedLetters(cleanValue);
+        requestAnimationFrame(() => {
+            input.setSelectionRange(start, end);
+        });
     }, []);
 
     const handleSolve = useCallback(async () => {

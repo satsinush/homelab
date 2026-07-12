@@ -215,7 +215,7 @@ const HangmanGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, onCl
     const [config, setConfig] = useState({
         maxDepth: 1,
         maxGuesses: 6,
-        excludeUncommonWords: false
+        excludeUncommonWords: true
     });
 
     const settingsFields: FieldDefinition[] = [
@@ -242,10 +242,30 @@ const HangmanGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, onCl
 
     const handlePatternChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const input = e.target;
-        const start = input.selectionStart;
-        const end = input.selectionEnd;
-        const cleanValue = input.value.toUpperCase().replace(/[^A-Z_ ]/g, '');
+        let start = input.selectionStart || 0;
+        let end = input.selectionEnd || 0;
+        
+        let value = input.value.toUpperCase();
+
+        // Check the native input event to see what the user actually did
+        const nativeEvent = e.nativeEvent as InputEvent;
+        const isDeleting = nativeEvent.inputType?.startsWith('delete');
+
+        // 1. ONLY run overwrite logic if the user is typing forward, NOT deleting
+        if (!isDeleting && start > 0) {
+            const lastTypedChar = value[start - 1];
+            
+            if (/^[A-Z]$/.test(lastTypedChar) && value[start] === '_') {
+                value = value.substring(0, start) + value.substring(start + 1);
+                if (end > start) end--;
+            }
+        }
+
+        // 2. Run your normal character sanitization mask
+        const cleanValue = value.replace(/[^A-Z_ ]/g, '');
         setPattern(cleanValue);
+
+        // 3. Keep the selection caret bound precisely where the edit occurred
         requestAnimationFrame(() => {
             input.setSelectionRange(start, end);
         });

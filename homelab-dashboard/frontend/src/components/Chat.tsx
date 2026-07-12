@@ -449,245 +449,238 @@ const Chat = () => {
                 </Alert>
             )}
 
-            <Card sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
-                <Box
-                    sx={{
-                        flex: 1,
-                        overflowY: 'auto',
-                        p: 2,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 2
-                    }}
-                >
-                    {messages.map((message) => (
-                        <Box
-                            key={message.id}
-                            sx={{
-                                display: 'flex',
-                                justifyContent: message.type === 'user' ? 'flex-end' : 'flex-start',
-                                mb: 1
-                            }}
-                        >
+            {availableModels.length > 0 ? (
+                <Card sx={{ height: 'calc(100vh - 300px)', display: 'flex', flexDirection: 'column' }}>
+                    <Box
+                        sx={{
+                            flex: 1,
+                            overflowY: 'auto',
+                            p: 2,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 2
+                        }}
+                    >
+                        {messages.map((message) => (
                             <Box
+                                key={message.id}
                                 sx={{
                                     display: 'flex',
-                                    flexDirection: message.type === 'user' ? 'row-reverse' : 'row',
-                                    alignItems: 'flex-start',
-                                    gap: 1,
-                                    maxWidth: '80%'
+                                    justifyContent: message.type === 'user' ? 'flex-end' : 'flex-start',
+                                    mb: 1
                                 }}
                             >
-                                <Avatar
+                                <Box
                                     sx={{
-                                        bgcolor: message.type === 'user' ? 'primary.main' :
-                                            message.type === 'error' ? 'error.main' : 'secondary.main',
-                                        width: 32,
-                                        height: 32,
-                                        color: message.type === 'user' ? 'primary.contrastText' :
-                                            message.type === 'error' ? 'error.contrastText' : 'secondary.contrastText'
+                                        display: 'flex',
+                                        flexDirection: message.type === 'user' ? 'row-reverse' : 'row',
+                                        alignItems: 'flex-start',
+                                        gap: 1,
+                                        maxWidth: '80%'
                                     }}
                                 >
-                                    {message.type === 'user' ? <PersonIcon /> : <BotIcon />}
-                                </Avatar>
-                                <Paper
-                                    elevation={1}
-                                    sx={{
-                                        p: 2,
-                                        bgcolor: message.type === 'user' ? 'primary.main' :
-                                            message.type === 'error' ? 'error.main' : 'background.paper',
-                                        color: message.type === 'user' ? 'primary.contrastText' :
-                                            message.type === 'error' ? 'error.contrastText' : 'text.primary',
-                                        borderRadius: 2,
-                                        wordBreak: 'break-word',
-                                        border: message.type === 'user' ? 'none' :
-                                            message.type === 'error' ? 'none' : '1px solid',
-                                        borderColor: message.type === 'user' ? 'transparent' :
-                                            message.type === 'error' ? 'transparent' : 'divider'
-                                    }}
-                                >
-                                    {message.type === 'assistant' && message.thinking ? (
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <CircularProgress size={16} />
-                                            <Typography variant="body2" color="text.secondary">
-                                                Thinking...
-                                            </Typography>
-                                        </Box>
-                                    ) : (
-                                        message.type === 'assistant' ? (
-                                            <>
-                                                <ReactMarkdown
-                                                    components={{
-                                                        p: ({ children }) => (
-                                                            <Box sx={{ mb: 1, '&:last-child': { mb: 0 } }}>
-                                                                {children}
-                                                            </Box>
-                                                        ),
-                                                        h1: ({ children }) => (
-                                                            <Typography variant="h4" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
-                                                                {children}
-                                                            </Typography>
-                                                        ),
-                                                        h2: ({ children }) => (
-                                                            <Typography variant="h5" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>
-                                                                {children}
-                                                            </Typography>
-                                                        ),
-                                                        h3: ({ children }) => (
-                                                            <Typography variant="h6" sx={{ mt: 1.5, mb: 1, fontWeight: 'bold' }}>
-                                                                {children}
-                                                            </Typography>
-                                                        ),
-                                                        code: ({ children, className }) => {
-                                                            const match = /language-(\w+)/.exec(className || '');
-                                                            const inline = !match;
-                                                            return inline ? (
+                                    <Avatar
+                                        sx={{
+                                            bgcolor: message.type === 'user' ? 'primary.main' :
+                                                message.type === 'error' ? 'error.main' : 'secondary.main',
+                                            width: 32,
+                                            height: 32,
+                                            color: message.type === 'user' ? 'primary.contrastText' :
+                                                message.type === 'error' ? 'error.contrastText' : 'secondary.contrastText'
+                                        }}
+                                    >
+                                        {message.type === 'user' ? <PersonIcon /> : <BotIcon />}
+                                    </Avatar>
+                                    <Paper
+                                        elevation={1}
+                                        sx={{
+                                            p: 2,
+                                            bgcolor: message.type === 'user' ? 'primary.main' :
+                                                message.type === 'error' ? 'error.main' : 'background.paper',
+                                            color: message.type === 'user' ? 'primary.contrastText' :
+                                                message.type === 'error' ? 'error.contrastText' : 'text.primary',
+                                            borderRadius: 2,
+                                            wordBreak: 'break-word',
+                                            border: message.type === 'user' ? 'none' :
+                                                message.type === 'error' ? 'none' : '1px solid',
+                                            borderColor: message.type === 'user' ? 'transparent' :
+                                                message.type === 'error' ? 'transparent' : 'divider'
+                                        }}
+                                    >
+                                        {message.type === 'assistant' && message.thinking ? (
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <CircularProgress size={16} />
+                                                <Typography variant="body2" color="text.secondary">
+                                                    Thinking...
+                                                </Typography>
+                                            </Box>
+                                        ) : (
+                                            message.type === 'assistant' ? (
+                                                <>
+                                                    <ReactMarkdown
+                                                        components={{
+                                                            code: ({ children, className }) => {
+                                                                const isInline = !className || !className.startsWith('language-');
+                                                                return isInline ? (
+                                                                    <Box
+                                                                        component="span"
+                                                                        sx={{
+                                                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.800' : 'grey.200',
+                                                                            color: (theme) => theme.palette.mode === 'dark' ? 'primary.light' : 'primary.dark',
+                                                                            padding: '2px 4px',
+                                                                            borderRadius: '4px',
+                                                                            fontFamily: 'monospace',
+                                                                            fontSize: '0.875em'
+                                                                        }}
+                                                                    >
+                                                                        {children}
+                                                                    </Box>
+                                                                ) : (
+                                                                    <Box
+                                                                        component="pre"
+                                                                        sx={{
+                                                                            backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
+                                                                            color: (theme) => theme.palette.mode === 'dark' ? 'primary.light' : 'primary.dark',
+                                                                            padding: 2,
+                                                                            borderRadius: 1,
+                                                                            overflow: 'auto',
+                                                                            fontFamily: 'monospace',
+                                                                            fontSize: '0.875em',
+                                                                            my: 1
+                                                                        }}
+                                                                    >
+                                                                        <code>{children}</code>
+                                                                    </Box>
+                                                                );
+                                                            },
+                                                            ul: ({ children }) => (
+                                                                <Box component="ul" sx={{ pl: 2, my: 1 }}>
+                                                                    {children}
+                                                                </Box>
+                                                            ),
+                                                            ol: ({ children }) => (
+                                                                <Box component="ol" sx={{ pl: 2, my: 1 }}>
+                                                                    {children}
+                                                                </Box>
+                                                            ),
+                                                            li: ({ children }) => (
+                                                                <Typography component="li" variant="body1" sx={{ mb: 0.5 }}>
+                                                                    {children}
+                                                                </Typography>
+                                                            ),
+                                                            blockquote: ({ children }) => (
                                                                 <Box
-                                                                    component="code"
                                                                     sx={{
-                                                                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
-                                                                        color: (theme) => theme.palette.mode === 'dark' ? 'primary.light' : 'primary.dark',
-                                                                        padding: '2px 4px',
-                                                                        borderRadius: '4px',
-                                                                        fontFamily: 'monospace',
-                                                                        fontSize: '0.875em'
+                                                                        borderLeft: '4px solid',
+                                                                        borderColor: 'primary.main',
+                                                                        pl: 2,
+                                                                        py: 1,
+                                                                        backgroundColor: 'grey.50',
+                                                                        fontStyle: 'italic',
+                                                                        my: 1
                                                                     }}
                                                                 >
                                                                     {children}
                                                                 </Box>
-                                                            ) : (
-                                                                <Box
-                                                                    component="pre"
-                                                                    sx={{
-                                                                        backgroundColor: (theme) => theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
-                                                                        color: (theme) => theme.palette.mode === 'dark' ? 'primary.light' : 'primary.dark',
-                                                                        padding: 2,
-                                                                        borderRadius: 1,
-                                                                        overflow: 'auto',
-                                                                        fontFamily: 'monospace',
-                                                                        fontSize: '0.875em',
-                                                                        my: 1
-                                                                    }}
-                                                                >
-                                                                    <code>{children}</code>
-                                                                </Box>
-                                                            );
-                                                        },
-                                                        ul: ({ children }) => (
-                                                            <Box component="ul" sx={{ pl: 2, my: 1 }}>
-                                                                {children}
-                                                            </Box>
-                                                        ),
-                                                        ol: ({ children }) => (
-                                                            <Box component="ol" sx={{ pl: 2, my: 1 }}>
-                                                                {children}
-                                                            </Box>
-                                                        ),
-                                                        li: ({ children }) => (
-                                                            <Typography component="li" variant="body1" sx={{ mb: 0.5 }}>
-                                                                {children}
-                                                            </Typography>
-                                                        ),
-                                                        blockquote: ({ children }) => (
-                                                            <Box
-                                                                sx={{
-                                                                    borderLeft: '4px solid',
-                                                                    borderColor: 'primary.main',
-                                                                    pl: 2,
-                                                                    py: 1,
-                                                                    backgroundColor: 'grey.50',
-                                                                    fontStyle: 'italic',
-                                                                    my: 1
-                                                                }}
-                                                            >
-                                                                {children}
-                                                            </Box>
-                                                        )
-                                                    }}
-                                                >
+                                                            )
+                                                        }}
+                                                    >
+                                                        {message.message || ''}
+                                                    </ReactMarkdown>
+                                                 </>
+                                            ) : (
+                                                <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
                                                     {message.message || ''}
-                                                </ReactMarkdown>
+                                                </Typography>
+                                            )
+                                        )}
+                                        {Array.isArray(message.actions) && message.actions.length > 0 && (
+                                            <>
+                                                <Box sx={{ borderTop: 1, borderColor: 'divider', my: 1 }} />
+                                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                                                    {message.actions.map((action, idx) => (
+                                                        <Chip
+                                                            key={idx}
+                                                            label={action.message || action.action}
+                                                            color={
+                                                                action.message && action.status === 'success'
+                                                                    ? 'info'
+                                                                    : 'error'
+                                                            }
+                                                            variant="filled"
+                                                            size="small"
+                                                        />
+                                                    ))}
+                                                </Box>
                                             </>
-                                        ) : (
-                                            <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                                                {message.message || ''}
-                                            </Typography>
-                                        )
-                                    )}
-                                    {Array.isArray(message.actions) && message.actions.length > 0 && (
-                                        <>
-                                            <Box sx={{ borderTop: 1, borderColor: 'divider', my: 1 }} />
-                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                                                {message.actions.map((action, idx) => (
-                                                    <Chip
-                                                        key={idx}
-                                                        label={action.message || action.action}
-                                                        color={
-                                                            action.message && action.status === 'success'
-                                                                ? 'info'
-                                                                : 'error'
-                                                        }
-                                                        variant="filled"
-                                                        size="small"
-                                                    />
-                                                ))}
-                                            </Box>
-                                        </>
-                                    )}
-                                </Paper>
+                                        )}
+                                    </Paper>
+                                </Box>
                             </Box>
-                        </Box>
-                    ))}
+                        ))}
 
-                    <div ref={messagesEndRef} />
-                </Box>
-
-                <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Box sx={{ flex: 1 }}>
-                            <TextField
-                                ref={inputRef}
-                                fullWidth
-                                multiline
-                                maxRows={4}
-                                value={inputMessage}
-                                onChange={(e) => setInputMessage(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                placeholder={
-                                    availableModels.length === 0
-                                        ? "Download a model first to start chatting..."
-                                        : "Type your message... (Shift+Enter for new line)"
-                                }
-                                disabled={isLoading || ollamaStatus?.status === 'offline' || availableModels.length === 0}
-                                variant="outlined"
-                                size="small"
-                                error={inputMessage.length > 1000}
-                            />
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
-                                <Typography
-                                    variant="caption"
-                                    color={inputMessage.length > 1000 ? 'error' : inputMessage.length > 900 ? 'warning.main' : 'text.secondary'}
-                                >
-                                    {inputMessage.length}/1000 characters
-                                </Typography>
-                                {inputMessage.length > 1000 && (
-                                    <Typography variant="caption" color="error">
-                                        Message too long
-                                    </Typography>
-                                )}
-                            </Box>
-                        </Box>
-                        <Button
-                            variant="contained"
-                            onClick={handleSendMessage}
-                            disabled={!inputMessage.trim() || isLoading || ollamaStatus?.status === 'offline' || availableModels.length === 0 || inputMessage.length > 1000}
-                            sx={{ minWidth: 'auto', px: 2, alignSelf: 'flex-start' }}
-                        >
-                            <SendIcon />
-                        </Button>
+                        <div ref={messagesEndRef} />
                     </Box>
-                </Box>
-            </Card>
+
+                    <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Box sx={{ flex: 1 }}>
+                                <TextField
+                                    ref={inputRef}
+                                    fullWidth
+                                    multiline
+                                    maxRows={4}
+                                    value={inputMessage}
+                                    onChange={(e) => setInputMessage(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                    placeholder="Type your message... (Shift+Enter for new line)"
+                                    disabled={isLoading || ollamaStatus?.status === 'offline'}
+                                    variant="outlined"
+                                    size="small"
+                                    error={inputMessage.length > 1000}
+                                />
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
+                                    <Typography
+                                        variant="caption"
+                                        color={inputMessage.length > 1000 ? 'error' : inputMessage.length > 900 ? 'warning.main' : 'text.secondary'}
+                                    >
+                                        {inputMessage.length}/1000 characters
+                                    </Typography>
+                                    {inputMessage.length > 1000 && (
+                                        <Typography variant="caption" color="error">
+                                            Message too long
+                                        </Typography>
+                                    )}
+                                </Box>
+                            </Box>
+                            <Button
+                                variant="contained"
+                                onClick={handleSendMessage}
+                                disabled={!inputMessage.trim() || isLoading || ollamaStatus?.status === 'offline' || inputMessage.length > 1000}
+                                sx={{ minWidth: 'auto', px: 2, alignSelf: 'flex-start' }}
+                            >
+                                <SendIcon />
+                            </Button>
+                        </Box>
+                    </Box>
+                </Card>
+            ) : (
+                <Card sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 250 }}>
+                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                        No Models Downloaded
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3, maxWidth: 400 }}>
+                        Ollama is online, but no AI models are currently downloaded. Please click the button below to download a model first.
+                    </Typography>
+                    <Button
+                        onClick={handleDownloadClick}
+                        variant="contained"
+                        startIcon={<DownloadIcon />}
+                    >
+                        Download Model
+                    </Button>
+                </Card>
+            )}
 
             <Dialog
                 open={downloadDialogOpen}

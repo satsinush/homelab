@@ -320,11 +320,11 @@ class WordGamesController {
                 if (typeof guess !== 'string' || guess.length !== len) {
                     return sendError(res, 400, `Guess at index ${i} must be a string of length ${len}`);
                 }
-                if (typeof result !== 'string' || result.length !== len) {
-                    return sendError(res, 400, `Result at index ${i} must be a string of length ${len} containing only G, Y, X`);
+                if (!Array.isArray(result) || result.length !== len) {
+                    return sendError(res, 400, `Result at index ${i} must be a number array of length ${len}`);
                 }
-                if (!/^[gyx]+$/i.test(result)) {
-                    return sendError(res, 400, `Result at index ${i} must contain only G, Y, or X (case-insensitive)`);
+                if (result.some((val: unknown) => typeof val !== 'number' || val < 0 || val > 2)) {
+                    return sendError(res, 400, `Result at index ${i} must contain only numbers 0, 1, or 2`);
                 }
             }
 
@@ -348,11 +348,11 @@ class WordGamesController {
             }
 
             // Build the --guesses string: convert G/Y/X feedback to 0/1/2 numeric format
+            // Build the --guesses string: convert feedback array to numeric string format
             if (guesses.length > 0) {
-                const feedbackColorMap: Record<string, string> = { 'X': '0', 'Y': '1', 'G': '2' };
                 const guessPairs = guesses.map((guess: string, i: number) => {
                     const word = guess.toLowerCase();
-                    const colors = results[i].toUpperCase().split('').map((c: string) => feedbackColorMap[c] || '0').join('');
+                    const colors = results[i].join('');
                     return `${word} ${colors}`;
                 });
                 args.push(`--guesses "${guessPairs.join(';')}"`);
@@ -592,11 +592,11 @@ class WordGamesController {
                 if (typeof guess !== 'string' || guess.trim().split(/\s+/).length !== 5) {
                     return sendError(res, 400, `Guess at index ${i} must be a space-separated string of exactly 5 character IDs`);
                 }
-                if (typeof result !== 'string' || result.length !== 5) {
-                    return sendError(res, 400, `Result at index ${i} must be a string of length 5 containing only G, Y, X, R, D`);
+                if (!Array.isArray(result) || result.length !== 5) {
+                    return sendError(res, 400, `Result at index ${i} must be a number array of length 5`);
                 }
-                if (!/^[gyxrd]+$/i.test(result)) {
-                    return sendError(res, 400, `Result at index ${i} must contain only G, Y, X, R, D (case-insensitive)`);
+                if (result.some((val: unknown) => typeof val !== 'number' || val < 0 || val > 4)) {
+                    return sendError(res, 400, `Result at index ${i} must contain only numbers 0 to 4`);
                 }
             }
 
@@ -618,7 +618,7 @@ class WordGamesController {
             const args = [
                 'dungleon',
                 `--max-depth ${isAuto ? 0 : (parseInt(maxDepth) || 0)}`,
-                `--max-guesses ${parseInt(maxGuesses) || 10}`,
+                `--max-guesses ${Math.max(1, (parseInt(maxGuesses) || 6) - solutions.length)}`,
                 `--exclude-impossible ${excludeImpossiblePatterns ? 1 : 0}`,
                 `-o ${resultsFilename}`
             ];
@@ -626,14 +626,11 @@ class WordGamesController {
                 args.push('--auto-depth');
             }
 
-            // Build the --guesses string: convert G/Y/X/R/D to 0-4 numeric format
+            // Build the --guesses string: convert feedback array to numeric string format
             if (guesses.length > 0) {
-                // Dungleon colors: X=0 (not present), Y=1 (wrong pos no more), G=2 (correct pos no more),
-                //                   R=3 (wrong pos one more), D=4 (correct pos one more)
-                const feedbackColorMap: Record<string, string> = { 'X': '0', 'Y': '1', 'G': '2', 'R': '3', 'D': '4' };
                 const guessPairs = guesses.map((guess: string, i: number) => {
                     const normalizedGuess = guess.toLowerCase().replace(/\s+/g, ' ').trim();
-                    const colors = results[i].toUpperCase().split('').map((c: string) => feedbackColorMap[c] || '0').join('');
+                    const colors = results[i].join('');
                     return `${normalizedGuess} ${colors}`;
                 });
                 args.push(`--guesses "${guessPairs.join(';')}"`);

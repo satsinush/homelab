@@ -85,12 +85,10 @@ const CHARACTER_MAP = CHARACTERS.reduce((acc, char, index) => {
 const FEEDBACK_STYLES: Record<number, { borderColor: string; bgColor: string; badge: boolean }> = {
     0: { borderColor: '#49191a', bgColor: '#d34bb1', badge: false }, // Not present (Red)
     1: { borderColor: '#304e17', bgColor: '#c0cd3c', badge: false }, // Wrong pos (Yellow)
-    2: { borderColor: '#124d49', bgColor: '#37c45c', badge: false }, // Correct pos (Green)
-    3: { borderColor: '#304e17', bgColor: '#c0cd3c', badge: true },  // Wrong pos + 1 more
-    4: { borderColor: '#124d49', bgColor: '#37c45c', badge: true }   // Correct pos + 1 more
+    2: { borderColor: '#304e17', bgColor: '#c0cd3c', badge: true },  // Wrong pos + 1 more (Yellow+)
+    3: { borderColor: '#124d49', bgColor: '#37c45c', badge: false }, // Correct pos (Green)
+    4: { borderColor: '#124d49', bgColor: '#37c45c', badge: true }   // Correct pos + 1 more (Green+)
 };
-
-const FEEDBACK_ORDER = [0, 1, 3, 2, 4];
 
 const getDungleonAssetPath = (charId: string) => {
     if (!charId) return '';
@@ -250,7 +248,13 @@ const DungleonResults = React.memo(({
                                                     hover
                                                     onClick={() => onSuggestedGuessSelect && onSuggestedGuessSelect(guess.pattern)}
                                                     sx={{
-                                                        cursor: onSuggestedGuessSelect ? 'pointer' : 'default'
+                                                        cursor: onSuggestedGuessSelect ? 'pointer' : 'default',
+                                                        backgroundColor: guess.probability !== null && guess.probability >= 0.9999 ? 'rgba(76, 175, 80, 0.15)' :
+                                                                         guess.probability !== null && guess.probability > 0 ? 'rgba(255, 235, 59, 0.15)' : 'inherit',
+                                                        '&:hover': {
+                                                            backgroundColor: guess.probability !== null && guess.probability >= 0.9999 ? 'rgba(76, 175, 80, 0.25) !important' :
+                                                                             guess.probability !== null && guess.probability > 0 ? 'rgba(255, 235, 59, 0.25) !important' : 'inherit'
+                                                        }
                                                     }}
                                                 >
                                                     <TableCell>
@@ -312,7 +316,13 @@ const DungleonResults = React.memo(({
                                                     hover
                                                     onClick={() => onPossibleSolutionSelect && onPossibleSolutionSelect(guess.pattern)}
                                                     sx={{
-                                                        cursor: onPossibleSolutionSelect ? 'pointer' : 'default'
+                                                        cursor: onPossibleSolutionSelect ? 'pointer' : 'default',
+                                                        backgroundColor: guess.probability !== null && guess.probability >= 0.9999 ? 'rgba(76, 175, 80, 0.15)' :
+                                                                         guess.probability !== null && guess.probability > 0 ? 'rgba(255, 235, 59, 0.15)' : 'inherit',
+                                                        '&:hover': {
+                                                            backgroundColor: guess.probability !== null && guess.probability >= 0.9999 ? 'rgba(76, 175, 80, 0.25) !important' :
+                                                                             guess.probability !== null && guess.probability > 0 ? 'rgba(255, 235, 59, 0.25) !important' : 'inherit'
+                                                        }
                                                     }}
                                                 >
                                                     <TableCell>
@@ -399,7 +409,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
     const [config, setConfig] = useState({
         maxDepth: 0,
         autoDepth: true,
-        maxGuesses: 10,
+        maxGuesses: 6,
         excludeImpossible: true
     });
 
@@ -483,10 +493,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
     const toggleCurrentFeedback = useCallback((index: number) => {
         setCurrentFeedback(prev => {
             const nextFeedback = [...prev];
-            const currentVal = nextFeedback[index];
-            const orderIndex = FEEDBACK_ORDER.indexOf(currentVal);
-            const nextOrderIndex = (orderIndex + 1) % FEEDBACK_ORDER.length;
-            nextFeedback[index] = FEEDBACK_ORDER[nextOrderIndex];
+            nextFeedback[index] = (nextFeedback[index] + 1) % 5;
             return nextFeedback;
         });
     }, []);
@@ -508,9 +515,8 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
         setCurrentFeedback([0, 0, 0, 0, 0]);
 
         if (shouldSolve) {
-            const feedbackMapping = ['X', 'Y', 'G', 'R', 'D'];
             const requestGuesses = updatedGuesses.map(g => g.pattern);
-            const requestResults = updatedGuesses.map(g => g.feedback.map(val => feedbackMapping[val] || 'X').join(''));
+            const requestResults = updatedGuesses.map(g => g.feedback);
             const requestSolutions = solutions.map(s => s.pattern);
 
             await onSolve('dungleon', {
@@ -568,10 +574,8 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
         // 2: Green (G - correct pos)
         // 3: Yellow + 1 more (R - wrong pos + 1 more)
         // 4: Green + 1 more (D - correct pos + 1 more)
-        const feedbackMapping = ['X', 'Y', 'G', 'R', 'D'];
-
         const requestGuesses = guesses.map(g => g.pattern);
-        const requestResults = guesses.map(g => g.feedback.map(val => feedbackMapping[val] || 'X').join(''));
+        const requestResults = guesses.map(g => g.feedback);
         const requestSolutions = solutions.map(s => s.pattern);
 
         await onSolve('dungleon', {
@@ -588,21 +592,33 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
 
     React.useEffect(() => {
         const handleGlobalKeyDown = (e: KeyboardEvent) => {
+            const activeEl = document.activeElement;
+            if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+                return;
+            }
             if (e.key === 'Enter') {
-                const activeEl = document.activeElement;
-                if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
-                    return;
-                }
                 if (currentPattern.length === 5) {
                     submitGuess(false);
                 } else if (guesses.length > 0 && !isLoading && gameStatus?.healthy) {
                     handleSolve();
                 }
+            } else if (e.key === 'Backspace' || e.key === 'Delete') {
+                handleBackspace();
             }
         };
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [guesses, currentPattern, isLoading, gameStatus, handleSolve, submitGuess]);
+    }, [guesses, currentPattern, isLoading, gameStatus, handleSolve, submitGuess, handleBackspace]);
+
+    React.useEffect(() => {
+        if (results && results.gameData) {
+            if (results.guessesWithEntropy && results.guessesWithEntropy.length > 0) {
+                fillSuggestedGuess(results.guessesWithEntropy[0].pattern);
+            } else if (results.possiblePatterns && results.possiblePatterns.length > 0) {
+                fillSuggestedGuess(results.possiblePatterns[0].pattern);
+            }
+        }
+    }, [results, fillSuggestedGuess]);
 
     const handleClear = useCallback(() => {
         setGuesses([]);
@@ -813,83 +829,77 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
 
                             {/* Guesses and Solutions Column */}
                             <Stack spacing={1.5}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                        {`Guesses (${guesses.length})`}
+                                </Typography>
                                 {/* Guesses Section */}
                                 <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                                        {`Guesses (${guesses.length})`}
-                                    </Typography>
-                                    <Box sx={{
-                                        maxHeight: 120,
-                                        overflow: 'auto',
-                                        minHeight: 60
-                                    }}>
-                                        {guesses.length > 0 ? (
-                                            <Stack spacing={1}>
-                                                {guesses.map((guess, guessIndex) => (
-                                                    <Box key={guessIndex} sx={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: 0.5
-                                                    }}>
-                                                        {guess.patternArray.map((charId, slotIndex) => {
-                                                            const feedbackState = guess.feedback[slotIndex];
-                                                            const style = FEEDBACK_STYLES[feedbackState] || FEEDBACK_STYLES[0];
-                                                            return (
-                                                                <Box
-                                                                    key={slotIndex}
-                                                                    onClick={() => toggleFeedback(guessIndex, slotIndex)}
-                                                                    sx={{
-                                                                        width: 36,
-                                                                        height: 36,
-                                                                        border: '2px solid',
-                                                                        borderColor: style.borderColor,
-                                                                        backgroundColor: style.bgColor,
-                                                                        borderRadius: 1,
-                                                                        display: 'flex',
-                                                                        alignItems: 'center',
-                                                                        justifyContent: 'center',
-                                                                        cursor: 'pointer',
-                                                                        position: 'relative'
-                                                                    }}
-                                                                >
-                                                                    <img
-                                                                        src={getAssetPath(charId)}
-                                                                        alt={charId}
-                                                                        style={{ width: 28, height: 28, objectFit: 'contain' }}
+                                    {guesses.length > 0 ? (
+                                        <Stack spacing={1}>
+                                            {guesses.map((guess, guessIndex) => (
+                                                <Box key={guessIndex} sx={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 0.5
+                                                }}>
+                                                    {guess.patternArray.map((charId, slotIndex) => {
+                                                        const feedbackState = guess.feedback[slotIndex];
+                                                        const style = FEEDBACK_STYLES[feedbackState] || FEEDBACK_STYLES[0];
+                                                        return (
+                                                            <Box
+                                                                key={slotIndex}
+                                                                onClick={() => toggleFeedback(guessIndex, slotIndex)}
+                                                                sx={{
+                                                                    width: 36,
+                                                                    height: 36,
+                                                                    border: '2px solid',
+                                                                    borderColor: style.borderColor,
+                                                                    backgroundColor: style.bgColor,
+                                                                    borderRadius: 1,
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    cursor: 'pointer',
+                                                                    position: 'relative'
+                                                                }}
+                                                            >
+                                                                <img
+                                                                    src={getAssetPath(charId)}
+                                                                    alt={charId}
+                                                                    style={{ width: 28, height: 28, objectFit: 'contain' }}
+                                                                />
+                                                                {style.badge && (
+                                                                    <Box
+                                                                        component="img"
+                                                                        src="/assets/dungleon/plus.png"
+                                                                        sx={{
+                                                                            position: 'absolute',
+                                                                            top: 1,
+                                                                            right: 1,
+                                                                            width: 12,
+                                                                            height: 12
+                                                                        }}
                                                                     />
-                                                                    {style.badge && (
-                                                                        <Box
-                                                                            component="img"
-                                                                            src="/assets/dungleon/plus.png"
-                                                                            sx={{
-                                                                                position: 'absolute',
-                                                                                top: 1,
-                                                                                right: 1,
-                                                                                width: 12,
-                                                                                height: 12
-                                                                            }}
-                                                                        />
-                                                                    )}
-                                                                </Box>
-                                                            );
-                                                        })}
-                                                        <IconButton
-                                                            onClick={() => removeGuess(guessIndex)}
-                                                            color="error"
-                                                            size="small"
-                                                            sx={{ p: 0.25 }}
-                                                        >
-                                                            <CloseIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </Box>
-                                                ))}
-                                            </Stack>
-                                        ) : (
-                                            <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', py: 1, display: 'block', fontStyle: 'italic' }}>
-                                                No guesses yet
-                                            </Typography>
-                                        )}
-                                    </Box>
+                                                                )}
+                                                            </Box>
+                                                        );
+                                                    })}
+                                                    <IconButton
+                                                        onClick={() => removeGuess(guessIndex)}
+                                                        color="error"
+                                                        size="small"
+                                                        sx={{ p: 0.25 }}
+                                                    >
+                                                        <CloseIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Box>
+                                            ))}
+                                        </Stack>
+                                    ) : (
+                                        <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', py: 1, display: 'block', fontStyle: 'italic' }}>
+                                            No guesses yet
+                                        </Typography>
+                                    )}
                                 </Box>
 
                                 <Divider />
@@ -907,7 +917,6 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                         borderRadius: 1,
                                         p: 1,
                                         minHeight: 60,
-                                        backgroundColor: 'background.default'
                                     }}>
                                         {solutions.length > 0 ? (
                                             <Stack spacing={1}>

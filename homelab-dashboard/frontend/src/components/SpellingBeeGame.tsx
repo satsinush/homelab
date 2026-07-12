@@ -147,20 +147,32 @@ const SpellingBeeResults = React.memo(({ results, onCopy, onLoadMore, isLoading 
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {solutions.map((solution, index) => (
-                                <TableRow
-                                    key={index}
-                                    hover
-                                    onClick={() => onCopy(solution)}
-                                    sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
-                                >
-                                    <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
-                                        {solution.toUpperCase()}
-                                    </TableCell>
-                                    <TableCell align="right">{solution.length}</TableCell>
-                                    <TableCell align="right">{new Set(solution.split('')).size}</TableCell>
-                                </TableRow>
-                            ))}
+                            {solutions.map((solution, index) => {
+                                const wordUnique = new Set(solution.toLowerCase().split('')).size;
+                                const puzzleUnique = gameData?.letters ? new Set(gameData.letters.toLowerCase().split('')).size : 0;
+                                const isPangram = puzzleUnique > 0 && wordUnique === puzzleUnique;
+
+                                return (
+                                    <TableRow
+                                        key={index}
+                                        hover
+                                        onClick={() => onCopy(solution)}
+                                        sx={{ 
+                                            cursor: 'pointer', 
+                                            backgroundColor: isPangram ? 'rgba(255, 235, 59, 0.15)' : 'inherit',
+                                            '&:hover': { 
+                                                backgroundColor: isPangram ? 'rgba(255, 235, 59, 0.25) !important' : 'action.hover' 
+                                            } 
+                                        }}
+                                    >
+                                        <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
+                                            {solution.toUpperCase()}
+                                        </TableCell>
+                                        <TableCell align="right">{solution.length}</TableCell>
+                                        <TableCell align="right">{wordUnique}</TableCell>
+                                    </TableRow>
+                                );
+                            })}
                         </TableBody>
                     </Table>
                 </TableContainer>
@@ -200,7 +212,7 @@ const SpellingBeeGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [config, setConfig] = useState({
         preset: 1,
-        excludeUncommonWords: false,
+        excludeUncommonWords: true,
         mustIncludeFirstLetter: true,
         reuseLetters: true,
         allowAnyLength: false

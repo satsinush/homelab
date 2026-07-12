@@ -305,7 +305,15 @@ const MastermindResults = React.memo(({
                                                     key={index}
                                                     hover
                                                     onClick={() => onSuggestedGuessSelect(guess.pattern)}
-                                                    sx={{ cursor: 'pointer' }}
+                                                    sx={{
+                                                        cursor: 'pointer',
+                                                        backgroundColor: guess.probability !== null && guess.probability >= 0.9999 ? 'rgba(76, 175, 80, 0.15)' :
+                                                                         guess.probability !== null && guess.probability > 0 ? 'rgba(255, 235, 59, 0.15)' : 'inherit',
+                                                        '&:hover': {
+                                                            backgroundColor: guess.probability !== null && guess.probability >= 0.9999 ? 'rgba(76, 175, 80, 0.25) !important' :
+                                                                             guess.probability !== null && guess.probability > 0 ? 'rgba(255, 235, 59, 0.25) !important' : 'inherit'
+                                                        }
+                                                    }}
                                                 >
                                                     <TableCell>
                                                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -366,7 +374,15 @@ const MastermindResults = React.memo(({
                                                     key={index}
                                                     hover
                                                     onClick={() => onPossibleSolutionSelect(guess.pattern)}
-                                                    sx={{ cursor: 'pointer' }}
+                                                    sx={{
+                                                        cursor: 'pointer',
+                                                        backgroundColor: guess.probability !== null && guess.probability >= 0.9999 ? 'rgba(76, 175, 80, 0.15)' :
+                                                                         guess.probability !== null && guess.probability > 0 ? 'rgba(255, 235, 59, 0.15)' : 'inherit',
+                                                        '&:hover': {
+                                                            backgroundColor: guess.probability !== null && guess.probability >= 0.9999 ? 'rgba(76, 175, 80, 0.25) !important' :
+                                                                             guess.probability !== null && guess.probability > 0 ? 'rgba(255, 235, 59, 0.25) !important' : 'inherit'
+                                                        }
+                                                    }}
                                                 >
                                                     <TableCell>
                                                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -710,22 +726,34 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
 
     React.useEffect(() => {
         const handleGlobalKeyDown = (e: KeyboardEvent) => {
+            const activeEl = document.activeElement;
+            if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+                return;
+            }
             if (e.key === 'Enter') {
-                const activeEl = document.activeElement;
-                if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
-                    return;
-                }
                 const isPatternFull = state.currentPattern.every(slot => slot !== null);
                 if (isPatternFull) {
                     addGuess(false);
                 } else if (state.guesses.length > 0 && !isLoading && gameStatus?.healthy) {
                     handleSolve();
                 }
+            } else if (e.key === 'Backspace' || e.key === 'Delete') {
+                handleBackspace();
             }
         };
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [state.guesses, state.currentPattern, isLoading, gameStatus, handleSolve, addGuess]);
+    }, [state.guesses, state.currentPattern, isLoading, gameStatus, handleSolve, addGuess, handleBackspace]);
+
+    React.useEffect(() => {
+        if (results && results.gameData) {
+            if (results.guessesWithEntropy && results.guessesWithEntropy.length > 0) {
+                fillPatternFromSelection(results.guessesWithEntropy[0].pattern);
+            } else if (results.possiblePatterns && results.possiblePatterns.length > 0) {
+                fillPatternFromSelection(results.possiblePatterns[0].pattern);
+            }
+        }
+    }, [results, fillPatternFromSelection]);
 
     const settingsFields: FieldDefinition[] = [
         {
@@ -959,10 +987,10 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                                 </Stack>
                             </Box>
 
+                            <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 600 }}>Guesses ({state.guesses.length})</Typography>
+                            
                             {/* Guesses Log */}
                             <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Guesses ({state.guesses.length})</Typography>
-
                                 {state.guesses.length > 0 ? (
                                     <Box sx={{ 
                                         maxHeight: '180px', 
