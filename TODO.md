@@ -1,5 +1,4 @@
-- use a trie for letterboxed?
-- split up word games loadMore and solve route
+- CI/CD to run lint and what not, single version file to set C++ frontend, api, and host api version
 
 - add rustdesk api server
 - Pcie gen 3?
