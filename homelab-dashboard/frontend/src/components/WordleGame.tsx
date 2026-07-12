@@ -679,7 +679,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, isSo
                             {/* Current Guesses */}
                             <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                                 <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                                    {`Current Guesses (${wordleGuesses.length})`}
+                                    {`Guesses (${wordleGuesses.length})`}
                                 </Typography>
                                 {wordleGuesses.length > 0 ? (
                                     <Box sx={{ 

@@ -119,7 +119,14 @@ function AppContent() {
       <CssBaseline />
       <NotificationProvider>
         <AuthGuard>
-          <Box sx={{ display: 'flex', minHeight: '100vh', width: '100vw' }}>
+          <Box 
+          sx={{ 
+            display: 'flex', 
+            minHeight: '100vh', 
+            width: '100%',         // Fill layout base horizontally
+            boxSizing: 'border-box',
+            overflowX: 'hidden'   
+          }}>
             <Navigation
               activeTab={getCurrentTab()}
               mobileOpen={mobileOpen}

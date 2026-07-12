@@ -213,11 +213,6 @@ class WordGamesController {
                 return sendError(res, 400, 'Letters must only contain alphabetic characters');
             }
 
-            // Check if center letter is in outer letters
-            if (cleanOuter.includes(cleanCenter)) {
-                return sendError(res, 400, 'Center letter cannot be in outer letters list');
-            }
-
             const username = req.user?.username || 'user';
             const resultsFilename = this.generateResultsFilename(username, 'spellingbee');
 

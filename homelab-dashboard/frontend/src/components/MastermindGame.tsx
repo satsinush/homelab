@@ -143,7 +143,14 @@ const MastermindPatternDisplay = ({ pattern, size = 'small', colorMapping = null
     }
 
     return (
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <Box sx={{
+            display: 'flex',
+            gap: 1,
+            flexWrap: 'nowrap', // Prevents wrapping completely
+            justifyContent: 'center',
+            overflowX: 'auto',   // Optional: allows horizontal scrolling on tiny screens
+            maxWidth: '100%'     // Optional: ensures it doesn't push parent containers wide
+        }}>
             {colorIndices.map((colorIndex, index) => {
                 let actualColorIndex = colorIndex;
 
@@ -307,9 +314,9 @@ const MastermindResults = React.memo(({
                                                                 size="small"
                                                                 colorMapping={lastGameData?.colorMapping}
                                                             />
-                                                            <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary', ml: 1, fontSize: '1rem', fontWeight: 'bold' }}>
+                                                            {/* <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary', ml: 1, fontSize: '1rem', fontWeight: 'bold' }}>
                                                                 {guess.pattern.toUpperCase()}
-                                                            </Typography>
+                                                            </Typography> */}
                                                         </Box>
                                                     </TableCell>
                                                     <TableCell align="right">
@@ -801,7 +808,7 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                         <Stack spacing={2} sx={{ flexGrow: 1, pr: 0.5, minHeight: 0 }}>
                             {/* Available Colors List */}
                             <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                                <Typography variant="subtitle2" align="center" sx={{ mb: 1.5, fontWeight: 600 }}>Available Colors</Typography>
+                                {/* <Typography variant="subtitle2" align="center" sx={{ mb: 1.5, fontWeight: 600 }}>Available Colors</Typography> */}
                                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center' }}>
                                     {PEG_COLORS.map((color, index) => {
                                         if (!enabledColors[index]) return null;
@@ -842,7 +849,7 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                                 borderColor: 'divider', 
                                 borderRadius: 1
                             }}>
-                                <Typography variant="subtitle2" align="center" sx={{ mb: 1, fontWeight: 600 }}>Build Guess</Typography>
+                                {/* <Typography variant="subtitle2" align="center" sx={{ mb: 1, fontWeight: 600 }}>Build Guess</Typography> */}
 
                                 <Box sx={{ 
                                     display: 'flex', 
@@ -954,7 +961,7 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
 
                             {/* Guesses Log */}
                             <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>History ({state.guesses.length})</Typography>
+                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Guesses ({state.guesses.length})</Typography>
 
                                 {state.guesses.length > 0 ? (
                                     <Box sx={{ 

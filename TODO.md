@@ -1,4 +1,3 @@
-- focus SSO button on page load
 - stop catching errors as unkown?
 - add rustdesk api server
 - Pcie gen 3?
@@ -15,3 +14,5 @@
 - use proper MCP servers
 - update screenshots
 - update docs
+- add better horizontal scrolling for dashboard components
+- fix aria hidden and other browser warnings

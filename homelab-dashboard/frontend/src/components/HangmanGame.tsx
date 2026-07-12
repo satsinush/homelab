@@ -114,7 +114,6 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isL
                                     <Table size="small" stickyHeader>
                                         <TableHead>
                                             <TableRow>
-                                                <TableCell sx={{ fontWeight: 'bold' }}>Rank</TableCell>
                                                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>Letter</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>Probability</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 'bold' }}>ENT</TableCell>
@@ -124,7 +123,6 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isL
                                         <TableBody>
                                             {results.letterSuggestions.map((suggestion, index) => (
                                                 <TableRow key={index} hover>
-                                                    <TableCell>{index + 1}</TableCell>
                                                     <TableCell align="center" sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
                                                         {suggestion.letter.toUpperCase()}
                                                     </TableCell>
@@ -158,14 +156,12 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isL
                                     <Table size="small" stickyHeader>
                                         <TableHead>
                                             <TableRow>
-                                                <TableCell sx={{ fontWeight: 'bold' }}>#</TableCell>
                                                 <TableCell sx={{ fontWeight: 'bold' }}>Word</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
                                             {results.possibleWords.map((word, index) => (
                                                 <TableRow key={index} hover>
-                                                    <TableCell>{index + 1}</TableCell>
                                                     <TableCell sx={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '1rem' }}>
                                                         {word.toUpperCase()}
                                                     </TableCell>
@@ -248,7 +244,7 @@ const HangmanGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, onCl
         const input = e.target;
         const start = input.selectionStart;
         const end = input.selectionEnd;
-        const cleanValue = input.value.toUpperCase().replace(/[^A-Z_? ]/g, '');
+        const cleanValue = input.value.toUpperCase().replace(/[^A-Z_ ]/g, '');
         setPattern(cleanValue);
         requestAnimationFrame(() => {
             input.setSelectionRange(start, end);
@@ -371,7 +367,7 @@ const HangmanGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, onCl
                                 onChange={handlePatternChange}
                                 fullWidth
                                 placeholder="e.g., _A__ ___"
-                                helperText="Enter word patterns separated by spaces. Use _ for unknown letters."
+                                // helperText="Enter word patterns separated by spaces. Use _ for unknown letters."
                                 slotProps={{
                                     input: {
                                         style: {
@@ -404,7 +400,7 @@ const HangmanGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, onCl
                                 onChange={handleExcludedLettersChange}
                                 fullWidth
                                 placeholder="e.g., RSTLNE"
-                                helperText="Enter letters that have been guessed and are NOT in the word"
+                                // helperText="Enter letters that have been guessed and are NOT in the word"
                                 slotProps={{
                                     input: {
                                         style: {

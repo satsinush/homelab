@@ -663,7 +663,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                 display: 'flex',
                                 flexWrap: 'wrap',
                                 gap: 1,
-                                justifyContent: 'center',
+                                justifyContent: 'safe center',
                                 backgroundColor: 'action.hover'
                             }}>
                                 {CHARACTERS.map((char) => (
@@ -698,7 +698,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                             <Box sx={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
+                                justifyContent: 'safe center',
                                 gap: 1,
                                 minHeight: 60,
                                 overflowX: 'auto',
@@ -816,7 +816,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                 {/* Guesses Section */}
                                 <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
                                     <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                                        {`Current Guesses (${guesses.length})`}
+                                        {`Guesses (${guesses.length})`}
                                     </Typography>
                                     <Box sx={{
                                         maxHeight: 120,
