@@ -5,6 +5,8 @@ import config from '../config';
 import HostApiService, { HostApiResponse } from '../services/hostApiService';
 import { sendError, sendSuccess } from '../utils/response';
 
+import { getErrorMessage } from '../utils/errors';
+
 interface BasicSystemInfo {
     hostname: string;
     platform: string;
@@ -75,15 +77,13 @@ class SystemController {
                     systemInfo.hostApi = 'available';
                 }
             } catch (error: unknown) {
-                const err = error as Error;
-                console.warn('Could not fetch health check from Host API:', err.message);
+                console.warn('Could not fetch health check from Host API:', getErrorMessage(error));
             }
 
             return sendSuccess(res, systemInfo);
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Health check error:', err);
-            return sendError(res, 500, 'Health check failed', err.message);
+            console.error('Health check error:', error);
+            return sendError(res, 500, 'Health check failed', getErrorMessage(error));
         }
     }
 
@@ -93,9 +93,8 @@ class SystemController {
             const settings = this.settingsModel.get();
             return sendSuccess(res, { settings: settings });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Get settings error:', err);
-            return sendError(res, 500, 'Failed to retrieve settings', err.message);
+            console.error('Get settings error:', error);
+            return sendError(res, 500, 'Failed to retrieve settings', getErrorMessage(error));
         }
     }
 
@@ -112,9 +111,8 @@ class SystemController {
                 settings: updatedSettings 
             });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Update settings error:', err);
-            return sendError(res, 500, 'Failed to update settings', err.message);
+            console.error('Update settings error:', error);
+            return sendError(res, 500, 'Failed to update settings', getErrorMessage(error));
         }
     }
 
@@ -124,9 +122,8 @@ class SystemController {
             const systemInfo = await this.getCombinedSystemInfo();
             return sendSuccess(res, systemInfo);
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Get system info error:', err);
-            return sendError(res, 500, 'Failed to retrieve system information', err.message);
+            console.error('Get system info error:', error);
+            return sendError(res, 500, 'Failed to retrieve system information', getErrorMessage(error));
         }
     }
 
@@ -136,9 +133,8 @@ class SystemController {
             const packageInfo = await this.getPackageInfo();
             return sendSuccess(res, { packages: packageInfo.packages, updatesAvailable: packageInfo.updatesAvailable, lastChecked: packageInfo.lastChecked, lastSynced: packageInfo.lastSynced, packageManager: packageInfo.packageManager, note: packageInfo.note });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Get CPU info error:', err);
-            return sendError(res, 500, 'Failed to retrieve CPU information', err.message);
+            console.error('Get CPU info error:', error);
+            return sendError(res, 500, 'Failed to retrieve CPU information', getErrorMessage(error));
         }
     }
 
@@ -153,9 +149,8 @@ class SystemController {
                 lastChecked: packageInfo.lastChecked
             });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Manual package update check error:', err);
-            return sendError(res, 500, 'Failed to check for package updates', err.message);
+            console.error('Manual package update check error:', error);
+            return sendError(res, 500, 'Failed to check for package updates', getErrorMessage(error));
         }
     }
 
@@ -175,8 +170,7 @@ class SystemController {
                         errorFlag = true;
                     }
                 } catch (readError: unknown) {
-                    const err = readError as Error;
-                    console.error('Error reading RustDesk public key:', err);
+                    console.error('Error reading RustDesk public key:', readError);
                     errorFlag = true;
                 }
             } else {
@@ -189,9 +183,8 @@ class SystemController {
                 available: !errorFlag && !!publicKey
             });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Get RustDesk config error:', err);
-            return sendError(res, 500, 'Failed to retrieve RustDesk configuration', err.message);
+            console.error('Get RustDesk config error:', error);
+            return sendError(res, 500, 'Failed to retrieve RustDesk configuration', getErrorMessage(error));
         }
     }
 
@@ -216,8 +209,7 @@ class SystemController {
                                 value: value
                             });
                         } catch (readError: unknown) {
-                            const err = readError as Error;
-                            console.warn(`Could not read container config file ${file}: ${err.message}`);
+                            console.warn(`Could not read container config file ${file}: ${getErrorMessage(readError)}`);
                         }
                     }
                 }
@@ -228,9 +220,8 @@ class SystemController {
 
             return sendSuccess(res, { secrets: secretsList });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Get Docker container info error:', err);
-            return sendError(res, 500, 'Failed to retrieve Docker containers', err.message);
+            console.error('Get Docker container info error:', error);
+            return sendError(res, 500, 'Failed to retrieve Docker containers', getErrorMessage(error));
         }
     }
 
@@ -346,8 +337,7 @@ class SystemController {
                 dataSource: 'host-api'
             };
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Combined system info error:', err);
+            console.error('Combined system info error:', error);
             return {
                 system: { hostname: 'unknown', platform: 'unknown', uptime: 0, source: 'error' },
                 resources: {
@@ -360,7 +350,7 @@ class SystemController {
                 executionTime: Date.now() - startTime,
                 timestamp: new Date().toISOString(),
                 dataSource: 'error',
-                error: err.message
+                error: getErrorMessage(error)
             };
         }
     }
@@ -443,8 +433,7 @@ class SystemController {
             
             return packages;
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Package list error:', err.message);
+            console.error('Package list error:', getErrorMessage(error));
             return new Map();
         }
     }
@@ -471,8 +460,7 @@ class SystemController {
             }
             return null;
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Package sync time error:', err.message);
+            console.error('Package sync time error:', getErrorMessage(error));
             return null;
         }
     }
@@ -509,8 +497,7 @@ class SystemController {
             
             return updates;
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Package update check error:', err.message);
+            console.error('Package update check error:', getErrorMessage(error));
             return new Map();
         }
     }

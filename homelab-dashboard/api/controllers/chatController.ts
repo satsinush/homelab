@@ -8,6 +8,8 @@ import OllamaService from '../services/ollamaService';
 import { formatMacForDisplay } from '../utils/formatters';
 import { sendError, sendSuccess } from '../utils/response';
 
+import { getErrorMessage } from '../utils/errors';
+
 const systemController = new SystemController();
 const deviceController = new DeviceController();
 
@@ -98,8 +100,7 @@ class ChatController {
             console.log(`Initialized with first available model: ${this.modelName}, max tokens: ${this.maxTokens}`);
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.warn('Failed to initialize model, using fallback:', err.message);
+            console.warn('Failed to initialize model, using fallback:', getErrorMessage(error));
         }
     }
 
@@ -109,8 +110,7 @@ class ChatController {
             const modelNames = await this.ollamaService.getModelNames();
             return modelNames;
         } catch (error: unknown) {
-            const err = error as Error;
-            console.warn('Failed to get available models via service:', err.message);
+            console.warn('Failed to get available models via service:', getErrorMessage(error));
             return [];
         }
     }
@@ -256,28 +256,27 @@ class ChatController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Chat error:', err);
+            console.error('Chat error:', error);
 
             const userId = req.user?.id;
             if (userId) {
                 this.addToConversationHistory(userId, {
                     role: 'assistant',
-                    content: `Message failed: ${err.message}`,
+                    content: `Message failed: ${getErrorMessage(error)}`,
                     message: "Error processing your request",
                     actions: []
                 });
             }
 
-            if (err.message.includes('ECONNREFUSED')) {
+            if (getErrorMessage(error).includes('ECONNREFUSED')) {
                 return sendError(res, 503, 'AI service is currently unavailable. Please try again later.');
             }
 
-            if (err.message.includes('timeout')) {
+            if (getErrorMessage(error).includes('timeout')) {
                 return sendError(res, 408, 'Request timeout. Please try a shorter message or try again later.');
             }
 
-            return sendError(res, 500, 'Failed to process chat message', err.message);
+            return sendError(res, 500, 'Failed to process chat message', getErrorMessage(error));
         }
     }    
 
@@ -295,8 +294,7 @@ class ChatController {
 
             return response.response;            
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Ollama API request failed:', err.message);
+            console.error('Ollama API request failed:', getErrorMessage(error));
             throw error;
         }
     }
@@ -324,9 +322,8 @@ class ChatController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Get models error:', err);
-            return sendError(res, 500, 'Failed to retrieve available models', err.message);
+            console.error('Get models error:', error);
+            return sendError(res, 500, 'Failed to retrieve available models', getErrorMessage(error));
         }
     }
 
@@ -368,9 +365,8 @@ class ChatController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Set model error:', err);
-            return sendError(res, 500, 'Failed to change AI model', err.message);
+            console.error('Set model error:', error);
+            return sendError(res, 500, 'Failed to change AI model', getErrorMessage(error));
         }
     }
 
@@ -441,9 +437,8 @@ class ChatController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Manual cleanup error:', err);
-            return sendError(res, 500, 'Failed to cleanup conversations', err.message);
+            console.error('Manual cleanup error:', error);
+            return sendError(res, 500, 'Failed to cleanup conversations', getErrorMessage(error));
         }
     }
 
@@ -459,9 +454,8 @@ class ChatController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Clear chat history error:', err);
-            return sendError(res, 500, 'Failed to clear chat history', err.message);
+            console.error('Clear chat history error:', error);
+            return sendError(res, 500, 'Failed to clear chat history', getErrorMessage(error));
         }
     }
 
@@ -490,9 +484,8 @@ class ChatController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Get conversation history error:', err);
-            return sendError(res, 500, 'Failed to retrieve conversation history', err.message);
+            console.error('Get conversation history error:', error);
+            return sendError(res, 500, 'Failed to retrieve conversation history', getErrorMessage(error));
         }
     }
 
@@ -514,9 +507,8 @@ class ChatController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Failed to clear conversation:', err);
-            return sendError(res, 500, 'Failed to clear conversation', err.message);
+            console.error('Failed to clear conversation:', error);
+            return sendError(res, 500, 'Failed to clear conversation', getErrorMessage(error));
         }
     }
 
@@ -620,9 +612,8 @@ class ChatController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Check model availability error:', err);
-            return sendError(res, 500, 'Failed to check model availability', err.message);
+            console.error('Check model availability error:', error);
+            return sendError(res, 500, 'Failed to check model availability', getErrorMessage(error));
         }
     }
 
@@ -667,9 +658,8 @@ class ChatController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Download model error:', err);
-            return sendError(res, 500, 'Failed to download model', err.message);
+            console.error('Download model error:', error);
+            return sendError(res, 500, 'Failed to download model', getErrorMessage(error));
         }
     }
 
@@ -693,9 +683,8 @@ class ChatController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Get detailed models error:', err);
-            return sendError(res, 500, 'Failed to retrieve detailed model information', err.message);
+            console.error('Get detailed models error:', error);
+            return sendError(res, 500, 'Failed to retrieve detailed model information', getErrorMessage(error));
         }
     }
 
@@ -731,9 +720,8 @@ class ChatController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Delete model error:', err);
-            return sendError(res, 500, 'Failed to delete model', err.message);
+            console.error('Delete model error:', error);
+            return sendError(res, 500, 'Failed to delete model', getErrorMessage(error));
         }
     }
 }

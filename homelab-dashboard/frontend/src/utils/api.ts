@@ -1,6 +1,7 @@
 // src/utils/api.ts
 
 import { getApiUrl } from './url';
+import { getErrorMessage } from './errors';
 
 // Handle 401 errors by clearing auth token
 const handle401Error = () => {
@@ -106,7 +107,6 @@ export const tryApiCall = async <T = any>(path: string, options: CustomRequestIn
         }
         
         // Network or other errors
-        const err = error as Error;
-        throw new ApiError(`Network error: ${err.message || 'Unknown error'}`, 0);
+        throw new ApiError(`Network error: ${getErrorMessage(error)}`, 0);
     }
 };

@@ -1,5 +1,7 @@
 import fs from 'fs';
 
+import { getErrorMessage } from './errors';
+
 /**
  * Gets the value of an environment variable, supporting _FILE fallback.
  */
@@ -16,8 +18,7 @@ export function getEnv(varName: string, defaultValue: string | undefined = undef
                 return fs.readFileSync(filePath, 'utf8').trim();
             }
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error(`Failed to read environment secret file from ${filePath}:`, err.message);
+            console.error(`Failed to read environment secret file from ${filePath}:`, getErrorMessage(error));
         }
     }
     

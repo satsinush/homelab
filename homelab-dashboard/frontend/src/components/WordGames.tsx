@@ -11,7 +11,14 @@ import {
     InputLabel,
     Select,
     MenuItem,
-    Button
+    Button,
+    Grid,
+    Card,
+    CardContent,
+    CardActions,
+    Typography,
+    Avatar,
+    Container
 } from '@mui/material';
 import {
     Refresh as RefreshIcon,
@@ -21,9 +28,12 @@ import {
     HelpOutline as HelpIcon,
     Psychology as MastermindIcon,
     TextFields as HangmanIcon,
-    Castle as DungleonIcon
+    Castle as DungleonIcon,
+    ArrowBack as ArrowBackIcon,
+    Apps as AppsIcon
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
+import { getErrorMessage } from '../utils/errors';
 import { useNotification } from '../contexts/useNotification';
 import LetterBoxedGame from './LetterBoxedGame';
 import SpellingBeeGame from './SpellingBeeGame';
@@ -70,6 +80,51 @@ const WordGames = () => {
 
     const tabKeys = useMemo(() => ['letterboxed', 'spellingbee', 'wordle', 'mastermind', 'hangman', 'dungleon'], []);
 
+    const gameCards = useMemo(() => [
+        {
+            key: 'letterboxed',
+            title: 'Letter Boxed',
+            description: 'Find word chains that use every letter on the square.',
+            icon: <LetterBoxedIcon />,
+            color: 'primary' as const
+        },
+        {
+            key: 'spellingbee',
+            title: 'Spelling Bee',
+            description: 'Discover valid words using the center letter and hive.',
+            icon: <Bee />,
+            color: 'warning' as const
+        },
+        {
+            key: 'wordle',
+            title: 'Wordle',
+            description: 'Rank guesses by expected turns with color feedback.',
+            icon: <QuizIcon />,
+            color: 'success' as const
+        },
+        {
+            key: 'mastermind',
+            title: 'Mastermind',
+            description: 'Solve peg-and-color codes with ENT-based suggestions.',
+            icon: <MastermindIcon />,
+            color: 'secondary' as const
+        },
+        {
+            key: 'hangman',
+            title: 'Hangman',
+            description: 'Pick the best next letter for single- or multi-word puzzles.',
+            icon: <HangmanIcon />,
+            color: 'info' as const
+        },
+        {
+            key: 'dungleon',
+            title: 'Dungleon',
+            description: 'Narrow character patterns with entropy-guided guesses.',
+            icon: <DungleonIcon />,
+            color: 'error' as const
+        }
+    ], []);
+
     const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isSolving, setIsSolving] = useState(false);
@@ -81,23 +136,21 @@ const WordGames = () => {
         return 0;
     });
     const [helpModalOpen, setHelpModalOpen] = useState(false);
+    const showHome = !gameName;
 
     // Sync route change to tab state
     useEffect(() => {
         if (gameName) {
             const mappedTab = GAME_TABS[gameName.toLowerCase()];
-            if (mappedTab !== undefined && mappedTab !== activeTab) {
+            if (mappedTab === undefined) {
+                navigate('/wordgames', { replace: true });
+                return;
+            }
+            if (mappedTab !== activeTab) {
                 setActiveTab(mappedTab);
             }
         }
-    }, [gameName, activeTab, GAME_TABS]);
-
-    // Redirect to default game if URL is just "/wordgames"
-    useEffect(() => {
-        if (!gameName) {
-            navigate('/wordgames/letterboxed', { replace: true });
-        }
-    }, [gameName, navigate]);
+    }, [gameName, activeTab, GAME_TABS, navigate]);
 
 
 
@@ -142,12 +195,11 @@ const WordGames = () => {
             setGameStatus(response.data as GameStatus);
         } catch (error: unknown) {
             console.error('Failed to check game status:', error);
-            const err = error as Error;
             setGameStatus({
                 status: 'offline',
                 healthy: false,
                 message: 'Word games service is not available',
-                error: err.message || 'Unknown error'
+                error: getErrorMessage(error)
             });
         } finally {
             setIsLoading(false);
@@ -367,8 +419,7 @@ const WordGames = () => {
                 return;
             }
             console.error(`Failed to solve ${gameType}:`, error);
-            const err = error as Error;
-            showError(err.message || `Failed to solve ${gameType} puzzle`);
+            showError(getErrorMessage(error, `Failed to solve ${gameType} puzzle`));
         } finally {
             setIsSolving(false);
         }
@@ -384,8 +435,7 @@ const WordGames = () => {
             showSuccess('Solve operation cancelled');
         } catch (error: unknown) {
             console.error('Failed to cancel solve operation:', error);
-            const err = error as Error;
-            showError(err.message || 'Failed to cancel solve operation');
+            showError(getErrorMessage(error, 'Failed to cancel solve operation'));
         }
     }, [showError, showSuccess]);
 
@@ -596,6 +646,92 @@ const WordGames = () => {
         return healthy ? 'success' : 'error';
     };
 
+    const statusControls = (
+        <>
+            {gameStatus && (
+                <Chip
+                    label={gameStatus.healthy ? 'Online' : 'Offline'}
+                    color={getStatusColor(gameStatus.healthy)}
+                    size="small"
+                />
+            )}
+            <Tooltip title="Refresh Status">
+                <span>
+                    <IconButton onClick={checkGameStatus} color="primary" disabled={isLoading} size="small">
+                        {isLoading ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
+                    </IconButton>
+                </span>
+            </Tooltip>
+        </>
+    );
+
+    if (showHome) {
+        return (
+            <Container maxWidth="lg" sx={{ py: 3 }}>
+                <Box sx={{ mb: 4, textAlign: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, mb: 1 }}>
+                        <Box component="img" src="/assets/puzzle_icon.svg" sx={{ width: 36, height: 36 }} alt="Puzzle++ Logo" />
+                        <Typography variant="h3" component="h1">
+                            Puzzle++
+                        </Typography>
+                    </Box>
+                    <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
+                        Choose a word game solver
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                        {statusControls}
+                    </Box>
+                </Box>
+
+                {gameStatus && !gameStatus.healthy && (
+                    <Alert severity="error" sx={{ mb: 3 }}>
+                        {gameStatus.message || 'Word games service is not available'}
+                    </Alert>
+                )}
+
+                <Grid container spacing={3}>
+                    {gameCards.map((game) => (
+                        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={game.key}>
+                            <Card
+                                onClick={() => navigate(`/wordgames/${game.key}`)}
+                                sx={{
+                                    height: '100%',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    cursor: 'pointer',
+                                    transition: 'transform 0.2s',
+                                    '&:hover': {
+                                        transform: 'translateY(-4px)',
+                                        boxShadow: 4
+                                    }
+                                }}
+                            >
+                                <CardContent sx={{ flexGrow: 1 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                        <Avatar sx={{ bgcolor: `${game.color}.main`, mr: 2 }}>
+                                            {game.icon}
+                                        </Avatar>
+                                        <Typography variant="h6" component="h2">
+                                            {game.title}
+                                        </Typography>
+                                    </Box>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {game.description}
+                                    </Typography>
+                                </CardContent>
+                                <CardActions>
+                                    <Button size="small" color={game.color} sx={{ ml: 'auto' }}>
+                                        Open
+                                    </Button>
+                                </CardActions>
+                            </Card>
+                        </Grid>
+                    ))}
+                </Grid>
+            </Container>
+        );
+    }
+
     return (
         <Box sx={{
             height: { md: '100vh' },
@@ -617,22 +753,14 @@ const WordGames = () => {
                 flexShrink: 0
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Tooltip title="All games">
+                        <IconButton onClick={() => navigate('/wordgames')} size="small" color="primary">
+                            <ArrowBackIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
                     <Box component="img" src="/assets/puzzle_icon.svg" sx={{ width: 28, height: 28 }} alt="Puzzle++ Logo" />
                     <Box sx={{ typography: 'h5', fontWeight: 600 }}>Puzzle++</Box>
-                    {gameStatus && (
-                        <Chip
-                            label={gameStatus.healthy ? 'Online' : 'Offline'}
-                            color={getStatusColor(gameStatus.healthy)}
-                            size="small"
-                        />
-                    )}
-                    <Tooltip title="Refresh Status">
-                        <span>
-                            <IconButton onClick={checkGameStatus} color="primary" disabled={isLoading} size="small">
-                                {isLoading ? <CircularProgress size={16} /> : <RefreshIcon fontSize="small" />}
-                            </IconButton>
-                        </span>
-                    </Tooltip>
+                    {statusControls}
                 </Box>
 
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: { xs: '100%', md: '280px' } }}>
@@ -677,6 +805,12 @@ const WordGames = () => {
                             </MenuItem>
                         </Select>
                     </FormControl>
+
+                    <Tooltip title="All games">
+                        <IconButton onClick={() => navigate('/wordgames')} size="small">
+                            <AppsIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
 
                     <Button
                         startIcon={<HelpIcon />}

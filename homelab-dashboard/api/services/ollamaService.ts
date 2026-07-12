@@ -1,5 +1,7 @@
 import config from '../config';
 
+import { getErrorMessage } from '../utils/errors';
+
 export interface OllamaModel {
     name: string;
     size: string;
@@ -160,7 +162,6 @@ class OllamaService {
 
             const responseText = await response.text();
             return (responseText ? JSON.parse(responseText) : {}) as OllamaRawResponse;
-            
         } catch (error: unknown) {
             const err = error as { name?: string; cause?: { code?: string } };
             if (err.name === 'TimeoutError' || err.name === 'AbortError') {
@@ -190,11 +191,10 @@ class OllamaService {
                 count: models.length
             };
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Ollama get models error:', err);
+            console.error('Ollama get models error:', error);
             return {
                 success: false,
-                error: err.message,
+                error: getErrorMessage(error),
                 models: [],
                 count: 0
             };
@@ -223,11 +223,10 @@ class OllamaService {
                 evalCount: response.eval_count || 0
             };
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Ollama chat error:', err);
+            console.error('Ollama chat error:', error);
             return {
                 success: false,
-                error: err.message,
+                error: getErrorMessage(error),
                 response: ''
             };
         }
@@ -256,11 +255,10 @@ class OllamaService {
                 evalCount: response.eval_count || 0
             };
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Ollama generate error:', err);
+            console.error('Ollama generate error:', error);
             return {
                 success: false,
-                error: err.message,
+                error: getErrorMessage(error),
                 response: ''
             };
         }
@@ -278,12 +276,11 @@ class OllamaService {
                 apiUrl: this.baseUrl
             };
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Ollama status error:', err);
+            console.error('Ollama status error:', error);
             return {
                 success: false,
                 status: 'offline',
-                error: err.message.includes('Connection refused') ? 'Service not running' : 'Service not responding',
+                error: getErrorMessage(error).includes('Connection refused') ? 'Service not running' : 'Service not responding',
                 apiUrl: this.baseUrl
             };
         }
@@ -306,11 +303,10 @@ class OllamaService {
                 response: response
             };
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Ollama pull model error:', err);
+            console.error('Ollama pull model error:', error);
             return {
                 success: false,
-                error: err.message,
+                error: getErrorMessage(error),
                 model: modelName
             };
         }
@@ -353,11 +349,10 @@ class OllamaService {
                 };
             }
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Ollama check model availability error:', err);
+            console.error('Ollama check model availability error:', error);
             return {
                 success: false,
-                error: err.message,
+                error: getErrorMessage(error),
                 exists: false,
                 available: false,
                 name: modelName
@@ -384,11 +379,10 @@ class OllamaService {
                 count: models.length
             };
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Ollama get detailed models error:', err);
+            console.error('Ollama get detailed models error:', error);
             return {
                 success: false,
-                error: err.message,
+                error: getErrorMessage(error),
                 models: [],
                 count: 0
             };
@@ -409,11 +403,10 @@ class OllamaService {
                 message: `Model ${modelName} deleted successfully`
             };
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Ollama delete model error:', err);
+            console.error('Ollama delete model error:', error);
             return {
                 success: false,
-                error: err.message
+                error: getErrorMessage(error)
             };
         }
     }
@@ -435,11 +428,10 @@ class OllamaService {
                 details: response.details || {}
             };
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Ollama show model error:', err);
+            console.error('Ollama show model error:', error);
             return {
                 success: false,
-                error: err.message
+                error: getErrorMessage(error)
             };
         }
     }

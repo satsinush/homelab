@@ -4,6 +4,8 @@ import UserSettings from '../models/UserSettings';
 import { requireAuth } from '../middleware/authMiddleware';
 import { sendSuccess, sendError } from '../utils/response';
 
+import { getErrorMessage } from '../utils/errors';
+
 const router = express.Router();
 const systemController = new SystemController();
 const userSettings = new UserSettings();
@@ -104,8 +106,7 @@ router.get('/user-settings', requireAuth(), (req: Request, res: Response) => {
         const settings = userSettings.get(userId);
         return sendSuccess(res, { settings, defaults: userSettings.getDefaults() });
     } catch (error: unknown) {
-        const err = error as Error;
-        return sendError(res, 500, 'Failed to load user settings', err.message);
+        return sendError(res, 500, 'Failed to load user settings', getErrorMessage(error));
     }
 });
 
@@ -118,8 +119,7 @@ router.put('/user-settings', requireAuth(), (req: Request, res: Response) => {
         const updated = userSettings.setAll(userId, req.body);
         return sendSuccess(res, { settings: updated });
     } catch (error: unknown) {
-        const err = error as Error;
-        return sendError(res, 500, 'Failed to save user settings', err.message);
+        return sendError(res, 500, 'Failed to save user settings', getErrorMessage(error));
     }
 });
 

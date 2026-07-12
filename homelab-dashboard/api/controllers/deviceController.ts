@@ -5,6 +5,8 @@ import ValidationUtils from '../utils/validation';
 import HostApiService from '../services/hostApiService';
 import { sendError, sendSuccess } from '../utils/response';
 
+import { getErrorMessage } from '../utils/errors';
+
 interface ScanEntry {
     mac: string;
     ip: string | null;
@@ -57,8 +59,7 @@ class DeviceController {
                 scanMethod: 'network-scan'
             }));
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Network scan error:', err.message);
+            console.error('Network scan error:', getErrorMessage(error));
             return [];
         }
     }
@@ -156,9 +157,8 @@ class DeviceController {
                 timestamp: new Date().toISOString()
             });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Get devices error:', err);
-            return sendError(res, 500, 'Failed to retrieve devices', err.message);
+            console.error('Get devices error:', error);
+            return sendError(res, 500, 'Failed to retrieve devices', getErrorMessage(error));
         }
     }
 
@@ -185,9 +185,8 @@ class DeviceController {
                 timestamp: new Date().toISOString()
             });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Scan devices error:', err);
-            return sendError(res, 500, 'Failed to scan network for devices', err.message);
+            console.error('Scan devices error:', error);
+            return sendError(res, 500, 'Failed to scan network for devices', getErrorMessage(error));
         }
     }
 
@@ -221,9 +220,8 @@ class DeviceController {
                 cacheCleared: true
             });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Clear cache error:', err);
-            return sendError(res, 500, 'Failed to clear device cache', err.message);
+            console.error('Clear cache error:', error);
+            return sendError(res, 500, 'Failed to clear device cache', getErrorMessage(error));
         }
     }
 
@@ -246,8 +244,7 @@ class DeviceController {
                 validatedMac = ValidationUtils.validateAndNormalizeMac(mac);
                 validatedDescription = ValidationUtils.validateDeviceDescription(description);
             } catch (validationError: unknown) {
-                const err = validationError as Error;
-                return sendError(res, 400, err.message);
+                return sendError(res, 400, getErrorMessage(validationError));
             }
 
             const existing = this.deviceModel.findByMacForUser(userId, validatedMac);
@@ -277,9 +274,8 @@ class DeviceController {
                 device: newDevice
             }, 201);
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Add device error:', err);
-            return sendError(res, 500, 'Failed to create device', err.message);
+            console.error('Add device error:', error);
+            return sendError(res, 500, 'Failed to create device', getErrorMessage(error));
         }
     }
 
@@ -311,8 +307,7 @@ class DeviceController {
                 validatedDescription = ValidationUtils.validateDeviceDescription(description);
                 validatedParamMac = ValidationUtils.validateAndNormalizeMac(paramMac.trim());
             } catch (validationError: unknown) {
-                const err = validationError as Error;
-                return sendError(res, 400, err.message);
+                return sendError(res, 400, getErrorMessage(validationError));
             }
 
             const existingDevice = this.deviceModel.findByMacForUser(userId, validatedParamMac);
@@ -363,9 +358,8 @@ class DeviceController {
                 });
             }
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Update device error:', err);
-            return sendError(res, 500, 'Failed to update device', err.message);
+            console.error('Update device error:', error);
+            return sendError(res, 500, 'Failed to update device', getErrorMessage(error));
         }
     }
 
@@ -385,8 +379,7 @@ class DeviceController {
             try {
                 normalizedMac = ValidationUtils.validateAndNormalizeMac(mac.trim());
             } catch (validationError: unknown) {
-                const err = validationError as Error;
-                return sendError(res, 400, err.message);
+                return sendError(res, 400, getErrorMessage(validationError));
             }
 
             const userId = req.user?.id;
@@ -439,9 +432,8 @@ class DeviceController {
                 });
             }
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Toggle favorite error:', err);
-            return sendError(res, 500, 'Failed to toggle favorite status', err.message);
+            console.error('Toggle favorite error:', error);
+            return sendError(res, 500, 'Failed to toggle favorite status', getErrorMessage(error));
         }
     }
 
@@ -483,9 +475,8 @@ class DeviceController {
                 return sendError(res, 503, 'Failed to send Wake-on-LAN packet');
             }
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('WOL error:', err);
-            return sendError(res, 500, 'Failed to send Wake-on-LAN packet', err.message);
+            console.error('WOL error:', error);
+            return sendError(res, 500, 'Failed to send Wake-on-LAN packet', getErrorMessage(error));
         }
     }
 

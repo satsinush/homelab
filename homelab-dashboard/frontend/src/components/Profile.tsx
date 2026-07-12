@@ -37,6 +37,8 @@ import { useAuth } from '../contexts/useAuth';
 import { useNotification } from '../contexts/useNotification';
 import { tryApiCall } from '../utils/api';
 
+import { getErrorMessage } from '../utils/errors';
+
 const autofillSx = (theme: Theme) => ({
     '& input:-webkit-autofill': {
         WebkitBoxShadow: '0 0 0 1000px transparent inset',
@@ -102,8 +104,7 @@ const ChangeUsernameModal = ({ open, onClose, currentUsername, onSuccess }: Chan
             onSuccess();
             handleClose();
         } catch (err) {
-            const error = err as Error;
-            const msg = error.message || 'Failed to update username';
+            const msg = getErrorMessage(err) || 'Failed to update username';
             setError(msg);
             showError(msg);
         } finally {
@@ -240,8 +241,7 @@ const ChangePasswordModal = ({ open, onClose }: ChangePasswordModalProps) => {
             showSuccess('Password updated successfully');
             handleClose();
         } catch (err) {
-            const error = err as Error;
-            const msg = error.message || 'Failed to update password';
+            const msg = getErrorMessage(err) || 'Failed to update password';
             setError(msg);
             showError(msg);
         } finally {

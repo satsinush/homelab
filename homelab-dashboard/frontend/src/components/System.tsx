@@ -30,6 +30,8 @@ import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/useNotification';
 import { SystemInfo, ResourceMetrics, SystemTemperature, NetworkInfo, SystemDataResponse } from '../types/api';
 
+import { getErrorMessage } from '../utils/errors';
+
 // --- Helper Components for better visualization (Suggestion) ---
 
 // A simple gauge component using MUI's CircularProgress
@@ -108,8 +110,7 @@ const System = () => {
             setTemperature(data.temperature);
             setNetwork(data.network);
         } catch (err) {
-            const error = err as Error;
-            showError(error.message || 'Unable to connect to API server');
+            showError(getErrorMessage(err) || 'Unable to connect to API server');
         } finally {
             setLoading(false);
             setRefreshing(false);

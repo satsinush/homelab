@@ -7,6 +7,8 @@ import dgram from 'dgram';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 
+import { getErrorMessage } from './utils/errors';
+
 const app = express();
 
 const swaggerOptions: swaggerJsdoc.Options = {
@@ -632,12 +634,11 @@ app.get('/system/metrics', async (req: Request, res: Response) => {
             }
         });
     } catch (err: unknown) {
-        const errorObj = err as Error;
-        console.error('Failed to collect system metrics:', errorObj);
+        console.error('Failed to collect system metrics:', err);
         res.status(500).json({
             success: false,
             error: 'Failed to retrieve system metrics',
-            details: errorObj.message
+            details: getErrorMessage(err)
         });
     }
 });

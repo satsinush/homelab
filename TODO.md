@@ -1,4 +1,5 @@
-- stop catching errors as unkown?
+- use a trie for letterboxed?
+- split up word games loadMore and solve route
 
 - add rustdesk api server
 - Pcie gen 3?

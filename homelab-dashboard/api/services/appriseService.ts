@@ -1,5 +1,7 @@
 import config from '../config';
 
+import { getErrorMessage } from '../utils/errors';
+
 interface NotificationPayload {
     title: string;
     message: string;
@@ -38,8 +40,7 @@ class AppriseService {
 
             console.log(`Package update notification sent: ${updatesCount} updates available`);
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Failed to send package update notification:', err.message);
+            console.error('Failed to send package update notification:', getErrorMessage(error));
         }
     }
 
@@ -72,8 +73,7 @@ class AppriseService {
 
             return true;
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Apprise notification failed:', err.message);
+            console.error('Apprise notification failed:', getErrorMessage(error));
             return false;
         }
     }

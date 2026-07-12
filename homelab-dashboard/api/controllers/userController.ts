@@ -4,6 +4,8 @@ import ValidationUtils from '../utils/validation';
 import { sendError, sendSuccess } from '../utils/response';
 import config from '../config';
 
+import { getErrorMessage } from '../utils/errors';
+
 class UserController {
     private userModel: User;
 
@@ -31,8 +33,7 @@ class UserController {
             try {
                 validatedCredentials = ValidationUtils.validateLoginCredentials(username, password);
             } catch (validationError: unknown) {
-                const err = validationError as Error;
-                return sendError(res, 400, err.message);
+                return sendError(res, 400, getErrorMessage(validationError));
             }
             
             const user = await this.userModel.authenticate(validatedCredentials.username, validatedCredentials.password);
@@ -64,9 +65,8 @@ class UserController {
                 }
             });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Login error:', err);
-            return sendError(res, 500, 'An unexpected error occurred during login', err.message);
+            console.error('Login error:', error);
+            return sendError(res, 500, 'An unexpected error occurred during login', getErrorMessage(error));
         }
     }
 
@@ -117,11 +117,9 @@ class UserController {
 
             console.log('Redirecting to:', redirectTo.href);
             res.redirect(redirectTo.href);
-            
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('SSO Login error:', err);
-            if (err.message && err.message.includes('discovery')) {
+            console.error('SSO Login error:', error);
+            if (getErrorMessage(error) && getErrorMessage(error).includes('discovery')) {
                 return res.status(503).json({ 
                     error: 'SSO service unavailable',
                     message: 'Authentik is not available. Please try local login or try again later.'
@@ -129,7 +127,7 @@ class UserController {
             }
             return res.status(500).json({ 
                 error: 'SSO initiation failed',
-                message: err.message 
+                message: getErrorMessage(error) 
             });
         }
     }
@@ -218,11 +216,10 @@ class UserController {
             return res.redirect('/');
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('OIDC callback error:', err);
+            console.error('OIDC callback error:', error);
             return res.status(500).json({
                 error: 'Authentication failed',
-                details: err.message
+                details: getErrorMessage(error)
             });
         }
     }
@@ -278,9 +275,8 @@ class UserController {
                 }
             });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Logout error:', err);
-            return sendError(res, 500, 'An unexpected error occurred during logout', err.message);
+            console.error('Logout error:', error);
+            return sendError(res, 500, 'An unexpected error occurred during logout', getErrorMessage(error));
         }
     }
 
@@ -292,9 +288,8 @@ class UserController {
                 isFirstUser: isFirst
             });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('First user check error:', err);
-            return sendError(res, 500, 'Failed to check first user status', err.message);
+            console.error('First user check error:', error);
+            return sendError(res, 500, 'Failed to check first user status', getErrorMessage(error));
         }
     }
 
@@ -316,9 +311,8 @@ class UserController {
                 }
             });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Get user error:', err);
-            return sendError(res, 500, 'Failed to retrieve user information', err.message);
+            console.error('Get user error:', error);
+            return sendError(res, 500, 'Failed to retrieve user information', getErrorMessage(error));
         }
     }
 
@@ -342,9 +336,8 @@ class UserController {
                 }
             });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Session verification error:', err);
-            return sendError(res, 500, 'Session verification failed', err.message);
+            console.error('Session verification error:', error);
+            return sendError(res, 500, 'Session verification failed', getErrorMessage(error));
         }
     }
 
@@ -390,10 +383,8 @@ class UserController {
                 if (!isSSO && (isUsernameChanging || newPassword) && !currentPassword) {
                     throw new Error('Current password is required to make changes');
                 }
-                
             } catch (validationError: unknown) {
-                const err = validationError as Error;
-                return sendError(res, 400, err.message);
+                return sendError(res, 400, getErrorMessage(validationError));
             }
             
             const updatedUser = await this.userModel.updateProfile(userId, validatedUsername, currentPassword, validatedNewPassword);
@@ -411,23 +402,22 @@ class UserController {
                 user: updatedUser
             });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Profile update error:', err);
+            console.error('Profile update error:', error);
             
             // Business logic errors
-            if (err.message === 'User not found') {
+            if (getErrorMessage(error) === 'User not found') {
                 return sendError(res, 404, 'User account not found');
             }
             
-            if (err.message.includes('Current password is incorrect')) {
+            if (getErrorMessage(error).includes('Current password is incorrect')) {
                 return sendError(res, 400, 'Current password is incorrect');
             }
             
-            if (err.message.includes('Username is already taken')) {
+            if (getErrorMessage(error).includes('Username is already taken')) {
                 return sendError(res, 400, 'Username is already taken');
             }
             
-            return sendError(res, 500, 'Failed to update profile', err.message);
+            return sendError(res, 500, 'Failed to update profile', getErrorMessage(error));
         }
     }
 
@@ -437,9 +427,8 @@ class UserController {
             const users = this.userModel.getAllUsers();
             return sendSuccess(res, { users });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Get all users error:', err);
-            return sendError(res, 500, 'Failed to retrieve users list', err.message);
+            console.error('Get all users error:', error);
+            return sendError(res, 500, 'Failed to retrieve users list', getErrorMessage(error));
         }
     }
 
@@ -485,9 +474,8 @@ class UserController {
 
             return sendSuccess(res, { message: 'User deleted successfully' });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Delete user error:', err);
-            return sendError(res, 500, 'Failed to delete user', err.message);
+            console.error('Delete user error:', error);
+            return sendError(res, 500, 'Failed to delete user', getErrorMessage(error));
         }
     }
 }

@@ -61,6 +61,8 @@ import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/useNotification';
 import { formatDevicesForDisplay, formatMacForDisplay, normalizeMacForApi } from '../utils/formatters';
 
+import { getErrorMessage } from '../utils/errors';
+
 interface DeviceDialogProps {
     open: boolean;
     onClose: () => void;
@@ -213,9 +215,8 @@ const Devices = () => {
             setDevices(formatDevicesForDisplay<Device>(response.data.devices || []));
             setLoading(false);
         } catch (err) {
-            const error = err as Error;
-            console.error('All API endpoints failed:', error);
-            showError(`Failed to connect to API server: ${error.message}`);
+            console.error('All API endpoints failed:', err);
+            showError(`Failed to connect to API server: ${getErrorMessage(err)}`);
             setLoading(false);
 
             // Set empty data for development
@@ -237,8 +238,7 @@ const Devices = () => {
             });
             showSuccess(`Wake-on-LAN sent successfully!`);
         } catch (err) {
-            const error = err as Error;
-            showError(error.message || 'Failed to send Wake-on-LAN!');
+            showError(getErrorMessage(err) || 'Failed to send Wake-on-LAN!');
         }
     };
 
@@ -266,8 +266,7 @@ const Devices = () => {
             setDevices(formatDevicesForDisplay<Device>(response.data.devices || []));
             showSuccess('Device status refreshed successfully');
         } catch (err) {
-            const error = err as Error;
-            showError(`Failed to refresh device status: ${error.message}`);
+            showError(`Failed to refresh device status: ${getErrorMessage(err)}`);
         } finally {
             setRefreshingAll(false);
         }
@@ -294,8 +293,7 @@ const Devices = () => {
                     setDevices(formatDevicesForDisplay<Device>(response.data.devices || []));
                     showSuccess(`Cleared ${response.data.deletedCount || discoveredCount} discovered devices and completed fresh scan`);
                 } catch (err) {
-                    const error = err as Error;
-                    showError(`Failed to clear cache and rescan: ${error.message}`);
+                    showError(`Failed to clear cache and rescan: ${getErrorMessage(err)}`);
                 } finally {
                     setClearingCache(false);
                 }
@@ -349,8 +347,7 @@ const Devices = () => {
 
             showSuccess(message);
         } catch (err) {
-            const error = err as Error;
-            showError(`Failed to toggle favorite: ${error.message}`);
+            showError(`Failed to toggle favorite: ${getErrorMessage(err)}`);
         }
     };
 
@@ -418,8 +415,7 @@ const Devices = () => {
             setInitialDeviceForm({ name: '', mac: '', description: '', rustdeskId: '' });
 
         } catch (err) {
-            const error = err as Error;
-            showError(`Failed to save device: ${error.message}`);
+            showError(`Failed to save device: ${getErrorMessage(err)}`);
         }
     };
 

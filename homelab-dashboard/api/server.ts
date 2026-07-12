@@ -22,6 +22,7 @@ import User from './models/User';
 import DeviceController from './controllers/deviceController';
 import PackageUpdateChecker from './services/packageUpdateChecker';
 import Database from './models/Database';
+import { getErrorMessage } from './utils/errors';
 
 import SQLiteStoreFactory from 'better-sqlite3-session-store';
 const SQLiteStore = SQLiteStoreFactory(session);
@@ -171,8 +172,7 @@ const initializeServer = async () => {
                             bootstrapPassword = fs.readFileSync(secretsPath, 'utf8').trim();
                         }
                     } catch (err: unknown) {
-                        const errorObj = err as Error;
-                        console.log(`Could not read password from file ${process.env.HOMELAB_PASSWORD_FILE}:`, errorObj.message);
+                        console.log(`Could not read password from file ${process.env.HOMELAB_PASSWORD_FILE}:`, getErrorMessage(err));
                     }
                 }
                 
@@ -203,8 +203,7 @@ const initializeServer = async () => {
                 const onlineCount = deviceController.getOnlineCount();
                 console.log(`Initial scan completed: ${onlineCount} devices online`);
             } catch (error: unknown) {
-                const err = error as Error;
-                console.error('Initial scan failed:', err.message);
+                console.error('Initial scan failed:', getErrorMessage(error));
             }
 
             // Start package update checker
@@ -212,8 +211,7 @@ const initializeServer = async () => {
                 packageUpdateChecker.start();
                 console.log('Package update checker started (hourly notifications) ✓');
             } catch (error: unknown) {
-                const err = error as Error;
-                console.error('Failed to start package update checker:', err.message);
+                console.error('Failed to start package update checker:', getErrorMessage(error));
             }
         });
         
@@ -226,7 +224,6 @@ const initializeServer = async () => {
 
         process.on('SIGTERM', gracefulShutdown);
         process.on('SIGINT', gracefulShutdown);
-        
     } catch (error) {
         console.error('Failed to initialize server:', error);
         process.exit(1);

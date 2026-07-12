@@ -56,7 +56,7 @@ function AppContent() {
     if (path === '/system') return 'system';
     if (path === '/devices') return 'devices';
     if (path === '/chat') return 'chat';
-    if (path === '/wordgames') return 'wordgames';
+    if (path === '/wordgames' || path.startsWith('/wordgames/')) return 'wordgames';
     if (path === '/packages') return 'packages';
     if (path === '/users') return 'users';
     if (path === '/secrets') return 'secrets';
@@ -79,7 +79,9 @@ function AppContent() {
     '/profile'
   ];
 
-  const isProtected = protectedPaths.includes(location.pathname);
+  const isProtected = protectedPaths.some(
+    (p) => location.pathname === p || (p !== '/' && location.pathname.startsWith(`${p}/`))
+  );
 
   if (authLoading || configLoading) {
     return (

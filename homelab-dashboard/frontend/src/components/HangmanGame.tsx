@@ -263,7 +263,7 @@ const HangmanGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, onCl
 
     const handlePatternChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const input = e.target;
-        let start = input.selectionStart || 0;
+        const start = input.selectionStart || 0;
         let end = input.selectionEnd || 0;
         
         let value = input.value.toUpperCase();

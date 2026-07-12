@@ -24,6 +24,8 @@ import { useAuth } from '../contexts/useAuth';
 import { useNotification } from '../contexts/useNotification';
 import { tryApiCall } from '../utils/api';
 
+import { getErrorMessage } from '../utils/errors';
+
 const useFirstUserCheck = () => {
     const [isFirstUser, setIsFirstUser] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -88,8 +90,7 @@ const LocalLogin = ({ onBack }: LocalLoginProps) => {
                 showError(result.error || 'Login failed');
             }
         } catch (error) {
-            const err = error as Error;
-            const errorMessage = err.message || 'An unexpected error occurred';
+            const errorMessage = getErrorMessage(error) || 'An unexpected error occurred';
             setError(errorMessage);
             showError(errorMessage);
         } finally {

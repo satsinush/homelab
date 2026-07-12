@@ -26,6 +26,8 @@ import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/useNotification';
 import { useAuth } from '../contexts/useAuth';
 
+import { getErrorMessage } from '../utils/errors';
+
 interface UserListItem {
     id: number;
     username: string;
@@ -46,8 +48,7 @@ const Users = () => {
             const result = await tryApiCall<{ users: UserListItem[] }>('/users');
             setUsersList(result.data.users || []);
         } catch (err) {
-            const error = err as Error;
-            showError(`Failed to load users: ${error.message}`);
+            showError(`Failed to load users: ${getErrorMessage(err)}`);
         } finally {
             setLoading(false);
         }
@@ -72,8 +73,7 @@ const Users = () => {
                     showSuccess(`User "${userToDelete.username}" deleted successfully`);
                     fetchUsers();
                 } catch (err) {
-                    const error = err as Error;
-                    showError(`Failed to delete user: ${error.message}`);
+                    showError(`Failed to delete user: ${getErrorMessage(err)}`);
                 }
             }
         });

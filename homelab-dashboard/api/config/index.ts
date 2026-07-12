@@ -5,6 +5,8 @@ import path from 'path';
 import { getEnv } from '../utils/env';
 import * as client from 'openid-client';
 
+import { getErrorMessage } from '../utils/errors';
+
 const SESSION_SECRET = getEnv('HOMELAB_API_SESSION_SECRET');
 const DASHBOARD_OIDC_SECRET = getEnv('DASHBOARD_OIDC_SECRET');
 
@@ -85,9 +87,8 @@ async function initializeOIDCClient(): Promise<client.Configuration> {
             console.log('OIDC Configuration initialized successfully');
             return oidcConfig;
         } catch (error: unknown) {
-            const err = error as Error;
             console.error('Failed to initialize OIDC client:', error);
-            console.error('Error details:', err.message);
+            console.error('Error details:', getErrorMessage(error));
             initializationPromise = null;
             throw error;
         }

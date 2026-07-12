@@ -1,5 +1,6 @@
 import SystemController from '../controllers/systemController';
 import AppriseService from './appriseService';
+import { getErrorMessage } from '../utils/errors';
 
 class PackageUpdateChecker {
     private systemController: SystemController;
@@ -111,8 +112,7 @@ class PackageUpdateChecker {
                 }
             }
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Package update check failed:', err.message);
+            console.error('Package update check failed:', getErrorMessage(error));
         }
     }
 

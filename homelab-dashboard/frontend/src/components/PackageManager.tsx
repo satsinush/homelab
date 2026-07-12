@@ -30,6 +30,8 @@ import {
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/useNotification';
 
+import { getErrorMessage } from '../utils/errors';
+
 interface SystemPackage {
     name: string;
     hasUpdate: boolean;
@@ -64,8 +66,7 @@ const PackageManager = () => {
                 console.log('Package status:', result.data.note);
             }
         } catch (err) {
-            const error = err as Error;
-            showError(error.message || 'Unable to fetch package information - Package management not available');
+            showError(getErrorMessage(err) || 'Unable to fetch package information - Package management not available');
             setPackages([]);
             setLastSynced(null);
         } finally {

@@ -39,6 +39,8 @@ import { useThemeMode } from '../contexts/useThemeMode';
 import { useNotification } from '../contexts/useNotification';
 import { useAuth } from '../contexts/useAuth';
 
+import { getErrorMessage } from '../utils/errors';
+
 const Settings = () => {
     const [serverSettings, setServerSettings] = useState<ServerSettings | null>(null);
     const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
@@ -93,8 +95,7 @@ const Settings = () => {
                 });
                 showSuccess('System settings saved');
             } catch (err) {
-                const error = err as Error;
-                showError(`Failed to save system settings: ${error.message}`);
+                showError(`Failed to save system settings: ${getErrorMessage(err)}`);
             } finally {
                 setAutoSaving(false);
             }
@@ -113,8 +114,7 @@ const Settings = () => {
                 });
                 showSuccess('User settings saved');
             } catch (err) {
-                const error = err as Error;
-                showError(`Failed to save user settings: ${error.message}`);
+                showError(`Failed to save user settings: ${getErrorMessage(err)}`);
             } finally {
                 setAutoSaving(false);
             }
@@ -132,8 +132,7 @@ const Settings = () => {
                 setServerSettings(serverRes?.data?.settings || { scanTimeout: 30000, cacheTimeout: 300000 });
                 setUserSettings(userRes?.data?.settings || {});
             } catch (err) {
-                const error = err as Error;
-                showError(`Failed to load settings: ${error.message}`);
+                showError(`Failed to load settings: ${getErrorMessage(err)}`);
             } finally {
                 setLoading(false);
             }

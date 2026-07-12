@@ -31,6 +31,8 @@ import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/useNotification';
 import { SecretsResponse } from '../types/api';
 
+import { getErrorMessage } from '../utils/errors';
+
 interface SecretItem {
     name: string;
     value: string;
@@ -56,8 +58,7 @@ const Secrets = () => {
                 description: s.description
             })));
         } catch (err) {
-            const error = err as Error;
-            showError(`Failed to load secrets: ${error.message}`);
+            showError(`Failed to load secrets: ${getErrorMessage(err)}`);
         } finally {
             setLoading(false);
         }

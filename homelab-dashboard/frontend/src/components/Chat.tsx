@@ -44,6 +44,8 @@ import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/useNotification';
 import { OllamaStatus } from '../types/api';
 
+import { getErrorMessage } from '../utils/errors';
+
 interface HistoryMessageItem {
     role: 'user' | 'assistant';
     content: string;
@@ -112,9 +114,8 @@ const Chat = () => {
                 setCurrentModel(response.data.currentModel);
             }
         } catch (err) {
-            const error = err as Error;
-            console.error('Failed to fetch models:', error);
-            showError(error.message || 'Failed to fetch available models');
+            console.error('Failed to fetch models:', err);
+            showError(getErrorMessage(err) || 'Failed to fetch available models');
         } finally {
             setIsLoading(false);
         }
@@ -212,21 +213,20 @@ const Chat = () => {
                 });
             }
         } catch (err) {
-            const error = err as Error;
-            console.error('Failed to send message:', error);
+            console.error('Failed to send message:', err);
             setMessages(prevMessages => {
                 const filteredMessages = prevMessages.filter(msg => msg.id !== thinkingMessage.id);
                 const errorMessage: ChatMessage = {
-                    id: `error-${Date.now() + 3}`,
+                    id: `err-${Date.now() + 3}`,
                     type: 'error',
-                    content: error.message || 'Failed to get response',
-                    message: error.message || 'Failed to get response',
+                    content: getErrorMessage(err) || 'Failed to get response',
+                    message: getErrorMessage(err) || 'Failed to get response',
                     actions: [],
                     timestamp: new Date().toISOString()
                 };
                 return [...filteredMessages, errorMessage];
             });
-            showError(error.message || 'Failed to send message');
+            showError(getErrorMessage(err) || 'Failed to send message');
         } finally {
             setIsLoading(false);
             inputRef.current?.focus();
@@ -249,9 +249,8 @@ const Chat = () => {
             setCurrentModel(newModel);
             showSuccess(`Switched to model: ${newModel}`);
         } catch (err) {
-            const error = err as Error;
-            console.error('Failed to change model:', error);
-            showError(error.message || 'Failed to change model');
+            console.error('Failed to change model:', err);
+            showError(getErrorMessage(err) || 'Failed to change model');
         }
     };
 
@@ -267,9 +266,8 @@ const Chat = () => {
                     setMessages([]);
                     showSuccess('Conversation cleared');
                 } catch (err) {
-                    const error = err as Error;
-                    console.error('Failed to clear conversation:', error);
-                    showError(error.message || 'Failed to clear conversation');
+            console.error('Failed to clear conversation:', err);
+                    showError(getErrorMessage(err) || 'Failed to clear conversation');
                 }
             }
         });
@@ -310,9 +308,8 @@ const Chat = () => {
             setModelToDownload('');
             fetchModels();
         } catch (err) {
-            const error = err as Error;
-            console.error('Failed to download model:', error);
-            showError(error.message || 'Failed to download model');
+            console.error('Failed to download model:', err);
+            showError(getErrorMessage(err) || 'Failed to download model');
         } finally {
             setDownloadLoading(false);
         }
@@ -335,9 +332,8 @@ const Chat = () => {
             const response = await tryApiCall('/chat/models-detailed');
             setDetailedModels((response.data.models || []) as DetailedModel[]);
         } catch (err) {
-            const error = err as Error;
-            console.error('Failed to fetch detailed models:', error);
-            showError(error.message || 'Failed to fetch model details');
+            console.error('Failed to fetch detailed models:', err);
+            showError(getErrorMessage(err) || 'Failed to fetch model details');
         }
     };
 
@@ -357,9 +353,8 @@ const Chat = () => {
                     await fetchDetailedModels();
                     await fetchModels();
                 } catch (err) {
-                    const error = err as Error;
-                    console.error('Failed to delete model:', error);
-                    showError(error.message || 'Failed to delete model');
+            console.error('Failed to delete model:', err);
+                    showError(getErrorMessage(err) || 'Failed to delete model');
                 }
             }
         });

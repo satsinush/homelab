@@ -4,6 +4,8 @@ import { tryApiCall } from '../utils/api';
 import { AuthContext, UserProfile, AuthContextType } from './AuthContextCore';
 import { VerifyResponse, LoginResponse, LogoutResponse } from '../types/api';
 
+import { getErrorMessage } from '../utils/errors';
+
 interface AuthProviderProps {
     children: ReactNode;
 }
@@ -44,10 +46,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             return { success: true, user: userProfile };
         } catch (error: unknown) {
             console.error('Local login failed:', error);
-            const err = error as Error;
             return {
                 success: false,
-                error: err.message || 'Login failed'
+                error: getErrorMessage(error) || 'Login failed'
             };
         }
     };

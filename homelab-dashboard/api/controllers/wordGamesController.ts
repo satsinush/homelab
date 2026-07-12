@@ -5,6 +5,8 @@ import readline from 'readline';
 import { sendError, sendSuccess } from '../utils/response';
 import { Request, Response } from 'express';
 
+import { getErrorMessage } from '../utils/errors';
+
 interface GuessWithEntropy {
     word?: string;
     pattern?: string;
@@ -49,8 +51,7 @@ class WordGamesController {
             console.log('Running initial cleanup of old results files...');
             await this.cleanupOldResultsFiles();
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Error during initial cleanup:', err.message);
+            console.error('Error during initial cleanup:', getErrorMessage(error));
         }
     }
 
@@ -170,9 +171,8 @@ class WordGamesController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Letter Boxed solve error:', err);
-            return sendError(res, 500, 'Failed to solve Letter Boxed puzzle', err.message);
+            console.error('Letter Boxed solve error:', error);
+            return sendError(res, 500, 'Failed to solve Letter Boxed puzzle', getErrorMessage(error));
         }
     }
 
@@ -284,9 +284,8 @@ class WordGamesController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Spelling Bee solve error:', err);
-            return sendError(res, 500, 'Failed to solve Spelling Bee puzzle', err.message);
+            console.error('Spelling Bee solve error:', error);
+            return sendError(res, 500, 'Failed to solve Spelling Bee puzzle', getErrorMessage(error));
         }
     }
 
@@ -416,9 +415,8 @@ class WordGamesController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Wordle solve error:', err);
-            return sendError(res, 500, 'Failed to solve Wordle step', err.message);
+            console.error('Wordle solve error:', error);
+            return sendError(res, 500, 'Failed to solve Wordle step', getErrorMessage(error));
         }
     }
 
@@ -558,9 +556,8 @@ class WordGamesController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Mastermind solve error:', err);
-            return sendError(res, 500, 'Failed to solve Mastermind step', err.message);
+            console.error('Mastermind solve error:', error);
+            return sendError(res, 500, 'Failed to solve Mastermind step', getErrorMessage(error));
         }
     }
 
@@ -700,9 +697,8 @@ class WordGamesController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Dungleon solve error:', err);
-            return sendError(res, 500, 'Failed to solve Dungleon step', err.message);
+            console.error('Dungleon solve error:', error);
+            return sendError(res, 500, 'Failed to solve Dungleon step', getErrorMessage(error));
         }
     }
 
@@ -820,9 +816,8 @@ class WordGamesController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Hangman solve error:', err);
-            return sendError(res, 500, 'Failed to solve Hangman step', err.message);
+            console.error('Hangman solve error:', error);
+            return sendError(res, 500, 'Failed to solve Hangman step', getErrorMessage(error));
         }
     }
 
@@ -914,9 +909,8 @@ class WordGamesController {
             });
 
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Load results chunk error:', err);
-            return sendError(res, 500, 'Failed to load results chunk', err.message);
+            console.error('Load results chunk error:', error);
+            return sendError(res, 500, 'Failed to load results chunk', getErrorMessage(error));
         }
     }
 
@@ -1018,9 +1012,8 @@ class WordGamesController {
             }
             return sendSuccess(res, { message: 'No active solve process to cancel' });
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Cancel solve error:', err);
-            return sendError(res, 500, 'Failed to cancel solve operation', err.message);
+            console.error('Cancel solve error:', error);
+            return sendError(res, 500, 'Failed to cancel solve operation', getErrorMessage(error));
         }
     }
 
@@ -1326,8 +1319,7 @@ class WordGamesController {
                 }
             }
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error(`Error during file cleanup for ${filePath}:`, err.message);
+            console.error(`Error during file cleanup for ${filePath}:`, getErrorMessage(error));
         }
     }
 
@@ -1358,14 +1350,11 @@ class WordGamesController {
                         console.log(`Cleaned up old results file: ${filename} (age: ${Math.round(fileAge / 1000)}s)`);
                     }
                 } catch (err: unknown) {
-                    const errorObj = err as Error;
-                    console.error(`Error processing file ${filename} during cleanup:`, errorObj.message);
+                    console.error(`Error processing file ${filename} during cleanup:`, getErrorMessage(err));
                 }
             }
-            
         } catch (error: unknown) {
-            const err = error as Error;
-            console.error('Error during results directory cleanup:', err.message);
+            console.error('Error during results directory cleanup:', getErrorMessage(error));
         }
     }
 }
