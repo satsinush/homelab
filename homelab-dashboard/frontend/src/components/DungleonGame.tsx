@@ -48,6 +48,15 @@ import {
     ContentCopy as CopyIcon,
     Add as AddIcon
 } from '@mui/icons-material';
+import plusBadge from '../assets/dungleon_characters/plus.png';
+
+const dungleonCharacterUrls = import.meta.glob(
+    '../assets/dungleon_characters/*.png',
+    { eager: true, query: '?url', import: 'default' }
+) as Record<string, string>;
+
+const getDungleonCharacterUrl = (name: string) =>
+    dungleonCharacterUrls[`../assets/dungleon_characters/${name}.png`] ?? '';
 import GameSettingsDialog, { FieldDefinition, DialogConfig } from './GameSettingsDialog';
 import { DungleonResultState, GameStatus } from '../types/api';
 
@@ -93,7 +102,7 @@ const FEEDBACK_STYLES: Record<number, { borderColor: string; bgColor: string; ba
 const getDungleonAssetPath = (charId: string) => {
     if (!charId) return '';
     const name = CHARACTER_MAP[charId]?.name?.toLowerCase().replace(' ', '_');
-    return `/assets/dungleon/${name}.png`;
+    return name ? getDungleonCharacterUrl(name) : '';
 };
 
 interface DungleonPatternDisplayProps {
@@ -630,7 +639,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
     const getAssetPath = (charId: string) => {
         if (!charId) return '';
         const name = CHARACTER_MAP[charId]?.name?.toLowerCase().replace(' ', '_');
-        return `/assets/dungleon/${name}.png`;
+        return name ? getDungleonCharacterUrl(name) : '';
     };
 
     return (
@@ -757,7 +766,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                                     {style?.badge && (
                                                         <Box
                                                             component="img"
-                                                            src="/assets/dungleon/plus.png"
+                                                            src={plusBadge}
                                                             sx={{
                                                                 position: 'absolute',
                                                                 top: 1,
@@ -871,7 +880,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                                                 {style.badge && (
                                                                     <Box
                                                                         component="img"
-                                                                        src="/assets/dungleon/plus.png"
+                                                                        src={plusBadge}
                                                                         sx={{
                                                                             position: 'absolute',
                                                                             top: 1,

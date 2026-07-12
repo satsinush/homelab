@@ -18,7 +18,7 @@ import {
     Inventory as PackagesIcon,
     Settings as SettingsIcon,
     Person as PersonIcon,
-    Games as GamesIcon,
+    Extension as ExtensionIcon,
     Chat as ChatIcon,
     People as PeopleIcon,
 } from '@mui/icons-material';
@@ -28,7 +28,7 @@ import { useConfig } from '../contexts/useConfig';
 import PiHoleLogo from '../assets/pi_hole_logo.png';
 import VaultwardenLogo from '../assets/vaultwarden_logo.png';
 import GatusLogo from '../assets/gatus_logo.png';
-import AuthIcon from '../assets/auth_icon.png';
+import AuthIcon from '../assets/authentik_logo.png';
 import DockhandLogo from '../assets/dockhand_logo.png';
 
 interface QuickLink {
@@ -73,7 +73,7 @@ const Home = () => {
         {
             title: 'Puzzle++',
             description: 'Use solvers to word games like Letterboxed',
-            icon: <GamesIcon />,
+            icon: <ExtensionIcon />,
             path: '/wordgames',
             color: 'warning',
             role: 'dashboard-wordgames-user'

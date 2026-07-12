@@ -30,7 +30,7 @@ import {
     Person as PersonIcon,
     ExitToApp as LogoutIcon,
     Chat as ChatIcon,
-    Games as GamesIcon,
+    Extension as ExtensionIcon,
     People as PeopleIcon,
     VpnKey as KeyIcon
 } from '@mui/icons-material';
@@ -55,7 +55,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
         { id: 'system', label: 'System', icon: <DashboardIcon />, path: '/system', role: 'dashboard-system-user' },
         { id: 'devices', label: 'Devices', icon: <DevicesIcon />, path: '/devices', role: 'dashboard-devices-user' },
         { id: 'chat', label: 'AI Chat', icon: <ChatIcon />, path: '/chat', role: 'dashboard-chat-user' },
-        { id: 'wordgames', label: 'Puzzle++', icon: <GamesIcon />, path: '/wordgames', role: 'dashboard-wordgames-user' },
+        { id: 'wordgames', label: 'Puzzle++', icon: <ExtensionIcon />, path: '/wordgames', role: 'dashboard-wordgames-user' },
         { id: 'packages', label: 'Packages', icon: <PackagesIcon />, path: '/packages', role: 'dashboard-packages-user' },
         { id: 'users', label: 'Users', icon: <PeopleIcon />, path: '/users', role: 'dashboard-users-user' },
         { id: 'secrets', label: 'Secrets', icon: <KeyIcon />, path: '/secrets', role: 'dashboard-secrets-user' },

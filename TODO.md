@@ -1,4 +1,5 @@
 - CI/CD to run lint and what not, single version file to set C++ frontend, api, and host api version
+- make sure all apps are in dashboard and authentik
 
 - add rustdesk api server
 - Pcie gen 3?
@@ -11,7 +12,6 @@
 - Setup jellyfin
 - fail2ban?
 - Obsidian LiveSync?
-- make sure all apps are in dashboard and authentik
 - use proper MCP servers
 - update screenshots
 - update docs

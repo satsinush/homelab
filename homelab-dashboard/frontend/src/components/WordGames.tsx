@@ -22,13 +22,7 @@ import {
 } from '@mui/material';
 import {
     Refresh as RefreshIcon,
-    Quiz as QuizIcon,
-    ViewModule as LetterBoxedIcon,
-    EmojiNature as Bee,
     HelpOutline as HelpIcon,
-    Psychology as MastermindIcon,
-    TextFields as HangmanIcon,
-    Castle as DungleonIcon,
     ArrowBack as ArrowBackIcon,
     Apps as AppsIcon
 } from '@mui/icons-material';
@@ -42,6 +36,13 @@ import MastermindGame from './MastermindGame';
 import HangmanGame from './HangmanGame';
 import DungleonGame from './DungleonGame';
 import GameHelpModal from './GameHelpModal';
+import letterBoxedIcon from '../assets/letter_boxed_icon.svg';
+import spellingBeeIcon from '../assets/spelling_bee_icon.svg';
+import wordleIcon from '../assets/wordle_icon.svg';
+import mastermindIcon from '../assets/mastermind_icon.svg';
+import hangmanIcon from '../assets/hangman_icon.svg';
+import dungleonIcon from '../assets/dungleon_icon.png';
+import puzzleIcon from '../assets/puzzle_icon.svg';
 import {
     LetterBoxedResultState,
     SpellingBeeResultState,
@@ -65,6 +66,38 @@ import {
     DungleonRequest
 } from '../types/api';
 
+const GAME_ICONS = {
+    letterboxed: letterBoxedIcon,
+    spellingbee: spellingBeeIcon,
+    wordle: wordleIcon,
+    mastermind: mastermindIcon,
+    hangman: hangmanIcon,
+    dungleon: dungleonIcon
+} as const;
+
+const GameIcon = ({
+    src,
+    alt,
+    size = 24
+}: {
+    src: string;
+    alt: string;
+    size?: number;
+}) => (
+    <Box
+        component="img"
+        src={src}
+        alt={alt}
+        sx={{
+            width: size,
+            height: size,
+            objectFit: 'contain',
+            display: 'block',
+            imageRendering: src.endsWith('.png') ? 'pixelated' : 'auto'
+        }}
+    />
+);
+
 const WordGames = () => {
     const { gameName } = useParams<{ gameName?: string }>();
     const navigate = useNavigate();
@@ -85,43 +118,43 @@ const WordGames = () => {
             key: 'letterboxed',
             title: 'Letter Boxed',
             description: 'Find word chains that use every letter on the square.',
-            icon: <LetterBoxedIcon />,
+            iconSrc: GAME_ICONS.letterboxed,
             color: 'primary' as const
         },
         {
             key: 'spellingbee',
             title: 'Spelling Bee',
             description: 'Discover valid words using the center letter and hive.',
-            icon: <Bee />,
-            color: 'warning' as const
+            iconSrc: GAME_ICONS.spellingbee,
+            color: 'primary' as const
         },
         {
             key: 'wordle',
             title: 'Wordle',
             description: 'Rank guesses by expected turns with color feedback.',
-            icon: <QuizIcon />,
-            color: 'success' as const
+            iconSrc: GAME_ICONS.wordle,
+            color: 'primary' as const
         },
         {
             key: 'mastermind',
             title: 'Mastermind',
             description: 'Solve peg-and-color codes with ENT-based suggestions.',
-            icon: <MastermindIcon />,
-            color: 'secondary' as const
+            iconSrc: GAME_ICONS.mastermind,
+            color: 'primary' as const
         },
         {
             key: 'hangman',
             title: 'Hangman',
             description: 'Pick the best next letter for single- or multi-word puzzles.',
-            icon: <HangmanIcon />,
-            color: 'info' as const
+            iconSrc: GAME_ICONS.hangman,
+            color: 'primary' as const
         },
         {
             key: 'dungleon',
             title: 'Dungleon',
             description: 'Narrow character patterns with entropy-guided guesses.',
-            icon: <DungleonIcon />,
-            color: 'error' as const
+            iconSrc: GAME_ICONS.dungleon,
+            color: 'primary' as const
         }
     ], []);
 
@@ -670,7 +703,7 @@ const WordGames = () => {
             <Container maxWidth="lg" sx={{ py: 3 }}>
                 <Box sx={{ mb: 4, textAlign: 'center' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, mb: 1 }}>
-                        <Box component="img" src="/assets/puzzle_icon.svg" sx={{ width: 36, height: 36 }} alt="Puzzle++ Logo" />
+                        <Box component="img" src={puzzleIcon} sx={{ width: 36, height: 36 }} alt="Puzzle++ Logo" />
                         <Typography variant="h3" component="h1">
                             Puzzle++
                         </Typography>
@@ -708,8 +741,15 @@ const WordGames = () => {
                             >
                                 <CardContent sx={{ flexGrow: 1 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                        <Avatar sx={{ bgcolor: `${game.color}.main`, mr: 2 }}>
-                                            {game.icon}
+                                        <Avatar
+                                            sx={{
+                                                bgcolor: 'transparent',
+                                                mr: 2,
+                                                width: 48,
+                                                height: 48
+                                            }}
+                                        >
+                                            <GameIcon src={game.iconSrc} alt={game.title} size={40} />
                                         </Avatar>
                                         <Typography variant="h6" component="h2">
                                             {game.title}
@@ -758,7 +798,7 @@ const WordGames = () => {
                             <ArrowBackIcon fontSize="small" />
                         </IconButton>
                     </Tooltip>
-                    <Box component="img" src="/assets/puzzle_icon.svg" sx={{ width: 28, height: 28 }} alt="Puzzle++ Logo" />
+                    <Box component="img" src={puzzleIcon} sx={{ width: 28, height: 28 }} alt="Puzzle++ Logo" />
                     <Box sx={{ typography: 'h5', fontWeight: 600 }}>Puzzle++</Box>
                     {statusControls}
                 </Box>
@@ -775,32 +815,32 @@ const WordGames = () => {
                         >
                             <MenuItem value={0}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <LetterBoxedIcon fontSize="small" /> Letter Boxed
+                                    <GameIcon src={GAME_ICONS.letterboxed} alt="" size={20} /> Letter Boxed
                                 </Box>
                             </MenuItem>
                             <MenuItem value={1}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Bee fontSize="small" /> Spelling Bee
+                                    <GameIcon src={GAME_ICONS.spellingbee} alt="" size={20} /> Spelling Bee
                                 </Box>
                             </MenuItem>
                             <MenuItem value={2}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <QuizIcon fontSize="small" /> Wordle
+                                    <GameIcon src={GAME_ICONS.wordle} alt="" size={20} /> Wordle
                                 </Box>
                             </MenuItem>
                             <MenuItem value={3}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <MastermindIcon fontSize="small" /> Mastermind
+                                    <GameIcon src={GAME_ICONS.mastermind} alt="" size={20} /> Mastermind
                                 </Box>
                             </MenuItem>
                             <MenuItem value={4}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <HangmanIcon fontSize="small" /> Hangman
+                                    <GameIcon src={GAME_ICONS.hangman} alt="" size={20} /> Hangman
                                 </Box>
                             </MenuItem>
                             <MenuItem value={5}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <DungleonIcon fontSize="small" /> Dungleon
+                                    <GameIcon src={GAME_ICONS.dungleon} alt="" size={20} /> Dungleon
                                 </Box>
                             </MenuItem>
                         </Select>

@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <style>
+      .hangman-stroke {
+        fill: none;
+        stroke: #1A1A1A; /* Sharp black/charcoal lines */
+        stroke-width: 24;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+    </style>
+  </defs>
+
+  <!-- Outer Rounded Square Card with White Background and Black Outline -->
+  <rect 
+    x="24" 
+    y="24" 
+    width="464" 
+    height="464" 
+    rx="56" 
+    fill="#FFFFFF" 
+    stroke="#1A1A1A" 
+    stroke-width="24" 
+    stroke-linejoin="round"
+  />
+
+  <!-- The Gallows Structure Layout -->
+  <g class="hangman-stroke">
+    <!-- Base Platform Line -->
+    <line x1="112" y1="360" x2="172" y2="360" />
+    
+    <!-- Vertical Main Post -->
+    <line x1="142" y1="360" x2="142" y2="100" />
+    
+    <!-- Top Support Cap Crossbeam -->
+    <line x1="112" y1="100" x2="368" y2="100" />
+    
+    <!-- Angled Corner Strut Bracket Support -->
+    <line x1="142" y1="152" x2="194" y2="100" />
+    
+    <!-- Noose Rope Drop Down -->
+    <line x1="338" y1="100" x2="338" y2="145" />
+  </g>
+
+  <!-- The Stick Figure Vector Geometry -->
+  <g class="hangman-stroke">
+    <!-- Head: Perfect full circle centered exactly on the rope alignment line -->
+    <circle cx="338" cy="177" r="32" />
+    
+    <!-- Spine / Body Trunk -->
+    <line x1="338" y1="209" x2="338" y2="290" />
+    
+    <!-- Left Arm -->
+    <line x1="338" y1="225" x2="290" y2="265" />
+    
+    <!-- Right Arm -->
+    <line x1="338" y1="225" x2="386" y2="265" />
+    
+    <!-- Left Leg -->
+    <line x1="338" y1="290" x2="290" y2="338" />
+    
+    <!-- Right Leg -->
+    <line x1="338" y1="290" x2="386" y2="338" />
+  </g>
+
+  <!-- Hidden Word Letter blanks Group Panel Area at the Bottom -->
+  <g class="hangman-stroke" stroke-width="20">
+    <line x1="112" y1="430" x2="162" y2="430" />
+    <line x1="190" y1="430" x2="240" y2="430" />
+    <line x1="268" y1="430" x2="318" y2="430" />
+    <line x1="346" y1="430" x2="396" y2="430" />
+  </g>
+</svg>
