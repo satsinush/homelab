@@ -19,6 +19,7 @@ import {
     Tabs,
     Tab,
     Divider,
+    Paper,
     keyframes
 } from '@mui/material';
 const pulseKeyframes = keyframes`
@@ -232,8 +233,8 @@ const DungleonResults = React.memo(({
                     showSuggestions ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                             <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
-                                <TableContainer sx={{ maxHeight: '100%', bgcolor: 'background.default' }}>
-                                    <Table size="small" stickyHeader>
+                                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
+                                    <Table size="small" stickyHeader sx={{ minWidth: 500 }}>
                                         <TableHead>
                                             <TableRow>
                                                 <TableCell sx={{ fontWeight: 'bold' }}>Pattern</TableCell>
@@ -294,8 +295,8 @@ const DungleonResults = React.memo(({
                     showPossible ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                             <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
-                                <TableContainer sx={{ maxHeight: '100%', bgcolor: 'background.default' }}>
-                                    <Table size="small" stickyHeader>
+                                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
+                                    <Table size="small" stickyHeader sx={{ minWidth: 500 }}>
                                         <TableHead>
                                             <TableRow>
                                                 <TableCell sx={{ fontWeight: 'bold' }}>Pattern</TableCell>
@@ -652,7 +653,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                             </Typography>
                         </Box>
 
-                        <Stack spacing={2} sx={{ flexGrow: 1, overflowY: 'auto', pr: 0.5, minHeight: 0 }}>
+                        <Stack spacing={2} sx={{ flexGrow: 1, pr: 0.5, minHeight: 0 }}>
                             {/* Character Bank */}
                             <Box sx={{
                                 p: 1.5,
@@ -700,7 +701,9 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                 justifyContent: 'center',
                                 gap: 1,
                                 minHeight: 60,
-                                animation: isPulsing ? `${pulseKeyframes} 0.8s ease-in-out` : 'none'
+                                overflowX: 'auto',
+                                pb: 0.5,
+                                width: '100%'
                             }}>
                                 {Array.from({ length: 5 }).map((_, i) => {
                                     const charId = currentPattern[i];
@@ -723,7 +726,9 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
                                                 cursor: charId ? 'pointer' : 'default',
-                                                position: 'relative'
+                                                position: 'relative',
+                                                animation: isPulsing ? `${pulseKeyframes} 0.8s ease-in-out` : 'none',
+                                                flexShrink: 0
                                             }}
                                         >
                                             {charId && (
@@ -809,19 +814,14 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                             {/* Guesses and Solutions Column */}
                             <Stack spacing={1.5}>
                                 {/* Guesses Section */}
-                                <Box>
-                                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-                                        Guesses:
+                                <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                                        {`Current Guesses (${guesses.length})`}
                                     </Typography>
                                     <Box sx={{
                                         maxHeight: 120,
                                         overflow: 'auto',
-                                        border: '1px solid',
-                                        borderColor: 'divider',
-                                        borderRadius: 1,
-                                        p: 1,
-                                        minHeight: 60,
-                                        backgroundColor: 'background.default'
+                                        minHeight: 60
                                     }}>
                                         {guesses.length > 0 ? (
                                             <Stack spacing={1}>

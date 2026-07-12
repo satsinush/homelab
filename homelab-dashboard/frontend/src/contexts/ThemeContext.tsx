@@ -85,6 +85,7 @@ export const ThemeModeProvider = ({ children }: ThemeModeProviderProps) => {
                 styleOverrides: {
                     '*::-webkit-scrollbar': {
                         width: '8px',
+                        height: '8px',
                     },
                     '*::-webkit-scrollbar-track': {
                         background: '#f1f5f9',
@@ -180,6 +181,7 @@ export const ThemeModeProvider = ({ children }: ThemeModeProviderProps) => {
                 styleOverrides: {
                     '*::-webkit-scrollbar': {
                         width: '8px',
+                        height: '8px',
                     },
                     '*::-webkit-scrollbar-track': {
                         background: '#0f172a',

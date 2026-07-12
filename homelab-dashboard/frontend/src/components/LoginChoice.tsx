@@ -89,6 +89,7 @@ const LoginChoice = () => {
                             </CardContent>
                             <CardActions sx={{ justifyContent: 'center', pb: 3 }}>
                                 <Button
+                                    autoFocus
                                     variant="contained"
                                     size="large"
                                     startIcon={<LoginIcon />}

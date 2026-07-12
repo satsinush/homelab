@@ -126,6 +126,11 @@ class WordGamesController {
             const result = await this.executeCommand(command, username);
             const executionTime = Date.now() - startTime;
 
+            if (!result.success) {
+                console.error(`Solver execution failed for command: ${command}`, result.error);
+                return sendError(res, 500, 'Solver error');
+            }
+
             // Parse output: the C++ headless mode outputs:
             //   line 1: solution count
             //   line 2: output filename (no trailing newline)
@@ -237,6 +242,11 @@ class WordGamesController {
             const startTime = Date.now();
             const result = await this.executeCommand(command, username);
             const executionTime = Date.now() - startTime;
+
+            if (!result.success) {
+                console.error(`Solver execution failed for command: ${command}`, result.error);
+                return sendError(res, 500, 'Solver error');
+            }
 
             // Parse output: the C++ headless mode outputs:
             //   line 1: word count
@@ -360,6 +370,11 @@ class WordGamesController {
             const resultVal = await this.executeCommand(command, username);
             const executionTime = Date.now() - startTime;
 
+            if (!resultVal.success) {
+                console.error(`Solver execution failed for command: ${command}`, resultVal.error);
+                return sendError(res, 500, 'Solver error');
+            }
+
             // Parse stdout: the C++ headless mode outputs:
             //   line 1: total possible words count
             //   line 2: total sorted guesses count
@@ -440,6 +455,11 @@ class WordGamesController {
             const colorsCount = typeof colors === 'string' ? colors.length : (parseInt(colors) || 6);
             const colorChars = typeof colors === 'string' ? colors.toUpperCase() : Array.from({ length: colorsCount }, (_, i) => String.fromCharCode(65 + i)).join('');
 
+            const duplicatesAllowed = duplicates === true || duplicates === 1 || duplicates === '1' || duplicates === 'true';
+            if (!duplicatesAllowed && slotsCount > colorChars.length) {
+                return sendError(res, 400, `Number of pegs (${slotsCount}) cannot exceed the number of enabled colors (${colorChars.length}) when duplicates are disabled`);
+            }
+
             // Validate guesses
             for (let i = 0; i < guesses.length; i++) {
                 const guess = guesses[i];
@@ -493,6 +513,11 @@ class WordGamesController {
             const startTime = Date.now();
             const result = await this.executeCommand(command, username);
             const executionTime = Date.now() - startTime;
+
+            if (!result.success) {
+                console.error(`Solver execution failed for command: ${command}`, result.error);
+                return sendError(res, 500, 'Solver error');
+            }
 
             // Parse stdout: the C++ headless mode outputs:
             //   line 1: total possible patterns count
@@ -634,6 +659,11 @@ class WordGamesController {
             const result = await this.executeCommand(command, username);
             const executionTime = Date.now() - startTime;
 
+            if (!result.success) {
+                console.error(`Solver execution failed for command: ${command}`, result.error);
+                return sendError(res, 500, 'Solver error');
+            }
+
             // Parse stdout: the C++ headless mode outputs:
             //   line 1: total possible patterns count
             //   line 2: total sorted guesses count
@@ -741,6 +771,11 @@ class WordGamesController {
             const startTime = Date.now();
             const result = await this.executeCommand(command, username);
             const executionTime = Date.now() - startTime;
+
+            if (!result.success) {
+                console.error(`Solver execution failed for command: ${command}`, result.error);
+                return sendError(res, 500, 'Solver error');
+            }
 
             // Parse stdout: the C++ headless mode outputs:
             //   line 1: total possible words count

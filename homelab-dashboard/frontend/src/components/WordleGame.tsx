@@ -154,9 +154,6 @@ const WordleGuessInput = forwardRef<WordleGuessInputRef, WordleGuessInputProps>(
                     size="small"
                     value={localGuess}
                     onChange={handleLocalGuessChange}
-                    sx={{
-                        animation: isPulsing ? `${pulseKeyframes} 0.8s ease-in-out` : 'none'
-                    }}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault();
@@ -219,6 +216,7 @@ const WordleGuessInput = forwardRef<WordleGuessInputRef, WordleGuessInputProps>(
                                             position: 'relative',
                                             borderRadius: 0.5,
                                             userSelect: 'none',
+                                            animation: isPulsing ? `${pulseKeyframes} 0.8s ease-in-out` : 'none',
                                             '&:hover': {
                                                 opacity: 0.8
                                             }
@@ -348,7 +346,7 @@ const WordleResults = ({ possibleWords, guessesWithEntropy, lastGameData, isLoad
                         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                             <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
                                 <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
-                                    <Table size="small" stickyHeader>
+                                    <Table size="small" stickyHeader sx={{ minWidth: 500 }}>
                                         <TableHead>
                                             <TableRow>
                                                 <TableCell sx={{ fontWeight: 'bold' }}>Word</TableCell>
@@ -400,7 +398,7 @@ const WordleResults = ({ possibleWords, guessesWithEntropy, lastGameData, isLoad
                         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                             <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
                                 <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
-                                    <Table size="small" stickyHeader>
+                                    <Table size="small" stickyHeader sx={{ minWidth: 500 }}>
                                         <TableHead>
                                             <TableRow>
                                                 <TableCell sx={{ fontWeight: 'bold' }}>Word</TableCell>
@@ -665,7 +663,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, isSo
                             </Typography>
                         </Box>
 
-                        <Stack spacing={2} sx={{ flexGrow: 1, overflowY: 'auto', pr: 0.5, minHeight: 0 }}>
+                        <Stack spacing={2} sx={{ flexGrow: 1, pr: 0.5, minHeight: 0 }}>
                             {/* Add Guess Section */}
                             <WordleGuessInput
                                 ref={guessInputRef}
@@ -684,7 +682,15 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, isSo
                                     {`Current Guesses (${wordleGuesses.length})`}
                                 </Typography>
                                 {wordleGuesses.length > 0 ? (
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 160, overflowY: 'auto', pr: 0.5, pb: 1.5 }}>
+                                    <Box sx={{ 
+                                        display: 'flex', 
+                                        flexDirection: 'column', 
+                                        gap: 1, 
+                                        maxHeight: 160, 
+                                        overflowY: 'auto', 
+                                        pr: 0.5, 
+                                        pb: 1.5
+                                    }}>
                                         {wordleGuesses.map((guess, index) => (
                                             <Box key={index} sx={{
                                                 display: 'flex',
