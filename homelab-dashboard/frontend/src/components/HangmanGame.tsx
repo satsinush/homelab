@@ -219,7 +219,7 @@ const HangmanGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, onCl
     const [config, setConfig] = useState({
         maxDepth: 1,
         maxGuesses: 6,
-        excludeUncommonWords: true
+        excludeUncommonWords: false
     });
 
     const settingsFields: FieldDefinition[] = [

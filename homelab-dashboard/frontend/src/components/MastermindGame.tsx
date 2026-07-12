@@ -606,7 +606,7 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
         });
     }, []);
 
-    const addGuess = useCallback(() => {
+    const addGuess = useCallback((shouldSolve = false) => {
         const isPatternFull = state.currentPattern.every(slot => slot !== null);
         if (!isPatternFull) {
             showError('Please fill all slots for the guess pattern');
@@ -629,14 +629,42 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
             displayPattern: patternString
         };
 
+        const updatedGuesses = [...state.guesses, newGuess];
+
         setState(prev => ({
             ...prev,
-            guesses: [...prev.guesses, newGuess],
+            guesses: updatedGuesses,
             currentPattern: Array(prev.numPegs).fill(null),
             correctPosition: 0,
             correctColor: 0
         }));
-    }, [state.currentPattern, state.correctPosition, state.correctColor, showError]);
+
+        if (shouldSolve) {
+            const requestGuesses = updatedGuesses.map(g => g.pattern);
+            const blackPegs = updatedGuesses.map(g => g.correctPosition);
+            const whitePegs = updatedGuesses.map(g => g.correctColor);
+
+            const enabledColorChars = Object.keys(enabledColors)
+                .map(key => parseInt(key, 10))
+                .filter(key => enabledColors[key])
+                .map(key => PEG_COLOR_CHARS[key])
+                .join('');
+
+            onSolve('mastermind', {
+                guesses: requestGuesses,
+                blackPegs,
+                whitePegs,
+                slots: state.numPegs,
+                colors: enabledColorChars,
+                duplicates: state.allowDuplicates === 1,
+                maxDepth: state.maxDepth,
+                autoDepth: state.autoDepth,
+                maxGuesses: state.maxGuesses,
+                start: 0,
+                end: 100
+            });
+        }
+    }, [state.currentPattern, state.correctPosition, state.correctColor, state.guesses, state.numPegs, enabledColors, state.allowDuplicates, state.maxDepth, state.autoDepth, state.maxGuesses, onSolve, showError]);
 
     const removeGuess = useCallback((index: number) => {
         setState(prev => ({
@@ -680,14 +708,17 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                 if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
                     return;
                 }
-                if (state.guesses.length > 0 && !isLoading && gameStatus?.healthy) {
+                const isPatternFull = state.currentPattern.every(slot => slot !== null);
+                if (isPatternFull) {
+                    addGuess(false);
+                } else if (state.guesses.length > 0 && !isLoading && gameStatus?.healthy) {
                     handleSolve();
                 }
             }
         };
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [state.guesses, isLoading, gameStatus, handleSolve]);
+    }, [state.guesses, state.currentPattern, isLoading, gameStatus, handleSolve, addGuess]);
 
     const settingsFields: FieldDefinition[] = [
         {
@@ -902,17 +933,31 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
                                     </Box>
                                 </Stack>
 
-                                <Button
-                                    variant="outlined"
-                                    onClick={addGuess}
-                                    disabled={state.currentPattern.includes(null)}
-                                    startIcon={<AddIcon />}
-                                    fullWidth
-                                    size="small"
-                                    sx={{ mt: 1.5 }}
-                                >
-                                    Add Guess
-                                </Button>
+                                <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+                                    <Button
+                                        variant="contained"
+                                        onClick={() => addGuess(true)}
+                                        disabled={state.currentPattern.includes(null)}
+                                        startIcon={<PlayIcon />}
+                                        size="small"
+                                        sx={{ flexGrow: 1 }}
+                                    >
+                                        Add & Solve
+                                    </Button>
+                                    <Tooltip title="Add guess without solving">
+                                        <span>
+                                            <Button
+                                                variant="outlined"
+                                                onClick={() => addGuess(false)}
+                                                disabled={state.currentPattern.includes(null)}
+                                                size="small"
+                                                sx={{ minWidth: 38, width: 38, height: 38, p: 0 }}
+                                            >
+                                                <AddIcon />
+                                            </Button>
+                                        </span>
+                                    </Tooltip>
+                                </Stack>
                             </Box>
 
                             {/* Guesses Log */}

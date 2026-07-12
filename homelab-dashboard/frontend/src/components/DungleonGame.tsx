@@ -44,7 +44,8 @@ import {
     Close as CloseIcon,
     ArrowBack as BackspaceIcon,
     Settings as SettingsIcon,
-    ContentCopy as CopyIcon
+    ContentCopy as CopyIcon,
+    Add as AddIcon
 } from '@mui/icons-material';
 import GameSettingsDialog, { FieldDefinition, DialogConfig } from './GameSettingsDialog';
 import { DungleonResultState, GameStatus } from '../types/api';
@@ -489,7 +490,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
         });
     }, []);
 
-    const submitGuess = useCallback(() => {
+    const submitGuess = useCallback(async (shouldSolve = false) => {
         if (currentPattern.length !== 5) {
             showError('Please select exactly 5 characters');
             return;
@@ -500,10 +501,29 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
             patternArray: [...currentPattern],
             feedback: [...currentFeedback]
         };
-        setGuesses([...guesses, newGuess]);
+        const updatedGuesses = [...guesses, newGuess];
+        setGuesses(updatedGuesses);
         setCurrentPattern([]);
         setCurrentFeedback([0, 0, 0, 0, 0]);
-    }, [currentPattern, currentFeedback, guesses, showError]);
+
+        if (shouldSolve) {
+            const feedbackMapping = ['X', 'Y', 'G', 'R', 'D'];
+            const requestGuesses = updatedGuesses.map(g => g.pattern);
+            const requestResults = updatedGuesses.map(g => g.feedback.map(val => feedbackMapping[val] || 'X').join(''));
+            const requestSolutions = solutions.map(s => s.pattern);
+
+            await onSolve('dungleon', {
+                guesses: requestGuesses,
+                results: requestResults,
+                solutions: requestSolutions,
+                maxDepth: config.maxDepth,
+                autoDepth: config.autoDepth,
+                excludeImpossiblePatterns: config.excludeImpossible ? 1 : 0,
+                start: 0,
+                end: 100
+            });
+        }
+    }, [currentPattern, currentFeedback, guesses, solutions, config, onSolve, showError]);
 
     const submitSolution = useCallback(() => {
         if (currentPattern.length !== 5) {
@@ -572,14 +592,16 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                 if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
                     return;
                 }
-                if (guesses.length > 0 && !isLoading && gameStatus?.healthy) {
+                if (currentPattern.length === 5) {
+                    submitGuess(false);
+                } else if (guesses.length > 0 && !isLoading && gameStatus?.healthy) {
                     handleSolve();
                 }
             }
         };
         window.addEventListener('keydown', handleGlobalKeyDown);
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-    }, [guesses, isLoading, gameStatus, handleSolve]);
+    }, [guesses, currentPattern, isLoading, gameStatus, handleSolve, submitGuess]);
 
     const handleClear = useCallback(() => {
         setGuesses([]);
@@ -741,17 +763,33 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
 
                             {/* Submit Buttons */}
                             <Stack direction="row" spacing={2} sx={{ flexShrink: 0 }}>
-                                <Button
-                                    variant="contained"
-                                    onClick={submitGuess}
-                                    disabled={currentPattern.length !== 5}
-                                    fullWidth
-                                    color="primary"
-                                    size="small"
-                                    sx={{ flex: 1 }}
-                                >
-                                    Submit Guess
-                                </Button>
+                                <Stack direction="row" spacing={0.5} sx={{ flex: 1.5 }}>
+                                    <Button
+                                        variant="contained"
+                                        onClick={() => submitGuess(true)}
+                                        disabled={currentPattern.length !== 5}
+                                        color="primary"
+                                        size="small"
+                                        startIcon={<PlayIcon />}
+                                        sx={{ flexGrow: 1 }}
+                                    >
+                                        Add & Solve
+                                    </Button>
+                                    <Tooltip title="Add guess without solving">
+                                        <span>
+                                            <Button
+                                                variant="outlined"
+                                                onClick={() => submitGuess(false)}
+                                                disabled={currentPattern.length !== 5}
+                                                color="primary"
+                                                size="small"
+                                                sx={{ minWidth: 32, width: 32, height: 32, p: 0 }}
+                                            >
+                                                <AddIcon />
+                                            </Button>
+                                        </span>
+                                    </Tooltip>
+                                </Stack>
                                 <Tooltip title="Gauntlet Mode: Add past Gauntlet solutions to exclude">
                                     <Box component="span" sx={{ flex: 1, display: 'inline-flex' }}>
                                         <Button

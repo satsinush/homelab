@@ -70,6 +70,7 @@ class WordGamesController {
                 minUniqueLetters,
                 pruneRedundantPaths,
                 pruneDominatedClasses,
+                excludeUncommonWords,
                 start = 0,
                 end = 100
             } = req.body;
@@ -100,6 +101,10 @@ class WordGamesController {
                 `--letters ${cleanLetters}`,
                 `-o ${resultsFilename}`
             ];
+
+            if (excludeUncommonWords !== undefined) {
+                args.push(`--exclude-uncommon-words ${excludeUncommonWords ? 1 : 0}`);
+            }
 
             // Use preset or custom config
             const presetVal = parseInt(preset);
@@ -172,7 +177,10 @@ class WordGamesController {
             const {
                 centerLetter,
                 outerLetters,
-                minWordLength = 4,
+                mustIncludeFirstLetter = true,
+                reuseLetters = true,
+                excludeUncommonWords = false,
+                allowAnyLength = false,
                 start = 0,
                 end = 100
             } = req.body;
@@ -192,7 +200,7 @@ class WordGamesController {
             const cleanCenter = centerLetter.trim().toLowerCase();
             const cleanOuter = outerLetters.replace(/\s/g, '').toLowerCase();
 
-            if (cleanOuter.length !== 6) {
+            if (!allowAnyLength && cleanOuter.length !== 6) {
                 return sendError(res, 400, 'Outer letters must be exactly 6 characters');
             }
 
@@ -214,10 +222,14 @@ class WordGamesController {
             const args = [
                 'spellingbee',
                 `--letters ${allLetters}`,
-                `--must-include-first-letter 1`,
-                `--reuse-letters 1`,
+                `--must-include-first-letter ${mustIncludeFirstLetter ? 1 : 0}`,
+                `--reuse-letters ${reuseLetters ? 1 : 0}`,
                 `-o ${resultsFilename}`
             ];
+
+            if (excludeUncommonWords) {
+                args.push('--exclude-uncommon-words 1');
+            }
 
             const command = args.join(' ');
             console.log(`Executing Spelling Bee solver: ${command}`);
@@ -819,7 +831,7 @@ class WordGamesController {
             // Handle pagination based on gameMode
             if (gameMode === 'wordle' || gameMode === 'mastermind' || gameMode === 'hangman' || gameMode === 'dungleon') {
                 const fileContent = fs.readFileSync(fullResultsPath, 'utf8');
-                let solutions: any = {};
+                let solutions: Record<string, unknown> = {};
 
                 if (gameMode === 'wordle') {
                     const parsed = this.parseWordleOutput(fileContent, possibleCount);

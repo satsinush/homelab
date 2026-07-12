@@ -71,6 +71,7 @@ interface WordleResultsProps {
 interface WordleGuessInputProps {
     wordLength: number;
     onAddGuess: (word: string, colors: number[]) => void;
+    onAddAndSolve: (word: string, colors: number[]) => void;
     onSolve: () => void;
     hasGuesses: boolean;
     showError: (message: string) => void;
@@ -84,6 +85,7 @@ export interface WordleGuessInputRef {
 const WordleGuessInput = forwardRef<WordleGuessInputRef, WordleGuessInputProps>(({
     wordLength,
     onAddGuess,
+    onAddAndSolve,
     onSolve,
     hasGuesses,
     showError,
@@ -123,13 +125,17 @@ const WordleGuessInput = forwardRef<WordleGuessInputRef, WordleGuessInputProps>(
         });
     };
 
-    const handleAdd = () => {
+    const handleAdd = (shouldSolve: boolean) => {
         const guess = localGuess.trim().toUpperCase();
         if (guess.length !== wordLength) {
             showError(`Guess must be exactly ${wordLength} letters`);
             return;
         }
-        onAddGuess(guess, [...localGuessColors]);
+        if (shouldSolve) {
+            onAddAndSolve(guess, [...localGuessColors]);
+        } else {
+            onAddGuess(guess, [...localGuessColors]);
+        }
         setLocalGuess('');
         setLocalGuessColors(Array(wordLength).fill(0));
     };
@@ -155,7 +161,7 @@ const WordleGuessInput = forwardRef<WordleGuessInputRef, WordleGuessInputProps>(
                         if (e.key === 'Enter') {
                             e.preventDefault();
                             if (localGuess.length === wordLength) {
-                                handleAdd();
+                                handleAdd(false);
                             } else if (localGuess.length === 0 && hasGuesses) {
                                 onSolve();
                             }
@@ -241,16 +247,31 @@ const WordleGuessInput = forwardRef<WordleGuessInputRef, WordleGuessInputProps>(
                     </Box>
                 )}
 
-                <Button
-                    variant="outlined"
-                    onClick={handleAdd}
-                    disabled={localGuess.length !== wordLength}
-                    startIcon={<AddIcon />}
-                    size="small"
-                    fullWidth
-                >
-                    Add Word
-                </Button>
+                <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
+                    <Button
+                        variant="contained"
+                        onClick={() => handleAdd(true)}
+                        disabled={localGuess.length !== wordLength}
+                        startIcon={<PlayIcon />}
+                        size="small"
+                        sx={{ flexGrow: 1 }}
+                    >
+                        Add & Solve
+                    </Button>
+                    <Tooltip title="Add guess without solving">
+                        <span>
+                            <Button
+                                variant="outlined"
+                                onClick={() => handleAdd(false)}
+                                disabled={localGuess.length !== wordLength}
+                                size="small"
+                                sx={{ minWidth: 38, width: 38, height: 38, p: 0 }}
+                            >
+                                <AddIcon />
+                            </Button>
+                        </span>
+                    </Tooltip>
+                </Stack>
             </Stack>
         </Box>
     );
@@ -533,26 +554,43 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, isSo
         }
     }), []);
 
-    const addWordleGuess = useCallback((word: string, colors: number[]) => {
+    const createWordleGuess = useCallback((word: string, colors: number[]): WordleGuessItem => {
         const feedbackMap = ['X', 'Y', 'G'];
         const feedback = colors.map(c => feedbackMap[c] || 'X').join('');
-        const newGuess: WordleGuessItem = { word, feedback, colors };
-        setWordleGuesses(prev => [...prev, newGuess]);
+        return { word, feedback, colors };
     }, []);
+
+    const addWordleGuess = useCallback((word: string, colors: number[]) => {
+        const newGuess = createWordleGuess(word, colors);
+        setWordleGuesses(prev => [...prev, newGuess]);
+    }, [createWordleGuess]);
+
+    const handleAddAndSolveWordle = useCallback(async (word: string, colors: number[]) => {
+        const newGuess = createWordleGuess(word, colors);
+        const updatedGuesses = [...wordleGuesses, newGuess];
+        setWordleGuesses(updatedGuesses);
+
+        await onSolve('wordle', {
+            guesses: updatedGuesses.map(g => g.word),
+            results: updatedGuesses.map(g => g.feedback),
+            wordLength: config.wordLength,
+            maxDepth: config.maxDepth,
+            autoDepth: config.autoDepth,
+            maxGuesses: config.maxGuesses,
+            excludeUncommonWords: config.excludeUncommonWords ? 1 : 0,
+            start: 0,
+            end: 100
+        });
+    }, [wordleGuesses, config, onSolve, createWordleGuess]);
 
     const toggleExistingGuessColor = useCallback((guessIndex: number, letterIndex: number) => {
         setWordleGuesses(prev => prev.map((guess, idx) => {
             if (idx !== guessIndex) return guess;
             const newColors = [...guess.colors];
             newColors[letterIndex] = (newColors[letterIndex] + 1) % 3;
-            const feedbackMap = ['X', 'Y', 'G'];
-            return {
-                ...guess,
-                colors: newColors,
-                feedback: newColors.map(c => feedbackMap[c] || 'X').join('')
-            };
+            return createWordleGuess(guess.word, newColors);
         }));
-    }, []);
+    }, [createWordleGuess]);
 
     const removeWordleGuess = useCallback((index: number) => {
         setWordleGuesses(prev => prev.filter((_, i) => i !== index));
@@ -633,6 +671,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, isSo
                                 ref={guessInputRef}
                                 wordLength={config.wordLength}
                                 onAddGuess={addWordleGuess}
+                                onAddAndSolve={handleAddAndSolveWordle}
                                 onSolve={handleSolve}
                                 hasGuesses={wordleGuesses.length > 0}
                                 showError={showError}

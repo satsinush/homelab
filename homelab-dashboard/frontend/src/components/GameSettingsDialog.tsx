@@ -54,11 +54,44 @@ const GameSettingsDialog = ({ open, onClose, onSave, title, config, fields, chil
     }, [config, open]);
 
     const handleChange = (name: string, value: ConfigValue) => {
-        setLocalConfig((prev) => ({ ...prev, [name]: value }));
+        setLocalConfig((prev) => {
+            const next = { ...prev, [name]: value };
+            if (name === 'preset') {
+                const val = Number(value);
+                if (val === 1) {
+                    next.mustIncludeFirstLetter = true;
+                    next.reuseLetters = true;
+                    next.allowAnyLength = false;
+                } else if (val === 2) {
+                    next.mustIncludeFirstLetter = false;
+                    next.reuseLetters = false;
+                    next.allowAnyLength = true;
+                }
+            }
+            return next;
+        });
     };
 
     const handleSave = () => {
-        onSave(localConfig);
+        const finalConfig = { ...localConfig };
+        fields.forEach(field => {
+            if (field.type === 'number') {
+                const val = finalConfig[field.name];
+                if (val === '' || val === undefined) {
+                    if (field.min !== undefined) {
+                        finalConfig[field.name] = field.min;
+                    }
+                } else {
+                    let num = parseInt(String(val), 10);
+                    if (!isNaN(num)) {
+                        if (field.min !== undefined) num = Math.max(field.min, num);
+                        if (field.max !== undefined) num = Math.min(field.max, num);
+                        finalConfig[field.name] = num;
+                    }
+                }
+            }
+        });
+        onSave(finalConfig);
         onClose();
     };
 
@@ -115,7 +148,16 @@ const GameSettingsDialog = ({ open, onClose, onSave, title, config, fields, chil
                             if (val === '') {
                                 handleChange(field.name, '');
                             } else {
-                                let num = parseInt(val, 10);
+                                const num = parseInt(val, 10);
+                                if (!isNaN(num)) {
+                                    handleChange(field.name, num);
+                                }
+                            }
+                        }}
+                        onBlur={() => {
+                            const val = localConfig[field.name];
+                            if (val !== '' && val !== undefined) {
+                                let num = parseInt(String(val), 10);
                                 if (!isNaN(num)) {
                                     if (field.min !== undefined) num = Math.max(field.min, num);
                                     if (field.max !== undefined) num = Math.min(field.max, num);

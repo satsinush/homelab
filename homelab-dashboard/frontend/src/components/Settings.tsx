@@ -235,8 +235,25 @@ const Settings = () => {
                                             <TextField
                                                 label="Scan Timeout (ms)"
                                                 type="number"
-                                                value={serverSettings.scanTimeout}
-                                                onChange={(e) => handleServerSettingChange('scanTimeout', parseInt(e.target.value))}
+                                                value={serverSettings.scanTimeout === undefined || isNaN(Number(serverSettings.scanTimeout)) ? '' : serverSettings.scanTimeout}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val === '') {
+                                                        handleServerSettingChange('scanTimeout', '');
+                                                    } else {
+                                                        const num = parseInt(val, 10);
+                                                        if (!isNaN(num)) {
+                                                            handleServerSettingChange('scanTimeout', num);
+                                                        }
+                                                    }
+                                                }}
+                                                onBlur={() => {
+                                                    let num = parseInt(String(serverSettings.scanTimeout), 10);
+                                                    if (isNaN(num) || num < 1000) {
+                                                        num = 1000;
+                                                    }
+                                                    handleServerSettingChange('scanTimeout', num);
+                                                }}
                                                 fullWidth
                                                 helperText="Timeout for network scan operations"
                                                 slotProps={{
@@ -252,8 +269,25 @@ const Settings = () => {
                                             <TextField
                                                 label="Cache Timeout (ms)"
                                                 type="number"
-                                                value={serverSettings.cacheTimeout}
-                                                onChange={(e) => handleServerSettingChange('cacheTimeout', parseInt(e.target.value))}
+                                                value={serverSettings.cacheTimeout === undefined || isNaN(Number(serverSettings.cacheTimeout)) ? '' : serverSettings.cacheTimeout}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val === '') {
+                                                        handleServerSettingChange('cacheTimeout', '');
+                                                    } else {
+                                                        const num = parseInt(val, 10);
+                                                        if (!isNaN(num)) {
+                                                            handleServerSettingChange('cacheTimeout', num);
+                                                        }
+                                                    }
+                                                }}
+                                                onBlur={() => {
+                                                    let num = parseInt(String(serverSettings.cacheTimeout), 10);
+                                                    if (isNaN(num) || num < 0) {
+                                                        num = 0;
+                                                    }
+                                                    handleServerSettingChange('cacheTimeout', num);
+                                                }}
                                                 fullWidth
                                                 helperText="How long to cache device status"
                                                 slotProps={{
@@ -328,8 +362,27 @@ const Settings = () => {
                                             <TextField
                                                 label="Devices Per Page"
                                                 type="number"
-                                                value={userSettings.devicesPerPage || 25}
-                                                onChange={(e) => handleUserSettingChange('devicesPerPage', Math.max(5, Math.min(100, parseInt(e.target.value) || 25)))}
+                                                value={userSettings.devicesPerPage === undefined || userSettings.devicesPerPage === '' ? '' : userSettings.devicesPerPage}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val === '') {
+                                                        handleUserSettingChange('devicesPerPage', '');
+                                                    } else {
+                                                        const num = parseInt(val, 10);
+                                                        if (!isNaN(num)) {
+                                                            handleUserSettingChange('devicesPerPage', num);
+                                                        }
+                                                    }
+                                                }}
+                                                onBlur={() => {
+                                                    let num = parseInt(String(userSettings.devicesPerPage), 10);
+                                                    if (isNaN(num) || num < 5) {
+                                                        num = 25; // Default/Min fallback
+                                                    } else if (num > 100) {
+                                                        num = 100;
+                                                    }
+                                                    handleUserSettingChange('devicesPerPage', num);
+                                                }}
                                                 fullWidth
                                                 helperText="Number of devices shown per page (5-100)"
                                                 slotProps={{

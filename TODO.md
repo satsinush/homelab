@@ -1,4 +1,3 @@
-- make lint command simpler?
 - focus SSO button on page load
 - stop catching errors as unkown?
 - add rustdesk api server

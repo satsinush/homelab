@@ -25,19 +25,20 @@ import { SpellingBeeResultState, GameStatus } from '../types/api';
 
 interface SpellingBeeDisplayProps {
     letters: string;
+    mustIncludeFirstLetter?: boolean;
 }
 
 // Spelling Bee display component
-const SpellingBeeDisplay = ({ letters }: SpellingBeeDisplayProps) => {
+const SpellingBeeDisplay = ({ letters, mustIncludeFirstLetter = true }: SpellingBeeDisplayProps) => {
     const padded = (letters || '').toUpperCase().padEnd(7, ' ');
     const letterArray = padded.split('');
     const centerLetter = letterArray[0];
     const outerLetters = letterArray.slice(1, 7);
 
     return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', my: 'auto', flexGrow: 1 }}>
             {/* Hexagon Layout */}
-            <Box sx={{ position: 'relative', width: 220, height: 220 }}>
+            <Box sx={{ position: 'relative', width: { xs: 220, sm: 280 }, height: { xs: 220, sm: 280 } }}>
                 {/* Center Letter */}
                 <Box
                     sx={{
@@ -45,15 +46,15 @@ const SpellingBeeDisplay = ({ letters }: SpellingBeeDisplayProps) => {
                         top: '50%',
                         left: '50%',
                         transform: 'translate(-50%, -50%)',
-                        width: 56,
-                        height: 48,
+                        width: { xs: 56, sm: 72 },
+                        height: { xs: 48, sm: 62 },
                         clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
-                        bgcolor: 'warning.main',
-                        color: 'warning.contrastText',
+                        bgcolor: mustIncludeFirstLetter ? 'warning.main' : 'action.hover',
+                        color: mustIncludeFirstLetter ? 'warning.contrastText' : 'text.primary',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '1.5rem',
+                        fontSize: { xs: '1.5rem', sm: '1.8rem' },
                         fontWeight: 'bold',
                         filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.15))',
                         zIndex: 2
@@ -66,27 +67,29 @@ const SpellingBeeDisplay = ({ letters }: SpellingBeeDisplayProps) => {
                 {outerLetters.map((letter, index) => {
                     // Offset angle by 30 degrees so flat edges align perfectly in honeycomb tiling
                     const angle = ((index * 60 + 30) * Math.PI) / 180;
-                    const radius = 56; // Taller radius adds a bit more spacing/gap
-                    const x = Math.round(radius * Math.cos(angle));
-                    const y = Math.round(radius * Math.sin(angle));
-
                     return (
                         <Box
                             key={index}
                             sx={{
                                 position: 'absolute',
-                                top: `calc(50% + ${y}px)`,
-                                left: `calc(50% + ${x}px)`,
+                                top: {
+                                    xs: `calc(50% + ${Math.round(56 * Math.sin(angle))}px)`,
+                                    sm: `calc(50% + ${Math.round(74 * Math.sin(angle))}px)`
+                                },
+                                left: {
+                                    xs: `calc(50% + ${Math.round(56 * Math.cos(angle))}px)`,
+                                    sm: `calc(50% + ${Math.round(74 * Math.cos(angle))}px)`
+                                },
                                 transform: 'translate(-50%, -50%)',
-                                width: 56,
-                                height: 48,
+                                width: { xs: 56, sm: 72 },
+                                height: { xs: 48, sm: 62 },
                                 clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
                                 bgcolor: 'action.hover',
                                 color: 'text.primary',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: '1.25rem',
+                                fontSize: { xs: '1.25rem', sm: '1.5rem' },
                                 fontWeight: 'bold',
                                 filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.15))',
                                 zIndex: 1
@@ -196,9 +199,11 @@ const SpellingBeeGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
     const [spellingBeeLetters, setSpellingBeeLetters] = useState('');
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [config, setConfig] = useState({
+        preset: 1,
         excludeUncommonWords: false,
         mustIncludeFirstLetter: true,
-        reuseLetters: true
+        reuseLetters: true,
+        allowAnyLength: false
     });
 
     const settingsFields: FieldDefinition[] = [
@@ -208,14 +213,32 @@ const SpellingBeeGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
             type: 'checkbox'
         },
         {
+            name: 'preset',
+            label: 'Preset',
+            type: 'select',
+            options: [
+                { value: 1, label: 'Default' },
+                { value: 2, label: 'Anagram Solver' },
+                { value: 0, label: 'Custom' }
+            ]
+        },
+        {
+            name: 'allowAnyLength',
+            label: 'Allow Any Number of Letters',
+            type: 'checkbox',
+            disabled: (cfg) => cfg.preset !== 0
+        },
+        {
             name: 'mustIncludeFirstLetter',
-            label: 'Must Include First Letter',
-            type: 'checkbox'
+            label: 'Must Include Center Letter',
+            type: 'checkbox',
+            disabled: (cfg) => cfg.preset !== 0
         },
         {
             name: 'reuseLetters',
             label: 'Allow Letter Reuse',
-            type: 'checkbox'
+            type: 'checkbox',
+            disabled: (cfg) => cfg.preset !== 0
         }
     ];
 
@@ -231,9 +254,17 @@ const SpellingBeeGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
     }, []);
 
     const handleSolve = useCallback(async () => {
-        if (spellingBeeLetters.length !== 7) {
-            showError('Please enter exactly 7 letters for Spelling Bee');
-            return;
+        const len = spellingBeeLetters.length;
+        if (config.allowAnyLength) {
+            if (len < 1) {
+                showError('Please enter at least 1 letter');
+                return;
+            }
+        } else {
+            if (len !== 7) {
+                showError('Please enter exactly 7 letters for Spelling Bee');
+                return;
+            }
         }
 
         const centerLetter = spellingBeeLetters.charAt(0);
@@ -243,10 +274,14 @@ const SpellingBeeGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
             centerLetter,
             outerLetters,
             minWordLength: 4,
+            mustIncludeFirstLetter: config.mustIncludeFirstLetter,
+            reuseLetters: config.reuseLetters,
+            excludeUncommonWords: config.excludeUncommonWords,
+            allowAnyLength: config.allowAnyLength,
             start: 0,
             end: 100
         });
-    }, [spellingBeeLetters, onSolve, showError]);
+    }, [spellingBeeLetters, config, onSolve, showError]);
 
     const handleCopy = useCallback((text: string) => {
         navigator.clipboard.writeText(text);
@@ -289,7 +324,9 @@ const SpellingBeeGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
                                 Spelling Bee
                             </Typography>
                             <Typography variant="caption" color="text.secondary" display="block">
-                                Enter 7 letters. The first letter is the Center (required) letter.
+                                {config.allowAnyLength 
+                                    ? "Enter letters. The first letter is the Center (required) letter."
+                                    : "Enter 7 letters. The first letter is the Center (required) letter."}
                             </Typography>
                         </Box>
 
@@ -303,18 +340,44 @@ const SpellingBeeGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
                                 onChange={handleSpellingBeeChange}
                                 placeholder="E.g., CENTERX"
                                 disabled={isLoading}
-                                slotProps={{ htmlInput: { maxLength: 7, autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'off', spellCheck: 'false', style: { fontFamily: 'monospace', letterSpacing: '0.1em' } } }}
+                                slotProps={{ htmlInput: { maxLength: config.allowAnyLength ? undefined : 7, autoComplete: 'off', autoCorrect: 'off', autoCapitalize: 'off', spellCheck: 'false', style: { fontFamily: 'monospace', letterSpacing: '0.1em' } } }}
                                 onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !isLoading && spellingBeeLetters.length === 7 && gameStatus?.healthy) {
-                                        handleSolve();
+                                    if (e.key === 'Enter' && !isLoading && gameStatus?.healthy) {
+                                        const len = spellingBeeLetters.length;
+                                        if (config.allowAnyLength ? len >= 1 : len === 7) {
+                                            handleSolve();
+                                        }
                                     }
                                 }}
                             />
 
-                            {/* Honeycomb Display */}
-                            <Box sx={{ flexShrink: 0 }}>
-                                <SpellingBeeDisplay letters={spellingBeeLetters} />
-                            </Box>
+                             {config.allowAnyLength ? (
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center', my: 2 }}>
+                                    {spellingBeeLetters.split('').map((letter, idx) => (
+                                        <Paper
+                                            key={idx}
+                                            variant="outlined"
+                                            sx={{
+                                                width: 38,
+                                                height: 38,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontWeight: 'bold',
+                                                bgcolor: (idx === 0 && config.mustIncludeFirstLetter) ? 'warning.main' : 'background.paper',
+                                                color: (idx === 0 && config.mustIncludeFirstLetter) ? 'warning.contrastText' : 'text.primary',
+                                                borderRadius: 1
+                                            }}
+                                        >
+                                            {letter}
+                                        </Paper>
+                                    ))}
+                                </Box>
+                            ) : (
+                                <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
+                                    <SpellingBeeDisplay letters={spellingBeeLetters} mustIncludeFirstLetter={config.mustIncludeFirstLetter} />
+                                </Box>
+                            )}
                         </Stack>
 
                         <Button
@@ -322,7 +385,7 @@ const SpellingBeeGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
                             variant="contained"
                             size="medium"
                             onClick={isSolving ? onCancel : handleSolve}
-                            disabled={!isSolving && (spellingBeeLetters.length !== 7 || !gameStatus?.healthy)}
+                            disabled={!isSolving && (!gameStatus?.healthy || (config.allowAnyLength ? spellingBeeLetters.length < 1 : spellingBeeLetters.length !== 7))}
                             color={isSolving ? "error" : "primary"}
                             startIcon={isSolving ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
                             sx={{ mt: 1.5, flexShrink: 0 }}
@@ -334,9 +397,11 @@ const SpellingBeeGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
                             open={settingsOpen}
                             onClose={() => setSettingsOpen(false)}
                             onSave={(newConfig: DialogConfig) => setConfig({
+                                preset: Number(newConfig.preset),
                                 excludeUncommonWords: Boolean(newConfig.excludeUncommonWords),
                                 mustIncludeFirstLetter: Boolean(newConfig.mustIncludeFirstLetter),
-                                reuseLetters: Boolean(newConfig.reuseLetters)
+                                reuseLetters: Boolean(newConfig.reuseLetters),
+                                allowAnyLength: Boolean(newConfig.allowAnyLength)
                             })}
                             title="Spelling Bee Settings"
                             config={config}

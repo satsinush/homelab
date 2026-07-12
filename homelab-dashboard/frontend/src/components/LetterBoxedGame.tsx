@@ -20,6 +20,8 @@ import {
     DialogContent,
     DialogActions,
     Divider,
+    FormControlLabel,
+    Checkbox,
     Table,
     TableBody,
     TableCell,
@@ -52,13 +54,13 @@ const LetterBoxedGrid = ({ letters }: LetterBoxedGridProps) => {
     const sides = formatLetters(letters);
 
     return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', my: 'auto', flexGrow: 1 }}>
             <Box
                 component="svg"
                 viewBox="0 0 240 240"
                 sx={{
-                    width: 240,
-                    height: 240,
+                    width: { xs: 240, sm: 300 },
+                    height: { xs: 240, sm: 300 },
                     overflow: 'visible'
                 }}
             >
@@ -237,6 +239,7 @@ interface PresetConfig {
 
 interface GameConfig extends PresetConfig {
     preset: number;
+    excludeUncommonWords: boolean;
 }
 
 interface LetterBoxedGameProps {
@@ -260,7 +263,8 @@ const LetterBoxedGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
         minWordLength: 3,
         minUniqueLetters: 2,
         pruneRedundantPaths: true,
-        pruneDominatedClasses: false
+        pruneDominatedClasses: false,
+        excludeUncommonWords: true
     });
     const [tempConfig, setTempConfig] = useState<GameConfig>(config);
 
@@ -275,7 +279,11 @@ const LetterBoxedGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
         if (config.preset === 0) {
             return config;
         }
-        return { ...presetConfigs[config.preset], preset: config.preset };
+        return {
+            ...presetConfigs[config.preset],
+            preset: config.preset,
+            excludeUncommonWords: config.excludeUncommonWords
+        };
     }, [config, presetConfigs]);
 
     const handleLetterBoxedChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -293,6 +301,7 @@ const LetterBoxedGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
         const requestData: Record<string, unknown> = {
             letters: letterBoxedLetters.trim(),
             preset: config.preset,
+            excludeUncommonWords: config.excludeUncommonWords,
             start: 0,
             end: 100
         };
@@ -318,17 +327,18 @@ const LetterBoxedGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
     }, []);
 
     const isCustom = tempConfig.preset === 0;
+    const tempConfigRecord = tempConfig as unknown as Record<string, unknown>;
 
     const handleOpenSettings = () => {
         setTempConfig(config);
         setSettingsOpen(true);
     };
 
-    const handleTempConfigChange = (field: keyof GameConfig, value: number | boolean) => {
+    const handleTempConfigChange = (field: keyof GameConfig, value: number | boolean | string) => {
         setTempConfig(prev => ({
             ...prev,
             [field]: value
-        }));
+        } as unknown as GameConfig));
     };
 
     const handlePresetChange = (preset: number) => {
@@ -339,15 +349,33 @@ const LetterBoxedGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
             }));
         } else {
             const pConfig = presetConfigs[preset];
-            setTempConfig({
+            setTempConfig(prev => ({
+                ...prev,
                 preset,
                 ...pConfig
-            });
+            }));
         }
     };
 
     const handleSaveSettings = () => {
-        setConfig(tempConfig);
+        const finalConfig = { ...tempConfig };
+        if (finalConfig.preset === 0) {
+            let maxD = parseInt(String(finalConfig.maxDepth), 10);
+            if (isNaN(maxD) || maxD < 1) maxD = config.maxDepth || 2;
+            else if (maxD > 5) maxD = 5;
+            finalConfig.maxDepth = maxD;
+
+            let minW = parseInt(String(finalConfig.minWordLength), 10);
+            if (isNaN(minW) || minW < 3) minW = config.minWordLength || 3;
+            else if (minW > 15) minW = 15;
+            finalConfig.minWordLength = minW;
+
+            let minU = parseInt(String(finalConfig.minUniqueLetters), 10);
+            if (isNaN(minU) || minU < 1) minU = config.minUniqueLetters || 1;
+            else if (minU > 12) minU = 12;
+            finalConfig.minUniqueLetters = minU;
+        }
+        setConfig(finalConfig);
         setSettingsOpen(false);
     };
 
@@ -406,7 +434,7 @@ const LetterBoxedGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
                             />
 
                             {/* Box Display */}
-                            <Box sx={{ flexShrink: 0 }}>
+                            <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
                                 <LetterBoxedGrid letters={letterBoxedLetters} />
                             </Box>
                         </Stack>
@@ -443,6 +471,16 @@ const LetterBoxedGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
                                         </Select>
                                     </FormControl>
 
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                checked={tempConfig.excludeUncommonWords}
+                                                onChange={(e) => handleTempConfigChange('excludeUncommonWords', e.target.checked)}
+                                            />
+                                        }
+                                        label="Exclude Uncommon Words"
+                                    />
+
                                     <Divider />
 
                                     <Box>
@@ -456,8 +494,27 @@ const LetterBoxedGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
                                                     label="Max Depth (Words)"
                                                     type="number"
                                                     size="small"
-                                                    value={tempConfig.maxDepth}
-                                                    onChange={(e) => handleTempConfigChange('maxDepth', parseInt(e.target.value) || 0)}
+                                                    value={tempConfigRecord.maxDepth === undefined || tempConfigRecord.maxDepth === '' ? '' : (tempConfigRecord.maxDepth as number)}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (val === '') {
+                                                            handleTempConfigChange('maxDepth', '');
+                                                        } else {
+                                                            const num = parseInt(val, 10);
+                                                            if (!isNaN(num)) {
+                                                                handleTempConfigChange('maxDepth', num);
+                                                            }
+                                                        }
+                                                    }}
+                                                    onBlur={() => {
+                                                        let num = parseInt(String(tempConfig.maxDepth), 10);
+                                                        if (isNaN(num)) {
+                                                            num = config.maxDepth || 2;
+                                                        } else {
+                                                            num = Math.max(1, Math.min(5, num));
+                                                        }
+                                                        handleTempConfigChange('maxDepth', num);
+                                                    }}
                                                     fullWidth
                                                     disabled={!isCustom}
                                                     slotProps={{ htmlInput: { min: 1, max: 5 } }}
@@ -468,8 +525,27 @@ const LetterBoxedGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
                                                     label="Min Word Length"
                                                     type="number"
                                                     size="small"
-                                                    value={tempConfig.minWordLength}
-                                                    onChange={(e) => handleTempConfigChange('minWordLength', parseInt(e.target.value) || 0)}
+                                                    value={tempConfigRecord.minWordLength === undefined || tempConfigRecord.minWordLength === '' ? '' : (tempConfigRecord.minWordLength as number)}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (val === '') {
+                                                            handleTempConfigChange('minWordLength', '');
+                                                        } else {
+                                                            const num = parseInt(val, 10);
+                                                            if (!isNaN(num)) {
+                                                                handleTempConfigChange('minWordLength', num);
+                                                            }
+                                                        }
+                                                    }}
+                                                    onBlur={() => {
+                                                        let num = parseInt(String(tempConfig.minWordLength), 10);
+                                                        if (isNaN(num)) {
+                                                            num = config.minWordLength || 3;
+                                                        } else {
+                                                            num = Math.max(3, Math.min(15, num));
+                                                        }
+                                                        handleTempConfigChange('minWordLength', num);
+                                                    }}
                                                     fullWidth
                                                     disabled={!isCustom}
                                                     slotProps={{ htmlInput: { min: 3, max: 15 } }}
@@ -480,8 +556,27 @@ const LetterBoxedGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
                                                     label="Min Unique Letters"
                                                     type="number"
                                                     size="small"
-                                                    value={tempConfig.minUniqueLetters}
-                                                    onChange={(e) => handleTempConfigChange('minUniqueLetters', parseInt(e.target.value) || 0)}
+                                                    value={tempConfigRecord.minUniqueLetters === undefined || tempConfigRecord.minUniqueLetters === '' ? '' : (tempConfigRecord.minUniqueLetters as number)}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (val === '') {
+                                                            handleTempConfigChange('minUniqueLetters', '');
+                                                        } else {
+                                                            const num = parseInt(val, 10);
+                                                            if (!isNaN(num)) {
+                                                                handleTempConfigChange('minUniqueLetters', num);
+                                                            }
+                                                        }
+                                                    }}
+                                                    onBlur={() => {
+                                                        let num = parseInt(String(tempConfig.minUniqueLetters), 10);
+                                                        if (isNaN(num)) {
+                                                            num = config.minUniqueLetters || 1;
+                                                        } else {
+                                                            num = Math.max(1, Math.min(12, num));
+                                                        }
+                                                        handleTempConfigChange('minUniqueLetters', num);
+                                                    }}
                                                     fullWidth
                                                     disabled={!isCustom}
                                                     slotProps={{ htmlInput: { min: 1, max: 12 } }}
