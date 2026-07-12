@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-=======
-- differentiate number of possible words from possible patterns in final hangman output
-
-- split up load more call into separate requests for each game
->>>>>>> d08fef0f5b2376d869b3947aa463b7b53d84a2e2
 - make lint command simpler?
+- focus SSO button on page load
 - stop catching errors as unkown?
 - add rustdesk api server
 - Pcie gen 3?

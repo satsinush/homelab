@@ -203,4 +203,19 @@ router.post('/wordgames/hangman', requireAuth('dashboard-wordgames-user'), (req:
  */
 router.post('/wordgames/load', requireAuth('dashboard-wordgames-user'), (req: Request, res: Response) => wordGamesController.loadResults(req, res));
 
+// Cancel active solve process
+/**
+ * @openapi
+ * /api/wordgames/cancel:
+ *   post:
+ *     summary: Cancel active solve process for current user
+ *     tags: [WordGames]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Cancel success message
+ */
+router.post('/wordgames/cancel', requireAuth('dashboard-wordgames-user'), (req: Request, res: Response) => wordGamesController.cancelSolve(req, res));
+
 export default router;

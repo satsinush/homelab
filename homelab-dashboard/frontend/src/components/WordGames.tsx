@@ -1,5 +1,4 @@
-// src/components/WordGames.tsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -73,6 +72,8 @@ const WordGames = () => {
 
     const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isSolving, setIsSolving] = useState(false);
+    const isCancelledRef = useRef(false);
     const [activeTab, setActiveTab] = useState<number>(() => {
         if (gameName) {
             return GAME_TABS[gameName.toLowerCase()] ?? 0;
@@ -186,7 +187,8 @@ const WordGames = () => {
     }, [handleClear, navigate, tabKeys]);
 
     const handleSolve = useCallback(async (gameType: string, gameData: unknown) => {
-        setIsLoading(true);
+        setIsSolving(true);
+        isCancelledRef.current = false;
         try {
             if (gameType === 'letterboxed') {
                 const req = gameData as LetterBoxedRequest;
@@ -195,6 +197,7 @@ const WordGames = () => {
                     data: req,
                     timeout: 300000
                 });
+                if (isCancelledRef.current) return;
                 const newGameData = {
                     letters: response.data.letters,
                     config: req.preset || 1,
@@ -221,6 +224,7 @@ const WordGames = () => {
                     data: req,
                     timeout: 300000
                 });
+                if (isCancelledRef.current) return;
                 const newGameData = {
                     letters: response.data.letters,
                     totalSolutions: response.data.totalSolutions,
@@ -246,6 +250,7 @@ const WordGames = () => {
                     data: req,
                     timeout: 300000
                 });
+                if (isCancelledRef.current) return;
                 const newGameData = {
                     guesses: req.guesses,
                     wordLength: req.wordLength,
@@ -275,6 +280,7 @@ const WordGames = () => {
                     data: req,
                     timeout: 300000
                 });
+                if (isCancelledRef.current) return;
                 const newGameData = {
                     guesses: req.guesses,
                     pegs: req.pegs,
@@ -305,6 +311,7 @@ const WordGames = () => {
                     data: req,
                     timeout: 300000
                 });
+                if (isCancelledRef.current) return;
                 const newGameData = {
                     pattern: response.data.pattern,
                     excludedLetters: response.data.excludedLetters,
@@ -332,6 +339,7 @@ const WordGames = () => {
                     data: req,
                     timeout: 300000
                 });
+                if (isCancelledRef.current) return;
 
                 const newGameData = {
                     guesses: req.guesses,
@@ -354,11 +362,30 @@ const WordGames = () => {
                 showSuccess(message);
             }
         } catch (error: unknown) {
+            if (isCancelledRef.current) {
+                // Ignore the error and do not show any error/results notification when cancelled
+                return;
+            }
             console.error(`Failed to solve ${gameType}:`, error);
             const err = error as Error;
             showError(err.message || `Failed to solve ${gameType} puzzle`);
         } finally {
-            setIsLoading(false);
+            setIsSolving(false);
+        }
+    }, [showError, showSuccess]);
+
+    const handleCancel = useCallback(async () => {
+        isCancelledRef.current = true;
+        setIsSolving(false);
+        try {
+            await tryApiCall('/wordgames/cancel', {
+                method: 'POST'
+            });
+            showSuccess('Solve operation cancelled');
+        } catch (error: unknown) {
+            console.error('Failed to cancel solve operation:', error);
+            const err = error as Error;
+            showError(err.message || 'Failed to cancel solve operation');
         }
     }, [showError, showSuccess]);
 
@@ -678,11 +705,13 @@ const WordGames = () => {
                 flexDirection: 'column',
                 overflowY: { xs: 'auto', md: 'visible' }
             }}>
-                {activeTab === 0 && (
+             {activeTab === 0 && (
                     <LetterBoxedGame
                         gameStatus={gameStatus}
                         isLoading={isLoading}
+                        isSolving={isSolving}
                         onSolve={handleSolve}
+                        onCancel={handleCancel}
                         onClear={() => handleClear('letterboxed')}
                         showError={showError}
                         results={letterBoxedResults}
@@ -693,7 +722,9 @@ const WordGames = () => {
                     <SpellingBeeGame
                         gameStatus={gameStatus}
                         isLoading={isLoading}
+                        isSolving={isSolving}
                         onSolve={handleSolve}
+                        onCancel={handleCancel}
                         onClear={() => handleClear('spellingbee')}
                         showError={showError}
                         results={spellingBeeResults}
@@ -703,7 +734,9 @@ const WordGames = () => {
                 {activeTab === 2 && (
                     <WordleGame
                         isLoading={isLoading}
+                        isSolving={isSolving}
                         onSolve={handleSolve}
+                        onCancel={handleCancel}
                         onClear={() => handleClear('wordle')}
                         showError={showError}
                         results={wordleResults}
@@ -714,7 +747,9 @@ const WordGames = () => {
                     <MastermindGame
                         gameStatus={gameStatus}
                         isLoading={isLoading}
+                        isSolving={isSolving}
                         onSolve={handleSolve}
+                        onCancel={handleCancel}
                         onClear={() => handleClear('mastermind')}
                         showError={showError}
                         results={mastermindResults}
@@ -725,7 +760,9 @@ const WordGames = () => {
                     <HangmanGame
                         gameStatus={gameStatus}
                         isLoading={isLoading}
+                        isSolving={isSolving}
                         onSolve={handleSolve}
+                        onCancel={handleCancel}
                         onClear={() => handleClear('hangman')}
                         showError={showError}
                         results={hangmanResults}
@@ -736,7 +773,9 @@ const WordGames = () => {
                     <DungleonGame
                         gameStatus={gameStatus}
                         isLoading={isLoading}
+                        isSolving={isSolving}
                         onSolve={handleSolve}
+                        onCancel={handleCancel}
                         onClear={() => handleClear('dungleon')}
                         showError={showError}
                         results={dungleonResults}

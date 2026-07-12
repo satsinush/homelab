@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { exec, ChildProcess } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import readline from 'readline';
@@ -26,6 +26,7 @@ class WordGamesController {
     private timeout: number;
     private resultsFolder: string;
     private cleanupDelay: number;
+    private activeProcesses: Map<string, ChildProcess>;
 
     constructor() {
         // Path to the word_games executable (built as p++)
@@ -34,9 +35,10 @@ class WordGamesController {
         this.timeout = 300000; // 5 minutes timeout
         this.resultsFolder = 'results';
         this.cleanupDelay = 60 * 60 * 1000; // 1 hour in milliseconds
+        this.activeProcesses = new Map();
 
         // Initialize by running --help
-        this.executeCommand('--help', 30000);
+        this.executeCommand('--help', undefined, 30000);
         
         // Run initial cleanup on startup
         this.initialCleanup();
@@ -116,7 +118,7 @@ class WordGamesController {
             console.log(`Executing Letter Boxed solver: ${command}`);
 
             const startTime = Date.now();
-            const result = await this.executeCommand(command);
+            const result = await this.executeCommand(command, username);
             const executionTime = Date.now() - startTime;
 
             // Parse output: the C++ headless mode outputs:
@@ -221,7 +223,7 @@ class WordGamesController {
             console.log(`Executing Spelling Bee solver: ${command}`);
 
             const startTime = Date.now();
-            const result = await this.executeCommand(command);
+            const result = await this.executeCommand(command, username);
             const executionTime = Date.now() - startTime;
 
             // Parse output: the C++ headless mode outputs:
@@ -343,7 +345,7 @@ class WordGamesController {
             console.log(`Executing Wordle solver: ${command}`);
 
             const startTime = Date.now();
-            const resultVal = await this.executeCommand(command);
+            const resultVal = await this.executeCommand(command, username);
             const executionTime = Date.now() - startTime;
 
             // Parse stdout: the C++ headless mode outputs:
@@ -477,7 +479,7 @@ class WordGamesController {
             console.log(`Executing Mastermind solver: ${command}`);
 
             const startTime = Date.now();
-            const result = await this.executeCommand(command);
+            const result = await this.executeCommand(command, username);
             const executionTime = Date.now() - startTime;
 
             // Parse stdout: the C++ headless mode outputs:
@@ -617,7 +619,7 @@ class WordGamesController {
             console.log(`Executing Dungleon solver: ${command}`);
 
             const startTime = Date.now();
-            const result = await this.executeCommand(command);
+            const result = await this.executeCommand(command, username);
             const executionTime = Date.now() - startTime;
 
             // Parse stdout: the C++ headless mode outputs:
@@ -725,7 +727,7 @@ class WordGamesController {
             console.log(`Executing Hangman solver: ${command}`);
 
             const startTime = Date.now();
-            const result = await this.executeCommand(command);
+            const result = await this.executeCommand(command, username);
             const executionTime = Date.now() - startTime;
 
             // Parse stdout: the C++ headless mode outputs:
@@ -877,7 +879,7 @@ class WordGamesController {
     // Get CLI solver binary status
     async getStatus(req: Request, res: Response) {
         try {
-            const versionResult = await this.executeCommand('--version', 10000);
+            const versionResult = await this.executeCommand('--version', undefined, 10000);
             const healthy = versionResult.success;
             const status = healthy ? 'online' : 'offline';
             
@@ -908,10 +910,30 @@ class WordGamesController {
     }
 
     // Execute word_games command
-    executeCommand(args: string, timeout = this.timeout): Promise<{ success: boolean; stdout: string; stderr: string; error?: string }> {
+    executeCommand(args: string, username?: string, timeout = this.timeout): Promise<{ success: boolean; stdout: string; stderr: string; error?: string }> {
         return new Promise((resolve) => {
             const command = `./${this.executableFile} ${args}`;
-            exec(command, { cwd: this.executableDir, timeout }, (error, stdout, stderr) => {
+            
+            // If username is provided, kill any existing solver process for this user
+            if (username) {
+                const existing = this.activeProcesses.get(username);
+                if (existing) {
+                    try {
+                        console.log(`Killing existing active process for user: ${username}`);
+                        existing.kill('SIGTERM');
+                    } catch (e) {
+                        console.error(`Error killing existing process for user ${username}:`, e);
+                    }
+                    this.activeProcesses.delete(username);
+                }
+            }
+
+            const child = exec(command, { cwd: this.executableDir, timeout }, (error, stdout, stderr) => {
+                // Remove from active processes map if it's still this child
+                if (username && this.activeProcesses.get(username) === child) {
+                    this.activeProcesses.delete(username);
+                }
+
                 if (error) {
                     console.error(`Command execution failed: ${command}`, error);
                     return resolve({
@@ -927,7 +949,35 @@ class WordGamesController {
                     stderr: stderr.toString()
                 });
             });
+
+            // Store the child process if username is provided
+            if (username) {
+                this.activeProcesses.set(username, child);
+            }
         });
+    }
+
+    // Cancel active solve process for user
+    async cancelSolve(req: Request, res: Response) {
+        try {
+            const username = req.user?.username || 'user';
+            const child = this.activeProcesses.get(username);
+            if (child) {
+                console.log(`Killing active word game solver process for user: ${username}`);
+                try {
+                    child.kill('SIGTERM');
+                } catch (e) {
+                    console.error(`Error killing active process for user ${username}:`, e);
+                }
+                this.activeProcesses.delete(username);
+                return sendSuccess(res, { message: 'Solve cancelled successfully' });
+            }
+            return sendSuccess(res, { message: 'No active solve process to cancel' });
+        } catch (error: unknown) {
+            const err = error as Error;
+            console.error('Cancel solve error:', err);
+            return sendError(res, 500, 'Failed to cancel solve operation', err.message);
+        }
     }
 
 

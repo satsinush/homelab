@@ -242,14 +242,16 @@ interface GameConfig extends PresetConfig {
 interface LetterBoxedGameProps {
     gameStatus: GameStatus | null;
     isLoading: boolean;
+    isSolving: boolean;
     onSolve: (gameType: string, params: unknown) => Promise<void>;
+    onCancel: () => void;
     onClear: () => void;
     showError: (message: string) => void;
     results: LetterBoxedResultState | null;
     onLoadMore: (type: string) => void;
 }
 
-const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, results, onLoadMore }: LetterBoxedGameProps) => {
+const LetterBoxedGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, onClear, showError, results, onLoadMore }: LetterBoxedGameProps) => {
     const [letterBoxedLetters, setLetterBoxedLetters] = useState('');
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [config, setConfig] = useState<GameConfig>({
@@ -413,12 +415,13 @@ const LetterBoxedGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                             fullWidth
                             variant="contained"
                             size="medium"
-                            onClick={handleSolve}
-                            disabled={isLoading || letterBoxedLetters.length !== 12 || !gameStatus?.healthy}
-                            startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
+                            onClick={isSolving ? onCancel : handleSolve}
+                            disabled={!isSolving && (letterBoxedLetters.length !== 12 || !gameStatus?.healthy)}
+                            color={isSolving ? "error" : "primary"}
+                            startIcon={isSolving ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
                             sx={{ mt: 1.5, flexShrink: 0 }}
                         >
-                            {isLoading ? 'Solving...' : 'Solve'}
+                            {isSolving ? 'Cancel' : 'Solve'}
                         </Button>
 
                         {/* Custom Settings Dialog */}

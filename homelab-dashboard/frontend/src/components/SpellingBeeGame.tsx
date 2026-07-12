@@ -183,14 +183,16 @@ SpellingBeeResults.displayName = 'SpellingBeeResults';
 interface SpellingBeeGameProps {
     gameStatus: GameStatus | null;
     isLoading: boolean;
+    isSolving: boolean;
     onSolve: (gameType: string, params: unknown) => Promise<void>;
+    onCancel: () => void;
     onClear: () => void;
     showError: (message: string) => void;
     results: SpellingBeeResultState | null;
     onLoadMore: () => void;
 }
 
-const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, results, onLoadMore }: SpellingBeeGameProps) => {
+const SpellingBeeGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, onClear, showError, results, onLoadMore }: SpellingBeeGameProps) => {
     const [spellingBeeLetters, setSpellingBeeLetters] = useState('');
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [config, setConfig] = useState({
@@ -319,12 +321,13 @@ const SpellingBeeGame = ({ gameStatus, isLoading, onSolve, onClear, showError, r
                             fullWidth
                             variant="contained"
                             size="medium"
-                            onClick={handleSolve}
-                            disabled={isLoading || spellingBeeLetters.length !== 7 || !gameStatus?.healthy}
-                            startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
+                            onClick={isSolving ? onCancel : handleSolve}
+                            disabled={!isSolving && (spellingBeeLetters.length !== 7 || !gameStatus?.healthy)}
+                            color={isSolving ? "error" : "primary"}
+                            startIcon={isSolving ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
                             sx={{ mt: 1.5, flexShrink: 0 }}
                         >
-                            {isLoading ? 'Solving...' : 'Solve'}
+                            {isSolving ? 'Cancel' : 'Solve'}
                         </Button>
 
                         <GameSettingsDialog

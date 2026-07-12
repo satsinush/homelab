@@ -203,14 +203,16 @@ HangmanResults.displayName = 'HangmanResults';
 interface HangmanGameProps {
     gameStatus: GameStatus | null;
     isLoading: boolean;
+    isSolving: boolean;
     onSolve: (gameType: string, params: unknown) => Promise<void>;
+    onCancel: () => void;
     onClear: () => void;
     showError: (message: string) => void;
     results: HangmanResultState | null;
     onLoadMore?: (type: string) => void;
 }
 
-const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, results, onLoadMore }: HangmanGameProps) => {
+const HangmanGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, onClear, showError, results, onLoadMore }: HangmanGameProps) => {
     const [pattern, setPattern] = useState('');
     const [excludedLetters, setExcludedLetters] = useState('');
     const [settingsOpen, setSettingsOpen] = useState(false);
@@ -430,15 +432,15 @@ const HangmanGame = ({ gameStatus, isLoading, onSolve, onClear, showError, resul
 
                         <Button
                             variant="contained"
-                            onClick={handleSolve}
-                            disabled={isLoading || !gameStatus?.healthy || !pattern.trim()}
-                            startIcon={isLoading ? <CircularProgress size={16} /> : <PlayIcon />}
+                            onClick={isSolving ? onCancel : handleSolve}
+                            disabled={!isSolving && (!gameStatus?.healthy || !pattern.trim())}
+                            color={isSolving ? "error" : "primary"}
+                            startIcon={isSolving ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
                             fullWidth
                             size="medium"
-                            color="primary"
                             sx={{ mt: 1.5, flexShrink: 0 }}
                         >
-                            Find Best Letter
+                            {isSolving ? 'Cancel' : 'Find Best Letter'}
                         </Button>
                     </CardContent>
                 </Card>

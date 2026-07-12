@@ -412,7 +412,9 @@ MastermindResults.displayName = 'MastermindResults';
 interface MastermindGameProps {
     gameStatus: GameStatus | null;
     isLoading: boolean;
+    isSolving: boolean;
     onSolve: (gameType: string, params: unknown) => Promise<void>;
+    onCancel: () => void;
     onClear: () => void;
     showError: (message: string) => void;
     results: MastermindResultState | null;
@@ -423,7 +425,7 @@ export interface MastermindGameRef {
     fillSuggestedGuess: (pattern: string) => void;
 }
 
-const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gameStatus, isLoading, onSolve, onClear, showError, results, onLoadMore }, ref) => {
+const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gameStatus, isLoading, isSolving, onSolve, onCancel, onClear, showError, results, onLoadMore }, ref) => {
     const [state, setState] = useState({
         guesses: [] as MastermindGuess[],
         currentPattern: Array(4).fill(null) as (number | null)[],
@@ -1000,15 +1002,15 @@ const MastermindGame = forwardRef<MastermindGameRef, MastermindGameProps>(({ gam
 
                         <Button
                             variant="contained"
-                            onClick={handleSolve}
-                            disabled={isLoading || !gameStatus?.healthy}
-                            startIcon={isLoading ? <CircularProgress size={16} /> : <PlayIcon />}
+                            onClick={isSolving ? onCancel : handleSolve}
+                            disabled={!isSolving && !gameStatus?.healthy}
+                            color={isSolving ? "error" : "primary"}
+                            startIcon={isSolving ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
                             fullWidth
                             size="medium"
-                            color="primary"
                             sx={{ mt: 1.5, flexShrink: 0 }}
                         >
-                            Solve
+                            {isSolving ? 'Cancel' : 'Solve'}
                         </Button>
 
                         {/* Settings Dialog */}

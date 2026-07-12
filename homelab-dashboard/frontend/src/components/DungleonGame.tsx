@@ -374,7 +374,9 @@ interface DungleonSolution {
 interface DungleonGameProps {
     gameStatus: GameStatus | null;
     isLoading: boolean;
+    isSolving: boolean;
     onSolve: (gameType: string, params: unknown) => Promise<void>;
+    onCancel: () => void;
     onClear: () => void;
     showError: (message: string) => void;
     results: DungleonResultState | null;
@@ -385,7 +387,7 @@ export interface DungleonGameRef {
     fillSuggestedGuess: (pattern: string) => void;
 }
 
-const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatus, isLoading, onSolve, onClear, showError, results, onLoadMore }, ref) => {
+const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatus, isLoading, isSolving, onSolve, onCancel, onClear, showError, results, onLoadMore }, ref) => {
     const [guesses, setGuesses] = useState<DungleonGuess[]>([]);
     const [solutions, setSolutions] = useState<DungleonSolution[]>([]);
     const [currentPattern, setCurrentPattern] = useState<string[]>([]);
@@ -923,14 +925,15 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                         {/* Solve Button */}
                         <Button
                             variant="contained"
-                            onClick={handleSolve}
-                            disabled={isLoading || !gameStatus?.healthy}
-                            startIcon={isLoading ? <CircularProgress size={16} /> : <PlayIcon />}
+                            onClick={isSolving ? onCancel : handleSolve}
+                            disabled={!isSolving && !gameStatus?.healthy}
+                            color={isSolving ? "error" : "primary"}
+                            startIcon={isSolving ? <CircularProgress size={16} color="inherit" /> : <PlayIcon />}
                             fullWidth
                             size="medium"
                             sx={{ mt: 1.5, flexShrink: 0 }}
                         >
-                            Solve
+                            {isSolving ? 'Cancel' : 'Solve'}
                         </Button>
                     </CardContent>
                 </Card>
