@@ -104,7 +104,7 @@ services:
   ddclient:
     image: linuxserver/ddclient:latest
     container_name: ddclient
-    restart: on-failure
+    restart: unless-stopped
     environment:
       - TZ=${TZ}
       - PUID=${PUID}
@@ -123,7 +123,7 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
-    restart: on-failure
+    restart: unless-stopped
     volumes:
       - ollama_data:/root/.ollama
     networks:
@@ -138,7 +138,7 @@ services:
   vaultwarden:
     image: vaultwarden/server:latest
     container_name: vaultwarden
-    restart: on-failure
+    restart: unless-stopped
     volumes:
       - vaultwarden_data:/data
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro

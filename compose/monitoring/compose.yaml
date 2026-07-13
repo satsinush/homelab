@@ -3,7 +3,7 @@ services:
   gatus:
     image: twinproduction/gatus:latest
     container_name: gatus
-    restart: on-failure
+    restart: unless-stopped
     volumes:
       - ${PROJECT_ROOT}/gatus/config.yaml:/config/config.yaml:ro
     extra_hosts:

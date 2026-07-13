@@ -3,7 +3,7 @@ services:
   pihole:
     image: pihole/pihole:latest
     container_name: pihole
-    restart: on-failure
+    restart: unless-stopped
     ports:
       - "53:53/tcp"
       - "53:53/udp"
@@ -44,7 +44,7 @@ services:
   unbound:
     image: klutchell/unbound:latest
     container_name: unbound
-    restart: on-failure
+    restart: unless-stopped
     volumes:
       - ${PROJECT_ROOT}/unbound/unbound.conf:/etc/unbound/custom.conf.d/unbound.conf:ro
       - ${PROJECT_ROOT}/unbound/cachedb.conf:/etc/unbound/custom.conf.d/cachedb.conf:ro
@@ -64,7 +64,7 @@ services:
   unbound-redis:
     image: redis:7-alpine
     container_name: unbound-redis
-    restart: on-failure
+    restart: unless-stopped
     volumes:
       - unbound_redis_data:/data
     networks:

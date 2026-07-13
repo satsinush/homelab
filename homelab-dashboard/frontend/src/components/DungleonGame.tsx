@@ -555,6 +555,24 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
         setCurrentPattern([]);
     }, [currentPattern, solutions, showError]);
 
+    // Gauntlet: keep solved pattern as an exclusion, clear guesses for the next level
+    const submitNextLevel = useCallback(() => {
+        if (currentPattern.length !== 5) {
+            showError('Please select exactly 5 characters');
+            return;
+        }
+
+        const newSolution: DungleonSolution = {
+            pattern: currentPattern.join(' '),
+            patternArray: [...currentPattern]
+        };
+        setSolutions(prev => [...prev, newSolution]);
+        setGuesses([]);
+        setCurrentPattern([]);
+        setCurrentFeedback([0, 0, 0, 0, 0]);
+        onClear();
+    }, [currentPattern, onClear, showError]);
+
     const removeGuess = useCallback((index: number) => {
         setGuesses(prev => prev.filter((_, i) => i !== index));
     }, []);
@@ -820,20 +838,32 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
                                         </span>
                                     </Tooltip>
                                 </Stack>
-                                <Tooltip title="Gauntlet Mode: Add past Gauntlet solutions to exclude">
-                                    <Box component="span" sx={{ flex: 1, display: 'inline-flex' }}>
-                                        <Button
-                                            variant="contained"
-                                            onClick={submitSolution}
-                                            disabled={currentPattern.length !== 5}
-                                            fullWidth
-                                            color="secondary"
-                                            size="small"
-                                        >
-                                            Submit Solution
-                                        </Button>
-                                    </Box>
-                                </Tooltip>
+                                <Stack direction="row" spacing={0.5} sx={{ flex: 1.5 }}>
+                                    <Button
+                                        variant="contained"
+                                        onClick={submitNextLevel}
+                                        disabled={currentPattern.length !== 5}
+                                        color="secondary"
+                                        size="small"
+                                        sx={{ flexGrow: 1 }}
+                                    >
+                                        Submit & Next Level
+                                    </Button>
+                                    <Tooltip title="Gauntlet: add past solution to exclude (keep guesses)">
+                                        <span>
+                                            <Button
+                                                variant="outlined"
+                                                onClick={submitSolution}
+                                                disabled={currentPattern.length !== 5}
+                                                color="secondary"
+                                                size="small"
+                                                sx={{ minWidth: 32, width: 32, height: 32, p: 0 }}
+                                            >
+                                                <AddIcon />
+                                            </Button>
+                                        </span>
+                                    </Tooltip>
+                                </Stack>
                             </Stack>
 
                             {/* Guesses and Solutions Column */}

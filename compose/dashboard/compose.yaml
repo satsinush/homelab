@@ -2,7 +2,7 @@
 services:
   homelab-dashboard:
     container_name: homelab-dashboard
-    restart: on-failure
+    restart: unless-stopped
     build:
       context: ${PROJECT_ROOT}
       dockerfile: homelab-dashboard/api/Dockerfile
