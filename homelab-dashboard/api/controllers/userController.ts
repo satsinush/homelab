@@ -6,6 +6,25 @@ import config from '../config';
 
 import { getErrorMessage } from '../utils/errors';
 
+function friendlySsoErrorMessage(error: unknown): string {
+    const raw = getErrorMessage(error).toLowerCase();
+    if (
+        raw.includes('unexpected http response status code') ||
+        raw.includes('discovery') ||
+        raw.includes('econnrefused') ||
+        raw.includes('enotfound') ||
+        raw.includes('etimedout') ||
+        raw.includes('fetch failed') ||
+        raw.includes('network') ||
+        raw.includes('certificate') ||
+        raw.includes('ssl') ||
+        raw.includes('tls')
+    ) {
+        return 'Error signing in with SSO. Please wait a moment and try again.';
+    }
+    return 'SSO sign-in failed. Please try again in a moment.';
+}
+
 class UserController {
     private userModel: User;
 
@@ -72,15 +91,28 @@ class UserController {
 
     // SSO Login endpoint - starts OIDC flow
     async ssoLogin(req: Request, res: Response) {
+        const wantsJson = req.accepts(['html', 'json']) === 'json';
+
+        const failSso = (status: number, message: string) => {
+            if (wantsJson) {
+                return res.status(status).json({
+                    error: 'SSO initiation failed',
+                    message
+                });
+            }
+            const params = new URLSearchParams({ sso_error: message });
+            return res.redirect(`/?${params.toString()}`);
+        };
+
         try {
             // Initialize OIDC config if needed (lazy initialization)
             const oidcConfig = await config.getOIDCConfig();
             
             if (!oidcConfig) {
-                return res.status(500).json({ 
-                    error: 'OIDC configuration failed to initialize',
-                    message: 'Authentik may not be available. Please try again later.'
-                });
+                return failSso(
+                    503,
+                    'Error signing in with SSO. Please wait a moment and try again.'
+                );
             }
 
             // Generate PKCE and state for security following official documentation
@@ -119,16 +151,7 @@ class UserController {
             res.redirect(redirectTo.href);
         } catch (error: unknown) {
             console.error('SSO Login error:', error);
-            if (getErrorMessage(error) && getErrorMessage(error).includes('discovery')) {
-                return res.status(503).json({ 
-                    error: 'SSO service unavailable',
-                    message: 'Authentik is not available. Please try local login or try again later.'
-                });
-            }
-            return res.status(500).json({ 
-                error: 'SSO initiation failed',
-                message: getErrorMessage(error) 
-            });
+            return failSso(503, friendlySsoErrorMessage(error));
         }
     }
 
@@ -217,10 +240,16 @@ class UserController {
 
         } catch (error: unknown) {
             console.error('OIDC callback error:', error);
-            return res.status(500).json({
-                error: 'Authentication failed',
-                details: getErrorMessage(error)
-            });
+            const message = friendlySsoErrorMessage(error);
+            const wantsJson = req.accepts(['html', 'json']) === 'json';
+            if (wantsJson) {
+                return res.status(500).json({
+                    error: 'Authentication failed',
+                    message
+                });
+            }
+            const params = new URLSearchParams({ sso_error: message });
+            return res.redirect(`/?${params.toString()}`);
         }
     }
 

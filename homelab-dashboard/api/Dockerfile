@@ -46,8 +46,9 @@ RUN apk add --no-cache --virtual .build-deps python3 make g++ py3-setuptools \
     && npm install \
     && apk del .build-deps
 
-# 2. Copy API source code
+# 2. Copy API source code and compile TypeScript
 COPY ./homelab-dashboard/api/ .
+RUN npm run build
 
 # 3. Copy built frontend into /app/frontend
 WORKDIR /app

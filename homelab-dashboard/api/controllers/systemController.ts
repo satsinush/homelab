@@ -188,12 +188,12 @@ class SystemController {
         }
     }
 
-    // Get all secrets in /secrets and public-configs (admin-only)
+    // Get all secrets in /run/secrets and public-configs (admin-only)
     async getSecrets(req: Request, res: Response) {
         try {
             const secretsDir = '/run/secrets';
             const publicConfigsDir = '/app/public-configs';
-            const secretsList: Array<{ name: string; value: string }> = [];
+            const byName = new Map<string, { name: string; value: string }>();
 
             const scanDirectory = (dir: string) => {
                 if (!fs.existsSync(dir)) return;
@@ -204,10 +204,7 @@ class SystemController {
                     if (stat.isFile()) {
                         try {
                             const value = fs.readFileSync(filePath, 'utf8').trim();
-                            secretsList.push({
-                                name: file,
-                                value: value
-                            });
+                            byName.set(file, { name: file, value });
                         } catch (readError: unknown) {
                             console.warn(`Could not read container config file ${file}: ${getErrorMessage(readError)}`);
                         }
@@ -217,6 +214,10 @@ class SystemController {
 
             scanDirectory(secretsDir);
             scanDirectory(publicConfigsDir);
+
+            const secretsList = Array.from(byName.values()).sort((a, b) =>
+                a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+            );
 
             return sendSuccess(res, { secrets: secretsList });
         } catch (error: unknown) {

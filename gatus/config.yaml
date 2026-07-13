@@ -152,6 +152,16 @@ endpoints:
       - type: custom
         description: "RustDesk Relay Server (hbbr) is unreachable"
 
+  - name: "RustDesk Console"
+    group: "Infrastructure"
+    url: "http://rustdesk-console:21114/health"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "RustDesk Console / API server is unhealthy"
+
   # ─── NOTIFICATIONS & ALERTS ───
   - name: "Gotify"
     group: "Alerting Pipeline"

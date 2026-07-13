@@ -59,6 +59,18 @@ entries:
     attrs:
       name: vaultwarden-user
 
+  - model: authentik_rbac.role
+    identifiers:
+      name: rustdesk-admin
+    attrs:
+      name: rustdesk-admin
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: rustdesk-user
+    attrs:
+      name: rustdesk-user
+
   # =================================================================
   # Groups
   # =================================================================
@@ -70,6 +82,7 @@ entries:
       is_superuser: true
       roles:
         - !Find [authentik_rbac.role, [name, homelab-admin]]
+        - !Find [authentik_rbac.role, [name, rustdesk-admin]]
 
   - model: authentik_core.group
     identifiers:
@@ -82,6 +95,7 @@ entries:
         - !Find [authentik_rbac.role, [name, gatus-user]]
         - !Find [authentik_rbac.role, [name, dashboard-devices-user]]
         - !Find [authentik_rbac.role, [name, vaultwarden-user]]
+        - !Find [authentik_rbac.role, [name, rustdesk-user]]
 
   # =================================================================
   # Admin User
@@ -204,6 +218,43 @@ entries:
       slug: homelab-dashboard
       provider: !KeyOf homelab_dashboard
       icon: homelab-icon.svg
+
+  # RustDesk Console (OIDC; configure provider in rustdesk-console /_admin/)
+  - model: authentik_providers_oauth2.oauth2provider
+    id: rustdesk
+    identifiers:
+      name: rustdesk
+    attrs:
+      name: rustdesk
+      client_id: rustdesk
+      client_secret: !File /run/secrets/rustdesk_oidc_secret
+      client_type: confidential
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      grant_types:
+        - authorization_code
+        - refresh_token
+      redirect_uris:
+        - url: !Format ["https://%s.%s/api/oidc/callback", !Env RUSTDESK_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !KeyOf scope-email
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !KeyOf scope-groups
+
+  - model: authentik_core.application
+    identifiers:
+      slug: rustdesk
+    attrs:
+      name: RustDesk
+      slug: rustdesk
+      provider: !KeyOf rustdesk
+      meta_launch_url: !Format ["https://%s.%s/_admin/", !Env RUSTDESK_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      open_in_new_tab: true
+      meta_description: RustDesk API console (SSO via OIDC)
+      icon: icons/rustdesk_logo.png
 
   # =================================================================
   # Proxy Providers for Traefik Forward-Auth
@@ -365,8 +416,20 @@ entries:
     attrs:
       order: 1
 
+  # RustDesk Console
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, rustdesk]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
+    attrs:
+      order: 0
 
-
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, rustdesk]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 1
 
 
   # =================================================================

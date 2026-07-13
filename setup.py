@@ -171,6 +171,7 @@ if not os.path.exists(".env"):
     os.environ["GATUS_SERVICE_NAME"] = "gatus"
     os.environ["GOTIFY_SERVICE_NAME"] = "gotify"
     os.environ["AUTHENTIK_SERVICE_NAME"] = "authentik"
+    os.environ["RUSTDESK_SERVICE_NAME"] = "rustdesk"
 
     content = substitute_env_vars(content)
 
@@ -204,6 +205,9 @@ gen_secret("vaultwarden_admin_token_plain", 48)
 gen_secret("vaultwarden_admin_token", 48) # Placeholder to be overwritten
 gen_secret("vaultwarden_oidc_secret", 64)
 gen_secret("dashboard_oidc_secret", 64)
+gen_secret("rustdesk_oidc_secret", 64)
+gen_secret("rustdesk_api_jwt_key", 64)
+gen_secret("rustdesk_admin_password", 32)
 gen_secret("gotify_admin_password", 32)
 gen_secret("authentik_secret_key", 50)
 gen_secret("authentik_pg_pass", 32)
@@ -215,6 +219,13 @@ rustdesk_key_path = "./volumes/public-configs/rustdesk_public_key"
 if not os.path.exists(rustdesk_key_path):
     with open(rustdesk_key_path, "w") as f:
         f.write("\n")
+
+# Existing installs: ensure RUSTDESK_SERVICE_NAME is present
+if not env.get("RUSTDESK_SERVICE_NAME"):
+    with open(".env", "a") as f:
+        f.write("\nRUSTDESK_SERVICE_NAME='rustdesk'\n")
+    env["RUSTDESK_SERVICE_NAME"] = "rustdesk"
+    os.environ["RUSTDESK_SERVICE_NAME"] = "rustdesk"
 
 # Ensure homelab_password exists
 if not os.path.exists("./volumes/secrets/homelab_password") or os.path.getsize("./volumes/secrets/homelab_password") == 0:
@@ -347,6 +358,7 @@ gotify_pwd = os.environ.get("GOTIFY_ADMIN_PASSWORD", "")
 
 print(f"\n🌐 Web Access:")
 print(f"   Dashboard:  https://{env.get('DASHBOARD_SERVICE_NAME')}.{hostname}")
+print(f"   RustDesk:   https://{env.get('RUSTDESK_SERVICE_NAME', 'rustdesk')}.{hostname}/_admin/")
 ssl_mode = 'Self-signed (private)' if cert_resolver != 'letsencrypt' else "Public (Let's Encrypt)"
 print(f"\n🔒 SSL Mode: {ssl_mode}")
 if cert_resolver != "letsencrypt":

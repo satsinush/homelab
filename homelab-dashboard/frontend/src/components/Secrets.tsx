@@ -80,9 +80,9 @@ const Secrets = () => {
         showSuccess(`Copied value for secret "${name}" to clipboard`);
     };
 
-    const filteredSecrets = secrets.filter(sec => 
-        (sec.name ?? '').toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredSecrets = secrets
+        .filter(sec => (sec.name ?? '').toLowerCase().includes(searchQuery.toLowerCase()))
+        .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', undefined, { sensitivity: 'base' }));
 
     if (loading) {
         return (
@@ -103,7 +103,7 @@ const Secrets = () => {
                         System Secrets
                     </Typography>
                     <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-                        View active environment secrets stored in volumes/secrets (Admin Only)
+                        View secrets and public configs (Admin Only)
                     </Typography>
                 </Box>
                 <Button variant="outlined" color="primary" onClick={fetchSecrets}>

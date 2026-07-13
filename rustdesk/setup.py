@@ -1,18 +1,214 @@
+import json
 import os
 import shutil
-from setup_utils import run_cmd
+import time
+from typing import Any
+
+from setup_utils import run_cmd, gen_secret, network_curl
+
+RUSTDESK_CONSOLE_URL = "http://rustdesk-console:21114"
+DOCKER_NETWORK = "homelab-net"
+
+
+def _read_secret(name: str) -> str:
+    path = f"./volumes/secrets/{name}"
+    if not os.path.exists(path):
+        return ""
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read().strip()
+
+
+def _container_running() -> bool:
+    state = run_cmd(
+        "docker inspect -f '{{.State.Running}}' rustdesk-console 2>/dev/null",
+        check=False,
+    )
+    return state == "true"
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _api_data(payload: Any) -> dict[str, Any]:
+    data = _as_dict(payload).get("data")
+    return data if isinstance(data, dict) else {}
+
+
+def _api_ok(payload: Any) -> bool:
+    return isinstance(payload, dict) and payload.get("code") == 0
+
+
+def _api(method: str, path: str, data=None, token: str | None = None):
+    """Call rustdesk-console admin/API JSON endpoints via the Docker network."""
+    url = f"{RUSTDESK_CONSOLE_URL}{path}"
+    headers = {"Accept": "application/json"}
+    payload = None
+    if data is not None:
+        headers["Content-Type"] = "application/json"
+        payload = json.dumps(data)
+    if token:
+        headers["api-token"] = token
+
+    body, status = network_curl(DOCKER_NETWORK, method, url, data=payload, headers=headers)
+    if status == 0:
+        return None, 0
+    if not body:
+        return None, status
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError:
+        return {"raw": body}, status
+    if isinstance(parsed, dict):
+        return parsed, status
+    return {"data": parsed}, status
+
+
+def _wait_for_console(attempts: int = 45) -> bool:
+    print("   Waiting for rustdesk-console...")
+    for _ in range(attempts):
+        if not _container_running():
+            time.sleep(2)
+            continue
+        payload, status = _api("GET", "/health")
+        if status == 200 and _as_dict(payload).get("status") == "ok":
+            return True
+        time.sleep(2)
+    return False
+
+
+def _admin_login(password: str) -> str | None:
+    payload, status = _api(
+        "POST",
+        "/api/admin/login",
+        {"username": "admin", "password": password},
+    )
+    if not _api_ok(payload):
+        msg = _as_dict(payload).get("message") or f"HTTP {status}"
+        print(f"   ⚠️  Admin login failed: {msg}")
+        return None
+    token = _api_data(payload).get("token")
+    if not isinstance(token, str) or not token:
+        print("   ⚠️  Admin login succeeded but no token returned")
+        return None
+    return token
+
+
+def _ensure_authentik_oidc(token: str, env: dict) -> bool:
+    """Create or update the Authentik OIDC provider via admin API."""
+    oidc_secret = _read_secret("rustdesk_oidc_secret")
+    if not oidc_secret:
+        print("   ⚠️  Missing rustdesk_oidc_secret; skipping OIDC provider setup")
+        return False
+
+    provider = {
+        "op": "authentik",
+        "oauth_type": "oidc",
+        "client_id": "rustdesk",
+        "client_secret": oidc_secret,
+        # Discovery goes through rustdesk-oidc-proxy (HTTP) so rustls does not
+        # need to trust the homelab CA. Issuer/token/jwks stay on the proxy
+        # HTTP URL so ID token `iss` matches; only authorize is public HTTPS.
+        "issuer": "http://rustdesk-oidc-proxy:8080/application/o/rustdesk/",
+        # groups scope carries Authentik groups/roles for admin sync in oidc-proxy
+        "scopes": "openid,profile,email,groups",
+        "auto_register": True,
+        "pkce_enable": False,
+        "pkce_method": "S256",
+    }
+
+    listed, status = _api("GET", "/api/admin/oauth/list?page=1&page_size=100", token=token)
+    if not _api_ok(listed):
+        msg = _as_dict(listed).get("message") or f"HTTP {status}"
+        print(f"   ⚠️  Could not list OAuth providers: {msg}")
+        return False
+
+    rows = _api_data(listed).get("list")
+    if not isinstance(rows, list):
+        rows = []
+
+    existing = None
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if row.get("op") == "authentik" or (
+            row.get("oauth_type") == "oidc" and row.get("client_id") == "rustdesk"
+        ):
+            existing = row
+            break
+
+    if existing:
+        provider["id"] = existing["id"]
+        if not provider["client_secret"] and existing.get("client_secret"):
+            provider["client_secret"] = existing["client_secret"]
+        result, status = _api("POST", "/api/admin/oauth/update", provider, token=token)
+        action = "updated"
+    else:
+        result, status = _api("POST", "/api/admin/oauth/create", provider, token=token)
+        action = "created"
+
+    if not _api_ok(result):
+        msg = _as_dict(result).get("message") or f"HTTP {status}"
+        print(f"   ⚠️  Failed to {action.rstrip('d')} Authentik OIDC provider: {msg}")
+        return False
+
+    print(f"   ✅ Authentik OIDC provider {action} (op=authentik)")
+    return True
 
 
 def setup(env):
-    """Copy the generated RustDesk public key from the container to the secrets volume."""
-    print("\n🖥️  Extracting RustDesk Public Key to secrets...")
-    
+    """Extract RustDesk public key and configure console + Authentik OIDC via API."""
+    print("\n🖥️  Setting up RustDesk console / API server...")
+
+    gen_secret("rustdesk_oidc_secret", 64)
+    gen_secret("rustdesk_api_jwt_key", 64)
+    gen_secret("rustdesk_admin_password", 32)
+
+    # Drop legacy console.env if present (secrets now come from Docker secrets)
+    legacy_env = "./rustdesk/volumes/console.env"
+    if os.path.exists(legacy_env):
+        os.remove(legacy_env)
+        print("   ✅ Removed legacy rustdesk/volumes/console.env")
+
     dest_path = "./volumes/public-configs/rustdesk_public_key"
+    os.makedirs("./volumes/public-configs", exist_ok=True)
+
+    pubkey = ""
     if shutil.which("docker"):
-        run_cmd("docker cp rustdesk-id-server:/root/id_ed25519.pub " + dest_path, check=False)
+        run_cmd(
+            "docker cp rustdesk-id-server:/root/id_ed25519.pub " + dest_path,
+            check=False,
+        )
         if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
-            print("   ✅ RustDesk Public Key extracted to volumes/public-configs/rustdesk_public_key")
+            with open(dest_path, "r", encoding="utf-8") as f:
+                pubkey = f.read().strip()
+            print("   ✅ RustDesk public key extracted to volumes/public-configs/rustdesk_public_key")
         else:
-            print("   ⚠️  Failed to copy RustDesk key. RustDesk container may not be initialized yet.")
+            print("   ⚠️  Failed to copy RustDesk key. ID server may not be initialized yet.")
     else:
         print("   ❌ Docker is not installed on host. Skipping RustDesk key extraction.")
+
+    if not pubkey:
+        print("   ⚠️  Public key missing; re-run setup after hbbs is up.")
+
+    if shutil.which("docker"):
+        run_cmd("docker compose up -d rustdesk-console", check=False)
+
+    service = env.get("RUSTDESK_SERVICE_NAME", "rustdesk")
+    hostname = env.get("HOMELAB_HOSTNAME", "homelab.home.arpa")
+    print(f"   ℹ️  Admin UI: https://{service}.{hostname}/_admin/")
+    print("   ℹ️  Initial admin password: volumes/secrets/rustdesk_admin_password")
+
+    if not shutil.which("docker"):
+        return
+
+    if not _wait_for_console():
+        print("   ⚠️  rustdesk-console did not become healthy; skipping OIDC API setup")
+        return
+
+    password = _read_secret("rustdesk_admin_password")
+    token = _admin_login(password)
+    if not token:
+        return
+
+    _ensure_authentik_oidc(token, env)

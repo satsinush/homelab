@@ -18,6 +18,7 @@ export const ConfigProvider = ({ children }: ConfigProviderProps) => {
             vaultwarden: '',
             gatus: '',
             gotify: '',
+            rustdesk: '',
             authentik: ''
         }
     });
@@ -38,6 +39,7 @@ export const ConfigProvider = ({ children }: ConfigProviderProps) => {
                             vaultwarden: d.vaultwardenWebHostname || '',
                             gatus: d.gatusWebHostname || '',
                             gotify: d.gotifyWebHostname || '',
+                            rustdesk: d.rustdeskWebHostname || '',
                             authentik: d.authentikWebHostname || ''
                         }
                     });

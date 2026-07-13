@@ -1,5 +1,4 @@
 
-- add rustdesk api server
 - Pcie gen 3?
 - make sure all containers come up after reboot
 - Add next cloud

@@ -30,6 +30,77 @@ services:
       - "21117:21117"
     restart: unless-stopped
 
+  # Open-source API / web console. Authentik OIDC provider is created by
+  # rustdesk/setup.py via the admin API after the container is healthy.
+  # Secrets are loaded by entrypoint.sh (app has no *_FILE support).
+  rustdesk-console:
+    image: ghcr.io/dockers-x/rustdesk-console:latest
+    container_name: rustdesk-console
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    command: ["./rustdesk-console", "-c", "./conf/config.yaml"]
+    environment:
+      - TZ=${TZ}
+      - RUSTDESK_API_LANG=en
+      - RUSTDESK_API_RUSTDESK_ID_SERVER=${HOMELAB_HOSTNAME}:21116
+      - RUSTDESK_API_RUSTDESK_RELAY_SERVER=${HOMELAB_HOSTNAME}:21117
+      - RUSTDESK_API_RUSTDESK_API_SERVER=https://${RUSTDESK_SERVICE_NAME}.${HOMELAB_HOSTNAME}
+      - RUSTDESK_API_ADMIN_USERNAME=admin
+      - RUSTDESK_API_ADMIN_FORCE_CHANGE_PASSWORD=false
+      - RUSTDESK_API_APP_REGISTER=false
+      - SSL_CERT_FILE=/etc/ssl/certs/homelab-ca.crt
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/homelab-ca.crt
+    volumes:
+      - rustdesk_console_data:/app/data
+      - ${PROJECT_ROOT}/rustdesk/entrypoint.sh:/entrypoint.sh:ro
+      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+      - ${PROJECT_ROOT}/volumes/public-configs/rustdesk_public_key:/app/public-configs/rustdesk_public_key:ro
+    secrets:
+      - rustdesk_admin_password
+      - rustdesk_api_jwt_key
+    extra_hosts:
+      - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:10.10.30.100"
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.rustdesk.rule=Host(`${RUSTDESK_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.rustdesk.entrypoints=websecure"
+      - "traefik.http.routers.rustdesk.tls=true"
+      - "traefik.http.routers.rustdesk.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.services.rustdesk.loadbalancer.server.port=21114"
+    depends_on:
+      - rustdesk-id-server
+      - rustdesk-relay-server
+      - rustdesk-oidc-proxy
+
+  # Rewrites OIDC discovery so rustdesk-console (rustls) can reach Authentik
+  # without trusting the homelab CA, while browsers still use public HTTPS.
+  rustdesk-oidc-proxy:
+    image: python:3.12-alpine
+    container_name: rustdesk-oidc-proxy
+    restart: unless-stopped
+    # PyJWT + cryptography: re-sign id_tokens so iss matches rustdesk's
+    # slash-stripped issuer check (Authentik always emits a trailing slash).
+    command:
+      - sh
+      - -c
+      - pip install --quiet --disable-pip-version-check -r /app/requirements.txt && exec python /app/oidc_discovery_proxy.py
+    environment:
+      - AUTHENTIK_INTERNAL=http://authentik-server:9000
+      - AUTHENTIK_PUBLIC_HOST=${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}
+      - OIDC_APP_SLUG=rustdesk
+      - PYTHONUNBUFFERED=1
+      - RUSTDESK_DB_PATH=/data/rustdeskapi.db
+      - RUSTDESK_ADMIN_ROLES=rustdesk-admin,homelab-admin
+      - RUSTDESK_ADMIN_GROUPS=homelab-admins
+    volumes:
+      - ${PROJECT_ROOT}/rustdesk/oidc_discovery_proxy.py:/app/oidc_discovery_proxy.py:ro
+      - ${PROJECT_ROOT}/rustdesk/requirements.txt:/app/requirements.txt:ro
+      - rustdesk_console_data:/data
+    networks:
+      - homelab-net
+
   ddclient:
     image: linuxserver/ddclient:latest
     container_name: ddclient
@@ -157,10 +228,15 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_oidc_secret
   vaultwarden_admin_token:
     file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_admin_token
+  rustdesk_admin_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/rustdesk_admin_password
+  rustdesk_api_jwt_key:
+    file: ${PROJECT_ROOT}/volumes/secrets/rustdesk_api_jwt_key
 
 volumes:
   ollama_data:
   rustdesk_data:
+  rustdesk_console_data:
   vaultwarden_data:
   gotify_data:
 

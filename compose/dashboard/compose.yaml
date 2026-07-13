@@ -33,6 +33,7 @@ services:
       - GATUS_SERVICE_NAME=${GATUS_SERVICE_NAME}
       - GOTIFY_SERVICE_NAME=${GOTIFY_SERVICE_NAME}
       - AUTHENTIK_SERVICE_NAME=${AUTHENTIK_SERVICE_NAME}
+      - RUSTDESK_SERVICE_NAME=${RUSTDESK_SERVICE_NAME}
 
     secrets:
       - homelab_password
@@ -42,6 +43,9 @@ services:
       - vaultwarden_admin_token
       - vaultwarden_admin_token_plain
       - gotify_admin_password
+      - rustdesk_admin_password
+      - rustdesk_api_jwt_key
+      - rustdesk_oidc_secret
       - authentik_secret_key
       - authentik_pg_pass
       - authentik_akadmin_password
@@ -99,6 +103,12 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_admin_token_plain
   gotify_admin_password:
     file: ${PROJECT_ROOT}/volumes/secrets/gotify_admin_password
+  rustdesk_admin_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/rustdesk_admin_password
+  rustdesk_api_jwt_key:
+    file: ${PROJECT_ROOT}/volumes/secrets/rustdesk_api_jwt_key
+  rustdesk_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/rustdesk_oidc_secret
   authentik_secret_key:
     file: ${PROJECT_ROOT}/volumes/secrets/authentik_secret_key
   authentik_pg_pass:

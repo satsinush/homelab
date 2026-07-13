@@ -9,6 +9,7 @@ export interface AppConfig {
         vaultwarden: string;
         gatus: string;
         gotify: string;
+        rustdesk: string;
         authentik: string;
     };
 }

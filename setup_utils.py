@@ -85,6 +85,33 @@ def container_curl(container, method, url, data=None, headers=None, auth=None):
     return body, status_code
 
 
+def network_curl(network, method, url, data=None, headers=None):
+    """Run curl on a Docker network (for services without curl in their image)."""
+    headers = headers or {}
+    cmd = [
+        "docker", "run", "--rm", "-i", "--network", network,
+        "curlimages/curl:8.5.0",
+        "-s", "-k", "-w", "\\n%{http_code}", "-X", method,
+    ]
+    for k, v in headers.items():
+        cmd += ["-H", f"{k}: {v}"]
+    if data:
+        cmd += ["--data-binary", "@-"]
+    cmd.append(url)
+
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE if data else None, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    stdout, stderr = proc.communicate(input=data)
+
+    lines = stdout.strip().split("\n")
+    if not lines or len(lines) < 2:
+        if stderr.strip():
+            print(f"   ⚠️  network_curl failed: {stderr.strip()}")
+        return "", 0
+    status_code = int(lines[-1])
+    body = "\n".join(lines[:-1])
+    return body, status_code
+
+
 def wait_for_containers(timeout=120):
     """Wait for all Docker Compose containers to be running and healthy."""
     print("   Waiting for all containers to be running and healthy...")

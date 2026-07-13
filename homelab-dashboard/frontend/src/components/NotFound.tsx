@@ -25,8 +25,7 @@ const NotFound = () => {
                 </Typography>
                 
                 <Typography variant="body1" sx={{ color: 'text.secondary', mb: 4, maxWidth: '500px', mx: 'auto' }}>
-                    The page you are looking for doesn't exist or has been moved. 
-                    If you typed a random subdomain, you've been redirected here!
+                    The page you are looking for doesn't exist or has been moved.
                 </Typography>
                 
                 <Button 

@@ -102,6 +102,7 @@ app.get('/api/config', (req: Request, res: Response) => {
         vaultwardenWebHostname: config.vaultwardenWebHostname,
         gatusWebHostname: config.gatusWebHostname,
         gotifyWebHostname: config.gotifyWebHostname,
+        rustdeskWebHostname: config.rustdeskWebHostname,
         authentikWebHostname: config.authentikWebHostname,
         disableLocalAuth: config.disableLocalAuth,
         ssoEnabled: config.ssoEnabled
@@ -122,8 +123,9 @@ app.use('/api', systemRoutes);
 app.use('/api', chatRoutes);
 app.use('/api', wordGamesRoutes);
 
-// Serve static React build for non-API routes, or proxy to Vite dev server in development
-const frontendDistPath = path.join(__dirname, '..', 'frontend', 'dist');
+// Serve static React build for non-API routes, or proxy to Vite dev server in development.
+// Resolve from cwd (/app/api) so this works under both tsx and compiled dist/.
+const frontendDistPath = path.join(process.cwd(), '..', 'frontend', 'dist');
 
 if (process.env.ENVIRONMENT === 'development') {
     const viteProxy = createProxyMiddleware({

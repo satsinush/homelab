@@ -142,7 +142,9 @@ const LocalLogin = ({ onBack }: LocalLoginProps) => {
                                 <Button
                                     variant="text"
                                     size="small"
-                                    onClick={() => window.location.href = '/api/users/sso-login'}
+                                    onClick={() => {
+                                        window.location.href = '/api/users/sso-login';
+                                    }}
                                     sx={{ textTransform: 'none' }}
                                 >
                                     Use SSO instead

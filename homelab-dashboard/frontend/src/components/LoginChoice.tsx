@@ -1,5 +1,5 @@
 // src/components/LoginChoice.jsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Box,
     Paper,
@@ -9,7 +9,9 @@ import {
     CardContent,
     CardActions,
     Stack,
-    Container
+    Container,
+    Alert,
+    CircularProgress
 } from '@mui/material';
 import {
     Login as LoginIcon,
@@ -21,10 +23,25 @@ import { useConfig } from '../contexts/useConfig';
 
 const LoginChoice = () => {
     const [showLocalLogin, setShowLocalLogin] = useState(false);
+    const [ssoError, setSsoError] = useState('');
+    const [ssoLoading, setSsoLoading] = useState(false);
     const { config } = useConfig();
     const disableLocalAuth = config.disableLocalAuth;
 
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const error = params.get('sso_error');
+        if (error) {
+            setSsoError(error);
+            params.delete('sso_error');
+            const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`;
+            window.history.replaceState({}, '', next);
+        }
+    }, []);
+
     const handleSSOLogin = () => {
+        setSsoError('');
+        setSsoLoading(true);
         window.location.href = '/api/users/sso-login';
     };
 
@@ -63,20 +80,27 @@ const LoginChoice = () => {
                         </Typography>
                     </Box>
 
+                    {ssoError && (
+                        <Alert severity="warning" sx={{ mb: 3 }} onClose={() => setSsoError('')}>
+                            {ssoError}
+                        </Alert>
+                    )}
+
                     <Stack spacing={3}>
                         {/* Primary SSO Login - More Prominent */}
                         <Card
                             variant="outlined"
                             sx={{
-                                cursor: 'pointer',
+                                cursor: ssoLoading ? 'wait' : 'pointer',
                                 border: 2,
                                 borderColor: 'primary.main',
+                                opacity: ssoLoading ? 0.7 : 1,
                                 '&:hover': {
                                     borderColor: 'primary.dark',
                                     boxShadow: 2
                                 }
                             }}
-                            onClick={handleSSOLogin}
+                            onClick={ssoLoading ? undefined : handleSSOLogin}
                         >
                             <CardContent sx={{ textAlign: 'center', py: 4 }}>
                                 <SecurityIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
@@ -92,12 +116,13 @@ const LoginChoice = () => {
                                     autoFocus
                                     variant="contained"
                                     size="large"
-                                    startIcon={<LoginIcon />}
+                                    startIcon={ssoLoading ? <CircularProgress size={20} color="inherit" /> : <LoginIcon />}
                                     onClick={handleSSOLogin}
+                                    disabled={ssoLoading}
                                     fullWidth
                                     sx={{ mx: 2, py: 1.5 }}
                                 >
-                                    Continue with SSO
+                                    {ssoLoading ? 'Connecting…' : 'Continue with SSO'}
                                 </Button>
                             </CardActions>
                         </Card>

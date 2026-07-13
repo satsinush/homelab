@@ -30,6 +30,7 @@ const dockhandServiceName = process.env.DOCKHAND_SERVICE_NAME || 'dockhand';
 const vaultwardenServiceName = process.env.VAULTWARDEN_SERVICE_NAME || 'vaultwarden';
 const gatusServiceName = process.env.GATUS_SERVICE_NAME || 'gatus';
 const gotifyServiceName = process.env.GOTIFY_SERVICE_NAME || 'gotify';
+const rustdeskServiceName = process.env.RUSTDESK_SERVICE_NAME || 'rustdesk';
 
 const DASHBOARD_WEB_HOSTNAME = `${dashboardServiceName}.${homelabHostname}`;
 const AUTHENTIK_WEB_HOSTNAME = `${authentikServiceName}.${homelabHostname}`;
@@ -38,6 +39,7 @@ const DOCKHAND_WEB_HOSTNAME = `${dockhandServiceName}.${homelabHostname}`;
 const VAULTWARDEN_WEB_HOSTNAME = `${vaultwardenServiceName}.${homelabHostname}`;
 const GATUS_WEB_HOSTNAME = `${gatusServiceName}.${homelabHostname}`;
 const GOTIFY_WEB_HOSTNAME = `${gotifyServiceName}.${homelabHostname}`;
+const RUSTDESK_WEB_HOSTNAME = `${rustdeskServiceName}.${homelabHostname}`;
 
 export interface DefaultSettings {
     scanTimeout: number;
@@ -108,7 +110,9 @@ const config = {
     port: 5000,
     sessionSecret: SESSION_SECRET,
     database: {
-        path: path.join(__dirname, '..', 'data'),
+        // Resolve from process cwd (/app/api) so paths stay stable under both
+        // `tsx server.ts` and compiled `node dist/server.js`.
+        path: path.join(process.cwd(), 'data'),
         filename: 'homelab.db'
     },
     cors: {
@@ -150,6 +154,7 @@ const config = {
     vaultwardenWebHostname: VAULTWARDEN_WEB_HOSTNAME,
     gatusWebHostname: GATUS_WEB_HOSTNAME,
     gotifyWebHostname: GOTIFY_WEB_HOSTNAME,
+    rustdeskWebHostname: RUSTDESK_WEB_HOSTNAME,
     ssoEnabled: !!DASHBOARD_OIDC_SECRET,
     defaultSettings: DEFAULT_SETTINGS,
     getOIDCConfig: getOIDCConfig,

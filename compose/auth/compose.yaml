@@ -62,6 +62,7 @@ services:
       GATUS_SERVICE_NAME: ${GATUS_SERVICE_NAME}
       GOTIFY_SERVICE_NAME: ${GOTIFY_SERVICE_NAME}
       AUTHENTIK_SERVICE_NAME: ${AUTHENTIK_SERVICE_NAME}
+      RUSTDESK_SERVICE_NAME: ${RUSTDESK_SERVICE_NAME}
       AUTHENTIK_EMAIL__HOST: apprise-api
       AUTHENTIK_EMAIL__PORT: 8025
       AUTHENTIK_EMAIL__USE_TLS: "false"
@@ -72,8 +73,7 @@ services:
       - ${PROJECT_ROOT}/homelab-dashboard/frontend/public/homelab-icon.svg:/media/public/homelab-icon.svg:ro
       - ${PROJECT_ROOT}/homelab-dashboard/frontend/src/assets:/media/public/icons:ro
       - ${PROJECT_ROOT}/authentik/volumes/templates:/templates
-      - ${PROJECT_ROOT}/authentik/volumes/blueprints:/blueprints/custom
-      - ${PROJECT_ROOT}/authentik/blueprints/homelab.yaml:/blueprints/custom/homelab.yaml:ro
+      - ${PROJECT_ROOT}/authentik/blueprints:/blueprints/custom:ro
     secrets:
       - authentik_pg_pass
       - authentik_secret_key
@@ -81,6 +81,7 @@ services:
       - homelab_password
       - vaultwarden_oidc_secret
       - dashboard_oidc_secret
+      - rustdesk_oidc_secret
     networks:
       - homelab-net
     labels:
@@ -129,6 +130,7 @@ services:
       GATUS_SERVICE_NAME: ${GATUS_SERVICE_NAME}
       GOTIFY_SERVICE_NAME: ${GOTIFY_SERVICE_NAME}
       AUTHENTIK_SERVICE_NAME: ${AUTHENTIK_SERVICE_NAME}
+      RUSTDESK_SERVICE_NAME: ${RUSTDESK_SERVICE_NAME}
       AUTHENTIK_EMAIL__HOST: apprise-api
       AUTHENTIK_EMAIL__PORT: 8025
       AUTHENTIK_EMAIL__USE_TLS: "false"
@@ -142,8 +144,7 @@ services:
       - ${PROJECT_ROOT}/homelab-dashboard/frontend/src/assets:/media/public/icons:ro
       - ${PROJECT_ROOT}/authentik/volumes/certs:/certs
       - ${PROJECT_ROOT}/authentik/volumes/templates:/templates
-      - ${PROJECT_ROOT}/authentik/volumes/blueprints:/blueprints/custom
-      - ${PROJECT_ROOT}/authentik/blueprints/homelab.yaml:/blueprints/custom/homelab.yaml:ro
+      - ${PROJECT_ROOT}/authentik/blueprints:/blueprints/custom:ro
     secrets:
       - authentik_pg_pass
       - authentik_secret_key
@@ -151,6 +152,7 @@ services:
       - homelab_password
       - vaultwarden_oidc_secret
       - dashboard_oidc_secret
+      - rustdesk_oidc_secret
     networks:
       - homelab-net
     depends_on:
@@ -172,6 +174,8 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_oidc_secret
   dashboard_oidc_secret:
     file: ${PROJECT_ROOT}/volumes/secrets/dashboard_oidc_secret
+  rustdesk_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/rustdesk_oidc_secret
 
 volumes:
   authentik_db:
