@@ -10,6 +10,7 @@ export interface AppConfig {
         gatus: string;
         gotify: string;
         rustdesk: string;
+        nextcloud: string;
         authentik: string;
     };
 }

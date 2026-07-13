@@ -19,6 +19,7 @@ export const ConfigProvider = ({ children }: ConfigProviderProps) => {
             gatus: '',
             gotify: '',
             rustdesk: '',
+            nextcloud: '',
             authentik: ''
         }
     });
@@ -40,6 +41,7 @@ export const ConfigProvider = ({ children }: ConfigProviderProps) => {
                             gatus: d.gatusWebHostname || '',
                             gotify: d.gotifyWebHostname || '',
                             rustdesk: d.rustdeskWebHostname || '',
+                            nextcloud: d.nextcloudWebHostname || '',
                             authentik: d.authentikWebHostname || ''
                         }
                     });

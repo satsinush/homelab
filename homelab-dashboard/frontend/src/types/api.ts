@@ -27,6 +27,7 @@ export interface ConfigResponse {
     gatusWebHostname?: string;
     gotifyWebHostname?: string;
     rustdeskWebHostname?: string;
+    nextcloudWebHostname?: string;
     authentikWebHostname?: string;
 }
 

@@ -71,6 +71,12 @@ entries:
     attrs:
       name: rustdesk-user
 
+  - model: authentik_rbac.role
+    identifiers:
+      name: nextcloud-user
+    attrs:
+      name: nextcloud-user
+
   # =================================================================
   # Groups
   # =================================================================
@@ -80,6 +86,8 @@ entries:
     attrs:
       name: homelab-admins
       is_superuser: true
+      attributes:
+        nextcloud_quota: "100 GB"
       roles:
         - !Find [authentik_rbac.role, [name, homelab-admin]]
         - !Find [authentik_rbac.role, [name, rustdesk-admin]]
@@ -90,12 +98,15 @@ entries:
     attrs:
       name: homelab-users
       is_superuser: false
+      attributes:
+        nextcloud_quota: "10 GB"
       roles:
         - !Find [authentik_rbac.role, [name, dashboard-user]]
         - !Find [authentik_rbac.role, [name, gatus-user]]
         - !Find [authentik_rbac.role, [name, dashboard-devices-user]]
         - !Find [authentik_rbac.role, [name, vaultwarden-user]]
         - !Find [authentik_rbac.role, [name, rustdesk-user]]
+        - !Find [authentik_rbac.role, [name, nextcloud-user]]
 
   # =================================================================
   # Admin User
@@ -148,6 +159,33 @@ entries:
             "email_verified": True
         }
 
+  - model: authentik_providers_oauth2.scopemapping
+    id: scope-nextcloud
+    identifiers:
+      scope_name: nextcloud
+    attrs:
+      name: "custom-scope-nextcloud"
+      scope_name: nextcloud
+      description: "Nextcloud profile, groups, quota, and admin mapping"
+      expression: |
+        groups = [g.name for g in request.user.ak_groups.all()]
+        # Nextcloud admin group name is fixed as "admin"
+        if request.user.is_superuser or "homelab-admins" in groups:
+            if "admin" not in groups:
+                groups.append("admin")
+        quota = request.user.group_attributes().get(
+            "nextcloud_quota",
+            request.user.attributes.get("nextcloud_quota", "10 GB"),
+        )
+        return {
+            "name": request.user.name,
+            "groups": groups,
+            "quota": quota,
+            "user_id": request.user.attributes.get(
+                "nextcloud_user_id", request.user.username
+            ),
+        }
+
   # OIDC Providers & Applications
   # =================================================================
 
@@ -184,6 +222,46 @@ entries:
       slug: vaultwarden
       provider: !KeyOf vaultwarden
       icon: icons/vaultwarden_logo.png
+
+  # Nextcloud
+  - model: authentik_providers_oauth2.oauth2provider
+    id: nextcloud
+    identifiers:
+      name: nextcloud
+    attrs:
+      name: nextcloud
+      client_id: nextcloud
+      client_secret: !File /run/secrets/nextcloud_oidc_secret
+      client_type: confidential
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      subject_mode: user_uuid
+      include_claims_in_id_token: true
+      grant_types:
+        - authorization_code
+        - refresh_token
+      redirect_uris:
+        - url: !Format ["https://%s.%s/apps/user_oidc/code", !Env NEXTCLOUD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+        - url: !Format ["https://%s.%s/index.php/apps/user_oidc/code", !Env NEXTCLOUD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !KeyOf scope-email
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !KeyOf scope-groups
+        - !KeyOf scope-nextcloud
+
+  - model: authentik_core.application
+    identifiers:
+      slug: nextcloud
+    attrs:
+      name: Nextcloud
+      slug: nextcloud
+      provider: !KeyOf nextcloud
+      meta_launch_url: !Format ["https://%s.%s", !Env NEXTCLOUD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      icon: icons/nextcloud_logo.png
 
   # Homelab Dashboard
   - model: authentik_providers_oauth2.oauth2provider
@@ -397,6 +475,21 @@ entries:
   - model: authentik_policies.policybinding
     identifiers:
       target: !Find [authentik_core.application, [slug, vaultwarden]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 1
+
+  # Nextcloud
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, nextcloud]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
+    attrs:
+      order: 0
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, nextcloud]]
       group: !Find [authentik_core.group, [name, homelab-admins]]
     attrs:
       order: 1

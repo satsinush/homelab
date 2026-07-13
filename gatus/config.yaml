@@ -98,6 +98,16 @@ endpoints:
       - type: custom
         description: "Vaultwarden is unreachable"
 
+  - name: "Nextcloud"
+    group: "Identity & Security"
+    url: "http://nextcloud/status.php"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Nextcloud is unreachable"
+
   # ─── NETWORKING & INFRA ───
   - name: "Pi-hole"
     group: "Infrastructure"

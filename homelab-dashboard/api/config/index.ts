@@ -31,6 +31,7 @@ const vaultwardenServiceName = process.env.VAULTWARDEN_SERVICE_NAME || 'vaultwar
 const gatusServiceName = process.env.GATUS_SERVICE_NAME || 'gatus';
 const gotifyServiceName = process.env.GOTIFY_SERVICE_NAME || 'gotify';
 const rustdeskServiceName = process.env.RUSTDESK_SERVICE_NAME || 'rustdesk';
+const nextcloudServiceName = process.env.NEXTCLOUD_SERVICE_NAME || 'nextcloud';
 
 const DASHBOARD_WEB_HOSTNAME = `${dashboardServiceName}.${homelabHostname}`;
 const AUTHENTIK_WEB_HOSTNAME = `${authentikServiceName}.${homelabHostname}`;
@@ -40,6 +41,7 @@ const VAULTWARDEN_WEB_HOSTNAME = `${vaultwardenServiceName}.${homelabHostname}`;
 const GATUS_WEB_HOSTNAME = `${gatusServiceName}.${homelabHostname}`;
 const GOTIFY_WEB_HOSTNAME = `${gotifyServiceName}.${homelabHostname}`;
 const RUSTDESK_WEB_HOSTNAME = `${rustdeskServiceName}.${homelabHostname}`;
+const NEXTCLOUD_WEB_HOSTNAME = `${nextcloudServiceName}.${homelabHostname}`;
 
 export interface DefaultSettings {
     scanTimeout: number;
@@ -155,6 +157,7 @@ const config = {
     gatusWebHostname: GATUS_WEB_HOSTNAME,
     gotifyWebHostname: GOTIFY_WEB_HOSTNAME,
     rustdeskWebHostname: RUSTDESK_WEB_HOSTNAME,
+    nextcloudWebHostname: NEXTCLOUD_WEB_HOSTNAME,
     ssoEnabled: !!DASHBOARD_OIDC_SECRET,
     defaultSettings: DEFAULT_SETTINGS,
     getOIDCConfig: getOIDCConfig,

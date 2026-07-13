@@ -40,6 +40,15 @@ Final configuration steps for individual services.
   * **🔐 Vaultwarden**
     * Sign in with SSO using your homelab email address. You **must** use the email address provided to you by the setup script, which routes directly to your Matrix account via the Apprise SMTP gateway. If prompted for an SSO identifier, you can use any string.
     * [Vaultwarden Docs 🔗](https://github.com/dani-garcia/vaultwarden/blob/main/README.md)
+  * **☁️ Nextcloud**
+    * Sign in with Authentik SSO at `https://nextcloud.<your-hostname>`. Your account is created on first login (`user_oidc` auto-provisioning).
+    * Members of `homelab-admins` are mapped into Nextcloud’s built-in **admin** group. Default quotas come from Authentik group attributes (`10 GB` for `homelab-users`, `100 GB` for `homelab-admins`); override per user with a `nextcloud_quota` attribute.
+    * Branding (name, URL, Homelab colors/logo) is applied automatically by setup to match the dashboard theme.
+    * Background jobs use **Cron** via a `nextcloud-cron` sidecar (`occ background:cron`). Maintenance window and default phone region are derived from `TZ` (e.g. `America/Chicago` → ~01:00 local / `US`).
+    * Traefik adds HSTS (`max-age` ≥ 15552000). AppAPI is disabled (no Ex-Apps). Enforce MFA in Authentik rather than Nextcloud 2FA.
+    * Local admin break-glass: `https://nextcloud.<your-hostname>/login?direct=1` (password in `volumes/secrets/nextcloud_admin_password`).
+    * WebDAV (e.g. Obsidian) works against the same host after SSO; Redis is included for file locking/cache.
+    * [Nextcloud Docs 🔗](https://docs.nextcloud.com/) · [Authentik + Nextcloud 🔗](https://integrations.goauthentik.io/chat-communication-collaboration/nextcloud/)
   * **📈 Uptime Kuma**
     * Configure notifications by adding a Webhook notification pointing to the Apprise gateway: `http://apprise-api:8000/alerts/uptime-kuma`. This will route status alerts directly to Matrix (admin room or DM).
     * [Uptime Kuma Docs 🔗](https://github.com/louislam/uptime-kuma/wiki)

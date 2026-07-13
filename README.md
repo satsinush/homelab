@@ -41,6 +41,7 @@ This project bundles several open-source services, managed via `docker-compose`,
   * **🚫 Pi-hole & Unbound**: Network-wide ad-blocking and recursive DNS.
   * **🌐 ddclient**: Dynamic DNS client to keep your domain pointed to your IP.
   * **🖥️ RustDesk**: A self-hosted remote desktop solution.
+  * **☁️ Nextcloud**: Self-hosted files and WebDAV (Authentik OIDC).
   * **🔐 Vaultwarden**: Self-hosted password manager.
 
 ### Infrastructure Diagram
@@ -68,6 +69,7 @@ graph TD
                 Traefik[🔀 Traefik Reverse Proxy]
                 Authentik[🔑 Authentik SSO]
                 Vaultwarden[🔐 Vaultwarden]
+                Nextcloud[☁️ Nextcloud]
                 Portainer[📦 Portainer]
                 Dashboard[🏠 Homelab Dashboard]
                 Ollama[🤖 Ollama AI]
@@ -96,6 +98,7 @@ graph TD
     %% Proxy/Auth flows
     Traefik --> Authentik
     Traefik --> Vaultwarden
+    Traefik --> Nextcloud
     Traefik --> Portainer
     Traefik --> Dashboard
     Traefik --> Netdata

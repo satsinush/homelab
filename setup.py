@@ -172,6 +172,7 @@ if not os.path.exists(".env"):
     os.environ["GOTIFY_SERVICE_NAME"] = "gotify"
     os.environ["AUTHENTIK_SERVICE_NAME"] = "authentik"
     os.environ["RUSTDESK_SERVICE_NAME"] = "rustdesk"
+    os.environ["NEXTCLOUD_SERVICE_NAME"] = "nextcloud"
 
     content = substitute_env_vars(content)
 
@@ -208,6 +209,9 @@ gen_secret("dashboard_oidc_secret", 64)
 gen_secret("rustdesk_oidc_secret", 64)
 gen_secret("rustdesk_api_jwt_key", 64)
 gen_secret("rustdesk_admin_password", 32)
+gen_secret("nextcloud_oidc_secret", 64)
+gen_secret("nextcloud_db_password", 32)
+gen_secret("nextcloud_admin_password", 32)
 gen_secret("gotify_admin_password", 32)
 gen_secret("authentik_secret_key", 50)
 gen_secret("authentik_pg_pass", 32)
@@ -226,6 +230,12 @@ if not env.get("RUSTDESK_SERVICE_NAME"):
         f.write("\nRUSTDESK_SERVICE_NAME='rustdesk'\n")
     env["RUSTDESK_SERVICE_NAME"] = "rustdesk"
     os.environ["RUSTDESK_SERVICE_NAME"] = "rustdesk"
+
+if not env.get("NEXTCLOUD_SERVICE_NAME"):
+    with open(".env", "a") as f:
+        f.write("\nNEXTCLOUD_SERVICE_NAME='nextcloud'\n")
+    env["NEXTCLOUD_SERVICE_NAME"] = "nextcloud"
+    os.environ["NEXTCLOUD_SERVICE_NAME"] = "nextcloud"
 
 # Ensure homelab_password exists
 if not os.path.exists("./volumes/secrets/homelab_password") or os.path.getsize("./volumes/secrets/homelab_password") == 0:
@@ -349,6 +359,9 @@ apprise_setup.setup(env)
 import rustdesk.setup as rustdesk_setup
 rustdesk_setup.setup(env)
 
+import nextcloud.setup as nextcloud_setup
+nextcloud_setup.setup(env)
+
 # 9. Summary
 print("\n🎉 Homelab Setup Complete!")
 print("==========================")
@@ -359,6 +372,7 @@ gotify_pwd = os.environ.get("GOTIFY_ADMIN_PASSWORD", "")
 print(f"\n🌐 Web Access:")
 print(f"   Dashboard:  https://{env.get('DASHBOARD_SERVICE_NAME')}.{hostname}")
 print(f"   RustDesk:   https://{env.get('RUSTDESK_SERVICE_NAME', 'rustdesk')}.{hostname}/_admin/")
+print(f"   Nextcloud:  https://{env.get('NEXTCLOUD_SERVICE_NAME', 'nextcloud')}.{hostname}")
 ssl_mode = 'Self-signed (private)' if cert_resolver != 'letsencrypt' else "Public (Let's Encrypt)"
 print(f"\n🔒 SSL Mode: {ssl_mode}")
 if cert_resolver != "letsencrypt":

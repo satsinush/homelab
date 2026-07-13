@@ -1,6 +1,3 @@
-
-- Pcie gen 3?
-- Add next cloud
 - Add obsidian sync (desktop client and WebDAV for mobile)
 - Add cloud backup for containers (mega.nz, rclone)
 - Setup immich
@@ -14,3 +11,5 @@
 - fix aria hidden and other browser warnings
 - CI/CD to run lint and what not, single version file to set C++ frontend, api, and host api version
 - build APK for word games
+- Pcie gen 3?
+- implement HSTS?

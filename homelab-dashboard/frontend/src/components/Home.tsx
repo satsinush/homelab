@@ -32,6 +32,7 @@ import GotifyLogo from '../assets/gotify_logo.png';
 import AuthIcon from '../assets/authentik_logo.png';
 import DockhandLogo from '../assets/dockhand_logo.png';
 import RustdeskLogo from '../assets/rustdesk_logo.png';
+import NextcloudLogo from '../assets/nextcloud_logo.png';
 
 interface QuickLink {
     title: string;
@@ -138,6 +139,14 @@ const Home = () => {
             role: 'vaultwarden-user',
             logo: VaultwardenLogo,
             logoAlt: 'Vaultwarden'
+        },
+        {
+            title: 'Nextcloud',
+            description: 'Files, WebDAV sync, and collaboration',
+            url: `https://${hostnames.nextcloud || ''}`,
+            role: 'nextcloud-user',
+            logo: NextcloudLogo,
+            logoAlt: 'Nextcloud'
         },
         {
             title: 'Gatus',

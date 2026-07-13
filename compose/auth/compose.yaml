@@ -63,6 +63,7 @@ services:
       GOTIFY_SERVICE_NAME: ${GOTIFY_SERVICE_NAME}
       AUTHENTIK_SERVICE_NAME: ${AUTHENTIK_SERVICE_NAME}
       RUSTDESK_SERVICE_NAME: ${RUSTDESK_SERVICE_NAME}
+      NEXTCLOUD_SERVICE_NAME: ${NEXTCLOUD_SERVICE_NAME}
       AUTHENTIK_EMAIL__HOST: apprise-api
       AUTHENTIK_EMAIL__PORT: 8025
       AUTHENTIK_EMAIL__USE_TLS: "false"
@@ -82,6 +83,7 @@ services:
       - vaultwarden_oidc_secret
       - dashboard_oidc_secret
       - rustdesk_oidc_secret
+      - nextcloud_oidc_secret
     networks:
       - homelab-net
     labels:
@@ -131,6 +133,7 @@ services:
       GOTIFY_SERVICE_NAME: ${GOTIFY_SERVICE_NAME}
       AUTHENTIK_SERVICE_NAME: ${AUTHENTIK_SERVICE_NAME}
       RUSTDESK_SERVICE_NAME: ${RUSTDESK_SERVICE_NAME}
+      NEXTCLOUD_SERVICE_NAME: ${NEXTCLOUD_SERVICE_NAME}
       AUTHENTIK_EMAIL__HOST: apprise-api
       AUTHENTIK_EMAIL__PORT: 8025
       AUTHENTIK_EMAIL__USE_TLS: "false"
@@ -153,6 +156,7 @@ services:
       - vaultwarden_oidc_secret
       - dashboard_oidc_secret
       - rustdesk_oidc_secret
+      - nextcloud_oidc_secret
     networks:
       - homelab-net
     depends_on:
@@ -176,6 +180,8 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/dashboard_oidc_secret
   rustdesk_oidc_secret:
     file: ${PROJECT_ROOT}/volumes/secrets/rustdesk_oidc_secret
+  nextcloud_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_oidc_secret
 
 volumes:
   authentik_db:
