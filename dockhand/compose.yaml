@@ -1,4 +1,4 @@
-# compose/docker/compose.yaml
+# dockhand/compose.yaml
 services:
   dockhand:
     image: fnsys/dockhand:latest

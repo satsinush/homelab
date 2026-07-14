@@ -1,4 +1,4 @@
-# compose/monitoring/compose.yaml
+# gatus/compose.yaml
 services:
   gatus:
     image: twinproduction/gatus:latest

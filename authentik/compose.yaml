@@ -1,4 +1,4 @@
-# compose/auth/compose.yaml
+# authentik/compose.yaml
 services:
   authentik-postgres:
     image: docker.io/library/postgres:16-alpine

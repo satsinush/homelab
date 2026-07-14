@@ -1,4 +1,4 @@
-# compose/docker-compose.dns.yml
+# pihole/compose.yaml
 services:
   pihole:
     image: pihole/pihole:latest
@@ -41,44 +41,9 @@ services:
       retries: 3
       start_period: 1m
 
-  unbound:
-    image: klutchell/unbound:latest
-    container_name: unbound
-    restart: unless-stopped
-    volumes:
-      - ${PROJECT_ROOT}/unbound/unbound.conf:/etc/unbound/custom.conf.d/unbound.conf:ro
-      - ${PROJECT_ROOT}/unbound/cachedb.conf:/etc/unbound/custom.conf.d/cachedb.conf:ro
-      - ${PROJECT_ROOT}/unbound/root.hints:/etc/unbound/root.hints:ro
-    networks:
-      - homelab-net
-    depends_on:
-      unbound-redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "drill", "icann.org", "@127.0.0.1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
-  unbound-redis:
-    image: redis:7-alpine
-    container_name: unbound-redis
-    restart: unless-stopped
-    volumes:
-      - unbound_redis_data:/data
-    networks:
-      - homelab-net
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      start_period: 30s
-
 volumes:
   pihole_data:
   pihole_logs:
-  unbound_redis_data:
 
 networks:
   homelab-net:

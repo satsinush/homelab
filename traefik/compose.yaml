@@ -1,4 +1,4 @@
-# compose/docker-compose.core.yml
+# traefik/compose.yaml
 services:
   traefik:
     image: traefik:v3

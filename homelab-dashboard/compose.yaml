@@ -1,4 +1,4 @@
-# compose/dashboard/compose.yaml
+# homelab-dashboard/compose.yaml
 services:
   homelab-dashboard:
     container_name: homelab-dashboard

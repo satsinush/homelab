@@ -1,0 +1,132 @@
+# nextcloud/compose.yaml
+services:
+  nextcloud-db:
+    image: postgres:16-alpine
+    container_name: nextcloud-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=nextcloud
+      - POSTGRES_PASSWORD_FILE=/run/secrets/nextcloud_db_password
+    secrets:
+      - nextcloud_db_password
+    volumes:
+      - nextcloud_db:/var/lib/postgresql/data
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nextcloud -d nextcloud"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  nextcloud-redis:
+    image: redis:7-alpine
+    container_name: nextcloud-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  nextcloud:
+    image: nextcloud:apache
+    container_name: nextcloud
+    restart: unless-stopped
+    depends_on:
+      nextcloud-db:
+        condition: service_healthy
+      nextcloud-redis:
+        condition: service_healthy
+      apprise-api:
+        condition: service_healthy
+    volumes:
+      - nextcloud_data:/var/www/html
+      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/usr/local/share/ca-certificates/homelab-ca.crt:ro
+      - ${PROJECT_ROOT}/homelab-dashboard/frontend/public/homelab-icon.svg:/mnt/homelab-branding/logo.svg:ro
+      - ${PROJECT_ROOT}/homelab-dashboard/frontend/public/favicon.ico:/mnt/homelab-branding/favicon.ico:ro
+      - ${PROJECT_ROOT}/homelab-dashboard/frontend/src/assets/nextcloud_logo.png:/mnt/homelab-branding/nextcloud_logo.png:ro
+    extra_hosts:
+      - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:10.10.30.100"
+    environment:
+      - POSTGRES_HOST=nextcloud-db
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=nextcloud
+      - POSTGRES_PASSWORD_FILE=/run/secrets/nextcloud_db_password
+      - REDIS_HOST=nextcloud-redis
+      - NEXTCLOUD_ADMIN_USER=${HOMELAB_USERNAME}
+      - NEXTCLOUD_ADMIN_PASSWORD_FILE=/run/secrets/nextcloud_admin_password
+      - NEXTCLOUD_TRUSTED_DOMAINS=${NEXTCLOUD_SERVICE_NAME}.${HOMELAB_HOSTNAME}
+      - OVERWRITEPROTOCOL=https
+      - OVERWRITEHOST=${NEXTCLOUD_SERVICE_NAME}.${HOMELAB_HOSTNAME}
+      - OVERWRITECLIURL=https://${NEXTCLOUD_SERVICE_NAME}.${HOMELAB_HOSTNAME}
+      - TRUSTED_PROXIES=10.10.30.0/24
+      - PHP_MEMORY_LIMIT=512M
+      - TZ=${TZ}
+      - SMTP_HOST=apprise-api
+      - SMTP_PORT=8025
+      - SMTP_SECURE=
+      - MAIL_FROM_ADDRESS=nextcloud
+      - MAIL_DOMAIN=${HOMELAB_HOSTNAME}
+    secrets:
+      - nextcloud_db_password
+      - nextcloud_admin_password
+      - nextcloud_oidc_secret
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nextcloud.rule=Host(`${NEXTCLOUD_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.nextcloud.entrypoints=websecure"
+      - "traefik.http.routers.nextcloud.tls=true"
+      - "traefik.http.routers.nextcloud.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.routers.nextcloud.middlewares=nextcloud-hsts"
+      - "traefik.http.middlewares.nextcloud-hsts.headers.stsSeconds=15552000"
+      - "traefik.http.middlewares.nextcloud-hsts.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.nextcloud-hsts.headers.forceSTSHeader=true"
+      - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1/status.php"]
+      interval: 1m
+      timeout: 10s
+      retries: 5
+      start_period: 3m
+
+  # Official Nextcloud image cron sidecar (runs cron.php as www-data every 5m)
+  nextcloud-cron:
+    image: nextcloud:apache
+    container_name: nextcloud-cron
+    restart: unless-stopped
+    entrypoint: /cron.sh
+    volumes:
+      - nextcloud_data:/var/www/html
+    depends_on:
+      nextcloud:
+        condition: service_healthy
+      nextcloud-db:
+        condition: service_healthy
+      nextcloud-redis:
+        condition: service_healthy
+    networks:
+      - homelab-net
+
+secrets:
+  nextcloud_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_oidc_secret
+  nextcloud_db_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_db_password
+  nextcloud_admin_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_admin_password
+
+volumes:
+  nextcloud_data:
+  nextcloud_db:
+
+networks:
+  homelab-net:
+    external: true

@@ -1,0 +1,60 @@
+# collabora/compose.yaml
+services:
+  # Collabora Online (CODE) — LibreOffice editing for Nextcloud
+  collabora:
+    image: collabora/code:latest
+    container_name: collabora
+    restart: unless-stopped
+    # CODE needs these for kit jail bind-mounts (otherwise falls back to slow copy)
+    cap_add:
+      - MKNOD
+      - SYS_ADMIN
+      - SYS_CHROOT
+      - FOWNER
+    security_opt:
+      - seccomp:unconfined
+    tty: true
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    environment:
+      - TZ=${TZ}
+      - aliasgroup1=https://${NEXTCLOUD_SERVICE_NAME}.${HOMELAB_HOSTNAME}:443
+      - server_name=${COLLABORA_SERVICE_NAME}.${HOMELAB_HOSTNAME}
+      - username=admin
+      - DONT_GEN_SSL_CERT=true
+      # System CAs + Homelab root (built into collabora-ca-bundle.crt)
+      - SSL_CERT_FILE=/etc/coolwsd/ca-bundle.crt
+      - CURL_CA_BUNDLE=/etc/coolwsd/ca-bundle.crt
+      - REQUESTS_CA_BUNDLE=/etc/coolwsd/ca-bundle.crt
+      - extra_params=--o:ssl.enable=false --o:ssl.termination=true --o:ssl.ssl_verification=true --o:ssl.ca_file_path=/etc/coolwsd/ca-bundle.crt --o:net.frame_ancestors=${NEXTCLOUD_SERVICE_NAME}.${HOMELAB_HOSTNAME} --o:welcome.enable=false --o:logging.level=warning
+      - dictionaries=en_US
+    secrets:
+      - collabora_admin_password
+    volumes:
+      - ${PROJECT_ROOT}/collabora/entrypoint.sh:/entrypoint.sh:ro
+      - ${PROJECT_ROOT}/volumes/certificates/collabora-ca-bundle.crt:/etc/coolwsd/ca-bundle.crt:ro
+    extra_hosts:
+      - "${NEXTCLOUD_SERVICE_NAME}.${HOMELAB_HOSTNAME}:10.10.30.100"
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.collabora.rule=Host(`${COLLABORA_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.collabora.entrypoints=websecure"
+      - "traefik.http.routers.collabora.tls=true"
+      - "traefik.http.routers.collabora.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.services.collabora.loadbalancer.server.port=9980"
+      - "traefik.http.services.collabora.loadbalancer.server.scheme=http"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/9980'"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+
+secrets:
+  collabora_admin_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/collabora_admin_password
+
+networks:
+  homelab-net:
+    external: true
