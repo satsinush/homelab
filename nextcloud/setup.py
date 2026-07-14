@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from setup_utils import detect_homelab_locale, gen_secret, phone_region_from_tz, run_cmd
@@ -224,14 +225,40 @@ def _wait_for_collabora(attempts: int = 36) -> bool:
     return False
 
 
+def _ensure_collabora_ca_bundle() -> None:
+    """Merge Homelab CA into Collabora's trust store for WOPI SSL verification."""
+    ca = Path("./volumes/certificates/homelab-ca.crt")
+    bundle = Path("./volumes/certificates/collabora-ca-bundle.crt")
+    if not ca.is_file():
+        print("   ⚠️  Homelab CA missing; Collabora SSL verification may fail")
+        return
+    # Rebuild when missing or Homelab CA is newer than the bundle
+    if bundle.is_file() and bundle.stat().st_mtime >= ca.stat().st_mtime:
+        return
+    print("   Building Collabora CA bundle (system CAs + Homelab root)...")
+    bundle.parent.mkdir(parents=True, exist_ok=True)
+    run_cmd(
+        "docker run --rm --entrypoint cat collabora/code:latest "
+        f"/etc/ssl/certs/ca-certificates.crt > {bundle} "
+        f"&& cat {ca} >> {bundle}",
+        check=False,
+    )
+    if not bundle.is_file() or bundle.stat().st_size < 1000:
+        bundle.write_bytes(ca.read_bytes())
+    print(f"   ✅ Wrote {bundle} ({bundle.stat().st_size} bytes)")
+
+
 def _ensure_collabora(env: dict) -> None:
     """Install Nextcloud Office (richdocuments) and point it at Collabora CODE."""
     service = env.get("NEXTCLOUD_SERVICE_NAME", "nextcloud")
     collabora = env.get("COLLABORA_SERVICE_NAME", "collabora")
     hostname = env.get("HOMELAB_HOSTNAME", "homelab.home.arpa")
-    wopi_url = f"https://{collabora}.{hostname}"
+    # NC → Collabora on the Docker network; browser → Collabora public hostname
+    wopi_internal = "http://collabora:9980"
+    wopi_public = f"https://{collabora}.{hostname}"
 
     gen_secret("collabora_admin_password", 24)
+    _ensure_collabora_ca_bundle()
     run_cmd("docker compose up -d collabora", check=False)
 
     if not _wait_for_collabora():
@@ -244,10 +271,9 @@ def _ensure_collabora(env: dict) -> None:
         _occ("app:install", "richdocuments", check=False)
     _occ("app:enable", "richdocuments", check=False)
 
-    print(f"   Configuring Collabora WOPI at {wopi_url}...")
-    _occ("config:app:set", "richdocuments", "wopi_url", f"--value={wopi_url}", check=False)
-    _occ("config:app:set", "richdocuments", "public_wopi_url", f"--value={wopi_url}", check=False)
-    # Homelab uses private CA; discovery from NC → Collabora may need this
+    print(f"   Configuring Collabora (internal={wopi_internal}, public={wopi_public})...")
+    _occ("config:app:set", "richdocuments", "wopi_url", f"--value={wopi_internal}", check=False)
+    _occ("config:app:set", "richdocuments", "public_wopi_url", f"--value={wopi_public}", check=False)
     _occ(
         "config:app:set",
         "richdocuments",
@@ -257,7 +283,8 @@ def _ensure_collabora(env: dict) -> None:
     )
     _occ("richdocuments:activate-config", check=False)
 
-    print(f"   ✅ Nextcloud Office ready via Collabora ({wopi_url})")
+    print(f"   ✅ Nextcloud Office ready via Collabora ({wopi_public})")
+    print(f"   ℹ️  Visit {wopi_public} once in your browser if prompted to trust the Homelab cert")
     print(f"   ℹ️  Open .odt/.ods/.odp (and Office) files from https://{service}.{hostname}")
 
 

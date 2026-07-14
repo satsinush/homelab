@@ -314,19 +314,20 @@ services:
     environment:
       - TZ=${TZ}
       - aliasgroup1=https://${NEXTCLOUD_SERVICE_NAME}.${HOMELAB_HOSTNAME}:443
+      - server_name=${COLLABORA_SERVICE_NAME}.${HOMELAB_HOSTNAME}
       - username=admin
       - DONT_GEN_SSL_CERT=true
-      # Image runs as uid 1001 — cannot update system CA store; trust Homelab CA directly
-      - SSL_CERT_FILE=/etc/coolwsd/homelab-ca.crt
-      - CURL_CA_BUNDLE=/etc/coolwsd/homelab-ca.crt
-      - REQUESTS_CA_BUNDLE=/etc/coolwsd/homelab-ca.crt
-      - extra_params=--o:ssl.enable=false --o:ssl.termination=true --o:ssl.ssl_verification=true --o:ssl.ca_file_path=/etc/coolwsd/homelab-ca.crt --o:welcome.enable=false --o:logging.level=warning
+      # System CAs + Homelab root (built into collabora-ca-bundle.crt)
+      - SSL_CERT_FILE=/etc/coolwsd/ca-bundle.crt
+      - CURL_CA_BUNDLE=/etc/coolwsd/ca-bundle.crt
+      - REQUESTS_CA_BUNDLE=/etc/coolwsd/ca-bundle.crt
+      - extra_params=--o:ssl.enable=false --o:ssl.termination=true --o:ssl.ssl_verification=true --o:ssl.ca_file_path=/etc/coolwsd/ca-bundle.crt --o:net.frame_ancestors=${NEXTCLOUD_SERVICE_NAME}.${HOMELAB_HOSTNAME} --o:welcome.enable=false --o:logging.level=warning
       - dictionaries=en_US
     secrets:
       - collabora_admin_password
     volumes:
       - ${PROJECT_ROOT}/collabora/entrypoint.sh:/entrypoint.sh:ro
-      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/coolwsd/homelab-ca.crt:ro
+      - ${PROJECT_ROOT}/volumes/certificates/collabora-ca-bundle.crt:/etc/coolwsd/ca-bundle.crt:ro
     extra_hosts:
       - "${NEXTCLOUD_SERVICE_NAME}.${HOMELAB_HOSTNAME}:10.10.30.100"
     networks:
