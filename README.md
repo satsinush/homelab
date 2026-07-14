@@ -168,7 +168,7 @@ Complete a final checklist for each service (e.g., installing the root CA certif
 
 #### 5\. 💾 Backup and Restore
 
-Learn how to manage and protect your data. This section covers running manual backups, checking the automated `systemd` backup timer, and performing a full system restoration from an archive.
+Learn how to manage and protect your data. This section covers Restic cloud backups via `setup.py`, the automated `systemd` timer, and disaster recovery.
 
 ➡️ **View the backup and restore guide here:** **[5. Backup and Restore](./docs/5-backup-restore.md)**
 

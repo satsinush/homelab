@@ -5,7 +5,7 @@ services:
     container_name: rustdesk-id-server
     command: hbbs -r rustdesk-relay-server:21119 -k _
     volumes:
-      - rustdesk_data:/root
+      - ${PROJECT_ROOT}/rustdesk/volumes/server:/root
     networks:
       - homelab-net
     ports:
@@ -22,7 +22,7 @@ services:
     container_name: rustdesk-relay-server
     command: hbbr -k _
     volumes:
-      - rustdesk_data:/root
+      - ${PROJECT_ROOT}/rustdesk/volumes/server:/root
     networks:
       - homelab-net
     ports:
@@ -51,7 +51,7 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/homelab-ca.crt
       - REQUESTS_CA_BUNDLE=/etc/ssl/certs/homelab-ca.crt
     volumes:
-      - rustdesk_console_data:/app/data
+      - ${PROJECT_ROOT}/rustdesk/volumes/console:/app/data
       - ${PROJECT_ROOT}/rustdesk/entrypoint.sh:/entrypoint.sh:ro
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
       - ${PROJECT_ROOT}/volumes/public-configs/rustdesk_public_key:/app/public-configs/rustdesk_public_key:ro
@@ -97,7 +97,7 @@ services:
     volumes:
       - ${PROJECT_ROOT}/rustdesk/oidc_discovery_proxy.py:/app/oidc_discovery_proxy.py:ro
       - ${PROJECT_ROOT}/rustdesk/requirements.txt:/app/requirements.txt:ro
-      - rustdesk_console_data:/data
+      - ${PROJECT_ROOT}/rustdesk/volumes/console:/data
     networks:
       - homelab-net
 
@@ -106,10 +106,6 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/rustdesk_admin_password
   rustdesk_api_jwt_key:
     file: ${PROJECT_ROOT}/volumes/secrets/rustdesk_api_jwt_key
-
-volumes:
-  rustdesk_data:
-  rustdesk_console_data:
 
 networks:
   homelab-net:

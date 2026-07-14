@@ -35,7 +35,7 @@ In both files, find and replace the usernames and file paths with the correct va
 Replace these lines:
 ```
 WorkingDirectory=/home/USERNAME/homelab
-ExecStart=/home/USERNAME/homelab/backup.sh backup --auto
+ExecStart=/usr/bin/python3 /home/USERNAME/homelab/setup.py backup --auto
 
 User=USERNAME
 Group=GROUP

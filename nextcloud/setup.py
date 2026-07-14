@@ -1,4 +1,4 @@
-"""Post-start setup for Nextcloud: OIDC, theming, cron, and security hardening."""
+"""Nextcloud service — volumes, postsetup (OIDC/theming), Postgres dump/restore."""
 from __future__ import annotations
 
 import os
@@ -9,6 +9,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from service import (
+    Service,
+    VolumeDir,
+    latest_file,
+    pg_dump_to_file,
+    pg_restore_from_file,
+)
 from setup_utils import detect_homelab_locale, gen_secret, phone_region_from_tz, run_cmd
 
 _EXPENSIVE_REPAIR_MARKER = "./nextcloud/volumes/.expensive-repair-done"
@@ -257,7 +264,6 @@ def _ensure_collabora(env: dict) -> None:
     wopi_internal = "http://collabora:9980"
     wopi_public = f"https://{collabora}.{hostname}"
 
-    gen_secret("collabora_admin_password", 24)
     _ensure_collabora_ca_bundle()
     run_cmd("docker compose up -d collabora", check=False)
 
@@ -354,28 +360,65 @@ def _ensure_user_oidc(env: dict) -> None:
     print("   ℹ️  Admin password: volumes/secrets/nextcloud_admin_password")
 
 
-def setup(env: dict) -> None:
-    print("\n☁️  Setting up Nextcloud...")
-    gen_secret("nextcloud_oidc_secret", 64)
-    gen_secret("nextcloud_db_password", 32)
-    gen_secret("nextcloud_admin_password", 32)
-    gen_secret("collabora_admin_password", 24)
+class NextcloudService(Service):
+    name = "nextcloud"
+    volume_dirs = [
+        VolumeDir("./nextcloud/volumes/html", uid=33, gid=33, mode=0o755),
+        VolumeDir("./nextcloud/volumes/db", uid=70, gid=70, mode=0o700),
+        VolumeDir("./nextcloud/volumes/db-dumps", uid=0, gid=0, mode=0o700),
+    ]
 
-    if not shutil.which("docker"):
-        print("   ❌ Docker not available; skipping Nextcloud OIDC setup")
-        return
+    def setup(self, env: dict) -> None:
+        super().setup(env)
+        print("\n☁️  Preparing Nextcloud secrets...")
+        gen_secret("nextcloud_oidc_secret", 64)
+        gen_secret("nextcloud_db_password", 32)
+        gen_secret("nextcloud_admin_password", 32)
+        print("   ✅ Nextcloud secrets ready")
 
-    run_cmd(
-        "docker compose up -d nextcloud-db nextcloud-redis nextcloud nextcloud-cron collabora",
-        check=False,
-    )
+    def postsetup(self, env: dict) -> None:
+        print("\n☁️  Setting up Nextcloud...")
 
-    if not _wait_for_nextcloud():
-        print("   ⚠️  Nextcloud did not become ready; skipping OIDC setup (re-run setup later)")
-        return
+        if not shutil.which("docker"):
+            print("   ❌ Docker not available; skipping Nextcloud OIDC setup")
+            return
 
-    _ensure_theming(env)
-    _ensure_cron()
-    _ensure_hardening(env)
-    _ensure_user_oidc(env)
-    _ensure_collabora(env)
+        run_cmd(
+            "docker compose up -d nextcloud-db nextcloud-redis nextcloud nextcloud-cron collabora",
+            check=False,
+        )
+
+        if not _wait_for_nextcloud():
+            print("   ⚠️  Nextcloud did not become ready; skipping OIDC setup (re-run setup later)")
+            return
+
+        _ensure_theming(env)
+        _ensure_cron()
+        _ensure_hardening(env)
+        _ensure_user_oidc(env)
+        _ensure_collabora(env)
+
+    def backup(self, env: dict) -> None:
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        dest = f"./nextcloud/volumes/db-dumps/nextcloud-{stamp}.sql"
+        pg_dump_to_file(
+            "nextcloud-db",
+            "nextcloud",
+            "nextcloud",
+            dest,
+            password_file="/run/secrets/nextcloud_db_password",
+        )
+
+    def restore(self, env: dict) -> None:
+        dump = latest_file("./nextcloud/volumes/db-dumps", ".sql")
+        if dump:
+            pg_restore_from_file(
+                "nextcloud-db",
+                "nextcloud",
+                "nextcloud",
+                dump,
+                password_file="/run/secrets/nextcloud_db_password",
+            )
+
+
+service = NextcloudService()

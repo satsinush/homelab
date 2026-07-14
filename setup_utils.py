@@ -23,6 +23,11 @@ def run_cmd(cmd, cwd=None, shell=True, check=True):
 
 def gen_secret(name, length_bytes):
     """Generate a hex secret file in ./volumes/secrets/ if it doesn't already exist."""
+    os.makedirs("./volumes/secrets", exist_ok=True)
+    try:
+        os.chmod("./volumes/secrets", 0o700)
+    except OSError:
+        pass
     path = f"./volumes/secrets/{name}"
     if not os.path.exists(path) or os.path.getsize(path) == 0:
         val = secrets.token_hex(length_bytes)

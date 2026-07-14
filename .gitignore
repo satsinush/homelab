@@ -19,6 +19,9 @@ volumes/
 
 backups/
 
+# Local Restic exclude overrides (see .backup_exclude.example)
+.backup_exclude
+
 .vscode/
 
 # Python caches

@@ -20,8 +20,8 @@ services:
       - FTLCONF_misc_dnsmasq_lines=address=/.${HOMELAB_HOSTNAME}/${HOMELAB_IP_ADDRESS}
       - FTLCONF_dns_hosts=${HOMELAB_IP_ADDRESS} ${HOMELAB_HOSTNAME};
     volumes:
-      - pihole_data:/etc/pihole/
-      - pihole_logs:/run/log/pihole/
+      - ${PROJECT_ROOT}/pihole/volumes/etc-pihole:/etc/pihole/
+      - ${PROJECT_ROOT}/pihole/volumes/logs:/run/log/pihole/
     networks:
       - homelab-net
     labels:
@@ -40,10 +40,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 1m
-
-volumes:
-  pihole_data:
-  pihole_logs:
 
 networks:
   homelab-net:

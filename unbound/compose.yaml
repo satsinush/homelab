@@ -25,7 +25,7 @@ services:
     container_name: unbound-redis
     restart: unless-stopped
     volumes:
-      - unbound_redis_data:/data
+      - ${PROJECT_ROOT}/unbound/volumes/redis:/data
     networks:
       - homelab-net
     healthcheck:
@@ -33,9 +33,6 @@ services:
       interval: 30s
       timeout: 10s
       start_period: 30s
-
-volumes:
-  unbound_redis_data:
 
 networks:
   homelab-net:

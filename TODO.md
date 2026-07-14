@@ -1,3 +1,9 @@
+- set up proper cloud backup
+- Create standard presetup() / setup() / postsetup() functions for setup.py
+- Set up restic container?
+
+- Backup checklist: Vaultwarden passwords, homelab dashboard devices, rustdesk users/devices, nextcloud files
+
 - Add obsidian sync (desktop client and WebDAV for mobile)
 - Add cloud backup for containers (mega.nz, rclone)
 - Setup immich

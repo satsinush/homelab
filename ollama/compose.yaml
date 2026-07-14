@@ -5,7 +5,7 @@ services:
     container_name: ollama
     restart: unless-stopped
     volumes:
-      - ollama_data:/root/.ollama
+      - ${PROJECT_ROOT}/ollama/volumes/ollama:/root/.ollama
     networks:
       - homelab-net
     healthcheck:
@@ -14,9 +14,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 1m
-
-volumes:
-  ollama_data:
 
 networks:
   homelab-net:

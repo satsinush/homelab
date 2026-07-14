@@ -1,10 +1,14 @@
+"""RustDesk service — console OIDC postsetup + SQLite snapshot."""
+from __future__ import annotations
+
 import json
 import os
 import shutil
 import time
 from typing import Any
 
-from setup_utils import run_cmd, gen_secret, network_curl
+from service import Service, VolumeDir, restore_sqlite_snapshot, sqlite_snapshot
+from setup_utils import gen_secret, network_curl, run_cmd
 
 RUSTDESK_CONSOLE_URL = "http://rustdesk-console:21114"
 DOCKER_NETWORK = "homelab-net"
@@ -40,7 +44,6 @@ def _api_ok(payload: Any) -> bool:
 
 
 def _api(method: str, path: str, data=None, token: str | None = None):
-    """Call rustdesk-console admin/API JSON endpoints via the Docker network."""
     url = f"{RUSTDESK_CONSOLE_URL}{path}"
     headers = {"Accept": "application/json"}
     payload = None
@@ -95,7 +98,6 @@ def _admin_login(password: str) -> str | None:
 
 
 def _ensure_authentik_oidc(token: str, env: dict) -> bool:
-    """Create or update the Authentik OIDC provider via admin API."""
     oidc_secret = _read_secret("rustdesk_oidc_secret")
     if not oidc_secret:
         print("   ⚠️  Missing rustdesk_oidc_secret; skipping OIDC provider setup")
@@ -106,11 +108,7 @@ def _ensure_authentik_oidc(token: str, env: dict) -> bool:
         "oauth_type": "oidc",
         "client_id": "rustdesk",
         "client_secret": oidc_secret,
-        # Discovery goes through rustdesk-oidc-proxy (HTTP) so rustls does not
-        # need to trust the homelab CA. Issuer/token/jwks stay on the proxy
-        # HTTP URL so ID token `iss` matches; only authorize is public HTTPS.
         "issuer": "http://rustdesk-oidc-proxy:8080/application/o/rustdesk/",
-        # groups scope carries Authentik groups/roles for admin sync in oidc-proxy
         "scopes": "openid,profile,email,groups",
         "auto_register": True,
         "pkce_enable": False,
@@ -156,59 +154,91 @@ def _ensure_authentik_oidc(token: str, env: dict) -> bool:
     return True
 
 
-def setup(env):
-    """Extract RustDesk public key and configure console + Authentik OIDC via API."""
-    print("\n🖥️  Setting up RustDesk console / API server...")
+class RustdeskService(Service):
+    name = "rustdesk"
+    volume_dirs = [
+        VolumeDir("./rustdesk/volumes/server", uid=0, gid=0, mode=0o755),
+        VolumeDir("./rustdesk/volumes/console", uid=0, gid=0, mode=0o755),
+    ]
 
-    gen_secret("rustdesk_oidc_secret", 64)
-    gen_secret("rustdesk_api_jwt_key", 64)
-    gen_secret("rustdesk_admin_password", 32)
+    def setup(self, env: dict) -> None:
+        super().setup(env)
+        print("\n🖥️  Preparing RustDesk secrets...")
+        gen_secret("rustdesk_oidc_secret", 64)
+        gen_secret("rustdesk_api_jwt_key", 64)
+        gen_secret("rustdesk_admin_password", 32)
+        os.makedirs("./volumes/public-configs", exist_ok=True)
+        rustdesk_key_path = "./volumes/public-configs/rustdesk_public_key"
+        if not os.path.exists(rustdesk_key_path):
+            with open(rustdesk_key_path, "w", encoding="utf-8") as f:
+                f.write("\n")
+        legacy_env = "./rustdesk/volumes/console.env"
+        if os.path.exists(legacy_env):
+            os.remove(legacy_env)
+            print("   ✅ Removed legacy rustdesk/volumes/console.env")
+        print("   ✅ RustDesk secrets ready")
 
-    # Drop legacy console.env if present (secrets now come from Docker secrets)
-    legacy_env = "./rustdesk/volumes/console.env"
-    if os.path.exists(legacy_env):
-        os.remove(legacy_env)
-        print("   ✅ Removed legacy rustdesk/volumes/console.env")
+    def postsetup(self, env: dict) -> None:
+        print("\n🖥️  Setting up RustDesk console / API server...")
 
-    dest_path = "./volumes/public-configs/rustdesk_public_key"
-    os.makedirs("./volumes/public-configs", exist_ok=True)
+        dest_path = "./volumes/public-configs/rustdesk_public_key"
+        os.makedirs("./volumes/public-configs", exist_ok=True)
 
-    pubkey = ""
-    if shutil.which("docker"):
-        run_cmd(
-            "docker cp rustdesk-id-server:/root/id_ed25519.pub " + dest_path,
-            check=False,
-        )
-        if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
-            with open(dest_path, "r", encoding="utf-8") as f:
-                pubkey = f.read().strip()
-            print("   ✅ RustDesk public key extracted to volumes/public-configs/rustdesk_public_key")
+        pubkey = ""
+        if shutil.which("docker"):
+            run_cmd(
+                "docker cp rustdesk-id-server:/root/id_ed25519.pub " + dest_path,
+                check=False,
+            )
+            if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
+                with open(dest_path, "r", encoding="utf-8") as f:
+                    pubkey = f.read().strip()
+                print("   ✅ RustDesk public key extracted to volumes/public-configs/rustdesk_public_key")
+            else:
+                print("   ⚠️  Failed to copy RustDesk key. ID server may not be initialized yet.")
         else:
-            print("   ⚠️  Failed to copy RustDesk key. ID server may not be initialized yet.")
-    else:
-        print("   ❌ Docker is not installed on host. Skipping RustDesk key extraction.")
+            print("   ❌ Docker is not installed on host. Skipping RustDesk key extraction.")
 
-    if not pubkey:
-        print("   ⚠️  Public key missing; re-run setup after hbbs is up.")
+        if not pubkey:
+            print("   ⚠️  Public key missing; re-run setup after hbbs is up.")
 
-    if shutil.which("docker"):
-        run_cmd("docker compose up -d rustdesk-console", check=False)
+        if shutil.which("docker"):
+            run_cmd("docker compose up -d rustdesk-console", check=False)
 
-    service = env.get("RUSTDESK_SERVICE_NAME", "rustdesk")
-    hostname = env.get("HOMELAB_HOSTNAME", "homelab.home.arpa")
-    print(f"   ℹ️  Admin UI: https://{service}.{hostname}/_admin/")
-    print("   ℹ️  Initial admin password: volumes/secrets/rustdesk_admin_password")
+        service_name = env.get("RUSTDESK_SERVICE_NAME", "rustdesk")
+        hostname = env.get("HOMELAB_HOSTNAME", "homelab.home.arpa")
+        print(f"   ℹ️  Admin UI: https://{service_name}.{hostname}/_admin/")
+        print("   ℹ️  Initial admin password: volumes/secrets/rustdesk_admin_password")
 
-    if not shutil.which("docker"):
-        return
+        if not shutil.which("docker"):
+            return
 
-    if not _wait_for_console():
-        print("   ⚠️  rustdesk-console did not become healthy; skipping OIDC API setup")
-        return
+        if not _wait_for_console():
+            print("   ⚠️  rustdesk-console did not become healthy; skipping OIDC API setup")
+            return
 
-    password = _read_secret("rustdesk_admin_password")
-    token = _admin_login(password)
-    if not token:
-        return
+        password = _read_secret("rustdesk_admin_password")
+        token = _admin_login(password)
+        if not token:
+            return
 
-    _ensure_authentik_oidc(token, env)
+        _ensure_authentik_oidc(token, env)
+
+    def backup(self, env: dict) -> None:
+        sqlite_snapshot(
+            "rustdesk-console",
+            "/app/data/rustdeskapi.db",
+            "/app/data/rustdeskapi_snapshot.db",
+            host_bind="./rustdesk/volumes/console",
+        )
+
+    def restore(self, env: dict) -> None:
+        restore_sqlite_snapshot(
+            "rustdesk-console",
+            "/app/data/rustdeskapi.db",
+            "./rustdesk/volumes/console/rustdeskapi_snapshot.db",
+            "./rustdesk/volumes/console",
+        )
+
+
+service = RustdeskService()

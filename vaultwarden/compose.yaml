@@ -5,7 +5,7 @@ services:
     container_name: vaultwarden
     restart: unless-stopped
     volumes:
-      - vaultwarden_data:/data
+      - ${PROJECT_ROOT}/vaultwarden/volumes/data:/data
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
     extra_hosts:
       - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:10.10.30.100"
@@ -51,9 +51,6 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_oidc_secret
   vaultwarden_admin_token:
     file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_admin_token
-
-volumes:
-  vaultwarden_data:
 
 networks:
   homelab-net:

@@ -1,10 +1,11 @@
 # /etc/systemd/system/homelab-backup.service
 
 [Unit]
-Description=Backup homelab system data
+Description=Homelab Restic cloud backup (via setup.py)
+After=docker.service
 
 [Service]
 Type=oneshot
 WorkingDirectory=/home/USERNAME/homelab
-ExecStart=/home/USERNAME/homelab/backup.sh backup --auto
+ExecStart=/usr/bin/python3 /home/USERNAME/homelab/setup.py backup --auto
 User=root

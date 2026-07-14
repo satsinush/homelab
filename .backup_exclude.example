@@ -1,0 +1,13 @@
+# Live Postgres data dirs (backed up via pg_dump into */volumes/db-dumps/)
+authentik/volumes/db/
+nextcloud/volumes/db/
+
+# Redis caches (safe to lose)
+authentik/volumes/redis/
+unbound/volumes/redis/
+
+# Heavy media / models until upgrading S3 storage
+nextcloud/volumes/html/data/
+ollama/volumes/ollama/
+
+*.sock

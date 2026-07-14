@@ -7,8 +7,8 @@ services:
       context: ${PROJECT_ROOT}
       dockerfile: homelab-dashboard/api/Dockerfile
     volumes:
-      - dashboard_api_data:/app/api/data
-      - dashboard_word_games_data:/app/word_games/data
+      - ${PROJECT_ROOT}/homelab-dashboard/volumes/api-data:/app/api/data
+      - ${PROJECT_ROOT}/homelab-dashboard/volumes/word-games-data:/app/word_games/data
       - ${PROJECT_ROOT}/word_games/resources:/app/word_games/resources:ro
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
       - ${PROJECT_ROOT}/volumes/public-configs:/app/public-configs:ro
@@ -110,10 +110,6 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/authentik_pg_pass
   authentik_akadmin_password:
     file: ${PROJECT_ROOT}/volumes/secrets/authentik_akadmin_password
-
-volumes:
-  dashboard_api_data:
-  dashboard_word_games_data:
 
 networks:
   homelab-net:

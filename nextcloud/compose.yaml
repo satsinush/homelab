@@ -11,7 +11,7 @@ services:
     secrets:
       - nextcloud_db_password
     volumes:
-      - nextcloud_db:/var/lib/postgresql/data
+      - ${PROJECT_ROOT}/nextcloud/volumes/db:/var/lib/postgresql/data
     networks:
       - homelab-net
     healthcheck:
@@ -46,7 +46,7 @@ services:
       apprise-api:
         condition: service_healthy
     volumes:
-      - nextcloud_data:/var/www/html
+      - ${PROJECT_ROOT}/nextcloud/volumes/html:/var/www/html
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/usr/local/share/ca-certificates/homelab-ca.crt:ro
       - ${PROJECT_ROOT}/homelab-dashboard/frontend/public/homelab-icon.svg:/mnt/homelab-branding/logo.svg:ro
       - ${PROJECT_ROOT}/homelab-dashboard/frontend/public/favicon.ico:/mnt/homelab-branding/favicon.ico:ro
@@ -104,7 +104,7 @@ services:
     restart: unless-stopped
     entrypoint: /cron.sh
     volumes:
-      - nextcloud_data:/var/www/html
+      - ${PROJECT_ROOT}/nextcloud/volumes/html:/var/www/html
     depends_on:
       nextcloud:
         condition: service_healthy
@@ -122,10 +122,6 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_db_password
   nextcloud_admin_password:
     file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_admin_password
-
-volumes:
-  nextcloud_data:
-  nextcloud_db:
 
 networks:
   homelab-net:
