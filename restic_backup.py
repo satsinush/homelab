@@ -7,6 +7,8 @@ import shutil
 import subprocess
 import sys
 
+from setup_utils import prompt_nonempty, prompt_password, prompt_secret, prompt_yes_no
+
 
 SECRET_NAMES = {
     "repository": "restic_repository",
@@ -42,26 +44,94 @@ def missing_secrets() -> list[str]:
     return [name for name in SECRET_NAMES.values() if not _read_secret(name)]
 
 
-def restic_env() -> dict[str, str]:
-    """Build environment for restic from volumes/secrets."""
-    repo = _read_secret(SECRET_NAMES["repository"])
-    password = _read_secret(SECRET_NAMES["password"])
-    key_id = _read_secret(SECRET_NAMES["key_id"])
-    app_key = _read_secret(SECRET_NAMES["app_key"])
+def _normalize_repository(repository: str) -> str:
+    if repository.startswith("https://") or repository.startswith("http://"):
+        repository = f"s3:{repository}"
+        print(f"   ℹ️  Prefixed with s3: → {repository}")
+    elif not repository.startswith("s3:"):
+        print("   ⚠️  Expected a URL starting with s3: (S3-compatible backends).")
+    return repository
+
+
+def ensure_restic_secrets(
+    *,
+    allow_skip: bool = False,
+    confirm_password: bool = True,
+) -> bool:
+    """Ensure all restic_* secrets exist, prompting for any that are missing.
+
+    Returns False only when allow_skip=True and the user declines.
+    """
+    os.makedirs("./volumes/secrets", exist_ok=True)
+    try:
+        os.chmod("./volumes/secrets", 0o700)
+    except OSError:
+        pass
+
+    if secrets_complete():
+        return True
 
     missing = missing_secrets()
-    if missing:
-        print("❌ Missing Restic secrets in volumes/secrets/:")
-        for name in missing:
-            print(f"   - {name}")
-        print("   Run: python3 setup.py setup  (or configure restic when prompted)")
-        sys.exit(1)
+    print("\n☁️  Restic credentials required (volumes/secrets/restic_*).")
+    print("   Missing:")
+    for name in missing:
+        print(f"     - {name}")
+
+    if allow_skip:
+        if not prompt_yes_no("   Configure cloud backup credentials now? (y/n): "):
+            print("   ℹ️  Skipped. You can re-run setup / backup / restore later.")
+            return False
+
+    print("   Offsite backups use Restic over S3-compatible storage (e.g. B2 / Cloudflare R2).")
+    print("   Repository URL examples (must include the s3: backend prefix):")
+    print("     s3:s3.us-east-005.backblazeb2.com/your-bucket-name")
+    print("     s3:https://<ACCOUNT_ID>.r2.cloudflarestorage.com/your-bucket-name")
+
+    if not _read_secret(SECRET_NAMES["repository"]):
+        repository = _normalize_repository(prompt_nonempty("   RESTIC repository URL: "))
+        write_secret(SECRET_NAMES["repository"], repository)
+
+    if not _read_secret(SECRET_NAMES["password"]):
+        if confirm_password:
+            password = prompt_password(
+                "   Restic encryption password (store offline too): ",
+                confirm=True,
+                confirm_label="   Confirm Restic encryption password: ",
+                min_length=12,
+            )
+        else:
+            password = prompt_password("   Restic encryption password: ")
+        write_secret(SECRET_NAMES["password"], password)
+
+    if not _read_secret(SECRET_NAMES["key_id"]):
+        write_secret(SECRET_NAMES["key_id"], prompt_nonempty("   S3 access key id: "))
+
+    if not _read_secret(SECRET_NAMES["app_key"]):
+        write_secret(SECRET_NAMES["app_key"], prompt_secret("   S3 secret access key: "))
+
+    print("   ✅ Wrote restic_* secrets under volumes/secrets/")
+    return True
+
+
+def restic_env(*, prompt: bool = True, confirm_password: bool = True) -> dict[str, str]:
+    """Build environment for restic from volumes/secrets (prompt if missing)."""
+    if not secrets_complete():
+        can_prompt = prompt and hasattr(sys.stdin, "isatty") and sys.stdin.isatty()
+        if can_prompt:
+            ensure_restic_secrets(allow_skip=False, confirm_password=confirm_password)
+        if not secrets_complete():
+            print("❌ Missing Restic secrets in volumes/secrets/:")
+            for name in missing_secrets():
+                print(f"   - {name}")
+            if not can_prompt:
+                print("   Non-interactive mode: provide secrets or run interactively.")
+            sys.exit(1)
 
     env = os.environ.copy()
-    env["RESTIC_REPOSITORY"] = repo
-    env["RESTIC_PASSWORD"] = password
-    env["AWS_ACCESS_KEY_ID"] = key_id
-    env["AWS_SECRET_ACCESS_KEY"] = app_key
+    env["RESTIC_REPOSITORY"] = _read_secret(SECRET_NAMES["repository"])
+    env["RESTIC_PASSWORD"] = _read_secret(SECRET_NAMES["password"])
+    env["AWS_ACCESS_KEY_ID"] = _read_secret(SECRET_NAMES["key_id"])
+    env["AWS_SECRET_ACCESS_KEY"] = _read_secret(SECRET_NAMES["app_key"])
     return env
 
 
@@ -85,6 +155,24 @@ def backup_targets() -> list[str]:
     return targets
 
 
+def _restic_argv(args: list[str]) -> list[str]:
+    """Prefer root for restic so bind-mounted container files are readable/writable.
+
+    systemd backups already run as root; interactive `./setup.py backup` otherwise
+    hits permission denied on root/www-data-owned volume files.
+    """
+    argv = ["restic", *args]
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        return argv
+    if not shutil.which("sudo"):
+        return argv
+    return [
+        "sudo",
+        "--preserve-env=RESTIC_REPOSITORY,RESTIC_PASSWORD,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_DEFAULT_REGION",
+        *argv,
+    ]
+
+
 def run_restic(
     args: list[str],
     env: dict[str, str] | None = None,
@@ -98,10 +186,11 @@ def run_restic(
             sys.exit(1)
         return 127
     env = env or restic_env()
+    cmd = _restic_argv(args)
     if not quiet:
-        print(f"   $ restic {' '.join(args)}")
+        print(f"   $ {' '.join(cmd)}")
     proc = subprocess.run(
-        ["restic", *args],
+        cmd,
         env=env,
         stdout=subprocess.DEVNULL if quiet else None,
         stderr=subprocess.DEVNULL if quiet else None,
@@ -110,7 +199,8 @@ def run_restic(
 
 
 def restic_backup(*, auto: bool = False) -> None:
-    env = restic_env()
+    # systemd --auto must not hang on prompts; interactive backup may ask.
+    env = restic_env(prompt=not auto, confirm_password=True)
     targets = backup_targets()
     if not targets:
         print("⚠️  No backup targets found (.env / volumes / */volumes)")
@@ -146,7 +236,8 @@ def restic_backup(*, auto: bool = False) -> None:
 
 
 def restic_restore(snapshot: str = "latest") -> None:
-    env = restic_env()
+    # Existing repo password — enter once, no "new password" confirmation.
+    env = restic_env(prompt=True, confirm_password=False)
     print(f"\n☁️  Restoring Restic snapshot '{snapshot}' into repo root...")
     code = run_restic(
         ["restore", snapshot, "--target", "."],

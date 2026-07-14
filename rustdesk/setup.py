@@ -157,8 +157,8 @@ def _ensure_authentik_oidc(token: str, env: dict) -> bool:
 class RustdeskService(Service):
     name = "rustdesk"
     volume_dirs = [
-        VolumeDir("./rustdesk/volumes/server", uid=0, gid=0, mode=0o755),
-        VolumeDir("./rustdesk/volumes/console", uid=0, gid=0, mode=0o755),
+        VolumeDir("./rustdesk/volumes/server", mode=0o755),
+        VolumeDir("./rustdesk/volumes/console", mode=0o755),
     ]
 
     def setup(self, env: dict) -> None:
@@ -201,9 +201,6 @@ class RustdeskService(Service):
 
         if not pubkey:
             print("   ⚠️  Public key missing; re-run setup after hbbs is up.")
-
-        if shutil.which("docker"):
-            run_cmd("docker compose up -d rustdesk-console", check=False)
 
         service_name = env.get("RUSTDESK_SERVICE_NAME", "rustdesk")
         hostname = env.get("HOMELAB_HOSTNAME", "homelab.home.arpa")

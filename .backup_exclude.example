@@ -6,8 +6,8 @@ nextcloud/volumes/db/
 authentik/volumes/redis/
 unbound/volumes/redis/
 
-# Heavy media / models until upgrading S3 storage
-nextcloud/volumes/html/data/
+# Nextcloud html/data must be backed up (appdata_* is required after restore).
+# Exclude only Ollama models until upgrading S3 storage.
 ollama/volumes/ollama/
 
 *.sock

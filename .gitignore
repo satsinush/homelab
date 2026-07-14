@@ -19,6 +19,8 @@ volumes/
 
 backups/
 
+tmp/
+
 # Local Restic exclude overrides (see .backup_exclude.example)
 .backup_exclude
 

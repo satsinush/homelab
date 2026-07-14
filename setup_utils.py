@@ -1,20 +1,113 @@
 """Shared utilities for homelab setup scripts."""
 from __future__ import annotations
 
-import os
-import subprocess
-import secrets
+import getpass
 import json
+import os
+import secrets
+import shutil
+import subprocess
 import time
+from collections.abc import Callable
 
 
-def run_cmd(cmd, cwd=None, shell=True, check=True):
-    """Run a shell command safely and return stripped stdout."""
+def prompt_nonempty(
+    label: str,
+    *,
+    default: str | None = None,
+    validate: Callable[[str], str | None] | None = None,
+) -> str:
+    """Prompt until a non-empty value is entered (or default is accepted).
+
+    validate(value) should return None if OK, or an error message string.
+    """
+    while True:
+        value = input(label).strip()
+        if not value and default is not None:
+            value = default
+        if not value:
+            print("   ⚠️  Value required.")
+            continue
+        if validate is not None:
+            error = validate(value)
+            if error:
+                print(f"   ⚠️  {error}")
+                continue
+        return value
+
+
+def prompt_secret(label: str) -> str:
+    """Prompt for a secret (no echo) until non-empty."""
+    while True:
+        value = getpass.getpass(label).strip()
+        if value:
+            return value
+        print("   ⚠️  Value required.")
+
+
+def prompt_password(
+    label: str = "   Password: ",
+    *,
+    confirm: bool = False,
+    confirm_label: str = "   Confirm Password: ",
+    min_length: int = 0,
+) -> str:
+    """Prompt for a password; optionally require confirmation and a minimum length."""
+    while True:
+        password = getpass.getpass(label).strip()
+        if not password:
+            print("   ⚠️  Value required.")
+            continue
+        if min_length and len(password) < min_length:
+            print(f"   ⚠️  Use at least {min_length} characters.")
+            continue
+        if confirm:
+            again = getpass.getpass(confirm_label).strip()
+            if password != again:
+                print("   ⚠️  Passwords do not match. Try again.")
+                continue
+        return password
+
+
+def prompt_yes_no(label: str, *, default: bool | None = None) -> bool:
+    """Prompt for y/n. If default is set, empty input uses that default."""
+    while True:
+        answer = input(label).strip().lower()
+        if not answer and default is not None:
+            return default
+        if answer in ("y", "yes"):
+            return True
+        if answer in ("n", "no"):
+            return False
+        print("   ⚠️  Please answer with y or n.")
+
+
+def run_cmd(cmd, cwd=None, shell=True, check=True, capture=True):
+    """Run a shell command.
+
+    When capture=True (default), return stripped stdout and print stderr/stdout only on
+    failure. When capture=False, stream child stdout/stderr to this process (useful for
+    `docker compose build` / `up`).
+    """
     try:
-        res = subprocess.run(cmd, cwd=cwd, shell=shell, check=check, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        return res.stdout.strip()
+        if capture:
+            res = subprocess.run(
+                cmd,
+                cwd=cwd,
+                shell=shell,
+                check=check,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            return res.stdout.strip()
+        subprocess.run(cmd, cwd=cwd, shell=shell, check=check)
+        return ""
     except subprocess.CalledProcessError as e:
-        print(f"Error running command: {cmd}\nOutput: {e.stdout}\nError: {e.stderr}")
+        if capture:
+            print(f"Error running command: {cmd}\nOutput: {e.stdout}\nError: {e.stderr}")
+        else:
+            print(f"Error running command: {cmd} (exit {e.returncode})")
         if check:
             import sys
             sys.exit(1)
@@ -119,7 +212,7 @@ def network_curl(network, method, url, data=None, headers=None):
     return body, status_code
 
 
-def wait_for_containers(timeout=120):
+def wait_for_containers(timeout=300):
     """Wait for all Docker Compose containers to be running and healthy."""
     print("   Waiting for all containers to be running and healthy...")
     start_time = time.time()
@@ -167,15 +260,33 @@ def wait_for_containers(timeout=120):
                 starting_or_unhealthy.append(f"{name} ({health})")
 
         if all_ok:
+            # Finish/clear the in-place status line (ANSI clear is flaky in some WSL TTYs).
+            _clear_status_line()
             print("   All containers are running and healthy! 🎉")
             return True
 
         elapsed = int(time.time() - start_time)
-        print(f"   [{elapsed}s] Still waiting for: {', '.join(starting_or_unhealthy[:4])}... \033[K", end="\r")
+        msg = f"   [{elapsed}s] Still waiting for: {', '.join(starting_or_unhealthy[:4])}..."
+        _print_status_line(msg)
         time.sleep(2)
 
-    print("\n   ⚠️  Timeout reached. Proceeding with configuration anyway...")
+    _clear_status_line()
+    print("   ⚠️  Timeout reached. Proceeding with configuration anyway...")
     return False
+
+
+def _print_status_line(msg: str) -> None:
+    """Overwrite the current terminal line with msg (no trailing newline)."""
+    width = shutil.get_terminal_size((120, 20)).columns
+    # Pad/truncate so a longer previous status cannot leak past the end.
+    body = msg[: width - 1].ljust(width - 1)
+    print(f"\r{body}", end="", flush=True)
+
+
+def _clear_status_line() -> None:
+    """Erase an in-place status line and move to a fresh line."""
+    width = shutil.get_terminal_size((120, 20)).columns
+    print("\r" + (" " * max(width - 1, 1)) + "\r", end="", flush=True)
 
 
 def substitute_env_vars(content):

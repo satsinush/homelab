@@ -7,7 +7,7 @@ from service import Service, VolumeDir
 class DockhandService(Service):
     name = "dockhand"
     volume_dirs = [
-        VolumeDir("./dockhand/volumes/data", uid=0, gid=0, mode=0o755),
+        VolumeDir("./dockhand/volumes/data", mode=0o755),
     ]
 
 

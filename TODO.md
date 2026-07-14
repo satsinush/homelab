@@ -1,7 +1,8 @@
 - set up proper cloud backup
 - Create standard presetup() / setup() / postsetup() functions for setup.py
 - Set up restic container?
-
+- mount volumes/secrets for dashboard??
+- auto sign in with SSO? nextcloud already does this?
 - Backup checklist: Vaultwarden passwords, homelab dashboard devices, rustdesk users/devices, nextcloud files
 
 - Add obsidian sync (desktop client and WebDAV for mobile)

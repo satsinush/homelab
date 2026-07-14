@@ -12,7 +12,7 @@ from setup_utils import gen_secret, run_cmd
 class VaultwardenService(Service):
     name = "vaultwarden"
     volume_dirs = [
-        VolumeDir("./vaultwarden/volumes/data", uid=0, gid=0, mode=0o700),
+        VolumeDir("./vaultwarden/volumes/data", mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:

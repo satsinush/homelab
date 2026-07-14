@@ -6,7 +6,6 @@ import shutil
 import subprocess
 import time
 from datetime import datetime, timezone
-from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from service import (
@@ -110,7 +109,6 @@ def _ensure_cron() -> None:
     """Use system cron (via nextcloud-cron sidecar) for background jobs."""
     print("   Enabling Cron background jobs...")
     _occ("background:cron", check=False)
-    run_cmd("docker compose up -d nextcloud-cron", check=False)
     print("   ✅ Background jobs set to Cron (nextcloud-cron runs every 5 minutes)")
 
 
@@ -232,31 +230,10 @@ def _wait_for_collabora(attempts: int = 36) -> bool:
     return False
 
 
-def _ensure_collabora_ca_bundle() -> None:
-    """Merge Homelab CA into Collabora's trust store for WOPI SSL verification."""
-    ca = Path("./volumes/certificates/homelab-ca.crt")
-    bundle = Path("./volumes/certificates/collabora-ca-bundle.crt")
-    if not ca.is_file():
-        print("   ⚠️  Homelab CA missing; Collabora SSL verification may fail")
-        return
-    # Rebuild when missing or Homelab CA is newer than the bundle
-    if bundle.is_file() and bundle.stat().st_mtime >= ca.stat().st_mtime:
-        return
-    print("   Building Collabora CA bundle (system CAs + Homelab root)...")
-    bundle.parent.mkdir(parents=True, exist_ok=True)
-    run_cmd(
-        "docker run --rm --entrypoint cat collabora/code:latest "
-        f"/etc/ssl/certs/ca-certificates.crt > {bundle} "
-        f"&& cat {ca} >> {bundle}",
-        check=False,
-    )
-    if not bundle.is_file() or bundle.stat().st_size < 1000:
-        bundle.write_bytes(ca.read_bytes())
-    print(f"   ✅ Wrote {bundle} ({bundle.stat().st_size} bytes)")
-
-
 def _ensure_collabora(env: dict) -> None:
     """Install Nextcloud Office (richdocuments) and point it at Collabora CODE."""
+    from collabora.setup import ensure_collabora_ca_bundle
+
     service = env.get("NEXTCLOUD_SERVICE_NAME", "nextcloud")
     collabora = env.get("COLLABORA_SERVICE_NAME", "collabora")
     hostname = env.get("HOMELAB_HOSTNAME", "homelab.home.arpa")
@@ -264,8 +241,15 @@ def _ensure_collabora(env: dict) -> None:
     wopi_internal = "http://collabora:9980"
     wopi_public = f"https://{collabora}.{hostname}"
 
-    _ensure_collabora_ca_bundle()
-    run_cmd("docker compose up -d collabora", check=False)
+    # Only recreate when the CA bind path was a Docker directory placeholder.
+    # Full stack `docker compose up -d` already started Collabora via root setup.
+    if ensure_collabora_ca_bundle():
+        print("   ℹ️  Recreating Collabora container...")
+        run_cmd(
+            "docker compose up -d --force-recreate collabora",
+            check=False,
+            capture=False,
+        )
 
     if not _wait_for_collabora():
         print("   ⚠️  Collabora did not become ready; skipping Office app config")
@@ -365,7 +349,7 @@ class NextcloudService(Service):
     volume_dirs = [
         VolumeDir("./nextcloud/volumes/html", uid=33, gid=33, mode=0o755),
         VolumeDir("./nextcloud/volumes/db", uid=70, gid=70, mode=0o700),
-        VolumeDir("./nextcloud/volumes/db-dumps", uid=0, gid=0, mode=0o700),
+        VolumeDir("./nextcloud/volumes/db-dumps", mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:
@@ -383,11 +367,6 @@ class NextcloudService(Service):
             print("   ❌ Docker not available; skipping Nextcloud OIDC setup")
             return
 
-        run_cmd(
-            "docker compose up -d nextcloud-db nextcloud-redis nextcloud nextcloud-cron collabora",
-            check=False,
-        )
-
         if not _wait_for_nextcloud():
             print("   ⚠️  Nextcloud did not become ready; skipping OIDC setup (re-run setup later)")
             return
@@ -401,15 +380,18 @@ class NextcloudService(Service):
     def backup(self, env: dict) -> None:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         dest = f"./nextcloud/volumes/db-dumps/nextcloud-{stamp}.sql"
+        # role_prefix: plain pg_dump omits login roles; Nextcloud uses oc_*.
         pg_dump_to_file(
             "nextcloud-db",
             "nextcloud",
             "nextcloud",
             dest,
             password_file="/run/secrets/nextcloud_db_password",
+            role_prefix="oc_",
         )
 
     def restore(self, env: dict) -> None:
+        # Live Postgres is restic-excluded; dump (with oc_* roles) is in db-dumps/.
         dump = latest_file("./nextcloud/volumes/db-dumps", ".sql")
         if dump:
             pg_restore_from_file(
@@ -418,6 +400,11 @@ class NextcloudService(Service):
                 "nextcloud",
                 dump,
                 password_file="/run/secrets/nextcloud_db_password",
+            )
+            run_cmd(
+                "docker compose restart nextcloud nextcloud-cron",
+                check=False,
+                capture=False,
             )
 
 

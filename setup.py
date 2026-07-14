@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import getpass
 import os
 import re
 import shutil
@@ -35,24 +34,45 @@ def parse_args() -> argparse.Namespace:
 
 
 def do_reset() -> None:
+    from service import remove_path, run_all_reset
+    from services_registry import get_services
+
     print("🏠 Homelab Reset Utility")
     print("========================")
     print("\n⚠️  WARNING: This will permanently destroy your entire homelab state:")
-    print("   - Stop and remove all Docker containers and networks")
-    print("   - Delete all named Docker volumes")
-    print("   - Delete your local configuration (.env)")
-    print("   - Delete all certificates, configurations, databases, and secrets (volumes/, */volumes/)")
+    print("   - Stop and remove all Docker containers")
+    print("   - Run each service's reset() (typically ./{service}/volumes)")
+    print("   - Delete shared state (.env, volumes/ secrets & certificates)")
     print("\n🚨 THIS ACTION IS IRREVERSIBLE!")
 
     try:
-        confirm = input("\nAre you absolutely sure you want to reset your homelab? (y/N): ").strip().lower()
-        if confirm == "y":
-            print("\n🔥 Resetting homelab stack...")
-            subprocess.run("docker compose down -v", shell=True)
-            subprocess.run("sudo rm -rf .env volumes/ */volumes/", shell=True)
-            print("\n✅ Homelab has been successfully reset.")
+        from setup_utils import prompt_yes_no
+
+        if not prompt_yes_no(
+            "\nAre you absolutely sure you want to reset your homelab? (y/N): ",
+            default=False,
+        ):
+            print("\n❌ Reset aborted.")
             sys.exit(0)
-        print("\n❌ Reset aborted.")
+
+        print("\n🔥 Resetting homelab stack...")
+        subprocess.run("docker compose down -v", shell=True, check=False)
+
+        env: dict = {}
+        if os.path.exists(".env"):
+            from setup_utils import load_env
+
+            env = load_env(".env")
+
+        print("\n🧹 Running per-service reset()...")
+        run_all_reset(get_services(), env)
+
+        print("\n🧹 Removing shared host state...")
+        for path in (".env", "./volumes"):
+            if remove_path(path):
+                print(f"   ✅ Removed {path}")
+
+        print("\n✅ Homelab has been successfully reset.")
         sys.exit(0)
     except KeyboardInterrupt:
         print("\n❌ Reset aborted.")
@@ -90,21 +110,16 @@ def ensure_env_file() -> dict:
         print("❌ Template file .env.template not found")
         sys.exit(1)
 
-    print("   Enter username and password for homelab services:")
-    username = input("                       Username: ").strip()
-    while not username:
-        username = input("                       Username: ").strip()
+    from setup_utils import prompt_nonempty, prompt_password, prompt_yes_no
 
-    while True:
-        password = getpass.getpass("   Password (min 12 characters): ").strip()
-        if len(password) < 12:
-            print("   ⚠️  Password is too short. Please try again.")
-            continue
-        confirm_password = getpass.getpass("   Confirm Password: ").strip()
-        if password != confirm_password:
-            print("   ⚠️  Passwords do not match. Please try again.")
-            continue
-        break
+    print("   Enter username and password for homelab services:")
+    username = prompt_nonempty("                       Username: ")
+    password = prompt_password(
+        "   Password (min 12 characters): ",
+        confirm=True,
+        confirm_label="   Confirm Password: ",
+        min_length=12,
+    )
 
     ip_address = ""
     try:
@@ -128,30 +143,38 @@ def ensure_env_file() -> dict:
     print("   Traefik supports two modes:")
     print("     • Public  (y) — Let's Encrypt via Cloudflare DNS-01; requires a public domain")
     print("     • Private (n) — Self-signed CA generated locally (no public domain needed)")
-    while True:
-        has_public = input("   Do you have a public domain with Cloudflare DNS? (y/n): ").strip().lower()
-        if has_public in ["y", "n"]:
-            break
-        print("   ⚠️  Please answer with y or n.")
+    has_public = prompt_yes_no(
+        "   Do you have a public domain with Cloudflare DNS? (y/n): "
+    )
 
     print("")
-    if has_public == "y":
+    if has_public:
         print("   Enter homelab hostname (public domain, e.g. homelab.your-domain.com):")
+        hostname = prompt_nonempty(
+            "              Homelab Hostname: ",
+            validate=lambda h: (
+                None
+                if re.match(
+                    r"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$",
+                    h,
+                )
+                else "That doesn't look like a valid hostname. Please try again."
+            ),
+        )
     else:
         print("   Enter homelab hostname (private local domain, e.g. homelab.home.arpa):")
-
-    while True:
-        hostname = input(
-            f"              Homelab Hostname [{ 'homelab.home.arpa' if has_public == 'n' else '' }]: "
-        ).strip()
-        if not hostname and has_public == "n":
-            hostname = "homelab.home.arpa"
-        if re.match(
-            r"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$",
-            hostname,
-        ):
-            break
-        print("   ⚠️  That doesn't look like a valid hostname. Please try again.")
+        hostname = prompt_nonempty(
+            "              Homelab Hostname [homelab.home.arpa]: ",
+            default="homelab.home.arpa",
+            validate=lambda h: (
+                None
+                if re.match(
+                    r"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$",
+                    h,
+                )
+                else "That doesn't look like a valid hostname. Please try again."
+            ),
+        )
 
     dns_domain = hostname.split(".", 1)[1] if "." in hostname else hostname
 
@@ -160,21 +183,25 @@ def ensure_env_file() -> dict:
 
     with open("./volumes/secrets/homelab_password", "w", encoding="utf-8") as f:
         f.write(password + "\n")
+    os.chmod("./volumes/secrets/homelab_password", 0o600)
 
     with open(".env.template", encoding="utf-8") as f:
         content = f.read()
 
-    if has_public == "y":
-        cf_token = input("   Cloudflare DNS API token (Zone.Zone:Read, Zone.DNS:Edit): ").strip()
-        while not cf_token:
-            cf_token = input("   Cloudflare DNS API token: ").strip()
+    if has_public:
+        cf_token = prompt_nonempty(
+            "   Cloudflare DNS API token (Zone.Zone:Read, Zone.DNS:Edit): "
+        )
 
         print("\n   Let's Encrypt requires a valid e-mail address for certificate expiry notices.")
-        while True:
-            acme_email = input("   ACME e-mail address: ").strip()
-            if re.match(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", acme_email):
-                break
-            print("   ⚠️  That doesn't look like a valid e-mail address. Please try again.")
+        acme_email = prompt_nonempty(
+            "   ACME e-mail address: ",
+            validate=lambda e: (
+                None
+                if re.match(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$", e)
+                else "That doesn't look like a valid e-mail address. Please try again."
+            ),
+        )
 
         with open("./volumes/secrets/cf_dns_api_token", "w", encoding="utf-8") as f:
             f.write(cf_token + "\n")
@@ -217,7 +244,7 @@ def ensure_env_file() -> dict:
         f.write(content)
 
     env = load_env(".env")
-    if has_public == "y":
+    if has_public:
         print("   ✅ Let's Encrypt (Cloudflare DNS-01) mode configured")
     else:
         print("   ✅ Self-signed certificate mode configured")
@@ -262,14 +289,12 @@ def ensure_bootstrap_and_locale(env: dict) -> dict:
         "./volumes/secrets/homelab_password"
     ) == 0:
         print("   ⚠️  homelab_password secret is missing from volumes/secrets!")
-        while True:
-            password = getpass.getpass(
-                "   Please re-enter your homelab Password (min 12 characters): "
-            ).strip()
-            if len(password) < 12:
-                print("   ⚠️  Password is too short. Please try again.")
-            else:
-                break
+        from setup_utils import prompt_password
+
+        password = prompt_password(
+            "   Please re-enter your homelab Password (min 12 characters): ",
+            min_length=12,
+        )
         with open("./volumes/secrets/homelab_password", "w", encoding="utf-8") as f:
             f.write(password + "\n")
         os.chmod("./volumes/secrets/homelab_password", 0o600)
@@ -396,10 +421,10 @@ def run_setup() -> None:
     run_cmd("docker network create homelab-net --subnet 10.10.30.0/24 || true")
 
     print("\n🔨 Building Docker containers...")
-    run_cmd("docker compose build")
+    run_cmd("docker compose build", capture=False)
 
     print("\n🐳 Starting Docker containers...")
-    run_cmd("docker compose up -d")
+    run_cmd("docker compose up -d", capture=False)
 
     wait_for_containers()
     print("✅ Docker containers started")
@@ -467,8 +492,9 @@ def run_restore(snapshot: str = "latest") -> None:
         "\n⚠️  This will overwrite local gitignored state (.env, volumes/, */volumes/) "
         "from the Restic snapshot, then start containers and run restore hooks."
     )
-    confirm = input("Proceed? [y/N]: ").strip().lower()
-    if confirm != "y":
+    from setup_utils import prompt_yes_no
+
+    if not prompt_yes_no("Proceed? [y/N]: ", default=False):
         print("Restore aborted.")
         sys.exit(0)
 
@@ -488,11 +514,14 @@ def run_restore(snapshot: str = "latest") -> None:
 
     run_cmd("docker network create homelab-net --subnet 10.10.30.0/24 || true")
     print("\n🐳 Starting Docker containers...")
-    run_cmd("docker compose up -d")
-    wait_for_containers()
+    run_cmd("docker compose up -d", capture=False)
 
+    # Apply dumps before waiting on healthchecks. Live Postgres dirs are
+    # restic-excluded; apps may be unhealthy until restore() runs.
     print("\n♻️  Running per-service restore() hooks...")
     run_all_restore(services, env)
+
+    wait_for_containers()
 
     print("\n✅ Restore complete.")
 

@@ -8,7 +8,7 @@ from setup_utils import gen_secret
 class GotifyService(Service):
     name = "gotify"
     volume_dirs = [
-        VolumeDir("./gotify/volumes/data", uid=0, gid=0, mode=0o755),
+        VolumeDir("./gotify/volumes/data", mode=0o755),
     ]
 
     def setup(self, env: dict) -> None:

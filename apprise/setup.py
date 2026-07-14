@@ -5,14 +5,14 @@ import json
 import os
 import time
 
-from service import Service, VolumeDir
+from service import Service, VolumeDir, write_host_file
 from setup_utils import container_curl, run_cmd, substitute_env_vars
 
 
 class AppriseService(Service):
     name = "apprise"
     volume_dirs = [
-        VolumeDir("./apprise/volumes/config", uid=0, gid=0, mode=0o755),
+        VolumeDir("./apprise/volumes/config", mode=0o755),
     ]
 
     def setup(self, env: dict) -> None:
@@ -104,8 +104,7 @@ class AppriseService(Service):
                     "urls:\n  - gotify://gotify/${GOTIFY_TOKEN}\n"
                 )
 
-            with open(f"{config_dir}/apprise.yaml", "w", encoding="utf-8") as f:
-                f.write(apprise_content)
+            write_host_file(f"{config_dir}/apprise.yaml", apprise_content, mode=0o644)
             print("   ✅ Generated apprise.yaml configuration from template")
             container_curl("apprise-api", "GET", "http://localhost:80/health")
             print("   ✅ SMTP/HTTP notification gateway reloaded")

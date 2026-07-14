@@ -106,8 +106,10 @@ services:
     volumes:
       - ${PROJECT_ROOT}/nextcloud/volumes/html:/var/www/html
     depends_on:
+      # Started (not healthy): restore applies pg_dump after compose returns; waiting
+      # on healthy nextcloud can deadlock while the DB dump is still loading.
       nextcloud:
-        condition: service_healthy
+        condition: service_started
       nextcloud-db:
         condition: service_healthy
       nextcloud-redis:

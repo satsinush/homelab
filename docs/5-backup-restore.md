@@ -57,8 +57,7 @@ sudo journalctl -u homelab-backup.service
 ⚠️ Overwrites local `.env` and volume trees from the snapshot.
 
 1. Clone the Git repo onto the machine.
-2. Restore secrets needed for Restic (or restore files first onto a machine that already has B2 credentials).
-3. Run:
+2. Run:
 
 ```shell
 python3 setup.py restore          # latest
@@ -66,16 +65,20 @@ python3 setup.py restore          # latest
 python3 setup.py restore <snapshot-id>
 ```
 
-Flow: `restic restore` → `Service.setup()` (permissions) → `docker compose up -d` → `Service.restore()` (apply DB dumps / SQLite snapshots).
+If `volumes/secrets/restic_*` are missing, restore (and interactive backup) will prompt for repository URL, encryption password, and S3 keys, then write them under `volumes/secrets/`. Automated `backup --auto` will not prompt.
 
-4. If needed, re-run full install postsetups: `python3 setup.py setup` (idempotent for most hooks).
+Flow: `restic restore` → `Service.setup()` (permissions) → `docker compose up -d` → `Service.restore()` (apply DB dumps / SQLite snapshots) → wait for healthy containers.
+
+3. If needed, re-run full install postsetups: `python3 setup.py setup` (idempotent for most hooks).
 
 ### What gets special snapshot hooks
 
 | Service | Hook |
 | --- | --- |
-| Authentik / Nextcloud | `pg_dump` → `*/volumes/db-dumps/`; live `*/volumes/db/` excluded from Restic |
+| Authentik / Nextcloud | `pg_dump` → `*/volumes/db-dumps/`; live `*/volumes/db/` excluded from Restic. Nextcloud dumps also include `oc_*` roles (`pg_dumpall --roles-only`) so restore does not scrape `config.php`. |
 | Vaultwarden, Dashboard, Gotify, RustDesk console | SQLite online `.backup` into the service bind mount |
+
+`.backup_exclude` skips `ollama/volumes/ollama/` (large models) until S3 capacity grows. Nextcloud `html/data` (including `appdata_*`) is included in Restic.
 
 Pi-hole, Dockhand, RustDesk id/relay, word-games data are still uploaded as ordinary files (no freeze hook).
 

@@ -19,10 +19,10 @@ class AuthentikService(Service):
     volume_dirs = [
         VolumeDir("./authentik/volumes/media", uid=1000, gid=1000, mode=0o755),
         VolumeDir("./authentik/volumes/media/public", uid=1000, gid=1000, mode=0o755),
-        VolumeDir("./authentik/volumes/templates", uid=0, gid=0, mode=0o755),
-        VolumeDir("./authentik/volumes/certs", uid=0, gid=0, mode=0o755),
+        VolumeDir("./authentik/volumes/templates", mode=0o755),
+        VolumeDir("./authentik/volumes/certs", mode=0o755),
         VolumeDir("./authentik/volumes/db", uid=70, gid=70, mode=0o700),
-        VolumeDir("./authentik/volumes/db-dumps", uid=0, gid=0, mode=0o700),
+        VolumeDir("./authentik/volumes/db-dumps", mode=0o700),
         VolumeDir("./authentik/volumes/redis", uid=999, gid=999, mode=0o755),
     ]
 

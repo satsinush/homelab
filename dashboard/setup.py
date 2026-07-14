@@ -8,8 +8,8 @@ from setup_utils import gen_secret
 class DashboardService(Service):
     name = "dashboard"
     volume_dirs = [
-        VolumeDir("./dashboard/volumes/api-data", uid=0, gid=0, mode=0o755),
-        VolumeDir("./dashboard/volumes/word-games-data", uid=0, gid=0, mode=0o755),
+        VolumeDir("./dashboard/volumes/api-data", mode=0o755),
+        VolumeDir("./dashboard/volumes/word-games-data", mode=0o755),
     ]
 
     def setup(self, env: dict) -> None:

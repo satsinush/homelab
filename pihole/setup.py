@@ -7,8 +7,8 @@ from service import Service, VolumeDir
 class PiholeService(Service):
     name = "pihole"
     volume_dirs = [
-        VolumeDir("./pihole/volumes/etc-pihole", uid=0, gid=0, mode=0o755),
-        VolumeDir("./pihole/volumes/logs", uid=0, gid=0, mode=0o755),
+        VolumeDir("./pihole/volumes/etc-pihole", mode=0o755),
+        VolumeDir("./pihole/volumes/logs", mode=0o755),
     ]
 
 
