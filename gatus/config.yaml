@@ -108,6 +108,17 @@ endpoints:
       - type: custom
         description: "Nextcloud is unreachable"
 
+  - name: "Collabora"
+    group: "Identity & Security"
+    url: "http://collabora:9980/hosting/discovery"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY] == pat(*wopi-discovery*)"
+    alerts:
+      - type: custom
+        description: "Collabora Online is unreachable"
+
   # ─── NETWORKING & INFRA ───
   - name: "Pi-hole"
     group: "Infrastructure"

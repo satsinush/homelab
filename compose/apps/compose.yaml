@@ -296,6 +296,56 @@ services:
     networks:
       - homelab-net
 
+  # Collabora Online (CODE) — LibreOffice editing for Nextcloud
+  collabora:
+    image: collabora/code:latest
+    container_name: collabora
+    restart: unless-stopped
+    # CODE needs these for kit jail bind-mounts (otherwise falls back to slow copy)
+    cap_add:
+      - MKNOD
+      - SYS_ADMIN
+      - SYS_CHROOT
+      - FOWNER
+    security_opt:
+      - seccomp:unconfined
+    tty: true
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    environment:
+      - TZ=${TZ}
+      - aliasgroup1=https://${NEXTCLOUD_SERVICE_NAME}.${HOMELAB_HOSTNAME}:443
+      - username=admin
+      - DONT_GEN_SSL_CERT=true
+      # Image runs as uid 1001 — cannot update system CA store; trust Homelab CA directly
+      - SSL_CERT_FILE=/etc/coolwsd/homelab-ca.crt
+      - CURL_CA_BUNDLE=/etc/coolwsd/homelab-ca.crt
+      - REQUESTS_CA_BUNDLE=/etc/coolwsd/homelab-ca.crt
+      - extra_params=--o:ssl.enable=false --o:ssl.termination=true --o:ssl.ssl_verification=true --o:ssl.ca_file_path=/etc/coolwsd/homelab-ca.crt --o:welcome.enable=false --o:logging.level=warning
+      - dictionaries=en_US
+    secrets:
+      - collabora_admin_password
+    volumes:
+      - ${PROJECT_ROOT}/collabora/entrypoint.sh:/entrypoint.sh:ro
+      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/coolwsd/homelab-ca.crt:ro
+    extra_hosts:
+      - "${NEXTCLOUD_SERVICE_NAME}.${HOMELAB_HOSTNAME}:10.10.30.100"
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.collabora.rule=Host(`${COLLABORA_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.collabora.entrypoints=websecure"
+      - "traefik.http.routers.collabora.tls=true"
+      - "traefik.http.routers.collabora.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.services.collabora.loadbalancer.server.port=9980"
+      - "traefik.http.services.collabora.loadbalancer.server.scheme=http"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/9980'"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+
   gotify:
     image: docker.io/gotify/server:latest
     container_name: gotify
@@ -353,6 +403,8 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_db_password
   nextcloud_admin_password:
     file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_admin_password
+  collabora_admin_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/collabora_admin_password
 
 volumes:
   ollama_data:

@@ -47,7 +47,7 @@ if missing:
     sys.exit(1)
 print("✅ All prerequisites found")
 
-from setup_utils import run_cmd, gen_secret, load_env, load_secrets, wait_for_containers, substitute_env_vars
+from setup_utils import run_cmd, gen_secret, load_env, load_secrets, wait_for_containers, substitute_env_vars, detect_homelab_locale, phone_region_from_tz
 
 # 2. Check or generate .env
 if not os.path.exists(".env"):
@@ -163,6 +163,11 @@ if not os.path.exists(".env"):
     os.environ["PROJECT_ROOT"] = os.getcwd()
     os.environ["TZ"] = tz
 
+    language, locale = detect_homelab_locale(tz, region=phone_region_from_tz(tz))
+    os.environ["HOMELAB_LANGUAGE"] = language
+    os.environ["HOMELAB_LOCALE"] = locale
+    print(f"   Detected locale: {language} / {locale} (from host LANG or TZ={tz})")
+
     # Default Service Names
     os.environ["DASHBOARD_SERVICE_NAME"] = "dashboard"
     os.environ["PIHOLE_SERVICE_NAME"] = "pihole"
@@ -173,6 +178,7 @@ if not os.path.exists(".env"):
     os.environ["AUTHENTIK_SERVICE_NAME"] = "authentik"
     os.environ["RUSTDESK_SERVICE_NAME"] = "rustdesk"
     os.environ["NEXTCLOUD_SERVICE_NAME"] = "nextcloud"
+    os.environ["COLLABORA_SERVICE_NAME"] = "collabora"
 
     content = substitute_env_vars(content)
 
@@ -212,6 +218,7 @@ gen_secret("rustdesk_admin_password", 32)
 gen_secret("nextcloud_oidc_secret", 64)
 gen_secret("nextcloud_db_password", 32)
 gen_secret("nextcloud_admin_password", 32)
+gen_secret("collabora_admin_password", 24)
 gen_secret("gotify_admin_password", 32)
 gen_secret("authentik_secret_key", 50)
 gen_secret("authentik_pg_pass", 32)
@@ -236,6 +243,26 @@ if not env.get("NEXTCLOUD_SERVICE_NAME"):
         f.write("\nNEXTCLOUD_SERVICE_NAME='nextcloud'\n")
     env["NEXTCLOUD_SERVICE_NAME"] = "nextcloud"
     os.environ["NEXTCLOUD_SERVICE_NAME"] = "nextcloud"
+
+if not env.get("COLLABORA_SERVICE_NAME"):
+    with open(".env", "a") as f:
+        f.write("\nCOLLABORA_SERVICE_NAME='collabora'\n")
+    env["COLLABORA_SERVICE_NAME"] = "collabora"
+    os.environ["COLLABORA_SERVICE_NAME"] = "collabora"
+
+if not env.get("HOMELAB_LANGUAGE") or not env.get("HOMELAB_LOCALE"):
+    tz = env.get("TZ") or os.environ.get("TZ") or "UTC"
+    language, locale = detect_homelab_locale(tz, region=phone_region_from_tz(tz))
+    with open(".env", "a") as f:
+        if not env.get("HOMELAB_LANGUAGE"):
+            f.write(f"\nHOMELAB_LANGUAGE='{language}'\n")
+            env["HOMELAB_LANGUAGE"] = language
+            os.environ["HOMELAB_LANGUAGE"] = language
+        if not env.get("HOMELAB_LOCALE"):
+            f.write(f"\nHOMELAB_LOCALE='{locale}'\n")
+            env["HOMELAB_LOCALE"] = locale
+            os.environ["HOMELAB_LOCALE"] = locale
+    print(f"   Locale defaults: {env.get('HOMELAB_LANGUAGE')} / {env.get('HOMELAB_LOCALE')}")
 
 # Ensure homelab_password exists
 if not os.path.exists("./volumes/secrets/homelab_password") or os.path.getsize("./volumes/secrets/homelab_password") == 0:
@@ -373,6 +400,7 @@ print(f"\n🌐 Web Access:")
 print(f"   Dashboard:  https://{env.get('DASHBOARD_SERVICE_NAME')}.{hostname}")
 print(f"   RustDesk:   https://{env.get('RUSTDESK_SERVICE_NAME', 'rustdesk')}.{hostname}/_admin/")
 print(f"   Nextcloud:  https://{env.get('NEXTCLOUD_SERVICE_NAME', 'nextcloud')}.{hostname}")
+print(f"   Collabora:  https://{env.get('COLLABORA_SERVICE_NAME', 'collabora')}.{hostname}")
 ssl_mode = 'Self-signed (private)' if cert_resolver != 'letsencrypt' else "Public (Let's Encrypt)"
 print(f"\n🔒 SSL Mode: {ssl_mode}")
 if cert_resolver != "letsencrypt":

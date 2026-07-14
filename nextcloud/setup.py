@@ -8,62 +8,7 @@ import time
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from setup_utils import gen_secret, run_cmd
-
-# Explicit TZ → ISO 3166-1 phone region (extend as needed).
-_PHONE_REGION_BY_TZ: dict[str, str] = {
-    # United States
-    "America/New_York": "US",
-    "America/Chicago": "US",
-    "America/Denver": "US",
-    "America/Phoenix": "US",
-    "America/Los_Angeles": "US",
-    "America/Anchorage": "US",
-    "Pacific/Honolulu": "US",
-    # Canada
-    "America/Toronto": "CA",
-    "America/Vancouver": "CA",
-    "America/Edmonton": "CA",
-    "America/Winnipeg": "CA",
-    "America/Halifax": "CA",
-    "America/St_Johns": "CA",
-    # Mexico
-    "America/Mexico_City": "MX",
-    "America/Tijuana": "MX",
-    # Europe (common)
-    "Europe/London": "GB",
-    "Europe/Dublin": "IE",
-    "Europe/Paris": "FR",
-    "Europe/Berlin": "DE",
-    "Europe/Amsterdam": "NL",
-    "Europe/Brussels": "BE",
-    "Europe/Madrid": "ES",
-    "Europe/Rome": "IT",
-    "Europe/Zurich": "CH",
-    "Europe/Vienna": "AT",
-    "Europe/Stockholm": "SE",
-    "Europe/Oslo": "NO",
-    "Europe/Copenhagen": "DK",
-    "Europe/Helsinki": "FI",
-    "Europe/Warsaw": "PL",
-    "Europe/Prague": "CZ",
-    "Europe/Athens": "GR",
-    "Europe/Lisbon": "PT",
-    # Other
-    "Australia/Sydney": "AU",
-    "Australia/Melbourne": "AU",
-    "Australia/Perth": "AU",
-    "Pacific/Auckland": "NZ",
-    "Asia/Tokyo": "JP",
-    "Asia/Seoul": "KR",
-    "Asia/Shanghai": "CN",
-    "Asia/Hong_Kong": "HK",
-    "Asia/Singapore": "SG",
-    "Asia/Kolkata": "IN",
-    "Asia/Dubai": "AE",
-    "America/Sao_Paulo": "BR",
-    "America/Argentina/Buenos_Aires": "AR",
-}
+from setup_utils import detect_homelab_locale, gen_secret, phone_region_from_tz, run_cmd
 
 _EXPENSIVE_REPAIR_MARKER = "./nextcloud/volumes/.expensive-repair-done"
 
@@ -84,26 +29,6 @@ def _occ(*args: str, check: bool = True) -> str | None:
         if check:
             raise
         return None
-
-
-def _phone_region_from_tz(tz_name: str) -> str:
-    """Best-effort ISO 3166-1 region from IANA timezone."""
-    if tz_name in _PHONE_REGION_BY_TZ:
-        return _PHONE_REGION_BY_TZ[tz_name]
-
-    # Continent heuristics when no explicit mapping exists
-    if tz_name.startswith("America/"):
-        # Prefer US over guessing CA/MX incorrectly
-        return "US"
-    if tz_name.startswith("Europe/"):
-        return "DE"
-    if tz_name.startswith("Australia/"):
-        return "AU"
-    if tz_name.startswith("Pacific/"):
-        return "US"
-    if tz_name.startswith("Asia/"):
-        return "JP"
-    return "US"
 
 
 def _maintenance_window_utc_hour(tz_name: str, local_hour: int = 1) -> int:
@@ -181,13 +106,43 @@ def _ensure_cron() -> None:
     print("   ✅ Background jobs set to Cron (nextcloud-cron runs every 5 minutes)")
 
 
+def _resolve_locale(env: dict, phone_region: str) -> tuple[str, str]:
+    """Prefer HOMELAB_* from setup.py; otherwise detect from host / TZ region."""
+    language = (env.get("HOMELAB_LANGUAGE") or os.environ.get("HOMELAB_LANGUAGE") or "").strip()
+    locale = (env.get("HOMELAB_LOCALE") or os.environ.get("HOMELAB_LOCALE") or "").strip()
+    if language and locale:
+        return language, locale
+    tz_name = env.get("TZ") or os.environ.get("TZ") or "UTC"
+    detected_lang, detected_locale = detect_homelab_locale(tz_name, region=phone_region)
+    return language or detected_lang, locale or detected_locale
+
+
+def _ensure_locale(env: dict, phone_region: str) -> tuple[str, str]:
+    """Set system defaults + admin user language/locale (weather °F needs en_US, etc.)."""
+    language, locale = _resolve_locale(env, phone_region)
+    print(f"   Locale defaults → language={language}, locale={locale}...")
+    _occ("config:system:set", "default_language", f"--value={language}", check=False)
+    _occ("config:system:set", "default_locale", f"--value={locale}", check=False)
+
+    username = (env.get("HOMELAB_USERNAME") or os.environ.get("HOMELAB_USERNAME") or "").strip()
+    if username:
+        _occ("user:setting", username, "core", "lang", language, check=False)
+        _occ("user:setting", username, "core", "locale", locale, check=False)
+        print(f"   ✅ User {username}: lang={language}, locale={locale}")
+    return language, locale
+
+
 def _ensure_hardening(env: dict) -> None:
     """Apply recommended setup checks; skip NC 2FA (MFA belongs in Authentik)."""
     tz_name = env.get("TZ") or os.environ.get("TZ") or "UTC"
-    phone_region = _phone_region_from_tz(tz_name)
+    phone_region = phone_region_from_tz(tz_name)
+    language, locale = _ensure_locale(env, phone_region)
     maint_hour = _maintenance_window_utc_hour(tz_name, local_hour=1)
 
-    print(f"   Hardening from TZ={tz_name} → phone={phone_region}, maintenance UTC hour={maint_hour}...")
+    print(
+        f"   Hardening from TZ={tz_name} → phone={phone_region}, "
+        f"locale={locale}, maintenance UTC hour={maint_hour}..."
+    )
     _occ(
         "config:system:set",
         "default_phone_region",
@@ -214,7 +169,6 @@ def _ensure_hardening(env: dict) -> None:
 
     # Ex-Apps need a deploy daemon; not used in this stack — disable the warning source
     _occ("app:disable", "app_api", check=False)
-    _purge_app_api_jobs()
 
     # Updater cleanup expects this path even when using Docker image updates
     _ensure_updater_backup_dir()
@@ -231,26 +185,10 @@ def _ensure_hardening(env: dict) -> None:
         print("   ℹ️  Expensive repair already done (marker present)")
 
     print(
-        f"   ✅ Hardening applied (phone={phone_region}, "
+        f"   ✅ Hardening applied (phone={phone_region}, locale={locale}/{language}, "
         f"maintenance_window_start={maint_hour} UTC ≈ 01:00 {tz_name})"
     )
     print("   ℹ️  2FA enforcement skipped — use Authentik MFA instead")
-
-
-def _purge_app_api_jobs() -> None:
-    """Remove orphaned AppAPI cron rows left after disabling the app."""
-    out = run_cmd(
-        "docker exec nextcloud-db psql -U nextcloud -d nextcloud -Atc "
-        "\"SELECT id FROM oc_jobs WHERE class LIKE '%AppAPI%' OR class LIKE '%ExApp%';\"",
-        check=False,
-    )
-    if not out:
-        return
-    for job_id in out.splitlines():
-        job_id = job_id.strip()
-        if job_id:
-            _occ("background-job:delete", job_id, check=False)
-            print(f"   ✅ Removed orphaned background job {job_id}")
 
 
 def _ensure_updater_backup_dir() -> None:
@@ -264,6 +202,63 @@ def _ensure_updater_backup_dir() -> None:
         check=False,
     )
     print(f"   ✅ Ensured updater backups dir ({path})")
+
+
+def _wait_for_collabora(attempts: int = 36) -> bool:
+    print("   Waiting for Collabora...")
+    for _ in range(attempts):
+        status = run_cmd(
+            "docker inspect -f '{{.State.Health.Status}}' collabora 2>/dev/null",
+            check=False,
+        )
+        if status == "healthy":
+            return True
+        # Collabora image has no curl; probe discovery via Nextcloud container
+        ok = run_cmd(
+            "docker exec nextcloud curl -fsS http://collabora:9980/hosting/discovery 2>/dev/null | grep -qi wopi-discovery && echo ok",
+            check=False,
+        )
+        if ok == "ok":
+            return True
+        time.sleep(5)
+    return False
+
+
+def _ensure_collabora(env: dict) -> None:
+    """Install Nextcloud Office (richdocuments) and point it at Collabora CODE."""
+    service = env.get("NEXTCLOUD_SERVICE_NAME", "nextcloud")
+    collabora = env.get("COLLABORA_SERVICE_NAME", "collabora")
+    hostname = env.get("HOMELAB_HOSTNAME", "homelab.home.arpa")
+    wopi_url = f"https://{collabora}.{hostname}"
+
+    gen_secret("collabora_admin_password", 24)
+    run_cmd("docker compose up -d collabora", check=False)
+
+    if not _wait_for_collabora():
+        print("   ⚠️  Collabora did not become ready; skipping Office app config")
+        return
+
+    apps = _occ("app:list", check=False) or ""
+    if "richdocuments" not in apps:
+        print("   Installing richdocuments (Nextcloud Office)...")
+        _occ("app:install", "richdocuments", check=False)
+    _occ("app:enable", "richdocuments", check=False)
+
+    print(f"   Configuring Collabora WOPI at {wopi_url}...")
+    _occ("config:app:set", "richdocuments", "wopi_url", f"--value={wopi_url}", check=False)
+    _occ("config:app:set", "richdocuments", "public_wopi_url", f"--value={wopi_url}", check=False)
+    # Homelab uses private CA; discovery from NC → Collabora may need this
+    _occ(
+        "config:app:set",
+        "richdocuments",
+        "disable_certificate_verification",
+        "--value=yes",
+        check=False,
+    )
+    _occ("richdocuments:activate-config", check=False)
+
+    print(f"   ✅ Nextcloud Office ready via Collabora ({wopi_url})")
+    print(f"   ℹ️  Open .odt/.ods/.odp (and Office) files from https://{service}.{hostname}")
 
 
 def _ensure_user_oidc(env: dict) -> None:
@@ -337,12 +332,16 @@ def setup(env: dict) -> None:
     gen_secret("nextcloud_oidc_secret", 64)
     gen_secret("nextcloud_db_password", 32)
     gen_secret("nextcloud_admin_password", 32)
+    gen_secret("collabora_admin_password", 24)
 
     if not shutil.which("docker"):
         print("   ❌ Docker not available; skipping Nextcloud OIDC setup")
         return
 
-    run_cmd("docker compose up -d nextcloud-db nextcloud-redis nextcloud nextcloud-cron", check=False)
+    run_cmd(
+        "docker compose up -d nextcloud-db nextcloud-redis nextcloud nextcloud-cron collabora",
+        check=False,
+    )
 
     if not _wait_for_nextcloud():
         print("   ⚠️  Nextcloud did not become ready; skipping OIDC setup (re-run setup later)")
@@ -352,3 +351,4 @@ def setup(env: dict) -> None:
     _ensure_cron()
     _ensure_hardening(env)
     _ensure_user_oidc(env)
+    _ensure_collabora(env)

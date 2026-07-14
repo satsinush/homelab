@@ -44,8 +44,9 @@ Final configuration steps for individual services.
     * Sign in with Authentik SSO at `https://nextcloud.<your-hostname>`. Your account is created on first login (`user_oidc` auto-provisioning).
     * Members of `homelab-admins` are mapped into Nextcloud’s built-in **admin** group. Default quotas come from Authentik group attributes (`10 GB` for `homelab-users`, `100 GB` for `homelab-admins`); override per user with a `nextcloud_quota` attribute.
     * Branding (name, URL, Homelab colors/logo) is applied automatically by setup to match the dashboard theme.
-    * Background jobs use **Cron** via a `nextcloud-cron` sidecar (`occ background:cron`). Maintenance window and default phone region are derived from `TZ` (e.g. `America/Chicago` → ~01:00 local / `US`).
+    * Background jobs use **Cron** via a `nextcloud-cron` sidecar (`occ background:cron`). Maintenance window, default phone region, and language/locale are derived at setup from host `LANG` (preferred) or `TZ` (e.g. `America/Chicago` → `en`/`en_US`, phone `US`, ~01:00 local). Stored as `HOMELAB_LANGUAGE` / `HOMELAB_LOCALE` in `.env`.
     * Traefik adds HSTS (`max-age` ≥ 15552000). AppAPI is disabled (no Ex-Apps). Enforce MFA in Authentik rather than Nextcloud 2FA.
+    * **Office editing:** Collabora Online (CODE) is set up automatically. Open `.odt` / `.ods` / `.odp` (and common MS Office types) in Nextcloud to edit in the browser. Collabora is at `https://collabora.<your-hostname>` (admin secret in `volumes/secrets/collabora_admin_password`).
     * Local admin break-glass: `https://nextcloud.<your-hostname>/login?direct=1` (password in `volumes/secrets/nextcloud_admin_password`).
     * WebDAV (e.g. Obsidian) works against the same host after SSO; Redis is included for file locking/cache.
     * [Nextcloud Docs 🔗](https://docs.nextcloud.com/) · [Authentik + Nextcloud 🔗](https://integrations.goauthentik.io/chat-communication-collaboration/nextcloud/)
