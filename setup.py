@@ -370,7 +370,7 @@ traefik_setup.setup(env)
 # 6. Start docker containers
 run_cmd("docker network create homelab-net --subnet 10.10.30.0/24 || true")
 
-print("\n🛠️ Building Docker containers...")
+print("\n🔨 Building Docker containers...")
 run_cmd("docker compose build")
 
 print("\n🐳 Starting Docker containers...")

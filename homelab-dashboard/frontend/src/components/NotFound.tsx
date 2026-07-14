@@ -5,9 +5,21 @@ import {
     Home as HomeIcon, 
     SearchOff as SearchOffIcon
 } from '@mui/icons-material';
+import { useConfig } from '../contexts/useConfig';
 
 const NotFound = () => {
     const navigate = useNavigate();
+    const { config } = useConfig();
+    const dashboardHost = config.hostnames.dashboard;
+    const onWrongHost = Boolean(dashboardHost && window.location.hostname !== dashboardHost);
+
+    const goHome = () => {
+        if (onWrongHost && dashboardHost) {
+            window.location.href = `https://${dashboardHost}/`;
+            return;
+        }
+        navigate('/');
+    };
 
     return (
         <Container maxWidth="md" sx={{ mt: 8, mb: 4 }}>
@@ -25,14 +37,16 @@ const NotFound = () => {
                 </Typography>
                 
                 <Typography variant="body1" sx={{ color: 'text.secondary', mb: 4, maxWidth: '500px', mx: 'auto' }}>
-                    The page you are looking for doesn't exist or has been moved.
+                    {onWrongHost
+                        ? 'This hostname is not configured.'
+                        : "The page you are looking for doesn't exist or has been moved."}
                 </Typography>
                 
                 <Button 
                     variant="contained" 
                     size="large" 
                     startIcon={<HomeIcon />}
-                    onClick={() => navigate('/')}
+                    onClick={goHome}
                     sx={{ borderRadius: 2, px: 4, py: 1.5, textTransform: 'none', fontSize: '1.1rem' }}
                 >
                     Back to Dashboard

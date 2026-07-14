@@ -21,6 +21,7 @@ export interface LogoutResponse {
 export interface ConfigResponse {
     disableLocalAuth: boolean;
     ssoEnabled: boolean;
+    dashboardWebHostname?: string;
     piholeWebHostname?: string;
     dockhandWebHostname?: string;
     vaultwardenWebHostname?: string;

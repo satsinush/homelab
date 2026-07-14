@@ -13,6 +13,7 @@ export const ConfigProvider = ({ children }: ConfigProviderProps) => {
         disableLocalAuth: false,
         ssoEnabled: false,
         hostnames: {
+            dashboard: '',
             pihole: '',
             dockhand: '',
             vaultwarden: '',
@@ -35,6 +36,7 @@ export const ConfigProvider = ({ children }: ConfigProviderProps) => {
                         disableLocalAuth: d.disableLocalAuth || false,
                         ssoEnabled: d.ssoEnabled || false,
                         hostnames: {
+                            dashboard: d.dashboardWebHostname || '',
                             pihole: d.piholeWebHostname || '',
                             dockhand: d.dockhandWebHostname || '',
                             vaultwarden: d.vaultwardenWebHostname || '',

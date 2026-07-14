@@ -1,18 +1,21 @@
 import { createContext } from 'react';
 
+export interface Hostnames {
+    dashboard: string;
+    pihole: string;
+    dockhand: string;
+    vaultwarden: string;
+    gatus: string;
+    gotify: string;
+    rustdesk: string;
+    nextcloud: string;
+    authentik: string;
+}
+
 export interface AppConfig {
     disableLocalAuth: boolean;
     ssoEnabled: boolean;
-    hostnames: {
-        pihole: string;
-        dockhand: string;
-        vaultwarden: string;
-        gatus: string;
-        gotify: string;
-        rustdesk: string;
-        nextcloud: string;
-        authentik: string;
-    };
+    hostnames: Hostnames;
 }
 
 export interface ConfigContextType {

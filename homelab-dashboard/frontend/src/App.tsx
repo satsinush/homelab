@@ -46,7 +46,9 @@ function AppContent() {
   const { theme } = useThemeMode();
   const location = useLocation();
   const { isAuthenticated, loading: authLoading } = useAuth();
-  const { loading: configLoading } = useConfig();
+  const { config, loading: configLoading } = useConfig();
+  const dashboardHost = config.hostnames.dashboard;
+  const isCanonicalHost = !dashboardHost || window.location.hostname === dashboardHost;
 
   // Get current tab from URL path
   const getCurrentTab = () => {
@@ -102,6 +104,16 @@ function AppContent() {
             Loading...
           </Typography>
         </Box>
+      </ThemeProvider>
+    );
+  }
+
+  // Unknown subdomain (or other non-canonical host): show 404 without changing the browser URL
+  if (!isCanonicalHost) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <NotFound />
       </ThemeProvider>
     );
   }
