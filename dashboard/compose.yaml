@@ -1,14 +1,14 @@
-# homelab-dashboard/compose.yaml
+# dashboard/compose.yaml
 services:
-  homelab-dashboard:
-    container_name: homelab-dashboard
+  dashboard:
+    container_name: dashboard
     restart: unless-stopped
     build:
       context: ${PROJECT_ROOT}
-      dockerfile: homelab-dashboard/api/Dockerfile
+      dockerfile: dashboard/api/Dockerfile
     volumes:
-      - ${PROJECT_ROOT}/homelab-dashboard/volumes/api-data:/app/api/data
-      - ${PROJECT_ROOT}/homelab-dashboard/volumes/word-games-data:/app/word_games/data
+      - ${PROJECT_ROOT}/dashboard/volumes/api-data:/app/api/data
+      - ${PROJECT_ROOT}/dashboard/volumes/word-games-data:/app/word_games/data
       - ${PROJECT_ROOT}/word_games/resources:/app/word_games/resources:ro
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
       - ${PROJECT_ROOT}/volumes/public-configs:/app/public-configs:ro

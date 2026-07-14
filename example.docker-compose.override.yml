@@ -1,22 +1,22 @@
 services:
-  homelab-dashboard:
+  dashboard:
     command: npm run dev
     environment:
       - ENVIRONMENT=development
     ports:
       - "5000:5000"
     volumes:
-      - ./homelab-dashboard/api:/app/api
+      - ./dashboard/api:/app/api
       - /app/api/node_modules
 
   dashboard-dev:
     container_name: dashboard-dev
-    build: ./homelab-dashboard/frontend
+    build: ./dashboard/frontend
     command: npm run dev
     ports:
       - "5173:5173"
     volumes:
-      - ./homelab-dashboard/frontend:/app
+      - ./dashboard/frontend:/app
       - /app/node_modules
     networks:
       - homelab-net

@@ -188,4 +188,4 @@ Find quick solutions for common deployment issues, including DNS resolution fail
 
 This project is licensed under the MIT License. See the [`./LICENSE`](./LICENSE) file for details.
 
-> **ℹ️ Note**: The software for each containerized service falls under its own respective license. The MIT license for this repository applies only to the original configuration files, scripts, and the `homelab-dashboard` source code.
+> **ℹ️ Note**: The software for each containerized service falls under its own respective license. The MIT license for this repository applies only to the original configuration files, scripts, and the `dashboard` source code.

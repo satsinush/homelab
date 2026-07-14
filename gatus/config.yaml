@@ -25,7 +25,7 @@ endpoints:
   # ─── CORE SERVICES ───
   - name: "Dashboard"
     group: "Core Services"
-    url: "http://homelab-dashboard:5000/health"
+    url: "http://dashboard:5000/health"
     interval: 30s
     conditions:
       - "[STATUS] == 200"

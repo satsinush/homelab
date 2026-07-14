@@ -9,11 +9,11 @@ WORKDIR /frontend
 # Copy the package.json and package-lock.json from your dashboard folder
 # This step is separated to take advantage of Docker's layer caching.
 # 'npm install' will only re-run if these files change.
-COPY homelab-dashboard/frontend/package*.json ./
+COPY dashboard/frontend/package*.json ./
 # Install all the project dependencies
 RUN npm install
 # Copy the rest of your dashboard's source code into the container
-COPY homelab-dashboard/frontend ./
+COPY dashboard/frontend ./
 # Run the build script defined in your package.json to compile the React app
 RUN npm run build
 
@@ -39,7 +39,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # 1. Copy API package files and install dependencies
-COPY ./homelab-dashboard/api/package*.json ./api/
+COPY ./dashboard/api/package*.json ./api/
 WORKDIR /app/api
 
 RUN apk add --no-cache --virtual .build-deps python3 make g++ py3-setuptools \
@@ -47,7 +47,7 @@ RUN apk add --no-cache --virtual .build-deps python3 make g++ py3-setuptools \
     && apk del .build-deps
 
 # 2. Copy API source code and compile TypeScript
-COPY ./homelab-dashboard/api/ .
+COPY ./dashboard/api/ .
 RUN npm run build
 
 # 3. Copy built frontend into /app/frontend

@@ -6,10 +6,10 @@ from setup_utils import gen_secret
 
 
 class DashboardService(Service):
-    name = "homelab-dashboard"
+    name = "dashboard"
     volume_dirs = [
-        VolumeDir("./homelab-dashboard/volumes/api-data", uid=0, gid=0, mode=0o755),
-        VolumeDir("./homelab-dashboard/volumes/word-games-data", uid=0, gid=0, mode=0o755),
+        VolumeDir("./dashboard/volumes/api-data", uid=0, gid=0, mode=0o755),
+        VolumeDir("./dashboard/volumes/word-games-data", uid=0, gid=0, mode=0o755),
     ]
 
     def setup(self, env: dict) -> None:
@@ -21,18 +21,18 @@ class DashboardService(Service):
 
     def backup(self, env: dict) -> None:
         sqlite_snapshot(
-            "homelab-dashboard",
+            "dashboard",
             "/app/api/data/homelab.db",
             "/app/api/data/homelab_snapshot.db",
-            host_bind="./homelab-dashboard/volumes/api-data",
+            host_bind="./dashboard/volumes/api-data",
         )
 
     def restore(self, env: dict) -> None:
         restore_sqlite_snapshot(
-            "homelab-dashboard",
+            "dashboard",
             "/app/api/data/homelab.db",
-            "./homelab-dashboard/volumes/api-data/homelab_snapshot.db",
-            "./homelab-dashboard/volumes/api-data",
+            "./dashboard/volumes/api-data/homelab_snapshot.db",
+            "./dashboard/volumes/api-data",
         )
 
 

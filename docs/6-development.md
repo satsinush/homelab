@@ -13,7 +13,7 @@ This project supports a development environment with hot-reloading for the dashb
     docker compose up -d --build --force-recreate
     ```
 
-This development setup starts a separate `dashboard-dev` container running the Vite dev server for the frontend. The main `homelab-dashboard` backend container uses `nodemon` to watch for file changes. Any updates to the API or frontend source code will be updated automatically in the running containers.
+This development setup starts a separate `dashboard-dev` container running the Vite dev server for the frontend. The main `dashboard` backend container uses `nodemon` to watch for file changes. Any updates to the API or frontend source code will be updated automatically in the running containers.
 
 You should set the DNS server for your development device to 127.0.0.1 in order to test the pages with their actual domain names.
 
@@ -23,7 +23,7 @@ To work on the Host API locally with hot-reloading, you can run it directly on y
 
 ```shell
 # Navigate to the host API directory
-cd ./homelab-dashboard/host-api/
+cd ./dashboard/host-api/
 
 # Install dependencies
 npm install

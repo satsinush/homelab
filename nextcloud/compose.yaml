@@ -48,9 +48,9 @@ services:
     volumes:
       - ${PROJECT_ROOT}/nextcloud/volumes/html:/var/www/html
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/usr/local/share/ca-certificates/homelab-ca.crt:ro
-      - ${PROJECT_ROOT}/homelab-dashboard/frontend/public/homelab-icon.svg:/mnt/homelab-branding/logo.svg:ro
-      - ${PROJECT_ROOT}/homelab-dashboard/frontend/public/favicon.ico:/mnt/homelab-branding/favicon.ico:ro
-      - ${PROJECT_ROOT}/homelab-dashboard/frontend/src/assets/nextcloud_logo.png:/mnt/homelab-branding/nextcloud_logo.png:ro
+      - ${PROJECT_ROOT}/dashboard/frontend/public/homelab-icon.svg:/mnt/homelab-branding/logo.svg:ro
+      - ${PROJECT_ROOT}/dashboard/frontend/public/favicon.ico:/mnt/homelab-branding/favicon.ico:ro
+      - ${PROJECT_ROOT}/dashboard/frontend/src/assets/nextcloud_logo.png:/mnt/homelab-branding/nextcloud_logo.png:ro
     extra_hosts:
       - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:10.10.30.100"
     environment:

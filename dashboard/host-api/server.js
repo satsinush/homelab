@@ -1,17 +1,19 @@
-import express, { Request, Response } from 'express';
-import cors from 'cors';
-import { exec } from 'child_process';
-import os from 'os';
-import fs from 'fs';
-import dgram from 'dgram';
-import swaggerJsdoc from 'swagger-jsdoc';
-import swaggerUi from 'swagger-ui-express';
-
-import { getErrorMessage } from './utils/errors';
-
-const app = express();
-
-const swaggerOptions: swaggerJsdoc.Options = {
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const cors_1 = __importDefault(require("cors"));
+const child_process_1 = require("child_process");
+const os_1 = __importDefault(require("os"));
+const fs_1 = __importDefault(require("fs"));
+// @ts-ignore
+const wake_on_lan_1 = __importDefault(require("wake_on_lan"));
+const swagger_jsdoc_1 = __importDefault(require("swagger-jsdoc"));
+const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
+const app = (0, express_1.default)();
+const swaggerOptions = {
     definition: {
         openapi: '3.0.0',
         info: {
@@ -31,25 +33,20 @@ const swaggerOptions: swaggerJsdoc.Options = {
         __filename
     ]
 };
-
-const swaggerSpec = swaggerJsdoc(swaggerOptions);
-
-// CORS configuration - allow requests from homelab-dashboard
-app.use(cors({
-    origin: ['http://homelab-dashboard:5000', 'http://localhost:5001'],
+const swaggerSpec = (0, swagger_jsdoc_1.default)(swaggerOptions);
+// CORS configuration - allow requests from dashboard
+app.use((0, cors_1.default)({
+    origin: ['http://dashboard:5000', 'http://localhost:5001'],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
-
-app.use(express.json());
-
+app.use(express_1.default.json());
 // Swagger Documentation Route
-app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-app.get('/docs.json', (req: Request, res: Response) => {
+app.use('/docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swaggerSpec));
+app.get('/docs.json', (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(swaggerSpec);
 });
-
 /**
  * @openapi
  * /:
@@ -59,33 +56,23 @@ app.get('/docs.json', (req: Request, res: Response) => {
  *       200:
  *         description: Welcome message
  */
-app.get('/', (req: Request, res: Response) => {
+app.get('/', (req, res) => {
     res.status(200).json({ message: 'Welcome to the Homelab Host API' });
 });
-
 // Helper function to get platform-specific command
-function getPlatformCommand(operation: string): string | null {
-    const commands: Record<string, string> = {
+function getPlatformCommand(operation) {
+    const commands = {
         networkScan: `arp-scan --localnet --numeric`,
         installedPackages: `pacman -Q`,
         packageUpdates: `pacman -Qu`,
         packageSyncTime: `stat -c %Z /var/lib/pacman/sync/core.db`
     };
-
     return commands[operation] || null;
 }
-
-interface Device {
-    ip: string;
-    mac: string;
-    vendor: string;
-}
-
 // Parse network scan results into structured data
-function parseNetworkScanResults(stdout: string): Device[] {
+function parseNetworkScanResults(stdout) {
     const lines = stdout.trim().split('\n');
-    const devices: Device[] = [];
-
+    const devices = [];
     // Linux arp-scan format: "192.168.1.1\taa:bb:cc:dd:ee:ff\tVendor"
     for (const line of lines) {
         const match = line.match(/^([\d.]+)\s+([0-9a-fA-F:]{17})\s+(.+)$/);
@@ -97,20 +84,12 @@ function parseNetworkScanResults(stdout: string): Device[] {
             });
         }
     }
-
     return devices;
 }
-
-interface Package {
-    name: string;
-    version: string;
-}
-
 // Parse package results into structured data
-function parsePackageResults(stdout: string): Package[] {
-    const packages: Package[] = [];
+function parsePackageResults(stdout) {
+    const packages = [];
     const lines = stdout.trim().split('\n');
-
     // Linux pacman format: "package-name version"
     for (const line of lines) {
         const match = line.match(/^(.+?)\s+(.+?)$/);
@@ -121,10 +100,8 @@ function parsePackageResults(stdout: string): Package[] {
             });
         }
     }
-
     return packages;
 }
-
 // Health check endpoint
 /**
  * @openapi
@@ -135,17 +112,16 @@ function parsePackageResults(stdout: string): Package[] {
  *       200:
  *         description: OK
  */
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (req, res) => {
     console.log("Received health check request");
-    res.json({ 
-        status: 'OK', 
+    res.json({
+        status: 'OK',
         timestamp: new Date().toISOString(),
-        platform: os.platform(),
-        hostname: os.hostname(),
+        platform: os_1.default.platform(),
+        hostname: os_1.default.hostname(),
         services: ['network-scan', 'wake-on-lan', 'package-management']
     });
 });
-
 // Network scan endpoint
 /**
  * @openapi
@@ -167,43 +143,38 @@ app.get('/health', (req: Request, res: Response) => {
  *       500:
  *         description: Internal scan utility error
  */
-app.post('/network/scan', (req: Request, res: Response) => {
+app.post('/network/scan', (req, res) => {
     console.log("Received network scan request");
     const { timeout = 30000 } = req.body;
-    
     const cmd = getPlatformCommand('networkScan');
     if (!cmd) {
         return res.status(500).json({ success: false, error: 'Command not supported' });
     }
-    
-    exec(cmd, { timeout }, (error, stdout, stderr) => {
+    (0, child_process_1.exec)(cmd, { timeout }, (error, stdout, stderr) => {
         if (error) {
             console.error('Error executing network scan:', error);
-            return res.status(500).json({ 
+            return res.status(500).json({
                 success: false,
-                error: error.message, 
+                error: error.message,
                 stderr: stderr,
-                code: error.code 
+                code: error.code
             });
         }
-        
         // Parse the output into structured data
         console.log('Network scan output:', stdout);
         const devices = parseNetworkScanResults(stdout);
         console.log('Parsed devices:', devices);
-
-        res.json({ 
+        res.json({
             success: true,
             data: {
                 devices: devices,
                 scanMethod: 'arp-scan',
-                platform: os.platform()
+                platform: os_1.default.platform()
             },
             timestamp: new Date().toISOString()
         });
     });
 });
-
 // Package management endpoints
 /**
  * @openapi
@@ -214,37 +185,33 @@ app.post('/network/scan', (req: Request, res: Response) => {
  *       200:
  *         description: Packages list
  */
-app.get('/packages/installed', (req: Request, res: Response) => {
+app.get('/packages/installed', (req, res) => {
     console.log("Received request for installed packages");
     const cmd = getPlatformCommand('installedPackages');
     if (!cmd) {
         return res.status(500).json({ success: false, error: 'Command not supported' });
     }
-
-    exec(cmd, { timeout: 30000 }, (error, stdout, stderr) => {
+    (0, child_process_1.exec)(cmd, { timeout: 30000 }, (error, stdout, stderr) => {
         if (error) {
-            return res.status(500).json({ 
+            return res.status(500).json({
                 success: false,
-                error: error.message, 
+                error: error.message,
                 stderr: stderr,
-                code: error.code 
+                code: error.code
             });
         }
-        
         // Parse the output into structured data
         const packages = parsePackageResults(stdout);
-        
-        res.json({ 
+        res.json({
             success: true,
             data: {
                 packages: packages,
-                platform: os.platform()
+                platform: os_1.default.platform()
             },
             timestamp: new Date().toISOString()
         });
     });
 });
-
 /**
  * @openapi
  * /packages/updates:
@@ -254,19 +221,18 @@ app.get('/packages/installed', (req: Request, res: Response) => {
  *       200:
  *         description: Updates list
  */
-app.get('/packages/updates', (req: Request, res: Response) => {
+app.get('/packages/updates', (req, res) => {
     console.log("Received request for package updates");
     const cmd = getPlatformCommand('packageUpdates');
     if (!cmd) {
         return res.status(500).json({ success: false, error: 'Command not supported' });
     }
-    
-    exec(cmd, { timeout: 30000 }, (error, stdout, stderr) => {
-        res.json({ 
+    (0, child_process_1.exec)(cmd, { timeout: 30000 }, (error, stdout, stderr) => {
+        res.json({
             success: !error,
             data: {
                 updates: stdout.trim() || 'No updates available',
-                platform: os.platform()
+                platform: os_1.default.platform()
             },
             stderr: stderr.trim(),
             timestamp: new Date().toISOString(),
@@ -274,7 +240,6 @@ app.get('/packages/updates', (req: Request, res: Response) => {
         });
     });
 });
-
 /**
  * @openapi
  * /packages/sync-time:
@@ -284,19 +249,18 @@ app.get('/packages/updates', (req: Request, res: Response) => {
  *       200:
  *         description: Sync time payload
  */
-app.get('/packages/sync-time', (req: Request, res: Response) => {
+app.get('/packages/sync-time', (req, res) => {
     console.log("Received request for package sync time");
     const cmd = getPlatformCommand('packageSyncTime');
     if (!cmd) {
         return res.status(500).json({ success: false, error: 'Command not supported' });
     }
-    
-    exec(cmd, { timeout: 10000 }, (error, stdout, stderr) => {
-        res.json({ 
+    (0, child_process_1.exec)(cmd, { timeout: 10000 }, (error, stdout, stderr) => {
+        res.json({
             success: !error,
             data: {
                 syncTime: stdout.trim() || 'Unknown',
-                platform: os.platform()
+                platform: os_1.default.platform()
             },
             stderr: stderr.trim(),
             timestamp: new Date().toISOString(),
@@ -304,7 +268,6 @@ app.get('/packages/sync-time', (req: Request, res: Response) => {
         });
     });
 });
-
 // Wake on LAN endpoint
 /**
  * @openapi
@@ -330,17 +293,15 @@ app.get('/packages/sync-time', (req: Request, res: Response) => {
  *       500:
  *         description: Failed to transmit WOL packet
  */
-app.post('/network/wake-on-lan', (req: Request, res: Response) => {
+app.post('/network/wake-on-lan', (req, res) => {
     console.log("Received Wake-on-LAN request");
     const { mac } = req.body;
-    
     if (!mac) {
         return res.status(400).json({
             success: false,
             error: 'MAC address is required'
         });
     }
-    
     // Validate MAC address format using regex
     const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
     if (!macRegex.test(mac)) {
@@ -349,68 +310,35 @@ app.post('/network/wake-on-lan', (req: Request, res: Response) => {
             error: 'Invalid MAC address format. Expected format: XX:XX:XX:XX:XX:XX or XX-XX-XX-XX-XX-XX'
         });
     }
-    
-    // Convert to clean format for magic packet construction
-    const cleanMac = mac.replace(/[:-]/g, '');
-    if (cleanMac.length !== 12) {
-        return res.status(400).json({
-            success: false,
-            error: 'Invalid MAC address length'
-        });
-    }
-
-    // Construct magic packet: 6 bytes of 0xFF followed by 16 repetitions of MAC address (6 bytes each)
-    const buf = Buffer.alloc(102);
-    for (let i = 0; i < 6; i++) {
-        buf[i] = 0xFF;
-    }
-
-    const macBytes = Buffer.from(cleanMac, 'hex');
-    for (let i = 0; i < 16; i++) {
-        macBytes.copy(buf, 6 + i * 6);
-    }
-
-    // Send magic packet to broadcast address via UDP
-    const socket = dgram.createSocket('udp4');
-    socket.once('error', (err) => {
-        socket.close();
-        res.status(500).json({
-            success: false,
-            error: 'Failed to send Wake-on-LAN packet',
-            details: err.message,
-            timestamp: new Date().toISOString()
-        });
-    });
-
-    socket.send(buf, 0, buf.length, 9, '255.255.255.255', (err) => {
-        socket.close();
-        if (err) {
+    // Convert to colon-separated format for WOL
+    const macForWol = mac.replace(/[-]/g, ':');
+    // Use the wake_on_lan package to send the magic packet
+    wake_on_lan_1.default.wake(macForWol, (error) => {
+        if (error) {
             return res.status(500).json({
                 success: false,
                 error: 'Failed to send Wake-on-LAN packet',
-                details: err.message,
+                details: error.message,
                 timestamp: new Date().toISOString()
             });
         }
-        
         res.json({
             success: true,
             data: {
-                message: `Wake-on-LAN packet sent to ${mac}`,
-                mac: mac,
-                platform: os.platform()
+                message: `Wake-on-LAN packet sent to ${macForWol}`,
+                mac: macForWol,
+                platform: os_1.default.platform()
             },
             timestamp: new Date().toISOString()
         });
     });
 });
-
 // Helper functions for /system/metrics
-function getCpuUsage(): Promise<number> {
+function getCpuUsage() {
     return new Promise((resolve) => {
-        const first = os.cpus();
+        const first = os_1.default.cpus();
         setTimeout(() => {
-            const second = os.cpus();
+            const second = os_1.default.cpus();
             let totalDiff = 0;
             let idleDiff = 0;
             for (let i = 0; i < first.length; i++) {
@@ -426,20 +354,10 @@ function getCpuUsage(): Promise<number> {
         }, 500);
     });
 }
-
-interface MemoryMetrics {
-    total: number;
-    used: number;
-    free: number;
-    cached: number;
-    buffers: number;
-    percentage: number;
-}
-
-function getMemoryMetrics(): MemoryMetrics {
+function getMemoryMetrics() {
     try {
-        const meminfo = fs.readFileSync('/proc/meminfo', 'utf8');
-        const parseMetric = (name: string) => {
+        const meminfo = fs_1.default.readFileSync('/proc/meminfo', 'utf8');
+        const parseMetric = (name) => {
             const match = meminfo.match(new RegExp(`${name}:\\s+(\\d+)\\s+kB`));
             return match ? parseInt(match[1]) * 1024 : 0;
         };
@@ -448,11 +366,9 @@ function getMemoryMetrics(): MemoryMetrics {
         const buffers = parseMetric('Buffers');
         const cached = parseMetric('Cached');
         const reclaimable = parseMetric('SReclaimable');
-        
         const available = free + buffers + cached + reclaimable;
         const used = total - available;
         const percentage = total > 0 ? Math.round((used / total) * 100) : 0;
-        
         return {
             total,
             used,
@@ -461,9 +377,10 @@ function getMemoryMetrics(): MemoryMetrics {
             buffers,
             percentage
         };
-    } catch {
-        const total = os.totalmem();
-        const free = os.freemem();
+    }
+    catch (err) {
+        const total = os_1.default.totalmem();
+        const free = os_1.default.freemem();
         const used = total - free;
         const percentage = total > 0 ? Math.round((used / total) * 100) : 0;
         return {
@@ -476,19 +393,9 @@ function getMemoryMetrics(): MemoryMetrics {
         };
     }
 }
-
-interface DiskMetrics {
-    total: number;
-    used: number;
-    available: number;
-    percentage: number;
-    filesystem: string;
-    mountPoint: string;
-}
-
-function getDiskMetrics(): Promise<DiskMetrics> {
+function getDiskMetrics() {
     return new Promise((resolve) => {
-        exec('df -B1 /', (error, stdout) => {
+        (0, child_process_1.exec)('df -B1 /', (error, stdout) => {
             if (error) {
                 return resolve({ total: 0, used: 0, available: 0, percentage: 0, filesystem: '/', mountPoint: '/' });
             }
@@ -515,32 +422,24 @@ function getDiskMetrics(): Promise<DiskMetrics> {
         });
     });
 }
-
-function getTemperatureMetrics(): { cpu: number | null } {
+function getTemperatureMetrics() {
     try {
-        if (fs.existsSync('/sys/class/thermal/thermal_zone0/temp')) {
-            const tempRaw = fs.readFileSync('/sys/class/thermal/thermal_zone0/temp', 'utf8');
+        if (fs_1.default.existsSync('/sys/class/thermal/thermal_zone0/temp')) {
+            const tempRaw = fs_1.default.readFileSync('/sys/class/thermal/thermal_zone0/temp', 'utf8');
             const tempC = parseFloat(tempRaw.trim()) / 1000;
             return { cpu: tempC };
         }
-    } catch (err) {
+    }
+    catch (err) {
         console.error('Error reading temperature:', err);
     }
     return { cpu: null };
 }
-
-interface NetworkInterface {
-    name: string;
-    downloadSpeed: number;
-    uploadSpeed: number;
-    active: boolean;
-}
-
-function getNetworkStats(): Promise<{ interfaces: NetworkInterface[] }> {
+function getNetworkStats() {
     const readNetDev = () => {
-        const content = fs.readFileSync('/proc/net/dev', 'utf8');
+        const content = fs_1.default.readFileSync('/proc/net/dev', 'utf8');
         const lines = content.trim().split('\n');
-        const stats: Record<string, { rxBytes: number; txBytes: number }> = {};
+        const stats = {};
         for (let i = 2; i < lines.length; i++) {
             const parts = lines[i].trim().split(/\s+/);
             if (parts.length >= 10) {
@@ -552,13 +451,12 @@ function getNetworkStats(): Promise<{ interfaces: NetworkInterface[] }> {
         }
         return stats;
     };
-
     return new Promise((resolve) => {
         try {
             const t1 = readNetDev();
             setTimeout(() => {
                 const t2 = readNetDev();
-                const interfaces: NetworkInterface[] = [];
+                const interfaces = [];
                 for (const name in t2) {
                     if (t1[name]) {
                         const rxSpeed = t2[name].rxBytes - t1[name].rxBytes;
@@ -573,12 +471,12 @@ function getNetworkStats(): Promise<{ interfaces: NetworkInterface[] }> {
                 }
                 resolve({ interfaces });
             }, 500);
-        } catch {
+        }
+        catch (err) {
             resolve({ interfaces: [] });
         }
     });
 }
-
 // System metrics endpoint (substitutes Netdata)
 /**
  * @openapi
@@ -591,7 +489,7 @@ function getNetworkStats(): Promise<{ interfaces: NetworkInterface[] }> {
  *       500:
  *         description: Internal metrics collection error
  */
-app.get('/system/metrics', async (req: Request, res: Response) => {
+app.get('/system/metrics', async (req, res) => {
     const startTime = Date.now();
     try {
         const [cpuUsage, memoryMetrics, diskMetrics, networkStats] = await Promise.all([
@@ -600,17 +498,15 @@ app.get('/system/metrics', async (req: Request, res: Response) => {
             getDiskMetrics(),
             getNetworkStats()
         ]);
-
         const temperature = getTemperatureMetrics();
-        const cpus = os.cpus();
-        
+        const cpus = os_1.default.cpus();
         res.json({
             success: true,
             data: {
                 system: {
-                    hostname: os.hostname(),
-                    platform: os.platform(),
-                    uptime: Math.floor(os.uptime()),
+                    hostname: os_1.default.hostname(),
+                    platform: os_1.default.platform(),
+                    uptime: Math.floor(os_1.default.uptime()),
                     source: 'host-api'
                 },
                 resources: {
@@ -633,18 +529,18 @@ app.get('/system/metrics', async (req: Request, res: Response) => {
                 dataSource: 'host-api'
             }
         });
-    } catch (err: unknown) {
+    }
+    catch (err) {
         console.error('Failed to collect system metrics:', err);
         res.status(500).json({
             success: false,
             error: 'Failed to retrieve system metrics',
-            details: getErrorMessage(err)
+            details: err.message
         });
     }
 });
-
 app.listen(5001, '0.0.0.0', () => {
     console.log(`Homelab Host API Server running on http://0.0.0.0:5001`);
     console.log(`Simplified host API - System monitoring, Network scanning, Wake-on-LAN, and Package management`);
-    console.log(`Platform: ${os.platform()}`);
+    console.log(`Platform: ${os_1.default.platform()}`);
 });

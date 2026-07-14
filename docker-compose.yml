@@ -5,7 +5,7 @@ include:
   - ./pihole/compose.yaml
   - ./authentik/compose.yaml
   - ./gatus/compose.yaml
-  - ./homelab-dashboard/compose.yaml
+  - ./dashboard/compose.yaml
   - ./dockhand/compose.yaml
   - ./apprise/compose.yaml
   - ./vaultwarden/compose.yaml

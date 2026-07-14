@@ -39,7 +39,7 @@ ExecStart=/usr/bin/python3 /home/USERNAME/homelab/setup.py backup --auto
 
 User=USERNAME
 Group=GROUP
-WorkingDirectory=/home/USERNAME/homelab/homelab-dashboard/host-api
+WorkingDirectory=/home/USERNAME/homelab/dashboard/host-api
 ```
 
 #### **Step 3: Reload Daemon and Enable Services**
@@ -47,7 +47,7 @@ WorkingDirectory=/home/USERNAME/homelab/homelab-dashboard/host-api
 First, let's build the necessary components.
 
 ```shell
-cd ~/homelab/homelab-dashboard/host-api
+cd ~/homelab/dashboard/host-api
 npm install
 ```
 
