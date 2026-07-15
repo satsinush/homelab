@@ -32,10 +32,7 @@ class AuthentikService(Service):
         gen_secret("authentik_secret_key", 50)
         gen_secret("authentik_pg_pass", 32)
         gen_secret("authentik_akadmin_password", 32)
-        placeholder = "./authentik/volumes/media/public/homelab-icon.svg"
-        if not os.path.exists(placeholder):
-            with open(placeholder, "w", encoding="utf-8"):
-                pass
+        # Branding icon is bind-mounted from dashboard/frontend/public/homelab-icon.svg
         print("   ✅ Authentik volume directories ready")
 
     def backup(self, env: dict) -> None:
