@@ -1,21 +1,13 @@
 # Traefik v3 Dynamic Configuration (File Provider)
 #
-# This file is hot-reloaded by Traefik whenever it changes.
-# It serves two purposes:
-#
-#   1. Define the Authentik forward-auth middleware so it can be referenced
-#      by any Docker-label router using "authentik-auth@file".
-#
-#   2. Load the self-signed homelab certificate as the default TLS certificate.
-#      Setup always generates volumes/certificates/homelab.{crt,key} (even when
-#      Let's Encrypt is enabled) so this path stays valid PEM. In public mode
-#      per-router certresolvers still issue LE certs; this is only the fallback.
+# Hot-reloaded. Authentik forward-auth middleware only.
+# TLS defaultCertificate comes from setup copying tls.private.yml or
+# tls.letsencrypt.yml → volumes/tls.yml.
 
 http:
   middlewares:
     authentik-auth:
       forwardAuth:
-        # Authentik forward-auth endpoint
         address: "http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
         trustForwardHeader: true
         authResponseHeaders:
@@ -25,10 +17,3 @@ http:
           - "X-authentik-name"
           - "X-authentik-uid"
           - "authorization"
-
-tls:
-  stores:
-    default:
-      defaultCertificate:
-        certFile: /etc/ssl/homelab/homelab.crt
-        keyFile: /etc/ssl/homelab/homelab.key

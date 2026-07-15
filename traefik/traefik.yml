@@ -40,10 +40,9 @@ providers:
     exposedByDefault: false
     watch: true
 
-  # File provider — loads the Authentik middleware definition and the
-  # default (self-signed) TLS certificate for private / manual mode
+  # File provider — Authentik middleware + setup-generated TLS defaults
   file:
-    filename: /etc/traefik/dynamic_conf.yml
+    directory: /etc/traefik/dynamic
     watch: true
 
 # Let's Encrypt ACME resolver using DNS-01 challenge (Cloudflare).

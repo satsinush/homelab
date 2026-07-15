@@ -10,7 +10,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${PROJECT_ROOT}/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
-      - ${PROJECT_ROOT}/traefik/dynamic_conf.yml:/etc/traefik/dynamic_conf.yml:ro
+      - ${PROJECT_ROOT}/traefik/dynamic_conf.yml:/etc/traefik/dynamic/middlewares.yml:ro
+      - ${PROJECT_ROOT}/traefik/volumes/tls.yml:/etc/traefik/dynamic/tls.yml:ro
       - ${PROJECT_ROOT}/volumes/certificates:/etc/ssl/homelab:ro
       - ${PROJECT_ROOT}/traefik/volumes/acme.json:/etc/traefik/acme.json
       - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
@@ -20,8 +21,11 @@ services:
     environment:
       # Cloudflare DNS API token — required when TRAEFIK_CERT_RESOLVER=letsencrypt
       - CF_DNS_API_TOKEN_FILE=/secrets/cf_dns_api_token
+      - CLOUDFLARE_DNS_API_TOKEN_FILE=/secrets/cf_dns_api_token
       # ACME e-mail address for Let's Encrypt certificate expiry notifications
       - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL=${ACME_EMAIL}
+      # Quieter ops logs still show ACME obtain failures at ERROR
+      - TRAEFIK_LOG_LEVEL=INFO
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/ping"]
       interval: 1m

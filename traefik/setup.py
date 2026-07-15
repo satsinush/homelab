@@ -16,7 +16,12 @@ class TraefikService(Service):
         super().setup(env)
         print("\n🚦 Preparing Traefik volumes...")
         acme_path = "./traefik/volumes/acme.json"
-        if not os.path.exists(acme_path):
+        if not os.path.exists(acme_path) or os.path.isdir(acme_path):
+            if os.path.isdir(acme_path):
+                print("   ⚠️  acme.json was a directory (Docker mount placeholder); replacing with a file")
+                import shutil
+
+                shutil.rmtree(acme_path)
             write_host_file(acme_path, "{}", mode=0o600)
             print("   ✅ Generated empty acme.json with secure permissions (0600)")
         else:

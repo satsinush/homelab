@@ -518,6 +518,46 @@ DNS.3 = *.home.arpa
         shutil.copy(server_key, fallback_key)
         print("   ✅ Traefik fallback homelab.crt / homelab.key ready")
 
+    # Localhost-only default used when Let's Encrypt is enabled (must not match
+    # production SNI or Homelab CA shadows ACME).
+    default_cert = f"{certs_dir}/traefik-default.crt"
+    default_key = f"{certs_dir}/traefik-default.key"
+    if not os.path.exists(default_cert) or not os.path.exists(default_key):
+        print("   Generating Traefik localhost-only default certificate…")
+        conf_file = "/tmp/traefik_default_ssl.cnf"
+        csr_file = "/tmp/traefik-default.csr"
+        with open(conf_file, "w", encoding="utf-8") as f:
+            f.write(
+                """[req]
+default_bits = 2048
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+C = US
+O = Homelab
+CN = traefik-default
+
+[v3_req]
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = localhost
+IP.1 = 127.0.0.1
+"""
+            )
+        run_cmd(f"openssl req -new -nodes -out {csr_file} -keyout {default_key} -config {conf_file}")
+        run_cmd(
+            f"openssl x509 -req -in {csr_file} -CA {ca_cert} -CAkey {ca_key} -CAcreateserial "
+            f"-out {default_cert} -days 3650 -sha256 -extfile {conf_file} -extensions v3_req"
+        )
+        for path in (conf_file, csr_file):
+            if os.path.exists(path):
+                os.remove(path)
+
     if os.path.exists(ca_cert):
         print("   Trusting CA certificate locally...")
         if os.path.exists("/etc/ca-certificates/trust-source/anchors") and shutil.which("trust"):
@@ -534,6 +574,16 @@ DNS.3 = *.home.arpa
                 "sudo update-ca-trust extract >/dev/null 2>&1 || true"
             )
 
+    # Select Traefik defaultCertificate: private → Homelab wildcard; LE → localhost-only.
+    os.makedirs("./traefik/volumes", exist_ok=True)
+    tls_src = (
+        "./traefik/tls.letsencrypt.yml"
+        if cert_resolver == "letsencrypt"
+        else "./traefik/tls.private.yml"
+    )
+    tls_dst = "./traefik/volumes/tls.yml"
+    shutil.copy(tls_src, tls_dst)
+    print(f"   ✅ Traefik TLS config: {tls_src} → {tls_dst}")
     print("   ✅ SSL certificates ready")
 
 

@@ -44,7 +44,7 @@ Execute the main setup script. It will prompt you to create a username and passw
 | Mode | When to use | How it works |
 |------|-------------|--------------|
 | **Private (default)** | No public domain | OpenSSL generates a local CA and a wildcard server certificate. Import the CA cert once per client device. |
-| **Public (Let's Encrypt)** | You own a domain managed by Cloudflare | Traefik uses the ACME DNS-01 challenge to obtain a globally-trusted certificate — no open ports required. Setup still generates a local CA/`homelab.crt` as Traefik's default TLS fallback and for internal trust mounts. |
+| **Public (Let's Encrypt)** | You own a domain managed by Cloudflare | Traefik uses the ACME DNS-01 challenge to obtain a globally-trusted certificate — no open ports required. Setup still generates a local CA for internal trust mounts, but Traefik’s default TLS cert is **localhost-only** so it cannot shadow Let’s Encrypt for your real hostname. |
 
 #### Getting a Cloudflare DNS API Token (Public mode)
 
