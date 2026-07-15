@@ -7,6 +7,8 @@ import * as client from 'openid-client';
 
 import { getErrorMessage } from '../utils/errors';
 
+const SECRETS_DIR = getEnv('SECRETS_DIR', '/app/secrets')!;
+
 const SESSION_SECRET = getEnv('HOMELAB_API_SESSION_SECRET');
 const DASHBOARD_OIDC_SECRET = getEnv('DASHBOARD_OIDC_SECRET');
 
@@ -149,7 +151,9 @@ const config = {
     dashBoardWebHostname: DASHBOARD_WEB_HOSTNAME,
     authentikWebHostname: AUTHENTIK_WEB_HOSTNAME,
     homelabHostname: homelabHostname,
-    rustdeskPubKeyPath: process.env.RUSTDESK_PUBKEY_PATH || '',
+    secretsDir: SECRETS_DIR,
+    rustdeskPubKeyPath:
+        getEnv('RUSTDESK_PUBKEY_PATH', path.join(SECRETS_DIR, 'rustdesk_public_key'))!,
     disableLocalAuth: (process.env.DISABLE_LOCAL_AUTH ?? 'true') === 'true',
     piholeWebHostname: PIHOLE_WEB_HOSTNAME,
     dockhandWebHostname: DOCKHAND_WEB_HOSTNAME,

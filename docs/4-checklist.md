@@ -51,11 +51,11 @@ Final configuration steps for individual services.
     * WebDAV (e.g. Obsidian) works against the same host after SSO; Redis is included for file locking/cache.
     * [Nextcloud Docs 🔗](https://docs.nextcloud.com/) · [Authentik + Nextcloud 🔗](https://integrations.goauthentik.io/chat-communication-collaboration/nextcloud/)
   * **📈 Uptime Kuma**
-    * Configure notifications by adding a Webhook notification pointing to the Apprise gateway: `http://apprise-api:8000/alerts/uptime-kuma`. This will route status alerts directly to Matrix (admin room or DM).
+    * Configure notifications by adding a Webhook notification pointing to the Apprise gateway: `http://apprise-api/alerts/uptime-kuma`. This will route status alerts directly to Matrix (admin room or DM).
     * [Uptime Kuma Docs 🔗](https://github.com/louislam/uptime-kuma/wiki)
   * **📦 Dockhand**
     * Configure your Docker containers to use the `dockhand` service for managing and monitoring your Docker environment.
-    * Configure notifications by sending alerts to the Apprise HTTP gateway: `http://apprise-api:8000/alerts/dockhand`.
+    * Configure notifications by sending alerts to the Apprise HTTP gateway: `json://apprise-api/alerts/dockhand`.
     * [Dockhand Docs 🔗](https://github.com/dockhand/dockhand)
   * **📦 Portainer**
     * You can sign into Portainer using either SSO or your local homelab username and password.
@@ -64,7 +64,7 @@ Final configuration steps for individual services.
     * You will receive notifications from the `homelab` bot user (`@homelab:matrix.<your-hostname>`) for system alerts, package updates, and SMTP-relayed emails (like Vaultwarden password resets).
     * (Optional) Create private rooms for admin or general alerts, invite the `@homelab` bot, and set `MATRIX_ADMIN_ALERTS_ROOM` or `MATRIX_GENERAL_ALERTS_ROOM` in your `.env` to route alerts there.
   * **🖥️ RustDesk**
-    * Configure your clients by setting the **ID/Relay Server** to your host's IP/domain. The required public key is printed after running [`./setup.sh`](../setup.sh), shown on the dashboard Secrets page as `rustdesk_public_key`, or available at [`./volumes/public-configs/rustdesk_public_key`](../volumes/public-configs/rustdesk_public_key).
+    * Configure your clients by setting the **ID/Relay Server** to your host's IP/domain. The required public key is printed after running [`./setup.sh`](../setup.sh), shown on the dashboard Secrets page as `rustdesk_public_key`, or available at [`./volumes/secrets/rustdesk_public_key`](../volumes/secrets/rustdesk_public_key).
     * Also set **API Server** in the client (Settings → Network) to `https://rustdesk.<your-hostname>` (same URL as the web console, without `/_admin/`).
     * **SSO is for the web console only.** Authentik OIDC is configured automatically by setup and works in the browser at `https://rustdesk.<your-hostname>/_admin/`. The desktop and mobile apps do not use that SSO flow in this stack — they sign in with username and password.
     * **First-time client login**

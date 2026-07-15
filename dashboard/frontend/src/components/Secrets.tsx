@@ -103,7 +103,7 @@ const Secrets = () => {
                         System Secrets
                     </Typography>
                     <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-                        View secrets and public configs (Admin Only)
+                        View files under the secrets directory (Admin Only)
                     </Typography>
                 </Box>
                 <Button variant="outlined" color="primary" onClick={fetchSecrets}>

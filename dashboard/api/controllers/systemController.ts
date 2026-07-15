@@ -188,32 +188,25 @@ class SystemController {
         }
     }
 
-    // Get all secrets in /run/secrets and public-configs (admin-only)
+    // List files under SECRETS_DIR (admin-only)
     async getSecrets(req: Request, res: Response) {
         try {
-            const secretsDir = '/run/secrets';
-            const publicConfigsDir = '/app/public-configs';
+            const secretsDir = config.secretsDir;
             const byName = new Map<string, { name: string; value: string }>();
 
-            const scanDirectory = (dir: string) => {
-                if (!fs.existsSync(dir)) return;
-                const files = fs.readdirSync(dir);
-                for (const file of files) {
-                    const filePath = `${dir}/${file}`;
+            if (fs.existsSync(secretsDir)) {
+                for (const file of fs.readdirSync(secretsDir)) {
+                    const filePath = `${secretsDir}/${file}`;
                     const stat = fs.statSync(filePath);
-                    if (stat.isFile()) {
-                        try {
-                            const value = fs.readFileSync(filePath, 'utf8').trim();
-                            byName.set(file, { name: file, value });
-                        } catch (readError: unknown) {
-                            console.warn(`Could not read container config file ${file}: ${getErrorMessage(readError)}`);
-                        }
+                    if (!stat.isFile()) continue;
+                    try {
+                        const value = fs.readFileSync(filePath, 'utf8').trim();
+                        byName.set(file, { name: file, value });
+                    } catch (readError: unknown) {
+                        console.warn(`Could not read secret file ${file}: ${getErrorMessage(readError)}`);
                     }
                 }
-            };
-
-            scanDirectory(secretsDir);
-            scanDirectory(publicConfigsDir);
+            }
 
             const secretsList = Array.from(byName.values()).sort((a, b) =>
                 a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
@@ -221,8 +214,8 @@ class SystemController {
 
             return sendSuccess(res, { secrets: secretsList });
         } catch (error: unknown) {
-            console.error('Get Docker container info error:', error);
-            return sendError(res, 500, 'Failed to retrieve Docker containers', getErrorMessage(error));
+            console.error('Get secrets error:', error);
+            return sendError(res, 500, 'Failed to retrieve secrets', getErrorMessage(error));
         }
     }
 

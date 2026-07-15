@@ -54,7 +54,7 @@ services:
       - ${PROJECT_ROOT}/rustdesk/volumes/console:/app/data
       - ${PROJECT_ROOT}/rustdesk/entrypoint.sh:/entrypoint.sh:ro
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
-      - ${PROJECT_ROOT}/volumes/public-configs/rustdesk_public_key:/app/public-configs/rustdesk_public_key:ro
+      - ${PROJECT_ROOT}/volumes/secrets/rustdesk_public_key:/app/secrets/rustdesk_public_key:ro
     secrets:
       - rustdesk_admin_password
       - rustdesk_api_jwt_key

@@ -200,7 +200,7 @@ router.get('/system/updates/check', requireAuth('dashboard-system-user'), (req: 
  * @openapi
  * /api/system/secrets:
  *   get:
- *     summary: Get lists of secrets in run/secrets (Admin Only)
+ *     summary: List files in SECRETS_DIR (Admin Only)
  *     tags: [System]
  *     security:
  *       - cookieAuth: []

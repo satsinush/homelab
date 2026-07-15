@@ -22,8 +22,8 @@ if [ -z "${RUSTDESK_API_JWT_KEY:-}" ]; then
   export RUSTDESK_API_JWT_KEY
 fi
 
-if [ -z "${RUSTDESK_API_RUSTDESK_KEY:-}" ] && [ -f /app/public-configs/rustdesk_public_key ]; then
-  RUSTDESK_API_RUSTDESK_KEY="$(read_secret /app/public-configs/rustdesk_public_key)"
+if [ -z "${RUSTDESK_API_RUSTDESK_KEY:-}" ] && [ -f /app/secrets/rustdesk_public_key ]; then
+  RUSTDESK_API_RUSTDESK_KEY="$(read_secret /app/secrets/rustdesk_public_key)"
   export RUSTDESK_API_RUSTDESK_KEY
 fi
 

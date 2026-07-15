@@ -11,7 +11,7 @@ services:
       - ${PROJECT_ROOT}/dashboard/volumes/word-games-data:/app/word_games/data
       - ${PROJECT_ROOT}/word_games/resources:/app/word_games/resources:ro
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
-      - ${PROJECT_ROOT}/volumes/public-configs:/app/public-configs:ro
+      - ${PROJECT_ROOT}/volumes/secrets:/app/secrets:ro
     networks:
       - homelab-net
     extra_hosts:
@@ -21,11 +21,11 @@ services:
       - HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
       - HOMELAB_USERNAME=${HOMELAB_USERNAME}
       - HOMELAB_EMAIL=${HOMELAB_EMAIL}
-      - HOMELAB_PASSWORD_FILE=/run/secrets/homelab_password
-      - HOMELAB_API_SESSION_SECRET_FILE=/run/secrets/homelab_api_session_secret
-      - DASHBOARD_OIDC_SECRET_FILE=/run/secrets/dashboard_oidc_secret
+      - SECRETS_DIR=/app/secrets
+      - HOMELAB_PASSWORD_FILE=/app/secrets/homelab_password
+      - HOMELAB_API_SESSION_SECRET_FILE=/app/secrets/homelab_api_session_secret
+      - DASHBOARD_OIDC_SECRET_FILE=/app/secrets/dashboard_oidc_secret
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
-      - RUSTDESK_PUBKEY_PATH=/app/public-configs/rustdesk_public_key
       - DASHBOARD_SERVICE_NAME=${DASHBOARD_SERVICE_NAME}
       - PIHOLE_SERVICE_NAME=${PIHOLE_SERVICE_NAME}
       - DOCKHAND_SERVICE_NAME=${DOCKHAND_SERVICE_NAME}
@@ -35,21 +35,6 @@ services:
       - AUTHENTIK_SERVICE_NAME=${AUTHENTIK_SERVICE_NAME}
       - RUSTDESK_SERVICE_NAME=${RUSTDESK_SERVICE_NAME}
       - NEXTCLOUD_SERVICE_NAME=${NEXTCLOUD_SERVICE_NAME}
-
-    secrets:
-      - homelab_password
-      - homelab_api_session_secret
-      - dashboard_oidc_secret
-      - vaultwarden_oidc_secret
-      - vaultwarden_admin_token
-      - vaultwarden_admin_token_plain
-      - gotify_admin_password
-      - rustdesk_admin_password
-      - rustdesk_api_jwt_key
-      - rustdesk_oidc_secret
-      - authentik_secret_key
-      - authentik_pg_pass
-      - authentik_akadmin_password
     labels:
       - "traefik.enable=true"
       # Canonical dashboard route
@@ -80,36 +65,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 1m
-
-
-
-secrets:
-  homelab_password:
-    file: ${PROJECT_ROOT}/volumes/secrets/homelab_password
-  homelab_api_session_secret:
-    file: ${PROJECT_ROOT}/volumes/secrets/homelab_api_session_secret
-  dashboard_oidc_secret:
-    file: ${PROJECT_ROOT}/volumes/secrets/dashboard_oidc_secret
-  vaultwarden_oidc_secret:
-    file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_oidc_secret
-  vaultwarden_admin_token:
-    file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_admin_token
-  vaultwarden_admin_token_plain:
-    file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_admin_token_plain
-  gotify_admin_password:
-    file: ${PROJECT_ROOT}/volumes/secrets/gotify_admin_password
-  rustdesk_admin_password:
-    file: ${PROJECT_ROOT}/volumes/secrets/rustdesk_admin_password
-  rustdesk_api_jwt_key:
-    file: ${PROJECT_ROOT}/volumes/secrets/rustdesk_api_jwt_key
-  rustdesk_oidc_secret:
-    file: ${PROJECT_ROOT}/volumes/secrets/rustdesk_oidc_secret
-  authentik_secret_key:
-    file: ${PROJECT_ROOT}/volumes/secrets/authentik_secret_key
-  authentik_pg_pass:
-    file: ${PROJECT_ROOT}/volumes/secrets/authentik_pg_pass
-  authentik_akadmin_password:
-    file: ${PROJECT_ROOT}/volumes/secrets/authentik_akadmin_password
 
 networks:
   homelab-net:

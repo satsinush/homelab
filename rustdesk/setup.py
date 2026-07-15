@@ -167,11 +167,21 @@ class RustdeskService(Service):
         gen_secret("rustdesk_oidc_secret", 64)
         gen_secret("rustdesk_api_jwt_key", 64)
         gen_secret("rustdesk_admin_password", 32)
-        os.makedirs("./volumes/public-configs", exist_ok=True)
-        rustdesk_key_path = "./volumes/public-configs/rustdesk_public_key"
+        os.makedirs("./volumes/secrets", exist_ok=True)
+        rustdesk_key_path = "./volumes/secrets/rustdesk_public_key"
+        legacy_key = "./volumes/public-configs/rustdesk_public_key"
+        if os.path.isfile(legacy_key) and (
+            not os.path.exists(rustdesk_key_path) or os.path.getsize(rustdesk_key_path) == 0
+        ):
+            shutil.move(legacy_key, rustdesk_key_path)
+            print("   ✅ Migrated rustdesk_public_key from volumes/public-configs/")
         if not os.path.exists(rustdesk_key_path):
             with open(rustdesk_key_path, "w", encoding="utf-8") as f:
                 f.write("\n")
+            os.chmod(rustdesk_key_path, 0o600)
+        legacy_pub = "./volumes/public-configs"
+        if os.path.isdir(legacy_pub) and not os.listdir(legacy_pub):
+            os.rmdir(legacy_pub)
         legacy_env = "./rustdesk/volumes/console.env"
         if os.path.exists(legacy_env):
             os.remove(legacy_env)
@@ -181,8 +191,8 @@ class RustdeskService(Service):
     def postsetup(self, env: dict) -> None:
         print("\n🖥️  Setting up RustDesk console / API server...")
 
-        dest_path = "./volumes/public-configs/rustdesk_public_key"
-        os.makedirs("./volumes/public-configs", exist_ok=True)
+        dest_path = "./volumes/secrets/rustdesk_public_key"
+        os.makedirs("./volumes/secrets", exist_ok=True)
 
         pubkey = ""
         if shutil.which("docker"):
@@ -193,7 +203,11 @@ class RustdeskService(Service):
             if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
                 with open(dest_path, "r", encoding="utf-8") as f:
                     pubkey = f.read().strip()
-                print("   ✅ RustDesk public key extracted to volumes/public-configs/rustdesk_public_key")
+                try:
+                    os.chmod(dest_path, 0o600)
+                except OSError:
+                    pass
+                print("   ✅ RustDesk public key extracted to volumes/secrets/rustdesk_public_key")
             else:
                 print("   ⚠️  Failed to copy RustDesk key. ID server may not be initialized yet.")
         else:
