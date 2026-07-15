@@ -77,6 +77,7 @@ Flow: `restic restore` → `Service.setup()` (permissions) → `docker compose u
 | --- | --- |
 | Authentik / Nextcloud | `pg_dump` → `*/volumes/db-dumps/`; live `*/volumes/db/` excluded from Restic. Nextcloud dumps also include `oc_*` roles (`pg_dumpall --roles-only`) so restore does not scrape `config.php`. |
 | Vaultwarden, Dashboard, Gotify, RustDesk console | SQLite online `.backup` into the service bind mount |
+| ddclient | Config at `ddclient/volumes/ddclient.conf` (included via `*/volumes/`) |
 
 `.backup_exclude` skips `ollama/volumes/ollama/` (large models) until S3 capacity grows. Nextcloud `html/data` (including `appdata_*`) is included in Restic.
 

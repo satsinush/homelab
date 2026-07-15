@@ -11,7 +11,7 @@ services:
     networks:
       - homelab-net
     volumes:
-      - ${PROJECT_ROOT}/ddclient/ddclient.conf:/config/ddclient.conf
+      - ${PROJECT_ROOT}/ddclient/volumes/ddclient.conf:/config/ddclient.conf
     healthcheck:
       test: [ "CMD", "pgrep", "ddclient" ]
       interval: 5m

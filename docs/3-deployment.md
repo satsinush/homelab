@@ -5,7 +5,7 @@ Once the host is configured, follow these steps to deploy the services.
 ### 1\. 📝 Configure Environment
 
 1.  **Dynamic DNS**
-      * If you use a DDNS service, make sure to copy [`./ddclient/example.ddclient.conf`](../ddclient/example.ddclient.conf) to `./ddclient/ddclient.conf` and fill in your provider's details.
+      * If you use a DDNS service, run setup (seeds [`./ddclient/volumes/ddclient.conf`](../ddclient/volumes/ddclient.conf) from [`./ddclient/example.ddclient.conf`](../ddclient/example.ddclient.conf)) and fill in your provider's details. That path is under `*/volumes/` so Restic backs it up.
       * [ddclient Docs 🔗](https://ddclient.net/)
 2.  **Environment Variables**
       * The `setup.sh` script will use `./.env.template` as a base to generate your final `.env` file. Carefully change any values you want to customize in the template **before** running the script.
@@ -103,7 +103,7 @@ Execute the main setup script. It will prompt you to create a username and passw
 ./setup.sh
 ```
 
-> **⚠️ Important**: The setup script creates a user-specific email address. You **must** use this email for services like Vaultwarden to receive notifications via Matrix, otherwise you risk not being able to reset your password if needed. The Apprise SMTP gateway will automatically route these emails to your Matrix account (`@<username>`).
+> **⚠️ Important**: The setup script creates a user-specific email address. You **must** use this email for services like Vaultwarden to receive password-reset and similar mail. The Apprise SMTP gateway routes those messages to Gotify.
 
 > **ℹ️ Tip**: You can run this script again at any time to recreate SSL certificates. The CA certificate will not be affected and all other settings will stay the same.
 

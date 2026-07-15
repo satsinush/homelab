@@ -1,23 +1,23 @@
-"""ddclient service — seed gitignored config from the example on first setup."""
+"""ddclient service — seed gitignored config under volumes/ (restic-backed)."""
 from __future__ import annotations
 
 import os
 import shutil
 
-from service import Service
+from service import Service, VolumeDir
 
-_CONF = "./ddclient/ddclient.conf"
+_CONF = "./ddclient/volumes/ddclient.conf"
 _EXAMPLE = "./ddclient/example.ddclient.conf"
 
 
 class DdclientService(Service):
     name = "ddclient"
-    volume_dirs = []
-    reset_extra_paths = [_CONF]
+    volume_dirs = [VolumeDir("./ddclient/volumes", mode=0o700)]
 
     def setup(self, env: dict) -> None:
         super().setup(env)
         print("\n🌐 Preparing ddclient config...")
+
         if os.path.exists(_CONF):
             if os.path.isdir(_CONF):
                 print(
