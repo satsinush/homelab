@@ -84,14 +84,16 @@ Client **Network** → **ID/Relay server** (and key):
 | --- | --- | --- |
 | **ID server** | Host LAN IP (e.g. `HOMELAB_IP_ADDRESS` from `.env`), port implied `21116` | Prefer IP over domain — more reliable on LAN / WireGuard |
 | **Relay server** | Same IP (relay TCP `21117`) | Prefer leaving blank if the ID server already advertises `-r IP:21117`; if set, use the same LAN IP |
-| **API server** | `https://rustdesk.<your-hostname>` | Must be `http://` or `https://` **with the `rustdesk` subdomain**, no trailing `/`, no `/_admin/` — HTTPS needs the Traefik hostname, so a bare IP will not work here |
+| **API server** | Leave blank in the desktop/mobile client | See note below |
 | **Key** | Public key from setup / dashboard Secrets / [`volumes/secrets/rustdesk_public_key`](../volumes/secrets/rustdesk_public_key) | Must match the server key logged by `rustdesk-id-server` |
 
-- [ ] Fill ID server + Relay server with your homelab IP
-- [ ] Fill API server with `https://rustdesk.<your-hostname>` (not the apex domain; no trailing slash)
-- [ ] Paste the public key
-- [ ] Web console SSO only: sign in once at `https://rustdesk.<your-hostname>/_admin/` with Authentik to create your user
-- [ ] In the console, set a password under **My Space → My info → Change Password**, then use that username/password in desktop/mobile apps (apps do not use Authentik SSO)
+> **Note — do not stay logged into the API in the RustDesk app.**  
+> Remotes use free OSS `hbbs`/`hbbr` (ID + key). `rustdesk-console` is a third-party address-book/API stand-in for Pro. On current clients (~1.4.1+), logging into that API often breaks the encrypted handshake with `Failed to secure tcp: deadline has elapsed`. Fix: log out of the account / clear **API server**, keep ID + key. Use the web console (`https://rustdesk.<your-hostname>/_admin/`) for admin/OIDC only — not as a persistent in-app login for remotes.
+
+- [ ] Fill ID server (+ optional Relay) with your homelab IP
+- [ ] Leave API server blank in the client; paste the public key
+- [ ] Confirm a remote works by ID/password without any API login
+- [ ] Optional web console: SSO once at `https://rustdesk.<your-hostname>/_admin/` (Authentik) — do not rely on in-app API login for connections
 - [ ] Break-glass admin password: `volumes/secrets/rustdesk_admin_password`
 - [ ] Docs: [RustDesk](https://rustdesk.com/docs/) · [rustdesk-console](https://github.com/dockers-x/rustdesk-console)
 
