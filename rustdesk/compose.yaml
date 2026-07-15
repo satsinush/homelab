@@ -3,7 +3,9 @@ services:
   rustdesk-id-server:
     image: rustdesk/rustdesk-server:latest
     container_name: rustdesk-id-server
-    command: hbbs -r rustdesk-relay-server:21119 -k _
+    # -r must be an address *clients* can reach (LAN/VPN IP), not a Docker DNS name.
+    # Port 21117 is hbbr's TCP relay; 21119 is websocket-only inside the compose net.
+    command: hbbs -r ${HOMELAB_IP_ADDRESS}:21117 -k _
     volumes:
       - ${PROJECT_ROOT}/rustdesk/volumes/server:/root
     networks:
@@ -42,8 +44,8 @@ services:
     environment:
       - TZ=${TZ}
       - RUSTDESK_API_LANG=en
-      - RUSTDESK_API_RUSTDESK_ID_SERVER=${HOMELAB_HOSTNAME}:21116
-      - RUSTDESK_API_RUSTDESK_RELAY_SERVER=${HOMELAB_HOSTNAME}:21117
+      - RUSTDESK_API_RUSTDESK_ID_SERVER=${HOMELAB_IP_ADDRESS}:21116
+      - RUSTDESK_API_RUSTDESK_RELAY_SERVER=${HOMELAB_IP_ADDRESS}:21117
       - RUSTDESK_API_RUSTDESK_API_SERVER=https://${RUSTDESK_SERVICE_NAME}.${HOMELAB_HOSTNAME}
       - RUSTDESK_API_ADMIN_USERNAME=admin
       - RUSTDESK_API_ADMIN_FORCE_CHANGE_PASSWORD=false

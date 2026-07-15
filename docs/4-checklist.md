@@ -82,10 +82,10 @@ Client **Network** → **ID/Relay server** (and key):
 
 | Field | Recommended value | Notes |
 | --- | --- | --- |
-| **ID server** | Host LAN IP (e.g. `HOMELAB_IP_ADDRESS` from `.env`) | Prefer IP over domain — more reliable on LAN / WireGuard |
-| **Relay server** | Same IP as ID server | Leave blank only if the client defaults to the ID server |
+| **ID server** | Host LAN IP (e.g. `HOMELAB_IP_ADDRESS` from `.env`), port implied `21116` | Prefer IP over domain — more reliable on LAN / WireGuard |
+| **Relay server** | Same IP (relay TCP `21117`) | Prefer leaving blank if the ID server already advertises `-r IP:21117`; if set, use the same LAN IP |
 | **API server** | `https://rustdesk.<your-hostname>` | Must be `http://` or `https://` **with the `rustdesk` subdomain**, no trailing `/`, no `/_admin/` — HTTPS needs the Traefik hostname, so a bare IP will not work here |
-| **Key** | Public key from setup / dashboard Secrets / [`volumes/secrets/rustdesk_public_key`](../volumes/secrets/rustdesk_public_key) | |
+| **Key** | Public key from setup / dashboard Secrets / [`volumes/secrets/rustdesk_public_key`](../volumes/secrets/rustdesk_public_key) | Must match the server key logged by `rustdesk-id-server` |
 
 - [ ] Fill ID server + Relay server with your homelab IP
 - [ ] Fill API server with `https://rustdesk.<your-hostname>` (not the apex domain; no trailing slash)
