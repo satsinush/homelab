@@ -143,7 +143,6 @@ def ensure_systemd_services() -> None:
     os.environ["PROJECT_ROOT"] = os.path.abspath(os.environ["PROJECT_ROOT"])
     os.environ.setdefault("PUID", str(os.getuid()))
     os.environ.setdefault("PGID", str(os.getgid()))
-    os.environ["NODE"] = shutil.which("node") or "/usr/bin/node"
     os.environ["PYTHON"] = sys.executable or "/usr/bin/python3"
 
     for name in sorted(os.listdir(units_src)):

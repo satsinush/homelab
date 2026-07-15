@@ -1,5 +1,6 @@
 # /etc/systemd/system/homelab-host-api.service
-# Template: values substituted from .env (and NODE) by setup.py
+# Template: values substituted from .env by setup.py
+# User/Group are numeric PUID/PGID (names like Group=username fail when that group does not exist).
 
 [Unit]
 Description=Homelab Host API Node.js Server
@@ -9,10 +10,9 @@ After=network.target
 User=${PUID}
 Group=${PGID}
 WorkingDirectory=${PROJECT_ROOT}/dashboard/host-api
-ExecStart=${NODE} server.js
+ExecStart=${PROJECT_ROOT}/dashboard/host-api/node_modules/.bin/tsx server.ts
 Restart=always
-StandardOutput=syslog
-StandardError=syslog
+RestartSec=3
 SyslogIdentifier=homelab-api
 
 [Install]

@@ -1,10 +1,10 @@
 {
   "name": "homelab-host-api",
   "version": "3.0.0",
-  "main": "server.js",
+  "main": "server.ts",
   "scripts": {
-    "build": "tsc",
-    "start": "node server.js",
+    "build": "tsc --noEmit",
+    "start": "tsx server.ts",
     "dev": "nodemon --exec tsx server.ts",
     "lint": "tsc --noEmit && eslint \"**/*.ts\"",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -17,7 +17,8 @@
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "tsx": "^4.19.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -29,7 +30,6 @@
     "@typescript-eslint/parser": "^8.62.1",
     "eslint": "^10.6.0",
     "nodemon": "^3.1.10",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.62.1"
   }
