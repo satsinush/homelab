@@ -315,7 +315,7 @@ def ensure_env_file() -> dict:
     os.chmod("./volumes/secrets", 0o700)
 
     with open("./volumes/secrets/homelab_password", "w", encoding="utf-8") as f:
-        f.write(password + "\n")
+        f.write(password)
     os.chmod("./volumes/secrets/homelab_password", 0o600)
 
     with open(".env.template", encoding="utf-8") as f:
@@ -337,7 +337,7 @@ def ensure_env_file() -> dict:
         )
 
         with open("./volumes/secrets/cf_dns_api_token", "w", encoding="utf-8") as f:
-            f.write(cf_token + "\n")
+            f.write(cf_token)
         os.chmod("./volumes/secrets/cf_dns_api_token", 0o600)
 
         os.environ["TRAEFIK_CERT_RESOLVER"] = "letsencrypt"
@@ -429,7 +429,7 @@ def ensure_bootstrap_and_locale(env: dict) -> dict:
             min_length=12,
         )
         with open("./volumes/secrets/homelab_password", "w", encoding="utf-8") as f:
-            f.write(password + "\n")
+            f.write(password)
         os.chmod("./volumes/secrets/homelab_password", 0o600)
 
     return env
@@ -548,8 +548,10 @@ def run_setup() -> None:
     run_all_setup(services, env)
 
     # Reload secrets written by services so postsetup / compose-adjacent tools see them
-    from setup_utils import load_secrets
+    from setup_utils import ensure_secrets_container_access, load_secrets
 
+    print("\n🔐 Ensuring secrets stay private but readable by containers...")
+    ensure_secrets_container_access()
     load_secrets()
 
     run_cmd("docker network create homelab-net --subnet 10.10.30.0/24 || true")

@@ -7,7 +7,7 @@ Before you begin, ensure your device is up to date and that the following packag
 ```shell
 # Install core dependencies
 sudo pacman -Syu
-sudo pacman -S apache docker jq lm_sensors arp-scan wireguard-tools nodejs npm git docker-compose docker-buildx argon2 restic --needed
+sudo pacman -S apache docker jq lm_sensors arp-scan wireguard-tools nodejs npm git docker-compose docker-buildx argon2 restic acl --needed
 ```
 
   * After installing `lm_sensors`, run `sudo sensors-detect` to initialize sensor data for Netdata to use.

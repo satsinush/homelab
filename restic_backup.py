@@ -31,7 +31,7 @@ def write_secret(name: str, value: str) -> None:
     os.makedirs("./volumes/secrets", exist_ok=True)
     path = f"./volumes/secrets/{name}"
     with open(path, "w", encoding="utf-8") as f:
-        f.write(value.strip() + "\n")
+        f.write(value.strip())
     os.chmod(path, 0o600)
 
 

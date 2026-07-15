@@ -115,7 +115,13 @@ def run_cmd(cmd, cwd=None, shell=True, check=True, capture=True):
 
 
 def gen_secret(name, length_bytes):
-    """Generate a hex secret file in ./volumes/secrets/ if it doesn't already exist."""
+    """Generate a secret file in ./volumes/secrets/ if it doesn't already exist.
+
+    Files stay mode 0600 under a 0700 directory. Compose bind-mounts keep host
+    ownership, so non-root containers get read via ACLs (see
+    ensure_secrets_container_access). No trailing newline so file:// / *_FILE
+    readers match Postgres.
+    """
     os.makedirs("./volumes/secrets", exist_ok=True)
     try:
         os.chmod("./volumes/secrets", 0o700)
@@ -124,10 +130,85 @@ def gen_secret(name, length_bytes):
     path = f"./volumes/secrets/{name}"
     if not os.path.exists(path) or os.path.getsize(path) == 0:
         val = secrets.token_hex(length_bytes)
-        with open(path, "w") as f:
-            f.write(val + "\n")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(val)
         print(f"     Generated {name}")
+    try:
         os.chmod(path, 0o600)
+    except OSError:
+        pass
+
+
+# Container UIDs that must read Compose file-secrets (bind-mounted with host mode).
+_SECRET_READER_UIDS = (
+    1000,  # Authentik server (worker uses user: root for docker.sock)
+)
+
+
+def ensure_secrets_container_access() -> None:
+    """Keep secrets 0600; grant specific container UIDs read via POSIX ACL.
+
+    World-readable (0444) would work but exposes secrets to every host user.
+    Compose does not remap secret ownership outside Swarm, so ACLs are the
+    least-privilege fix when apps run as non-root.
+    """
+    secrets_dir = "./volumes/secrets"
+    if not os.path.isdir(secrets_dir):
+        return
+
+    stripped_n = 0
+    for name in sorted(os.listdir(secrets_dir)):
+        path = os.path.join(secrets_dir, name)
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path, "rb") as f:
+                data = f.read()
+            stripped = data.rstrip(b"\r\n")
+            if stripped != data:
+                with open(path, "wb") as f:
+                    f.write(stripped)
+                stripped_n += 1
+            os.chmod(path, 0o600)
+        except OSError as e:
+            print(f"   ⚠️  Could not normalize {path}: {e}")
+
+    if stripped_n:
+        print(f"   ✅ Stripped trailing newlines from {stripped_n} secret file(s)")
+
+    if not shutil.which("setfacl"):
+        print("   ⚠️  setfacl not found — install the 'acl' package so non-root")
+        print("      containers (Authentik UID 1000) can read 0600 secrets.")
+        print("      Until then, Authentik may fail with Permission denied on /run/secrets.")
+        return
+
+    # Default ACL on the directory so newly generated secrets inherit reader access.
+    uids = ",".join(f"u:{uid}:r" for uid in _SECRET_READER_UIDS)
+    duids = ",".join(f"d:u:{uid}:r" for uid in _SECRET_READER_UIDS)
+    try:
+        subprocess.run(
+            ["setfacl", "-m", f"{uids},{duids}", secrets_dir],
+            check=False,
+            capture_output=True,
+        )
+    except OSError as e:
+        print(f"   ⚠️  setfacl on {secrets_dir} failed: {e}")
+        return
+
+    for name in sorted(os.listdir(secrets_dir)):
+        path = os.path.join(secrets_dir, name)
+        if not os.path.isfile(path):
+            continue
+        subprocess.run(
+            ["setfacl", "-m", uids, path],
+            check=False,
+            capture_output=True,
+        )
+
+    print(
+        "   ✅ Secrets remain mode 0600; ACL read granted for UID(s) "
+        + ", ".join(str(u) for u in _SECRET_READER_UIDS)
+    )
 
 
 def load_env(path=".env"):
