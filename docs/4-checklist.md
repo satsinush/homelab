@@ -78,9 +78,18 @@ Cert file: [`./volumes/certificates/homelab-ca.crt`](../volumes/certificates/)
 
 ### RustDesk
 
-- [ ] Set **ID/Relay Server** to your host IP or domain
-- [ ] Set public key from setup output, dashboard Secrets (`rustdesk_public_key`), or [`./volumes/secrets/rustdesk_public_key`](../volumes/secrets/rustdesk_public_key)
-- [ ] Set **API Server** to `https://rustdesk.<your-hostname>` (no `/_admin/`)
+Client **Network** → **ID/Relay server** (and key):
+
+| Field | Recommended value | Notes |
+| --- | --- | --- |
+| **ID server** | Host LAN IP (e.g. `HOMELAB_IP_ADDRESS` from `.env`) | Prefer IP over domain — more reliable on LAN / WireGuard |
+| **Relay server** | Same IP as ID server | Leave blank only if the client defaults to the ID server |
+| **API server** | `https://rustdesk.<your-hostname>` | Must be `http://` or `https://` **with the `rustdesk` subdomain**, no trailing `/`, no `/_admin/` — HTTPS needs the Traefik hostname, so a bare IP will not work here |
+| **Key** | Public key from setup / dashboard Secrets / [`volumes/secrets/rustdesk_public_key`](../volumes/secrets/rustdesk_public_key) | |
+
+- [ ] Fill ID server + Relay server with your homelab IP
+- [ ] Fill API server with `https://rustdesk.<your-hostname>` (not the apex domain; no trailing slash)
+- [ ] Paste the public key
 - [ ] Web console SSO only: sign in once at `https://rustdesk.<your-hostname>/_admin/` with Authentik to create your user
 - [ ] In the console, set a password under **My Space → My info → Change Password**, then use that username/password in desktop/mobile apps (apps do not use Authentik SSO)
 - [ ] Break-glass admin password: `volumes/secrets/rustdesk_admin_password`
