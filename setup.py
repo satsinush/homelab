@@ -440,9 +440,6 @@ def run_setup() -> None:
     )
     print(f"\n🌐 Web Access:")
     print(f"   Dashboard:  https://{env.get('DASHBOARD_SERVICE_NAME')}.{hostname}")
-    print(f"   RustDesk:   https://{env.get('RUSTDESK_SERVICE_NAME', 'rustdesk')}.{hostname}/_admin/")
-    print(f"   Nextcloud:  https://{env.get('NEXTCLOUD_SERVICE_NAME', 'nextcloud')}.{hostname}")
-    print(f"   Collabora:  https://{env.get('COLLABORA_SERVICE_NAME', 'collabora')}.{hostname}")
     ssl_mode = "Self-signed (private)" if cert_resolver != "letsencrypt" else "Public (Let's Encrypt)"
     print(f"\n🔒 SSL Mode: {ssl_mode}")
     if cert_resolver != "letsencrypt":
