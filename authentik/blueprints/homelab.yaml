@@ -297,6 +297,7 @@ entries:
       name: Homelab Dashboard
       slug: homelab-dashboard
       provider: !KeyOf homelab_dashboard
+      meta_launch_url: !Format ["https://%s.%s", !Env DASHBOARD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
       icon: homelab-icon.svg
 
   # RustDesk Console (OIDC; configure provider in rustdesk-console /_admin/)

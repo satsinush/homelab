@@ -6,8 +6,6 @@ import { VerifyResponse, LoginResponse, LogoutResponse } from '../types/api';
 
 import { getErrorMessage } from '../utils/errors';
 
-const SKIP_AUTO_SSO_KEY = 'homelab_skip_auto_sso';
-
 interface AuthProviderProps {
     children: ReactNode;
 }
@@ -66,9 +64,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                 method: 'POST'
             });
 
-            // Always suppress auto-SSO after an intentional logout.
-            sessionStorage.setItem(SKIP_AUTO_SSO_KEY, '1');
-
             // SSO: leave via Authentik end-session. Don't clear user first — that
             // mounts LoginChoice and auto-SSO races the IdP logout redirect.
             if (result.data?.redirect) {
@@ -77,7 +72,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             }
         } catch (error) {
             console.error('Logout error:', error);
-            sessionStorage.setItem(SKIP_AUTO_SSO_KEY, '1');
         }
         setUser(null);
         return false;

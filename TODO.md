@@ -1,6 +1,3 @@
-- Set up restic container?
-- auto sign in with SSO? nextcloud already does this?
-
 - Add obsidian sync (desktop client and WebDAV for mobile)
 - Setup immich
 - Setup jellyfin

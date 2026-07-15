@@ -21,18 +21,11 @@ import {
 import LocalLogin from './LocalLogin';
 import { useConfig } from '../contexts/useConfig';
 
-const SKIP_AUTO_SSO_KEY = 'homelab_skip_auto_sso';
-
 /** Sync read — must run before auto-SSO effect (useEffect would be too late). */
 function initialSkipAutoSso(): boolean {
     if (typeof window === 'undefined') return false;
     const params = new URLSearchParams(window.location.search);
-    return (
-        !!params.get('sso_error') ||
-        params.get('logged_out') === '1' ||
-        params.get('local') === '1' ||
-        sessionStorage.getItem(SKIP_AUTO_SSO_KEY) === '1'
-    );
+    return !!params.get('sso_error') || params.get('local') === '1';
 }
 
 const LoginChoice = () => {
@@ -56,13 +49,8 @@ const LoginChoice = () => {
         if (params.get('local') === '1') {
             setPreferLocal(true);
             setSkipAutoSso(true);
+            params.delete('local');
         }
-        if (params.get('logged_out') === '1' || sessionStorage.getItem(SKIP_AUTO_SSO_KEY) === '1') {
-            setSkipAutoSso(true);
-        }
-        params.delete('logged_out');
-        params.delete('local');
-        sessionStorage.removeItem(SKIP_AUTO_SSO_KEY);
         const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`;
         window.history.replaceState({}, '', next);
     }, []);
