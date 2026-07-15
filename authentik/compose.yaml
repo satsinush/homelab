@@ -95,7 +95,7 @@ services:
       - "traefik.http.routers.authentik.tls.domains[0].main=${HOMELAB_HOSTNAME}"
       - "traefik.http.routers.authentik.tls.domains[0].sans=*.${HOMELAB_HOSTNAME}"
       - "traefik.http.services.authentik.loadbalancer.server.port=9000"
-      - "traefik.http.routers.authentik-outpost.rule=HostRegexp('^.+\\.${HOMELAB_HOSTNAME}$$') && PathPrefix('/outpost.goauthentik.io/')"
+      - "traefik.http.routers.authentik-outpost.rule=HostRegexp(`{subdomain:.+}.${HOMELAB_HOSTNAME}`) && PathPrefix(`/outpost.goauthentik.io/`)"
       - "traefik.http.routers.authentik-outpost.entrypoints=websecure"
       - "traefik.http.routers.authentik-outpost.tls=true"
       - "traefik.http.routers.authentik-outpost.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"

@@ -452,9 +452,11 @@ def ensure_certificates(env: dict) -> None:
     fallback_key = f"{certs_dir}/homelab.key"
     fallback_cert = f"{certs_dir}/homelab.crt"
 
+    # Always mint a local CA + wildcard server cert. Private mode serves these as the
+    # primary TLS. Let's Encrypt mode still needs valid PEM here for Traefik's
+    # defaultCertificate fallback (and for services that mount the CA).
     if cert_resolver == "letsencrypt":
-        print("   Using Let's Encrypt certificates. Skipping self-signed cert generation.")
-        return
+        print("   Let's Encrypt is enabled; also ensuring local CA/fallback certs exist…")
 
     if not os.path.exists(ca_key) or not os.path.exists(ca_cert):
         print("   Generating local Certificate Authority (CA)...")
@@ -499,30 +501,40 @@ DNS.3 = *.home.arpa
             f"-out {server_cert} -days 3650 -sha256 -extfile {conf_file} -extensions v3_req"
         )
 
-        shutil.copy(server_cert, fallback_cert)
-        shutil.copy(server_key, fallback_key)
-
-        if os.path.exists(ca_cert):
-            print("   Trusting CA certificate locally...")
-            if os.path.exists("/etc/ca-certificates/trust-source/anchors") and shutil.which("trust"):
-                run_cmd(
-                    f"sudo cp {ca_cert} /etc/ca-certificates/trust-source/anchors/ && "
-                    "sudo trust extract-compat >/dev/null 2>&1 || true"
-                )
-            elif shutil.which("update-ca-certificates"):
-                dest = f"/usr/local/share/ca-certificates/{os.path.basename(ca_cert)}"
-                run_cmd(f"sudo cp {ca_cert} {dest} && sudo update-ca-certificates >/dev/null 2>&1 || true")
-            elif os.path.exists("/etc/pki/ca-trust/source/anchors") and shutil.which("update-ca-trust"):
-                run_cmd(
-                    f"sudo cp {ca_cert} /etc/pki/ca-trust/source/anchors/ && "
-                    "sudo update-ca-trust extract >/dev/null 2>&1 || true"
-                )
-
         if os.path.exists(conf_file):
             os.remove(conf_file)
         if os.path.exists(csr_file):
             os.remove(csr_file)
-        print("   ✅ SSL certificates ready")
+        print("   ✅ Server certificate generated")
+
+    # Traefik defaultCertificate paths (stable names, independent of hostname)
+    if (
+        not os.path.exists(fallback_cert)
+        or not os.path.exists(fallback_key)
+        or os.path.getsize(fallback_cert) == 0
+        or os.path.getsize(fallback_key) == 0
+    ):
+        shutil.copy(server_cert, fallback_cert)
+        shutil.copy(server_key, fallback_key)
+        print("   ✅ Traefik fallback homelab.crt / homelab.key ready")
+
+    if os.path.exists(ca_cert):
+        print("   Trusting CA certificate locally...")
+        if os.path.exists("/etc/ca-certificates/trust-source/anchors") and shutil.which("trust"):
+            run_cmd(
+                f"sudo cp {ca_cert} /etc/ca-certificates/trust-source/anchors/ && "
+                "sudo trust extract-compat >/dev/null 2>&1 || true"
+            )
+        elif shutil.which("update-ca-certificates"):
+            dest = f"/usr/local/share/ca-certificates/{os.path.basename(ca_cert)}"
+            run_cmd(f"sudo cp {ca_cert} {dest} && sudo update-ca-certificates >/dev/null 2>&1 || true")
+        elif os.path.exists("/etc/pki/ca-trust/source/anchors") and shutil.which("update-ca-trust"):
+            run_cmd(
+                f"sudo cp {ca_cert} /etc/pki/ca-trust/source/anchors/ && "
+                "sudo update-ca-trust extract >/dev/null 2>&1 || true"
+            )
+
+    print("   ✅ SSL certificates ready")
 
 
 def run_setup() -> None:

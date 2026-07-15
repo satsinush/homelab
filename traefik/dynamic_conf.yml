@@ -6,10 +6,10 @@
 #   1. Define the Authentik forward-auth middleware so it can be referenced
 #      by any Docker-label router using "authentik-auth@file".
 #
-#   2. Load the self-signed homelab certificate as the default TLS certificate
-#      for *private* mode (TRAEFIK_CERT_RESOLVER='').  In public/Let's Encrypt
-#      mode Traefik obtains certificates automatically and this default cert
-#      acts as a safe fallback only.
+#   2. Load the self-signed homelab certificate as the default TLS certificate.
+#      Setup always generates volumes/certificates/homelab.{crt,key} (even when
+#      Let's Encrypt is enabled) so this path stays valid PEM. In public mode
+#      per-router certresolvers still issue LE certs; this is only the fallback.
 
 http:
   middlewares:
