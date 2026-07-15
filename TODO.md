@@ -1,6 +1,5 @@
 - Set up restic container?
 - auto sign in with SSO? nextcloud already does this?
-- Backup checklist: Vaultwarden passwords, homelab dashboard devices, rustdesk users/devices, nextcloud files
 
 - Add obsidian sync (desktop client and WebDAV for mobile)
 - Setup immich

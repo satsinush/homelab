@@ -1,4 +1,4 @@
-// src/components/LoginChoice.jsx
+// src/components/LoginChoice.tsx
 import React, { useEffect, useState } from 'react';
 import {
     Box,
@@ -21,32 +21,92 @@ import {
 import LocalLogin from './LocalLogin';
 import { useConfig } from '../contexts/useConfig';
 
+const SKIP_AUTO_SSO_KEY = 'homelab_skip_auto_sso';
+
+/** Sync read — must run before auto-SSO effect (useEffect would be too late). */
+function initialSkipAutoSso(): boolean {
+    if (typeof window === 'undefined') return false;
+    const params = new URLSearchParams(window.location.search);
+    return (
+        !!params.get('sso_error') ||
+        params.get('logged_out') === '1' ||
+        params.get('local') === '1' ||
+        sessionStorage.getItem(SKIP_AUTO_SSO_KEY) === '1'
+    );
+}
+
 const LoginChoice = () => {
     const [showLocalLogin, setShowLocalLogin] = useState(false);
     const [ssoError, setSsoError] = useState('');
     const [ssoLoading, setSsoLoading] = useState(false);
-    const { config } = useConfig();
+    const [preferLocal, setPreferLocal] = useState(false);
+    const [skipAutoSso, setSkipAutoSso] = useState(initialSkipAutoSso);
+    const { config, loading: configLoading } = useConfig();
     const disableLocalAuth = config.disableLocalAuth;
+    const ssoEnabled = config.ssoEnabled;
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const error = params.get('sso_error');
         if (error) {
             setSsoError(error);
+            setSkipAutoSso(true);
             params.delete('sso_error');
-            const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`;
-            window.history.replaceState({}, '', next);
         }
+        if (params.get('local') === '1') {
+            setPreferLocal(true);
+            setSkipAutoSso(true);
+        }
+        if (params.get('logged_out') === '1' || sessionStorage.getItem(SKIP_AUTO_SSO_KEY) === '1') {
+            setSkipAutoSso(true);
+        }
+        params.delete('logged_out');
+        params.delete('local');
+        sessionStorage.removeItem(SKIP_AUTO_SSO_KEY);
+        const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`;
+        window.history.replaceState({}, '', next);
     }, []);
 
     const handleSSOLogin = () => {
         setSsoError('');
+        setSkipAutoSso(false);
         setSsoLoading(true);
         window.location.href = '/api/users/sso-login';
     };
 
+    // Like Nextcloud: start OIDC immediately. Authentik finishes silently when a
+    // session already exists; otherwise the IdP login page is shown.
+    const shouldAutoSso =
+        !configLoading && ssoEnabled && !skipAutoSso && !preferLocal && !showLocalLogin;
+
+    useEffect(() => {
+        if (!shouldAutoSso) return;
+        setSsoLoading(true);
+        window.location.href = '/api/users/sso-login';
+    }, [shouldAutoSso]);
+
     if (showLocalLogin) {
         return <LocalLogin onBack={() => setShowLocalLogin(false)} />;
+    }
+
+    if (configLoading || shouldAutoSso || ssoLoading) {
+        return (
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: '100vh',
+                    gap: 2
+                }}
+            >
+                <CircularProgress size={48} />
+                <Typography variant="body1" color="text.secondary">
+                    {configLoading ? 'Loading…' : 'Signing in with SSO…'}
+                </Typography>
+            </Box>
+        );
     }
 
     return (
@@ -87,51 +147,49 @@ const LoginChoice = () => {
                     )}
 
                     <Stack spacing={3}>
-                        {/* Primary SSO Login - More Prominent */}
-                        <Card
-                            variant="outlined"
-                            sx={{
-                                cursor: ssoLoading ? 'wait' : 'pointer',
-                                border: 2,
-                                borderColor: 'primary.main',
-                                opacity: ssoLoading ? 0.7 : 1,
-                                '&:hover': {
-                                    borderColor: 'primary.dark',
-                                    boxShadow: 2
-                                }
-                            }}
-                            onClick={ssoLoading ? undefined : handleSSOLogin}
-                        >
-                            <CardContent sx={{ textAlign: 'center', py: 4 }}>
-                                <SecurityIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
-                                <Typography variant="h5" gutterBottom fontWeight="bold">
-                                    Sign in with SSO
-                                </Typography>
-                                <Typography variant="body1" color="text.secondary">
-                                    {disableLocalAuth ? 'Use your homelab account to sign in' : 'Recommended - Use your homelab account'}
-                                </Typography>
-                            </CardContent>
-                            <CardActions sx={{ justifyContent: 'center', pb: 3 }}>
-                                <Button
-                                    autoFocus
-                                    variant="contained"
-                                    size="large"
-                                    startIcon={ssoLoading ? <CircularProgress size={20} color="inherit" /> : <LoginIcon />}
-                                    onClick={handleSSOLogin}
-                                    disabled={ssoLoading}
-                                    fullWidth
-                                    sx={{ mx: 2, py: 1.5 }}
-                                >
-                                    {ssoLoading ? 'Connecting…' : 'Continue with SSO'}
-                                </Button>
-                            </CardActions>
-                        </Card>
+                        {ssoEnabled && (
+                            <Card
+                                variant="outlined"
+                                sx={{
+                                    cursor: 'pointer',
+                                    border: 2,
+                                    borderColor: 'primary.main',
+                                    '&:hover': {
+                                        borderColor: 'primary.dark',
+                                        boxShadow: 2
+                                    }
+                                }}
+                                onClick={handleSSOLogin}
+                            >
+                                <CardContent sx={{ textAlign: 'center', py: 4 }}>
+                                    <SecurityIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+                                    <Typography variant="h5" gutterBottom fontWeight="bold">
+                                        Sign in with SSO
+                                    </Typography>
+                                    <Typography variant="body1" color="text.secondary">
+                                        {disableLocalAuth ? 'Use your homelab account to sign in' : 'Recommended - Use your homelab account'}
+                                    </Typography>
+                                </CardContent>
+                                <CardActions sx={{ justifyContent: 'center', pb: 3 }}>
+                                    <Button
+                                        autoFocus
+                                        variant="contained"
+                                        size="large"
+                                        startIcon={<LoginIcon />}
+                                        onClick={handleSSOLogin}
+                                        fullWidth
+                                        sx={{ mx: 2, py: 1.5 }}
+                                    >
+                                        Continue with SSO
+                                    </Button>
+                                </CardActions>
+                            </Card>
+                        )}
 
-                        {/* Secondary Local Login - only shown when local auth is not disabled */}
                         {!disableLocalAuth && (
                             <Box sx={{ textAlign: 'center', pt: 2 }}>
                                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                                    Don't have SSO access?
+                                    {ssoEnabled ? "Don't have SSO access?" : 'Sign in with a local account'}
                                 </Typography>
                                 <Button
                                     variant="text"

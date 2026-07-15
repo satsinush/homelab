@@ -42,7 +42,12 @@ import {
 } from '@mui/icons-material';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/useNotification';
-import { OllamaStatus } from '../types/api';
+import {
+    OllamaStatus,
+    ChatModelsResponse,
+    ChatConversationResponse,
+    ChatModelsDetailedResponse,
+} from '../types/api';
 
 import { getErrorMessage } from '../utils/errors';
 
@@ -108,8 +113,13 @@ const Chat = () => {
     const fetchModels = useCallback(async () => {
         setIsLoading(true);
         try {
-            const response = await tryApiCall('/chat/models');
-            setAvailableModels((response.data.models || []) as AvailableModel[]);
+            const response = await tryApiCall<ChatModelsResponse>('/chat/models');
+            setAvailableModels(
+                (response.data.models || []).map((m) => ({
+                    name: m.name,
+                    size: String(m.size ?? ''),
+                }))
+            );
             if (response.data.currentModel) {
                 setCurrentModel(response.data.currentModel);
             }
@@ -123,15 +133,15 @@ const Chat = () => {
 
     const fetchConversationHistory = useCallback(async () => {
         try {
-            const response = await tryApiCall('/chat/conversation');
+            const response = await tryApiCall<ChatConversationResponse & { conversationHistory?: HistoryMessageItem[] }>('/chat/conversation');
             if (response.data.conversationHistory) {
-                const historyMessages = (response.data.conversationHistory as HistoryMessageItem[]).map((msg, index) => ({
+                const historyMessages = response.data.conversationHistory.map((msg, index) => ({
                     id: `history-${Date.now() + index}`,
                     type: msg.role === 'user' ? 'user' : 'assistant',
                     content: msg.content,
-                    message: msg.message || msg.content,
-                    actions: msg.actions || [],
-                    timestamp: msg.timestamp || new Date().toISOString()
+                    message: (msg as HistoryMessageItem).message || msg.content,
+                    actions: (msg as HistoryMessageItem).actions || [],
+                    timestamp: (msg as HistoryMessageItem).timestamp || new Date().toISOString()
                 })) as ChatMessage[];
                 setMessages(historyMessages);
             }
@@ -182,7 +192,10 @@ const Chat = () => {
         setMessages(prev => [...prev, thinkingMessage]);
 
         try {
-            const response = await tryApiCall('/chat/message', {
+            const response = await tryApiCall<{
+                conversationHistory?: HistoryMessageItem[];
+                actions?: { status: string; message: string }[];
+            }>('/chat/message', {
                 method: 'POST',
                 timeout: 300000,
                 data: {
@@ -192,7 +205,7 @@ const Chat = () => {
             });
 
             if (response.data.conversationHistory) {
-                const frontendMessages = (response.data.conversationHistory as HistoryMessageItem[]).map((msg, index) => ({
+                const frontendMessages = response.data.conversationHistory.map((msg, index) => ({
                     id: `history-${Date.now() + index}`,
                     type: msg.role === 'user' ? 'user' : 'assistant',
                     content: msg.content,
@@ -204,7 +217,7 @@ const Chat = () => {
             }
 
             if (response.data.actions) {
-                (response.data.actions as { status: string; message: string }[]).forEach(action => {
+                response.data.actions.forEach(action => {
                     if (action.status === 'success') {
                         showSuccess(action.message);
                     } else {
@@ -295,7 +308,7 @@ const Chat = () => {
 
         setDownloadLoading(true);
         try {
-            const response = await tryApiCall('/chat/download-model', {
+            const response = await tryApiCall<{ message?: string }>('/chat/download-model', {
                 method: 'POST',
                 timeout: 600000,
                 data: {
@@ -329,8 +342,14 @@ const Chat = () => {
 
     const fetchDetailedModels = async () => {
         try {
-            const response = await tryApiCall('/chat/models-detailed');
-            setDetailedModels((response.data.models || []) as DetailedModel[]);
+            const response = await tryApiCall<ChatModelsDetailedResponse>('/chat/models-detailed');
+            setDetailedModels(
+                (response.data.models || []).map((m) => ({
+                    name: m.name,
+                    sizeFormatted: m.size || '',
+                    modified: '',
+                }))
+            );
         } catch (err) {
             console.error('Failed to fetch detailed models:', err);
             showError(getErrorMessage(err) || 'Failed to fetch model details');
@@ -345,7 +364,7 @@ const Chat = () => {
             confirmColor: 'error',
             onConfirm: async () => {
                 try {
-                    const response = await tryApiCall(`/chat/delete-model/${encodeURIComponent(modelName)}`, {
+                    const response = await tryApiCall<{ message?: string }>(`/chat/delete-model/${encodeURIComponent(modelName)}`, {
                         method: 'DELETE'
                     });
 

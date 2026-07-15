@@ -87,8 +87,11 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
     const handleLogout = async () => {
         handleMenuClose();
         try {
-            await logout();
-            showSuccess('Logged out successfully');
+            const redirected = await logout();
+            // Navigating to Authentik end-session — don't toast over that transition
+            if (!redirected) {
+                showSuccess('Logged out successfully');
+            }
         } catch (error) {
             console.error('Logout error:', error);
         }

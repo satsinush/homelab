@@ -60,6 +60,15 @@ import {
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/useNotification';
 import { formatDevicesForDisplay, formatMacForDisplay, normalizeMacForApi } from '../utils/formatters';
+import {
+    Device,
+    DevicesResponse,
+    DeviceResponse,
+    ScanResponse,
+    ClearCacheResponse,
+    FavoriteResponse,
+    RustdeskConfig,
+} from '../types/api';
 
 import { getErrorMessage } from '../utils/errors';
 
@@ -149,25 +158,6 @@ const DeviceDialog = React.memo(({
     );
 });
 
-interface Device {
-    id?: number;
-    name: string;
-    mac: string;
-    macNormalized?: string;
-    isFavorite?: boolean;
-    description: string;
-    rustdeskId?: string;
-    ip?: string;
-    status?: 'online' | 'offline';
-    lastActive?: string;
-}
-
-interface RustdeskConfig {
-    available: boolean;
-    relayHost: string;
-    publicKey: string;
-}
-
 const Devices = () => {
     const [devices, setDevices] = useState<Device[]>([]);
     const [loading, setLoading] = useState(true);
@@ -198,7 +188,7 @@ const Devices = () => {
 
     const fetchRustdeskConfig = useCallback(async () => {
         try {
-            const response = await tryApiCall('/system/rustdesk-config');
+            const response = await tryApiCall<RustdeskConfig>('/system/rustdesk-config');
             if (response.data) {
                 setRustdeskConfig(response.data);
             }
@@ -210,7 +200,7 @@ const Devices = () => {
     const fetchDevices = useCallback(async () => {
         try {
             // Fetch all device data using simplified endpoint
-            const response = await tryApiCall('/devices');
+            const response = await tryApiCall<DevicesResponse>('/devices');
 
             setDevices(formatDevicesForDisplay<Device>(response.data.devices || []));
             setLoading(false);
@@ -259,7 +249,7 @@ const Devices = () => {
         setRefreshingAll(true);
 
         try {
-            const response = await tryApiCall('/devices/scan', {
+            const response = await tryApiCall<ScanResponse>('/devices/scan', {
                 method: 'POST'
             });
 
@@ -286,7 +276,7 @@ const Devices = () => {
                 setClearingCache(true);
 
                 try {
-                    const response = await tryApiCall('/devices/clear-cache', {
+                    const response = await tryApiCall<ClearCacheResponse>('/devices/clear-cache', {
                         method: 'POST'
                     });
 
@@ -332,7 +322,7 @@ const Devices = () => {
 
     const handleToggleFavorite = async (device: Device) => {
         try {
-            const response = await tryApiCall(`/devices/${encodeURIComponent(device.macNormalized || device.mac)}/favorite`, {
+            const response = await tryApiCall<FavoriteResponse>(`/devices/${encodeURIComponent(device.macNormalized || device.mac)}/favorite`, {
                 method: 'POST'
             });
 
@@ -345,7 +335,7 @@ const Devices = () => {
                 )
             );
 
-            showSuccess(message);
+            showSuccess(message || 'Favorite updated');
         } catch (err) {
             showError(`Failed to toggle favorite: ${getErrorMessage(err)}`);
         }
@@ -383,7 +373,7 @@ const Devices = () => {
 
             if (editingDevice) {
                 const originalMac = editingDevice.macNormalized || normalizeMacForApi(editingDevice.mac);
-                const response = await tryApiCall(`/devices/${encodeURIComponent(originalMac)}`, {
+                const response = await tryApiCall<DeviceResponse>(`/devices/${encodeURIComponent(originalMac)}`, {
                     method: 'PUT',
                     data: deviceData
                 });
@@ -400,7 +390,7 @@ const Devices = () => {
 
                 showSuccess('Favorite device updated successfully');
             } else {
-                const response = await tryApiCall('/devices', {
+                const response = await tryApiCall<DeviceResponse>('/devices', {
                     method: 'POST',
                     data: deviceData
                 });

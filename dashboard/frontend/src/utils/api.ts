@@ -31,12 +31,14 @@ interface CustomRequestInit extends RequestInit {
 
 /**
  * Try API endpoints until one works using fetch
- * @param {string} path - The API path to call (e.g., '/devices', '/system-info')
- * @param {CustomRequestInit} options - Additional fetch options (method, headers, body, etc.)
- * @returns {Promise<{data: T, response: Response}>} Response data, raw response
+ * @param path - The API path to call (e.g., '/devices', '/system-info')
+ * @param options - Additional fetch options (method, headers, body, etc.)
+ * @returns Response data and raw response
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const tryApiCall = async <T = any>(path: string, options: CustomRequestInit = {}): Promise<{ data: T; response: Response }> => {
+export const tryApiCall = async <T = unknown>(
+    path: string,
+    options: CustomRequestInit = {}
+): Promise<{ data: T; response: Response }> => {
     const headers: Record<string, string> = {
         'Accept': 'application/json',
         'Content-Type': 'application/json',

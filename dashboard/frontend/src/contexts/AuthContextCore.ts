@@ -14,7 +14,7 @@ export interface AuthContextType {
     loading: boolean;
     loginLocal: (username: string, password: string) => Promise<{ success: boolean; user?: UserProfile; error?: string }>;
     loginSSO: () => void;
-    logout: () => Promise<void>;
+    logout: () => Promise<boolean>;
     refreshUser: () => Promise<UserProfile | null>;
     hasPermission: (role: string) => boolean;
     isAuthenticated: boolean;

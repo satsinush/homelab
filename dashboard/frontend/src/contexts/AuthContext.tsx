@@ -6,6 +6,8 @@ import { VerifyResponse, LoginResponse, LogoutResponse } from '../types/api';
 
 import { getErrorMessage } from '../utils/errors';
 
+const SKIP_AUTO_SSO_KEY = 'homelab_skip_auto_sso';
+
 interface AuthProviderProps {
     children: ReactNode;
 }
@@ -58,27 +60,27 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         window.location.href = '/api/users/sso-login';
     };
 
-    const logout = async () => {
+    const logout = async (): Promise<boolean> => {
         try {
             const result = await tryApiCall<LogoutResponse>('/users/logout', {
                 method: 'POST'
             });
 
-            // Check if this is an SSO logout that requires a redirect
-            if (result.data && result.data.redirect) {
-                console.log('SSO logout - redirecting to:', result.data.redirect);
-                // Redirect the browser window to Authentik logout
-                window.location.href = result.data.redirect;
-                return; // Don't clear user state yet, let the redirect handle it
-            } else {
-                console.log('Local logout successful');
+            // Always suppress auto-SSO after an intentional logout.
+            sessionStorage.setItem(SKIP_AUTO_SSO_KEY, '1');
+
+            // SSO: leave via Authentik end-session. Don't clear user first — that
+            // mounts LoginChoice and auto-SSO races the IdP logout redirect.
+            if (result.data?.redirect) {
+                window.location.assign(result.data.redirect);
+                return true;
             }
         } catch (error) {
             console.error('Logout error:', error);
-        } finally {
-            // For local logout or if there's an error, clear user state
-            setUser(null);
+            sessionStorage.setItem(SKIP_AUTO_SSO_KEY, '1');
         }
+        setUser(null);
+        return false;
     };
 
     // Refresh user info

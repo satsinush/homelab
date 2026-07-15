@@ -104,6 +104,7 @@ entries:
         - !Find [authentik_rbac.role, [name, dashboard-user]]
         - !Find [authentik_rbac.role, [name, gatus-user]]
         - !Find [authentik_rbac.role, [name, dashboard-devices-user]]
+        - !Find [authentik_rbac.role, [name, dashboard-wordgames-user]]
         - !Find [authentik_rbac.role, [name, vaultwarden-user]]
         - !Find [authentik_rbac.role, [name, rustdesk-user]]
         - !Find [authentik_rbac.role, [name, nextcloud-user]]
@@ -274,6 +275,7 @@ entries:
       client_secret: !File /run/secrets/dashboard_oidc_secret
       client_type: confidential
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      # Unbind this app only — keeps the Authentik SSO session for other apps.
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
       signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
       grant_types:

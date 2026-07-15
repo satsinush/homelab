@@ -14,6 +14,7 @@ declare module 'express-session' {
         };
         oidc_code_verifier?: string;
         oidc_state?: string;
+        oidc_id_token?: string;
     }
 }
 

@@ -126,8 +126,8 @@ const Settings = () => {
         const fetchAll = async () => {
             try {
                 const [serverRes, userRes] = await Promise.all([
-                    tryApiCall('/settings').catch(() => null),
-                    tryApiCall('/user-settings').catch(() => null)
+                    tryApiCall<{ settings: ServerSettings }>('/settings').catch(() => null),
+                    tryApiCall<{ settings: UserSettings }>('/user-settings').catch(() => null)
                 ]);
                 setServerSettings(serverRes?.data?.settings || { scanTimeout: 30000, cacheTimeout: 300000 });
                 setUserSettings(userRes?.data?.settings || {});

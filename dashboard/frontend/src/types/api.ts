@@ -16,6 +16,8 @@ export interface VerifyResponse {
 
 export interface LogoutResponse {
     redirect?: string;
+    isSSO?: boolean;
+    message?: string;
 }
 
 export interface ConfigResponse {
@@ -70,6 +72,7 @@ export interface ClearCacheResponse {
 
 export interface FavoriteResponse {
     device: Device;
+    message?: string;
 }
 
 export interface Secret {
@@ -300,6 +303,7 @@ export interface ChatModel {
 
 export interface ChatModelsResponse {
     models: ChatModel[];
+    currentModel?: string;
 }
 
 export interface ChatConversationMessage {

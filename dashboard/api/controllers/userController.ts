@@ -211,7 +211,7 @@ class UserController {
             const user = await this.userModel.createOrUpdateSSOUser(userinfo);
             console.log('User authenticated:', user.username);
 
-            // Store user info in session
+            // Store user info + id_token (for RP-initiated logout) in session
             req.session.userId = user.id;
             req.session.user = {
                 id: user.id,
@@ -221,6 +221,9 @@ class UserController {
                 email: user.email,
                 is_sso_user: user.is_sso_user
             };
+            if (typeof tokens.id_token === 'string' && tokens.id_token) {
+                req.session.oidc_id_token = tokens.id_token;
+            }
 
             delete req.session.oidc_state;
             delete req.session.oidc_code_verifier;
@@ -257,51 +260,63 @@ class UserController {
     async logout(req: Request, res: Response) {
         try {
             const user = req.session.user;
-            const isSSO = user && user.is_sso_user;
-            
+            const isSSO = !!(user && user.is_sso_user);
+            const idToken = req.session.oidc_id_token;
+
             console.log('User logout - user data:', user);
             console.log('Is SSO user:', isSSO);
-            
-            req.session.destroy((err) => {
-                if (err) {
-                    console.error('Session destruction error:', err);
-                    return sendError(res, 500, 'Failed to logout properly');
+
+            await new Promise<void>((resolve, reject) => {
+                req.session.destroy((err) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve();
+                });
+            });
+
+            if (!isSSO) {
+                return sendSuccess(res, {
+                    message: 'Logout successful',
+                    isSSO: false
+                });
+            }
+
+            // Redirect to Authentik end-session and stay there so the
+            // invalidation flow UI ("You've logged out…") is visible.
+            // Do not set post_logout_redirect_uri — that would bounce
+            // immediately back to the dashboard and skip Authentik's page.
+            let logoutUrl: string | undefined;
+
+            try {
+                const oidcConfig = await config.getOIDCConfig();
+                const endSessionUrl = oidcConfig?.serverMetadata()?.end_session_endpoint;
+                if (endSessionUrl) {
+                    const url = new URL(endSessionUrl);
+                    if (idToken) {
+                        url.searchParams.set('id_token_hint', idToken);
+                    }
+                    logoutUrl = url.toString();
                 }
-                
-                // If user was authenticated via SSO, return redirect URL for frontend to handle
-                if (isSSO) {
-                    console.log('SSO user logout - returning redirect URL');
-                    const APP_URL = `https://${config.dashBoardWebHostname}`;
-                    
-                    (async () => {
-                        let logoutUrl;
-                        try {
-                            const oidcConfig = await config.getOIDCConfig();
-                            const endSessionUrl = oidcConfig?.serverMetadata()?.end_session_endpoint;
-                            if (endSessionUrl) {
-                                logoutUrl = `${endSessionUrl}?post_logout_redirect_uri=${encodeURIComponent(APP_URL)}`;
-                            }
-                        } catch (e) {
-                            console.error('Failed to get dynamic end_session_endpoint for logout:', e);
-                        }
-                        if (!logoutUrl) {
-                            logoutUrl = `https://${config.authentikWebHostname}/application/o/homelab-dashboard/end-session/?post_logout_redirect_uri=${encodeURIComponent(APP_URL)}`;
-                        }
-                        
-                        return sendSuccess(res, { 
-                            message: 'SSO logout initiated',
-                            redirect: logoutUrl,
-                            isSSO: true
-                        });
-                    })();
-                } else {
-                    // Local user, send JSON response for API clients
-                    console.log('Local user logout - sending success response');
-                    sendSuccess(res, { 
-                        message: 'Logout successful',
-                        isSSO: false
-                    });
+            } catch (e) {
+                console.error('Failed to get dynamic end_session_endpoint for logout:', e);
+            }
+
+            if (!logoutUrl) {
+                const url = new URL(
+                    `https://${config.authentikWebHostname}/application/o/homelab-dashboard/end-session/`
+                );
+                if (idToken) {
+                    url.searchParams.set('id_token_hint', idToken);
                 }
+                logoutUrl = url.toString();
+            }
+
+            return sendSuccess(res, {
+                message: 'SSO logout initiated',
+                redirect: logoutUrl,
+                isSSO: true
             });
         } catch (error: unknown) {
             console.error('Logout error:', error);
