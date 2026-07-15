@@ -92,6 +92,139 @@ def check_prereqs(extra: list[str] | None = None) -> None:
     print("✅ All prerequisites found")
 
 
+def _username_for_puid(puid: str) -> str | None:
+    """Resolve OS login name for a numeric PUID (systemd User= may be numeric)."""
+    import pwd
+
+    try:
+        return pwd.getpwuid(int(puid)).pw_name
+    except (KeyError, ValueError, OverflowError, TypeError):
+        return None
+
+
+def _host_user_group() -> tuple[str, str]:
+    """User/group when PUID cannot be resolved (e.g. sudo session)."""
+    import grp
+    import pwd
+
+    sudo_user = os.environ.get("SUDO_USER")
+    if os.geteuid() == 0 and sudo_user:
+        pw = pwd.getpwnam(sudo_user)
+    else:
+        pw = pwd.getpwuid(os.getuid())
+    return pw.pw_name, grp.getgrgid(pw.pw_gid).gr_name
+
+
+def ensure_systemd_services() -> None:
+    """Render systemd unit templates from .env, install, and enable host services."""
+    import shlex
+    import tempfile
+
+    from setup_utils import load_env, prompt_yes_no, run_cmd, substitute_env_vars
+
+    print("\n⚙️  Configuring systemd host services...")
+    if not prompt_yes_no(
+        "   Install/enable systemd units (host-api, backup timer, docker, timesyncd)? [Y/n]: ",
+        default=True,
+    ):
+        print("   ⏭️  Skipping systemd host services (dev / manual manage)")
+        return
+
+    project_root = os.path.abspath(os.getcwd())
+    units_src = os.path.join(project_root, "systemd", "system")
+    if not os.path.isdir(units_src):
+        print(f"   ⚠️  Missing {units_src}; skipping systemd install")
+        return
+
+    # Prefer the setup-generated .env (same substitution model as .env.template).
+    if os.path.isfile(".env"):
+        load_env(".env")
+    os.environ["PROJECT_ROOT"] = os.environ.get("PROJECT_ROOT") or project_root
+    os.environ["PROJECT_ROOT"] = os.path.abspath(os.environ["PROJECT_ROOT"])
+    os.environ.setdefault("PUID", str(os.getuid()))
+    os.environ.setdefault("PGID", str(os.getgid()))
+    os.environ["NODE"] = shutil.which("node") or "/usr/bin/node"
+    os.environ["PYTHON"] = sys.executable or "/usr/bin/python3"
+
+    for name in sorted(os.listdir(units_src)):
+        if not name.endswith((".service", ".timer")):
+            continue
+        src = os.path.join(units_src, name)
+        with open(src, encoding="utf-8") as f:
+            content = substitute_env_vars(f.read())
+        if "${" in content or "$PUID" in content or "$PROJECT_ROOT" in content:
+            print(f"❌ Unsubstituted variables remain in {name} after env expand")
+            print("   Ensure .env defines PROJECT_ROOT, PUID, and PGID.")
+            sys.exit(1)
+        dest = f"/etc/systemd/system/{name}"
+        print(f"   Installing {dest}")
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, suffix=f"-{name}") as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+        try:
+            run_cmd(f"sudo cp {shlex.quote(tmp_path)} {shlex.quote(dest)}")
+            run_cmd(f"sudo chmod 644 {shlex.quote(dest)}")
+        finally:
+            os.unlink(tmp_path)
+
+    host_api = os.path.join(os.environ["PROJECT_ROOT"], "dashboard", "host-api")
+    if not shutil.which("npm"):
+        print("❌ npm is required for the host API (install Node.js / npm)")
+        sys.exit(1)
+    print(f"   npm install in {host_api}")
+    run_cmd("npm install", cwd=host_api, capture=False)
+
+    run_cmd("sudo systemctl daemon-reload")
+
+    print("   Enabling docker…")
+    run_cmd("sudo systemctl enable --now docker.socket docker.service")
+
+    for unit in (
+        "homelab-host-api.service",
+        "homelab-backup.timer",
+    ):
+        print(f"   Enabling {unit}…")
+        run_cmd(f"sudo systemctl enable --now {unit}")
+
+    if shutil.which("pacman"):
+        print("   Enabling pacman-sync.timer…")
+        run_cmd("sudo systemctl enable --now pacman-sync.timer")
+    else:
+        print("   ℹ️  pacman not found; skipping pacman-sync.timer")
+
+    run_cmd("sudo systemctl restart homelab-host-api.service", check=False)
+
+    print("   Enabling systemd-timesyncd…")
+    run_cmd("sudo systemctl enable --now systemd-timesyncd.service", check=False)
+    sync = run_cmd("timedatectl show -p NTPSynchronized --value", check=False) or ""
+    if sync.strip() == "yes":
+        print("   ✅ System clock is NTP-synchronized")
+    else:
+        print("   ⚠️  System clock not yet NTP-synchronized")
+        print("      If this persists, see ./systemd/timesyncd.conf and restart systemd-timesyncd")
+
+    user = _username_for_puid(os.environ["PUID"]) or _host_user_group()[0]
+    added_docker_group = False
+    if user != "root":
+        groups = run_cmd(f"id -nG {user}", check=False) or ""
+        if "docker" not in groups.split():
+            print(f"   Adding {user} to the docker group…")
+            run_cmd(f"sudo usermod -aG docker {shlex.quote(user)}")
+            added_docker_group = True
+
+    print("✅ Systemd host services configured")
+
+    if added_docker_group and os.geteuid() != 0:
+        setup_py = shlex.quote(os.path.abspath(__file__))
+        py = shlex.quote(sys.executable)
+        root = shlex.quote(project_root)
+        print("\n🔄 Re-running setup under the docker group (new membership)…")
+        os.execvp(
+            "sg",
+            ["sg", "docker", "-c", f"cd {root} && {py} {setup_py} setup"],
+        )
+
+
 def ensure_env_file() -> dict:
     from setup_utils import (
         detect_homelab_locale,
@@ -402,6 +535,7 @@ def run_setup() -> None:
     check_prereqs()
 
     env = ensure_env_file()
+    ensure_systemd_services()
     hostname = env.get("HOMELAB_HOSTNAME", "homelab.home.arpa")
     cert_resolver = env.get("TRAEFIK_CERT_RESOLVER", "")
     env = ensure_bootstrap_and_locale(env)

@@ -100,7 +100,7 @@ Cert file: [`./volumes/certificates/homelab-ca.crt`](../volumes/certificates/)
 ### Backups
 
 - [ ] Confirm Restic secrets exist under `volumes/secrets/restic_*` (configured during setup if you enabled cloud backup)
-- [ ] Enable the timer if you have not already: `sudo systemctl enable --now homelab-backup.timer`
+- [ ] Confirm the backup timer is active: `systemctl status homelab-backup.timer` (installed by setup)
 - [ ] Optional dry run: `python3 setup.py backup`
 - [ ] Details: [5. Backup and Restore](./5-backup-restore.md)
 

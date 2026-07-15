@@ -43,12 +43,11 @@ Flow: load env/secrets → each `Service.backup()` → `restic backup` of `.env`
 python3 setup.py backup --auto
 ```
 
-After updating the unit files under `/etc/systemd/system/`:
+Setup installs and enables the timer. To reinstall units after editing templates under [`systemd/system/`](../systemd/system/), re-run `python3 setup.py setup`, or:
 
 ```shell
 sudo systemctl daemon-reload
 sudo systemctl enable --now homelab-backup.timer
-systemctl list-timers
 sudo journalctl -u homelab-backup.service
 ```
 

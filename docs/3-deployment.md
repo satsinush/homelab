@@ -11,93 +11,23 @@ Once the host is configured, follow these steps to deploy the services.
       * The `setup.sh` script will use `./.env.template` as a base to generate your final `.env` file. Carefully change any values you want to customize in the template **before** running the script.
       * Values in `<angle_brackets>` will be replaced automatically by the setup script.
 
-### 2\. ⚙️ Enable Systemd Services
+### 2\. ⚙️ Systemd host services
 
-To complete the server setup, you'll need to configure and enable a few custom `systemd` services. These manage the host API, automatic package updates, and automated backups.
+[`setup.py`](../setup.py) installs and enables these automatically:
 
-#### **Step 1: Copy the Files to Systemd**
+* `homelab-host-api.service` — dashboard Host API (`dashboard/host-api`, after `npm install`)
+* `homelab-backup.timer` — daily Restic backup via `setup.py backup --auto`
+* `pacman-sync.timer` — daily `pacman -Sy` (Arch hosts only)
+* `docker.socket` / `docker.service`
+* `systemd-timesyncd`
 
-Copy the systemd service files to the system directory with this command.
+Unit templates live in [`systemd/system/`](../systemd/system/) and use `${PROJECT_ROOT}`, `${PUID}`, `${PGID}` (from `.env`) plus `${NODE}` / `${PYTHON}` (detected at install). Setup expands them with the same `substitute_env_vars` helper used for `.env.template`, installs under `/etc/systemd/system/`, and adds your user to the `docker` group when needed (re-entering the group for the same setup run). You get a y/n prompt first so you can skip this on a non-server / dev machine.
 
-```shell
-sudo cp -rv ./systemd/system/* /etc/systemd/system/
-```
-
-#### **Step 2: Configure the Service Files**
-
-After copying the files, you must edit them to match your user and home directory.
-
-1.  Open `/etc/systemd/system/homelab-host-api.service`.
-2.  Open `/etc/systemd/system/homelab-backup.service`.
-
-In both files, find and replace the usernames and file paths with the correct values.
-
-Replace these lines:
-```
-WorkingDirectory=/home/USERNAME/homelab
-ExecStart=/usr/bin/python3 /home/USERNAME/homelab/setup.py backup --auto
-
-User=USERNAME
-Group=GROUP
-WorkingDirectory=/home/USERNAME/homelab/dashboard/host-api
-```
-
-#### **Step 3: Reload Daemon and Enable Services**
-
-First, let's build the necessary components.
-
-```shell
-cd ~/homelab/dashboard/host-api
-npm install
-```
-
-Next, tell `systemd` to re-read its configuration to detect the new files.
-
-```shell
-sudo systemctl daemon-reload
-```
-
-Next, enable and start the new services and timers. The `enable --now` command starts them immediately and also ensures they launch automatically on boot.
-
-```shell
-# Custom Services
-sudo systemctl enable --now homelab-host-api.service
-sudo systemctl enable --now pacman-sync.timer
-sudo systemctl enable --now homelab-backup.timer
-
-# You can verify the services are running with
-sudo systemctl status homelab-host-api.service
-sudo systemctl status pacman-sync.timer
-sudo systemctl status homelab-backup.timer
-```
-
-Then, ensure the system's time synchronization service is active, as accurate time is crucial for many services.
-
-```shell
-# Enable and start the time sync service
-sudo systemctl enable --now systemd-timesyncd
-
-# Check the status
-timedatectl status
-```
-
-> **ℹ️ Note**: If **`System clock synchronized`** shows **`no`**, you may need to edit `/etc/systemd/timesyncd.conf` to configure a reliable time source. Check [`./systemd/timesyncd.conf`](../systemd/timesyncd.conf) for an example. After editing, restart the service with `sudo systemctl restart systemd-timesyncd`.
-
------
-
-  * [Systemd Docs 🔗](https://wiki.archlinux.org/title/Systemd#Basic_systemctl_usage)
-
-Finally, start the docker service and add your user to the docker group.
-
-```shell
-sudo systemctl enable --now docker.socket docker.service
-sudo usermod -aG docker $USER
-newgrp docker
-```
+If the clock is not synchronized, copy or adapt [`systemd/timesyncd.conf`](../systemd/timesyncd.conf) and run `sudo systemctl restart systemd-timesyncd`. See the [systemd wiki](https://wiki.archlinux.org/title/Systemd#Basic_systemctl_usage).
 
 ### 3\. ⚡ Run the Setup Script
 
-Execute the main setup script. It will prompt you to create a username and password and automatically configure and initialize all the services.
+Execute the main setup script. It will prompt you to create a username and password, configure systemd, and initialize all services.
 
 ```shell
 ./setup.sh
