@@ -280,8 +280,12 @@ const PackageManager = () => {
 
                     {/* Packages Table */}
                     <Card>
-                        <TableContainer component={Paper}>
-                            <Table>
+                        <TableContainer
+                            component={Paper}
+                            elevation={0}
+                            sx={{ maxHeight: 'calc(100vh - 320px)', overflow: 'auto' }}
+                        >
+                            <Table stickyHeader size="small">
                                 <TableHead>
                                     <TableRow>
                                         <TableCell>Package Name</TableCell>

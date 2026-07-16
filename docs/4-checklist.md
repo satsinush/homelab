@@ -71,11 +71,13 @@ Shared files live under [`./storage/`](../storage/) (gitignored; included in Res
 - [ ] Optional migrate former Nextcloud files: `nextcloud/volumes/html/data/<user>/files/` → `storage/users/<user>/`, then remove leftover `nextcloud/volumes/`
 - [ ] Docs: [Samba](https://www.samba.org/) · [SFTPGo](https://docs.sftpgo.com/) · [Authentik LDAP](https://docs.goauthentik.io/add-secure-apps/providers/ldap/)
 
-### Gotify
+### Gotify / Apprise
 
-- [ ] Open `https://gotify.<your-hostname>` (Authentik-protected) and install a client / grant notifications
-- [ ] Confirm Apprise-routed alerts arrive (Gatus and SMTP-relayed mail use this path)
-- [ ] Keep the admin password from `volumes/secrets/gotify_admin_password` for break-glass
+- [ ] Open `https://gotify.<your-hostname>` and sign in as **`alerts`** (password: `volumes/secrets/gotify_alerts_password`) — share this login with anyone who should see push alerts
+- [ ] Install a Gotify client with the `alerts` account (not `admin`)
+- [ ] Confirm per-service apps appear: Gatus, Dashboard, Vaultwarden, Dockhand, Homelab (each with its own icon)
+- [ ] Confirm Apprise-routed alerts arrive (Gatus → `/alerts/gatus`, Dashboard packages → `/alerts/dashboard`, Vaultwarden SMTP → Vaultwarden app)
+- [ ] Keep `volumes/secrets/gotify_admin_password` for break-glass admin only
 - [ ] Docs: [Gotify](https://gotify.net/docs/)
 
 ### Gatus

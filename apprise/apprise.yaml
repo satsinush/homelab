@@ -1,6 +1,15 @@
 # Apprise Configuration File
-# This file maps alert tags to target notification endpoints.
+# Generated/templated by apprise/setup.py — tokens come from the Gotify alerts user apps.
+# Gateway posts with tag=<service> (gatus|dashboard|vaultwarden|dockhand|general).
 
 urls:
-  # Send all alert notifications to Gotify
-  - gotify://gotify/${GOTIFY_TOKEN}
+  - gotify://gotify/${GOTIFY_TOKEN_GATUS}:
+      - tag: gatus
+  - gotify://gotify/${GOTIFY_TOKEN_DASHBOARD}:
+      - tag: dashboard
+  - gotify://gotify/${GOTIFY_TOKEN_VAULTWARDEN}:
+      - tag: vaultwarden
+  - gotify://gotify/${GOTIFY_TOKEN_DOCKHAND}:
+      - tag: dockhand
+  - gotify://gotify/${GOTIFY_TOKEN_GENERAL}:
+      - tag: general

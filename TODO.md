@@ -1,5 +1,4 @@
-- simplify setup.py scripts to remove unnecessary commands
-- add sticky header for package manager table
+- simplify setup.py scripts to remove unnecessary commands, move setup scripts into a separate folder?
 - Add logos / other apps for Gotify, use other service?
 - Open links in native app like rustdesk:// for gotify, obsidian:// for obsidian, etc.
 - Set max height for results sections in mobile view?
