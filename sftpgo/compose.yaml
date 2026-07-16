@@ -14,6 +14,11 @@ services:
       SFTPGO_FTPD__BINDINGS__0__PORT: "0"
       SFTPGO_WEBDAVD__BINDINGS__0__PORT: "8080"
       SFTPGO_WEBDAVD__BINDINGS__0__PREFIX: "/"
+      # WebDAV has no session — auth runs per request. Cache the user object
+      # so Material Explorer / Obsidian aren't doing a full LDAP+DB hit every PROPFIND.
+      # expiration_time is minutes (0 = never expire until restart / max_size eviction).
+      SFTPGO_WEBDAVD__CACHE__USERS__EXPIRATION_TIME: "10"
+      SFTPGO_WEBDAVD__CACHE__USERS__MAX_SIZE: "100"
       SFTPGO_HTTPD__BINDINGS__0__PORT: "8081"
       SFTPGO_HTTPD__BINDINGS__0__ENABLE_WEB_ADMIN: "false"
       SFTPGO_HTTPD__BINDINGS__0__ENABLE_WEB_CLIENT: "false"
