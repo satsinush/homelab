@@ -5,7 +5,7 @@ services:
     container_name: sftpgo
     restart: unless-stopped
     user: "${PUID}:${PGID}"
-    command: ["serve"]
+    command: ["sftpgo", "serve"]
     environment:
       TZ: ${TZ}
       SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN: "false"
