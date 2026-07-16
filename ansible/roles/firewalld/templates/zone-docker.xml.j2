@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+{# Docker's firewalld integration adds bridge interfaces (docker0, br-*) to
+   this zone at daemon start — only sources/services/rules are managed here. #}
+<zone>
+  <short>docker</short>
+  <description>Isolated container subnet</description>
+  <source address="{{ docker_subnet }}"/>
+  <service name="dns"/>
+  <rule family="ipv4">
+    <source address="{{ docker_subnet }}"/>
+    <port port="{{ host_api_port }}" protocol="tcp"/>
+    <accept/>
+  </rule>
+  {# Containers → public DNS mirrors; prevents BuildKit apk-update DNS failures. #}
+  <rule family="ipv4">
+    <source address="{{ docker_subnet }}"/>
+    <destination address="0.0.0.0/0"/>
+    <port port="53" protocol="udp"/>
+    <accept/>
+  </rule>
+</zone>

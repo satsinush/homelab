@@ -10,11 +10,19 @@ Finish these steps after [`setup.sh`](../setup.sh) succeeds. Check off each item
 - [ ] Spot-check blocking with [AdBlock Tester](https://adblock-tester.com)
 - [ ] Docs: [Pi-hole](https://docs.pi-hole.net/)
 
-### WireGuard
+### Headscale (Tailscale VPN)
 
-- [ ] Install peer configs from host WireGuard setup on each remote device
-- [ ] Verify VPN clients can reach LAN services and DNS
-- [ ] Docs: [WireGuard quickstart](https://www.wireguard.com/quickstart/)
+- [ ] Public DNS: a **single** DNS-only (grey-cloud) `A` record `vpn.<your-hostname>` → public IP, updated by `ddclient` (no other `*.<your-hostname>` record is public)
+- [ ] Router port forwards to the server: `443/tcp → 8443/tcp`, `3478/udp → 3478/udp`, `41641/udp → 41641/udp` (and **no** others)
+- [ ] Confirm `https://vpn.<your-hostname>` loads (OIDC redirects to Authentik)
+- [ ] From the internet, confirm another service host (e.g. `dashboard.<your-hostname>` sent as a Host header to the public IP) returns `404`/refused — not the app
+- [ ] On each client, install [Tailscale](https://tailscale.com/download) and set the **custom control server** to `https://vpn.<your-hostname>`
+- [ ] Sign in with Authentik (`homelab-users` / `homelab-admins`)
+- [ ] Add a LAN gateway route for `HEADSCALE_IPV4_PREFIX` (default `100.64.0.0/24`) via the homelab server's LAN IP
+- [ ] Verify remote clients can reach LAN IPs (subnet router advertises `LAN_SUBNET`) and DNS (Pi-hole via MagicDNS)
+- [ ] Verify a LAN device can initiate a connection to a tailnet client address
+- [ ] Confirm connections are direct (`tailscale status` shows `direct …:41641`, not `relay`) once NAT settles
+- [ ] Docs: [Headscale](https://headscale.net/) · [Authentik + Headscale](https://integrations.goauthentik.io/networking/headscale/)
 
 ### CA certificate (private SSL mode only)
 
@@ -33,8 +41,9 @@ Cert file: [`./volumes/certificates/homelab-ca.crt`](../volumes/certificates/)
 ### Authentik
 
 - [ ] Sign in at `https://authentik.<your-hostname>`
-- [ ] Confirm SSO apps appear (Dashboard, Vaultwarden, Gatus, Dockhand, Gotify, etc.)
+- [ ] Confirm SSO apps appear (Dashboard, Vaultwarden, Headscale, Dockhand, Gotify, etc.)
 - [ ] Prefer MFA here rather than per-app 2FA where possible
+- [ ] Headscale OIDC: leave **Encryption Key** empty on the provider (Headscale does not support JWE)
 
 ### Homelab Dashboard
 
@@ -62,7 +71,7 @@ Shared files live under [`./storage/`](../storage/) (gitignored; included in Res
 | **SMB (LAN)** | `\\<HOMELAB_IP>\<username>` or `\\<IP>\shared` | Shared file password (`samba/volumes/config/accounts.env`) |
 | **WebDAV** | `https://dav.<your-hostname>/` | **Same** file password (SFTPGo loads from that accounts file) |
 
-- [ ] Open firewall for SMB: `445/tcp` on local + vpn zones (see [host config](./2-host-config.md)). On Docker Desktop/WSL, Samba is published as `4445` (Windows already owns `445`); **Windows Explorer cannot open `\\host:4445\…`** — use WebDAV from Windows, or SMB clients that allow a custom port. Pi uses real `445`.
+- [ ] Firewall for SMB (`445/tcp` on local + vpn zones) is applied by the [Ansible playbook](../ansible/README.md) — verify with `sudo firewall-cmd --zone=local --list-services`. On Docker Desktop/WSL, Samba is published as `4445` (Windows already owns `445`); **Windows Explorer cannot open `\\host:4445\…`** — use WebDAV from Windows, or SMB clients that allow a custom port. Pi uses real `445`.
 - [ ] Confirm file-access user(s) exist (`samba/volumes/config/accounts.env`) and dirs under `storage/users/` + `storage/shared/`
 - [ ] New person checklist: Authentik account (SSO) → file-access user in `accounts.env` (SMB + WebDAV)
 - [ ] **Obsidian / WebDAV Sync:** server `https://dav.<your-hostname>/`, **file-access** credentials (not Authentik); vault under private home; shared files at `/shared`

@@ -1,356 +1,93 @@
 ## 💻 Host Machine Configuration
 
-Before deploying the Docker stack, we need to secure the host machine by enabling and hardening SSH, configuring the firewall, and setting up a VPN.
-Follow these steps to prepare the host server.
+Before deploying the Docker stack, the host needs hardened SSH, a firewall, VPN host prep, and DNS configuration. All of it is applied by the **[Ansible playbook](../ansible/README.md)** — this page covers the one-time bootstrap, what the playbook manages, and the few steps that stay manual (router settings, client enrollment).
 
-### 1\. 🔒 SSH Access
+### 1\. 🔑 Bootstrap SSH access (before Ansible)
 
-For a secure setup, we will configure SSH to use **key-based authentication only**. This makes it much more difficult for an attacker to gain access.
+Ansible connects over SSH, so key-based login must work first.
 
-**Step 1: Set Up SSH Server**
+1. **On the server**, install and start the SSH service if you haven't already:
 
-First, make sure the SSH server is installed and running.
+```shell
+sudo pacman -S openssh
+sudo systemctl enable --now sshd
+```
 
-1. **On the server**, run this command to install the SSH service if you haven't already:
-   ```shell
-   sudo pacman -S openssh
-   ```
+2. **On your local machine**, generate a key (if needed) and copy it over:
 
-2. Start and enable the service:
-   ```shell
-   sudo systemctl enable --now sshd
-   ```
-
-**Step 2: Set Up SSH Key Authentication**
-
-Next, ensure you can log in using an SSH key instead of a password.
-
-1.  **On your local machine (not the server)**, generate an SSH key if you don't have one:
-    ```shell
-    ssh-keygen -t ed25519 -C "your_email@example.com"
-    ```
-2.  Copy your **public** key to the server (replace `user` and `server_ip`):
-    ```shell
-    ssh-copy-id user@server_ip
-    ```
-3.  Log in to your server using the key to confirm it works:
-    ```shell
-    ssh user@server_ip
-    ```
-
-**Step 3: Harden the SSH Server Configuration**
-
-Now, we'll edit the SSH server configuration file on the server.
-
-1.  Open the configuration file `/etc/ssh/sshd_config`
-
-    ```shell
-    sudo nano /etc/ssh/sshd_config
-    ```
-
-2.  Make the following changes to improve security:
-      * **(Optional)** Change the port from `22` to `2222`. This helps avoid automated scans.
-        ```ini
-        Port 2222
-        ```
-      * **Disable root login** to prevent direct access to the most privileged account.
-        ```ini
-        PermitRootLogin no
-        ```
-      * **Disable password authentication** to force the use of secure SSH keys.
-        ```ini
-        PasswordAuthentication no
-        PubkeyAuthentication yes
-        ```
-
-> **⚠️ IMPORTANT: Lockout Warning**
-> Before restarting SSH, **open a second terminal session** and attempt to connect using your new configuration. **Do not close your current session** until you have successfully verified the new key and port.
-
-3.  Save the file and restart the SSH service to apply the changes:
-    ```shell
-    sudo systemctl restart sshd
-    ```
-
-> **⚠️ Important**: Ensure your new port (`2222/tcp`) is opened in your firewall rules before restarting SSH, or you may lock yourself out.
+```shell
+ssh-keygen -t ed25519 -C "your_email@example.com"
+ssh-copy-id user@server_ip
+ssh user@server_ip   # confirm key login works
+```
 
 * **Docs:** [OpenSSH Wiki 🔗](https://wiki.archlinux.org/title/OpenSSH)
 
-### 2. Firewall (firewalld) Setup 🛡️
+### 2\. 🅰️ Run the Ansible playbook
 
-These instructions configure **firewalld** to secure the server. This assumes your primary physical LAN interface is `end0`, your WireGuard interface is `wg0`, and your custom Docker bridge network interface is `br-homelab-net`.
-
-**Prerequisites:**
-
-* LAN Subnet: `10.10.10.0/24` (associated with the `end0` interface)
-* VPN Subnet: `10.10.20.0/24` (associated with the `wg0` interface)
-* Docker Subnet: `10.10.30.0/24` (associated with the `br-homelab-net` interface)
-
-**Step 1: Install and Initialize firewalld**
-
-First, ensure the tool is installed, active, and configured to start automatically at boot.
+Follow [`ansible/README.md`](../ansible/README.md): copy `inventory.example.yml` to the gitignored `inventory.yml`, fill in your host's address, user, interfaces, and subnets, then:
 
 ```shell
-# Install firewalld natively from core repositories
-sudo pacman -S firewalld --needed --noconfirm
-
-# Start and enable the daemon immediately
-sudo systemctl enable --now firewalld
+ansible-playbook site.yml --check --diff   # dry run
+ansible-playbook site.yml
 ```
 
-**Step 2: Assign Interfaces to Zones**
+What it configures (source of truth is the role files under [`ansible/roles/`](../ansible/roles/)):
 
-We will isolate our network segments by dropping them into distinct, explicit firewalld zones to achieve strict, zero-trust boundary controls:
+| Area | What's applied |
+| --- | --- |
+| **SSH hardening** | Port `2222`, key-only auth, no root login — via drop-in `/etc/ssh/sshd_config.d/10-homelab.conf` |
+| **firewalld zones** | `local` (LAN), `vpn` (Tailscale `tailscale0`, Headscale prefix), `docker` (bridge subnet) — each opens only the services that zone needs (SSH, HTTP/S, DNS, RustDesk, SMB) |
+| **Forwarding policies** | `vpn-to-lan`, `lan-to-vpn`, `docker-to-any` + masquerading, so VPN ↔ LAN routing works both directions |
+| **VPN host prep** | `net.ipv4.ip_forward=1`, TUN module, disables legacy `wg-quick@wg0` (Headscale itself runs in Docker) |
+| **Host DNS** | Installs the [`dns/`](../dns/) configs — disables the systemd-resolved stub listener so Pi-hole can own port 53 |
+| **Docker** | Daemon enabled, your user added to the `docker` group |
 
-* `local`: For our trusted home physical LAN network.
-* `vpn`: For authenticated remote WireGuard tunnels and clients.
-* `docker`: For our isolated container communication loop.
+> **⚠️ Lockout warning:** the firewall role opens `2222/tcp` before sshd is moved off port 22, but keep your current SSH session open until you've verified `ssh -p 2222 user@server_ip` works. Afterwards update `ansible_port` in `inventory.yml`.
 
-```shell
-# Create the custom zones first
-sudo firewall-cmd --permanent --new-zone=local
-sudo firewall-cmd --permanent --new-zone=vpn
-sudo firewall-cmd --permanent --new-zone=docker
-sudo firewall-cmd --reload
-
-# Assign the physical LAN interface and subnet to the local zone
-sudo firewall-cmd --permanent --zone=local --add-interface=end0
-sudo firewall-cmd --permanent --zone=local --add-source=10.10.10.0/24
-
-# Assign the WireGuard interface and subnet to the dedicated vpn zone
-sudo firewall-cmd --permanent --zone=vpn --add-interface=wg0
-sudo firewall-cmd --permanent --zone=vpn --add-source=10.10.20.0/24
-
-# Set up the isolated docker zone for our container bridge
-sudo firewall-cmd --permanent --zone=docker --add-source=10.10.30.0/24
-```
-
-**Step 3: Define Custom System Definitions**
-
-Since we changed our default SSH port to `2222`, let's create custom definitions for our services so the firewall rules remain clean and scannable.
+To verify the firewall after a run:
 
 ```shell
-# Create a modified SSH entry tracking port 2222
-sudo firewall-cmd --permanent --new-service=ssh-custom
-sudo firewall-cmd --permanent --service=ssh-custom --set-description="Custom SSH Port for Homelab Access"
-sudo firewall-cmd --permanent --service=ssh-custom --add-port=2222/tcp
-
-# Create a service entry tracking RustDesk relay loops
-sudo firewall-cmd --permanent --new-service=rustdesk
-sudo firewall-cmd --permanent --service=rustdesk --set-description="RustDesk Self-Hosted Remote Desktop"
-sudo firewall-cmd --permanent --service=rustdesk --add-port=21115-21119/tcp
-sudo firewall-cmd --permanent --service=rustdesk --add-port=21116/udp
-
-# SMB (Samba homes)
-sudo firewall-cmd --permanent --new-service=samba-homelab
-sudo firewall-cmd --permanent --service=samba-homelab --set-description="Homelab Samba SMB"
-sudo firewall-cmd --permanent --service=samba-homelab --add-port=445/tcp
-```
-
-**Step 4: Configure Rules for the Local, VPN, and Docker Zones**
-
-Now, open access paths specifically for your defined subnets using strict zone isolation. Because the `vpn` zone is explicitly limited to your authenticated tunnel peers, you do not need complex rich rules to allow access to host services.
-
-```shell
-# --- LOCAL ZONE RULES (Physical LAN Clients) ---
-# Allow full SSH, Web traffic, DNS queries, and RustDesk from native home devices
-sudo firewall-cmd --permanent --zone=local --add-service=ssh-custom
-sudo firewall-cmd --permanent --zone=local --add-service=http
-sudo firewall-cmd --permanent --zone=local --add-service=https
-sudo firewall-cmd --permanent --zone=local --add-service=dns
-sudo firewall-cmd --permanent --zone=local --add-service=rustdesk
-sudo firewall-cmd --permanent --zone=local --add-service=samba-homelab
-sudo firewall-cmd --permanent --zone=local --add-port=51820/udp
-
-# --- VPN ZONE RULES (Authenticated Remote Tunnels) ---
-# Allow WireGuard clients arriving on wg0 to access host-level services directly
-sudo firewall-cmd --permanent --zone=vpn --add-service=ssh-custom
-sudo firewall-cmd --permanent --zone=vpn --add-service=http
-sudo firewall-cmd --permanent --zone=vpn --add-service=https
-sudo firewall-cmd --permanent --zone=vpn --add-service=dns
-sudo firewall-cmd --permanent --zone=vpn --add-service=rustdesk
-sudo firewall-cmd --permanent --zone=vpn --add-service=samba-homelab
-
-# --- DOCKER ZONE RULES (Container Leashes) ---
-# Allow containers to resolve queries via host DNS (Pi-hole) and hit the custom host instrumentation API
-sudo firewall-cmd --permanent --zone=docker --add-service=dns
-sudo firewall-cmd --permanent --zone=docker --add-rich-rule='rule family="ipv4" source address="10.10.30.0/24" port port="5001" protocol="tcp" accept'
-
-# Force firewalld to allow containers to pass out to public DNS mirrors (UDP 53).
-# This prevents BuildKit from throwing a 'DNS: transient error (exit code 4)' during 'apk update' tasks.
-sudo firewall-cmd --permanent --zone=docker --add-rich-rule='rule family="ipv4" source address="10.10.30.0/24" destination address="0.0.0.0/0" port port="53" protocol="udp" accept'
-```
-
-**Step 5: Establish Forwarding and Routing Policies**
-
-To manage isolated routing paths between our custom interface zones, we use explicit firewalld **Policies**.
-
-```shell
-# 1. Enable Masquerading (NAT) on our exit zones so traffic can masquerade out cleanly
-sudo firewall-cmd --permanent --zone=local --add-masquerade
-sudo firewall-cmd --permanent --zone=vpn --add-masquerade
-
-# 2. Explicitly grant VPN clients landing on 'vpn' permission to forward packets 
-# out through your physical home gateway interface sitting in the 'local' zone
-sudo firewall-cmd --permanent --new-policy=vpn-to-lan
-sudo firewall-cmd --permanent --policy=vpn-to-lan --add-ingress-zone=vpn
-sudo firewall-cmd --permanent --policy=vpn-to-lan --add-egress-zone=local
-sudo firewall-cmd --permanent --policy=vpn-to-lan --set-target=ACCEPT
-
-# 3. Create a policy allowing physical LAN devices to explicitly initialize connections back to VPN peers
-sudo firewall-cmd --permanent --new-policy=lan-to-vpn
-sudo firewall-cmd --permanent --policy=lan-to-vpn --add-ingress-zone=local
-sudo firewall-cmd --permanent --policy=lan-to-vpn --add-egress-zone=vpn
-sudo firewall-cmd --permanent --policy=lan-to-vpn --set-target=ACCEPT
-
-# 4. Create an inter-zone policy explicitly allowing your isolated Docker subnets 
-# to forward tracking packets out through your public WAN/LAN interfaces.
-sudo firewall-cmd --permanent --new-policy=docker-to-any
-sudo firewall-cmd --permanent --policy=docker-to-any --add-ingress-zone=docker
-sudo firewall-cmd --permanent --policy=docker-to-any --add-egress-zone=local
-sudo firewall-cmd --permanent --policy=docker-to-any --add-egress-zone=vpn
-sudo firewall-cmd --permanent --policy=docker-to-any --set-target=ACCEPT
-```
-
-**Step 6: Apply and Validate Settings**
-
-Reload the running configurations into the kernel memory and inspect your work:
-
-```shell
-# Force firewalld to parse all changes into production tables
-sudo firewall-cmd --reload
-
-# Output active run-time configurations for verification
 sudo firewall-cmd --get-active-zones
-sudo firewall-cmd --zone=local --list-all
 sudo firewall-cmd --zone=vpn --list-all
-sudo firewall-cmd --zone=docker --list-all
 ```
 
-### 3. 🔒 WireGuard VPN Setup
+### 3\. 🛰️ Headscale VPN (Tailscale control plane)
 
-This guide sets up a WireGuard VPN, allowing secure remote access to your server and local network assets.
+Headscale is the self-hosted Tailscale **control server**, published at `https://vpn.<your-hostname>` (default `HEADSCALE_SERVICE_NAME=vpn`). Clients use the official Tailscale app and sign in via **Authentik OIDC**. A `headscale-router` container advertises your LAN subnet so remote devices can reach home services, and an **embedded DERP relay** replaces Tailscale's public relays entirely. The containers, config, and OIDC secrets are all handled by `python3 setup.py setup` — nothing to install on the host beyond what Ansible already did.
 
-**Step 1: Generate Keys**
+**After the stack is up:**
 
-WireGuard uses public-key cryptography for security. We need to generate a private and public key for the server and for each client (peer) that connects.
+1. Open `https://vpn.<your-hostname>` — enrollment uses Authentik.
+2. On phones/laptops, install Tailscale and set the login / control server to that same URL.
+3. Sign in with your Authentik account (`homelab-users` / `homelab-admins`).
+4. Confirm LAN reachability (e.g. ping `10.10.10.10` or open `https://dashboard.<hostname>`).
 
-1. Navigate to the WireGuard directory and set secure file permissions:
+#### Split-horizon DNS (keep everything else off the internet)
 
-```shell
-sudo -i
-cd /etc/wireguard
-umask 077
-```
+The whole point of the VPN is that services are **not** reachable from the internet — only the Headscale endpoint is. This is enforced at three layers:
 
-2. Generate the server's cryptographic key pair:
+* **Public DNS (Cloudflare):** create a **single** `A` record `vpn.<your-hostname>` pointing at your public IP, kept current by `ddclient`. Set it **DNS-only (grey cloud)** — the Cloudflare proxy would break Tailscale's WebSocket/DERP/STUN traffic. Do **not** publish any other `*.<your-hostname>` record. Point `ddclient` at this record (edit `ddclient/volumes/ddclient.conf`).
+* **Internal DNS (Pi-hole/Unbound):** `*.<your-hostname>` resolves to the server's LAN IP (`10.10.10.10`), so on the LAN/VPN every service works normally.
+* **Traefik:** only the Headscale router is bound to the public entrypoint (`websecure-public`, port `8443`). Every other service stays on `websecure` (443). Even if someone sends `dashboard.<your-hostname>` as a Host header straight to your public IP, Traefik answers `404`.
 
-```shell
-wg genkey | tee server.private | wg pubkey > server.public
-```
+#### Home router configuration (manual)
 
-3. Generate a key pair for each client (e.g., for `my-phone`). Repeat this step for every external device you intend to provision:
+* **DHCP reservation** for the server so its LAN IP never changes.
+* **Static route**: destination `HEADSCALE_IPV4_PREFIX` (default `100.64.0.0/24`) via the server's LAN IP. The subnet router runs with SNAT disabled, so this return route is required for VPN ↔ LAN traffic in both directions.
+* **Port forwards** to the server's LAN IP (these are the *only* ports the internet can reach):
 
-```shell
-wg genkey | tee my-phone.private | wg pubkey > my-phone.public
-```
+  | WAN port | → Host port | Purpose |
+  | --- | --- | --- |
+  | `443/tcp` | `8443/tcp` | Headscale control + DERP-over-HTTPS (Traefik public entrypoint) |
+  | `3478/udp` | `3478/udp` | Embedded DERP STUN (NAT traversal / relay fallback) |
+  | `41641/udp` | `41641/udp` | Pinned WireGuard data plane → direct peer connections |
 
-4. View your keys whenever needed using `cat`:
+  With `41641/udp` forwarded the home node has a stable endpoint, so remote-client → LAN traffic is almost always **direct** (no relay). The embedded DERP only handles rendezvous and the rare case where a direct path can't be built. There is **no** dependency on Tailscale's public relays and **no** Cloudflare Tunnel.
 
-```shell
-cat server.public
-```
+* **Docs:** [Headscale](https://headscale.net/) · [Authentik integration](https://integrations.goauthentik.io/networking/headscale/)
 
-**Step 2: Configure the Server**
-
-Because **firewalld** gracefully manages NAT masquerading and forward topologies dynamically at the kernel layer via the policies we built in Section 2, **you no longer need to clog your WireGuard configs with volatile, manual `iptables` rules.**
-
-1. Initialize your configuration file layout:
-
-```shell
-sudo nano /etc/wireguard/wg0.conf
-```
-
-2. Populate the parameters using the keys you generated:
-
-**Example `wg0.conf`:**
-
-```ini
-[Interface]
-# Server's private cryptographic key (from server.private)
-PrivateKey = <PASTE_SERVER_PRIVATE_KEY>
-Address = 10.10.20.1/24
-ListenPort = 51820
-
-# --- PEER 1: MY-PHONE ---
-[Peer]
-# Client's public cryptographic verification key (from my-phone.public)
-PublicKey = <PASTE_MY-PHONE_PUBLIC_KEY>
-# The permanent internal IP allocated to this specific client
-AllowedIPs = 10.10.20.13/32
-```
-
-> **ℹ️ Tip**: It is excellent administration practice to align your client's VPN IP configuration with its physical LAN reservation profile. For example, a laptop that sits at `10.10.10.13` while on the home Wi-Fi should be assigned `10.10.20.13` when hitting the encrypted tunnel matrix.
-
-**Step 3: Enable Kernel IP Forwarding**
-
-For network traffic to transition smoothly between your VPN clients, local interfaces, and outside internet nodes, the underlying Linux system must have packet routing authorized.
-
-* Commit a permanent kernel parameter configuration baseline:
-
-```shell
-echo "net.ipv4.ip_forward=1" | sudo tee /etc/sysctl.d/40-ipv4-forward.conf
-```
-
-**Step 4: Configure Your Network Router**
-
-1. **Port Forwarding:** Inside your master edge router's interface configuration panel, forward **UDP port 51820** straight to the fixed local static IP address of this server (e.g., `10.10.10.10`).
-2. **DHCP Reservation:** Lock down your server's MAC address to a permanent lease layout inside your home router so its primary routing pathing coordinates can never shift on a reboot cycle.
-3. **Static Routing:** Add a static network route entry to your primary router instructing it to point all traffic bound for the VPN client subnet (`10.10.20.0/24`) straight to this server's LAN IP address (`10.10.10.10`) as the definitive next-hop node.
-
-**Step 5: Associate the Dynamic WireGuard Interface to Firewalld**
-
-We want firewalld to automatically catch the `wg0` interface when it initializes and map it to our secure policies.
-
-```shell
-# Instruct firewalld to permanently treat wg0 and its subnet as part of the public gateway zone
-sudo firewall-cmd --permanent --zone=public --add-interface=wg0
-sudo firewall-cmd --permanent --zone=public --add-source=10.10.20.0/24
-sudo firewall-cmd --reload
-```
-
-**Step 6: Start and Enable the Service Engine**
-
-Apply the core kernel settings and initialize your runtime interface:
-
-```shell
-# Force the system to reload network parameter hooks from sysctl configuration files
-sudo sysctl --system
-
-# Start your newly optimized interface and set it to execute on system boot
-sudo systemctl enable --now wg-quick@wg0
-```
-
-* **Docs:** [WireGuard Quickstart 🔗](https://www.wireguard.com/quickstart/)
-
----
-
-### 4\. DNS Configuration
-
-1.  **`dhcpcd.conf`**: Configure `/etc/dhcpcd.conf` to prevent the DHCP client from overwriting your custom DNS settings. See [`./dns/dhcpcd.conf`](../dns/dhcpcd.conf) as an example.
-2.  **`resolv.conf`**: Configure `/etc/resolv.conf` to prioritize the local Pi-hole resolver while providing a backup DNS for when Pi-hole is not running. See [`./dns/resolv.conf`](../dns/resolv.conf) as an example.
-3.  **`resolved.conf`**: Configure `/etc/systemd/resolved.conf` to disable the systemd stub listener on port 53. This is necessary to free up port 53 so that Pi-hole can use it to answer DNS queries. See [`./dns/resolved.conf`](../dns/resolved.conf) as an example.
-
-Apply changes with these commands.
-
-```shell
-# Restarts the systemd service that handles DNS resolution
-sudo systemctl restart systemd-resolved.service
-
-# Restarts the DHCP client daemon to apply its new configuration
-sudo systemctl restart dhcpcd.service
-```
-
-### 5. Additional Shell Configurations (Optional)
+### 4\. Additional Shell Configurations (Optional)
 
 Follow these steps to add additional functionality to your shell.
 

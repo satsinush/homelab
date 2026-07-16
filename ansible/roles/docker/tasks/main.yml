@@ -1,0 +1,11 @@
+- name: Enable docker
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Add homelab user to docker group
+  ansible.builtin.user:
+    name: "{{ homelab_user }}"
+    groups: docker
+    append: true

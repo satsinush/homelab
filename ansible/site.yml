@@ -1,0 +1,37 @@
+# Provision the homelab host (Arch Linux). App-level bootstrap (Authentik
+# blueprints, Gotify apps, SFTPGo users, Headscale OIDC, secrets) stays in
+# `python3 setup.py setup`.
+- name: Provision homelab host
+  hosts: homelab
+  pre_tasks:
+    - name: Validate required host inventory
+      ansible.builtin.assert:
+        that:
+          - ansible_user is defined
+          - lan_interface is defined
+          - lan_subnet is defined
+          - vpn_interface is defined
+          - vpn_subnet is defined
+          - docker_subnet is defined
+        fail_msg: >-
+          Define the remote user and network values for this host in
+          ansible/inventory.yml; start from inventory.example.yml.
+
+    - name: Read the remote login user's account
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ ansible_user }}"
+
+    - name: Derive deployment user and directory
+      ansible.builtin.set_fact:
+        homelab_user: "{{ ansible_user }}"
+        homelab_dir: "{{ ansible_facts.getent_passwd[ansible_user][4] }}/homelab"
+
+  roles:
+    - packages
+    - firewalld   # firewall first so the new SSH port is open before sshd restarts
+    - ssh
+    - docker
+    - vpn
+    - dns
+    - deploy

@@ -7,11 +7,13 @@ Before you begin, ensure your device is up to date and that the following packag
 ```shell
 # Install core dependencies
 sudo pacman -Syu
-sudo pacman -S apache docker jq lm_sensors arp-scan wireguard-tools nodejs npm git docker-compose docker-buildx argon2 restic acl --needed
+sudo pacman -S apache docker jq lm_sensors arp-scan nodejs npm git docker-compose docker-buildx argon2 restic acl --needed
 ```
 
   * After installing `lm_sensors`, run `sudo sensors-detect` to initialize sensor data for Netdata to use.
   * The `apache` package is needed for the `htpasswd` utility used by the setup script to create secure password hashes.
+
+Remote VPN access uses **Headscale** (Docker) + the official **Tailscale** client — no host `wireguard-tools` package is required.
 
 ## Next: 2\. ⚙️ Configure and Harden Host
 [Continue to the next section of the guide for detailed instructions on configuring and hardening your host machine.](./2-host-config.md)

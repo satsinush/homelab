@@ -1,0 +1,28 @@
+# docs/1-prerequisites.md
+- name: Full system upgrade (opt-in via run_pacman_upgrade)
+  community.general.pacman:
+    update_cache: true
+    upgrade: true
+  when: run_pacman_upgrade
+
+- name: Install core packages
+  community.general.pacman:
+    update_cache: true
+    state: present
+    name:
+      - apache          # htpasswd used by setup.py
+      - openssh
+      - firewalld
+      - docker
+      - docker-compose
+      - docker-buildx
+      - git
+      - jq
+      - lm_sensors
+      - arp-scan
+      - nodejs
+      - npm
+      - argon2
+      - restic
+      - acl             # setfacl: UID-1000 containers read 0600 secrets
+      - python

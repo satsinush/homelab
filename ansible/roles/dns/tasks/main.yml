@@ -1,0 +1,17 @@
+# Free port 53 for Pi-hole, keep resolv.conf ours.
+# Source files live in the repo's dns/ folder so docs and Ansible share one copy.
+- name: Copy DNS config files
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../dns/{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - { src: resolved.conf, dest: /etc/systemd/resolved.conf }
+    - { src: dhcpcd.conf, dest: /etc/dhcpcd.conf }
+    - { src: resolv.conf, dest: /etc/resolv.conf }
+  when: manage_dns
+  notify:
+    - restart systemd-resolved
+    - restart dhcpcd

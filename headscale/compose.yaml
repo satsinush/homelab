@@ -1,0 +1,88 @@
+# headscale/compose.yaml — self-hosted Tailscale control plane + LAN subnet router
+services:
+  headscale:
+    image: docker.io/headscale/headscale:0.29.2
+    container_name: headscale
+    restart: unless-stopped
+    command: serve
+    read_only: true
+    tmpfs:
+      - /var/run/headscale
+    volumes:
+      - ${PROJECT_ROOT}/headscale/volumes/config:/etc/headscale:ro
+      - ${PROJECT_ROOT}/headscale/volumes/data:/var/lib/headscale
+    environment:
+      SSL_CERT_FILE: /etc/headscale/ca-bundle.crt
+    secrets:
+      - headscale_oidc_secret
+    # Embedded DERP STUN — self-hosted NAT traversal (router forwards WAN 3478/udp).
+    ports:
+      - "3478:3478/udp"
+    extra_hosts:
+      - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.headscale.rule=Host(`${HEADSCALE_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
+      # Reachable internally (websecure/443) AND from the internet-forwarded
+      # public entrypoint (websecure-public/8443). No other service is on 8443.
+      - "traefik.http.routers.headscale.entrypoints=websecure,websecure-public"
+      - "traefik.http.routers.headscale.tls=true"
+      - "traefik.http.services.headscale.loadbalancer.server.port=8080"
+    healthcheck:
+      test: ["CMD", "headscale", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      authentik-server:
+        condition: service_started
+
+  # Host-network Tailscale node that advertises the LAN so remote clients can
+  # reach 10.x devices. Auth key is written by headscale/setup.py postsetup.
+  headscale-router:
+    image: docker.io/tailscale/tailscale:v1.86.2
+    container_name: headscale-router
+    # Started by Headscale postsetup after it creates the pre-auth key.
+    profiles: ["headscale-router"]
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      # containerboot supports file:/path for Docker secrets
+      TS_AUTHKEY: file:/run/secrets/headscale_router_authkey
+      TS_AUTH_ONCE: "true"
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "false"
+      TS_LOGIN_SERVER: https://${HEADSCALE_SERVICE_NAME}.${HOMELAB_HOSTNAME}
+      TS_HOSTNAME: homelab-router
+      # No SNAT: preserves tailnet source IPs and permits true bidirectional
+      # routing. The LAN gateway needs HEADSCALE_IPV4_PREFIX via this host.
+        # Pin the WireGuard data-plane port so the router can forward WAN
+        # 41641/udp here for direct (non-relayed) peer connections.
+        TS_EXTRA_ARGS: --advertise-routes=${LAN_SUBNET} --accept-routes --accept-dns=false --snat-subnet-routes=false --port=41641
+      TS_ACCEPT_DNS: "false"
+    volumes:
+      - ${PROJECT_ROOT}/headscale/volumes/router:/var/lib/tailscale
+      - ${PROJECT_ROOT}/headscale/volumes/config/ca-bundle.crt:/etc/ssl/certs/ca-certificates.crt:ro
+    secrets:
+      - headscale_router_authkey
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    depends_on:
+      headscale:
+        condition: service_healthy
+
+secrets:
+  headscale_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/headscale_oidc_secret
+  headscale_router_authkey:
+    file: ${PROJECT_ROOT}/volumes/secrets/headscale_router_authkey
+
+networks:
+  homelab-net:
+    external: true

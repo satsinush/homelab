@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<service>
+  <short>headscale-public</short>
+  <description>Internet-forwarded Headscale ports: control/DERP via Traefik public entrypoint (8443/tcp), embedded DERP STUN (3478/udp), and the Tailscale subnet-router data plane (41641/udp).</description>
+  <port protocol="tcp" port="8443"/>
+  <port protocol="udp" port="3478"/>
+  <port protocol="udp" port="41641"/>
+</service>

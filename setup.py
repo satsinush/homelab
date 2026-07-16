@@ -3,11 +3,78 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import os
 import re
 import shutil
 import subprocess
 import sys
+
+
+def _parse_ipv4_network(value: str) -> ipaddress.IPv4Network | None:
+    """IPv4-only CIDR parse (IPv6 raises ValueError in IPv4Network)."""
+    try:
+        return ipaddress.IPv4Network(value, strict=True)
+    except ValueError:
+        return None
+
+
+def _validate_ipv4_cidr(value: str) -> str | None:
+    if _parse_ipv4_network(value) is None:
+        return "Use an IPv4 network in CIDR form, e.g. 10.10.10.0/24"
+    return None
+
+
+def _validate_docker_subnet(value: str) -> str | None:
+    network = _parse_ipv4_network(value)
+    if network is None:
+        return "Use an IPv4 network in CIDR form, e.g. 10.10.10.0/24"
+    if network.num_addresses < 128:
+        return "Use /25 or larger so the reserved Traefik address fits."
+    return None
+
+
+def _validate_headscale_prefix(value: str) -> str | None:
+    network = _parse_ipv4_network(value)
+    if network is None:
+        return "Use an IPv4 network in CIDR form, e.g. 10.10.10.0/24"
+    if not network.subnet_of(ipaddress.IPv4Network("100.64.0.0/10")):
+        return "Headscale addresses must be inside Tailscale's 100.64.0.0/10 range."
+    return None
+
+
+def _traefik_ip_for_subnet(subnet: str) -> str:
+    network = ipaddress.IPv4Network(subnet)
+    return str(network.network_address + 100)
+
+
+def _ensure_docker_network(env: dict) -> None:
+    from setup_utils import run_cmd
+
+    subnet = env.get("DOCKER_SUBNET") or "10.10.30.0/24"
+    current = run_cmd(
+        [
+            "docker",
+            "network",
+            "inspect",
+            "homelab-net",
+            "--format",
+            "{{(index .IPAM.Config 0).Subnet}}",
+        ],
+        shell=False,
+        check=False,
+    )
+    if current:
+        if current != subnet:
+            raise RuntimeError(
+                f"homelab-net already uses {current}, but DOCKER_SUBNET={subnet}. "
+                "Stop the stack and recreate that Docker network before changing subnets."
+            )
+        return
+    run_cmd(
+        ["docker", "network", "create", "homelab-net", "--subnet", subnet],
+        shell=False,
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -310,6 +377,23 @@ def ensure_env_file() -> dict:
 
     dns_domain = hostname.split(".", 1)[1] if "." in hostname else hostname
 
+    print("\n   LAN subnet advertised to remote Tailscale clients (Headscale router):")
+    lan_subnet = prompt_nonempty(
+        "              LAN subnet [10.10.10.0/24]: ",
+        default="10.10.10.0/24",
+        validate=_validate_ipv4_cidr,
+    )
+    docker_subnet = prompt_nonempty(
+        "           Docker subnet [10.10.30.0/24]: ",
+        default="10.10.30.0/24",
+        validate=_validate_docker_subnet,
+    )
+    headscale_prefix = prompt_nonempty(
+        "   Headscale VPN prefix [100.64.0.0/24]: ",
+        default="100.64.0.0/24",
+        validate=_validate_headscale_prefix,
+    )
+
     os.makedirs("./volumes/secrets", exist_ok=True)
     os.chmod("./volumes/secrets", 0o700)
 
@@ -361,13 +445,19 @@ def ensure_env_file() -> dict:
     print(f"   Detected locale: {language} / {locale} (from host LANG or TZ={tz})")
 
     os.environ["DASHBOARD_SERVICE_NAME"] = "dashboard"
-    os.environ["PIHOLE_SERVICE_NAME"] = "pihole"
-    os.environ["DOCKHAND_SERVICE_NAME"] = "dockhand"
-    os.environ["VAULTWARDEN_SERVICE_NAME"] = "vaultwarden"
-    os.environ["GATUS_SERVICE_NAME"] = "gatus"
-    os.environ["GOTIFY_SERVICE_NAME"] = "gotify"
-    os.environ["AUTHENTIK_SERVICE_NAME"] = "authentik"
-    os.environ["DAV_SERVICE_NAME"] = "dav"
+    os.environ["PIHOLE_SERVICE_NAME"] = "dns"
+    os.environ["DOCKHAND_SERVICE_NAME"] = "docker"
+    os.environ["VAULTWARDEN_SERVICE_NAME"] = "vault"
+    os.environ["GATUS_SERVICE_NAME"] = "status"
+    os.environ["GOTIFY_SERVICE_NAME"] = "notify"
+    os.environ["AUTHENTIK_SERVICE_NAME"] = "auth"
+    os.environ["DAV_SERVICE_NAME"] = "webdav"
+    os.environ["HEADSCALE_SERVICE_NAME"] = "vpn"
+    os.environ["HEADSCALE_BASE_DOMAIN"] = f"ts.{dns_domain}"
+    os.environ["LAN_SUBNET"] = lan_subnet
+    os.environ["DOCKER_SUBNET"] = docker_subnet
+    os.environ["TRAEFIK_IP_ADDRESS"] = _traefik_ip_for_subnet(docker_subnet)
+    os.environ["HEADSCALE_IPV4_PREFIX"] = headscale_prefix
 
     content = substitute_env_vars(content)
     with open(".env", "w", encoding="utf-8") as f:
@@ -390,8 +480,15 @@ def ensure_bootstrap_and_locale(env: dict) -> dict:
     os.makedirs("./volumes/secrets", exist_ok=True)
     os.chmod("./volumes/secrets", 0o700)
 
+    docker_subnet = env.get("DOCKER_SUBNET") or "10.10.30.0/24"
     for key, default in (
         ("DAV_SERVICE_NAME", "dav"),
+        ("HEADSCALE_SERVICE_NAME", "vpn"),
+        ("HEADSCALE_BASE_DOMAIN", f"ts.{env.get('DNS_DOMAIN') or 'home.arpa'}"),
+        ("LAN_SUBNET", "10.10.10.0/24"),
+        ("DOCKER_SUBNET", docker_subnet),
+        ("TRAEFIK_IP_ADDRESS", _traefik_ip_for_subnet(docker_subnet)),
+        ("HEADSCALE_IPV4_PREFIX", "100.64.0.0/24"),
     ):
         if not env.get(key):
             with open(".env", "a", encoding="utf-8") as f:
@@ -611,7 +708,7 @@ def run_setup() -> None:
     ensure_secrets_container_access()
     load_secrets()
 
-    run_cmd("docker network create homelab-net --subnet 10.10.30.0/24 || true")
+    _ensure_docker_network(env)
 
     print("\n🔨 Building Docker containers...")
     run_cmd("docker compose build", capture=False)
@@ -661,6 +758,7 @@ def run_backup(auto: bool = False) -> None:
         sys.exit(1)
 
     env = load_env(".env")
+    env = ensure_bootstrap_and_locale(env)
     load_secrets()
     os.environ.setdefault("PROJECT_ROOT", os.getcwd())
 
@@ -708,7 +806,7 @@ def run_restore(snapshot: str = "latest") -> None:
     print("\n📁 Re-applying volume permissions via setup()...")
     run_all_setup(services, env)
 
-    run_cmd("docker network create homelab-net --subnet 10.10.30.0/24 || true")
+    _ensure_docker_network(env)
     print("\n🐳 Starting Docker containers...")
     run_cmd("docker compose up -d", capture=False)
 

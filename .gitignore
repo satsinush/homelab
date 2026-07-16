@@ -34,3 +34,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Ansible — host-specific inventory + vaulted secrets stay local
+ansible/inventory.yml
+ansible/vault.yml

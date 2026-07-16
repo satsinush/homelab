@@ -1,0 +1,41 @@
+# Zones local/vpn/docker + forwarding policies as declarative XML.
+- name: Enable firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: true
+    state: started
+
+- name: Define custom services (ssh-custom, rustdesk, samba-homelab, headscale-public)
+  ansible.builtin.template:
+    src: "service-{{ item }}.xml.j2"
+    dest: "/etc/firewalld/services/{{ item }}.xml"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: [ssh-custom, rustdesk, samba-homelab, headscale-public]
+  notify: reload firewalld
+
+- name: Define zones (local, vpn, docker)
+  ansible.builtin.template:
+    src: "zone-{{ item }}.xml.j2"
+    dest: "/etc/firewalld/zones/{{ item }}.xml"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: [local, vpn, docker]
+  notify: reload firewalld
+
+- name: Define forwarding policies (vpn-to-lan, lan-to-vpn, docker-to-any)
+  ansible.builtin.template:
+    src: "policy-{{ item }}.xml.j2"
+    dest: "/etc/firewalld/policies/{{ item }}.xml"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: [vpn-to-lan, lan-to-vpn, docker-to-any]
+  notify: reload firewalld
+
+# Reload now (not at end of play) so the ssh role can safely restart sshd
+# on the custom port without a lockout window.
+- name: Flush handlers so firewall rules apply before SSH hardening
+  ansible.builtin.meta: flush_handlers

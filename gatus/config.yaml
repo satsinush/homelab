@@ -172,6 +172,16 @@ endpoints:
       - type: custom
         description: "SFTPGo WebDAV is unreachable"
 
+  - name: "Headscale"
+    group: "Infrastructure"
+    url: "http://headscale:8080/health"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Headscale control plane is unreachable"
+
   # ─── NOTIFICATIONS & ALERTS ───
   - name: "Gotify"
     group: "Alerting Pipeline"

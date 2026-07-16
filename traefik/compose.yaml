@@ -7,6 +7,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      # Public entrypoint (Headscale only). Router forwards WAN 443 → 8443.
+      - "8443:8443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${PROJECT_ROOT}/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
@@ -17,7 +19,7 @@ services:
       - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
     networks:
       homelab-net:
-        ipv4_address: 10.10.30.100
+        ipv4_address: ${TRAEFIK_IP_ADDRESS}
     environment:
       # Cloudflare DNS API token — required when TRAEFIK_CERT_RESOLVER=letsencrypt
       - CF_DNS_API_TOKEN_FILE=/secrets/cf_dns_api_token

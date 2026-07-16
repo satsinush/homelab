@@ -53,6 +53,12 @@ entries:
     attrs:
       name: vaultwarden-user
 
+  - model: authentik_rbac.role
+    identifiers:
+      name: headscale-user
+    attrs:
+      name: headscale-user
+
   # =================================================================
   # Groups
   # =================================================================
@@ -76,6 +82,7 @@ entries:
         - !Find [authentik_rbac.role, [name, dashboard-devices-user]]
         - !Find [authentik_rbac.role, [name, dashboard-wordgames-user]]
         - !Find [authentik_rbac.role, [name, vaultwarden-user]]
+        - !Find [authentik_rbac.role, [name, headscale-user]]
 
   # =================================================================
   # Admin User
@@ -164,6 +171,41 @@ entries:
       slug: vaultwarden
       provider: !KeyOf vaultwarden
       icon: icons/vaultwarden_logo.png
+
+  # Headscale (Tailscale control plane — OIDC device enrollment)
+  - model: authentik_providers_oauth2.oauth2provider
+    id: headscale
+    identifiers:
+      name: headscale
+    attrs:
+      name: headscale
+      client_id: headscale
+      client_secret: !File /run/secrets/headscale_oidc_secret
+      client_type: confidential
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      # Leave encryption_key unset — Headscale does not support JWE id_tokens.
+      grant_types:
+        - authorization_code
+        - refresh_token
+      redirect_uris:
+        - url: !Format ["https://%s.%s/oidc/callback", !Env HEADSCALE_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !KeyOf scope-email
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !KeyOf scope-groups
+
+  - model: authentik_core.application
+    identifiers:
+      slug: headscale
+    attrs:
+      name: Headscale
+      slug: headscale
+      provider: !KeyOf headscale
+      meta_launch_url: !Format ["https://%s.%s", !Env HEADSCALE_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
 
   # Homelab Dashboard
   - model: authentik_providers_oauth2.oauth2provider
@@ -318,6 +360,21 @@ entries:
   - model: authentik_policies.policybinding
     identifiers:
       target: !Find [authentik_core.application, [slug, vaultwarden]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 1
+
+  # Headscale VPN enrollment
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, headscale]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
+    attrs:
+      order: 0
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, headscale]]
       group: !Find [authentik_core.group, [name, homelab-admins]]
     attrs:
       order: 1

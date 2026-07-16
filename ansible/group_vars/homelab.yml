@@ -1,0 +1,24 @@
+# Defaults and policy shared by all homelab hosts.
+# Host identity and network topology belong in inventory.yml.
+# Secrets belong in an ansible-vault file, not here.
+
+# --- SSH hardening ---
+ssh_port: 2222
+
+# --- Service ports ---
+host_api_port: 5001
+
+# --- Headscale / Tailscale ---
+# Control plane runs in Docker; host role only enables forwarding + TUN.
+# VPN zone matches the Tailscale interface created by headscale-router.
+headscale_service_name: vpn
+
+# --- DNS (frees port 53 for Pi-hole) ---
+manage_dns: true
+dns_fallback: 8.8.8.8
+
+# --- Deploy ---
+# Repo is expected at {{ homelab_dir }} (clone it yourself or set a URL).
+homelab_repo_url: ""            # e.g. git@github.com:you/homelab.git; empty = don't clone
+compose_up: true                # run docker compose up -d --remove-orphans
+run_pacman_upgrade: false       # set true to pacman -Syu during the packages role

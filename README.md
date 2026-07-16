@@ -42,6 +42,7 @@ This project bundles several open-source services, managed via `docker-compose`,
   * **🌐 ddclient**: Dynamic DNS client to keep your domain pointed to your IP.
   * **🖥️ RustDesk**: Self-hosted remote desktop (ID + relay).
   * **📁 Samba + WebDAV**: LAN SMB and HTTPS WebDAV (SFTPGo) share local passwords in `samba/volumes/config/accounts.env` on `./storage/users/` + `./storage/shared/`.
+  * **🛰️ Headscale**: Self-hosted Tailscale control plane with Authentik OIDC sign-in; subnet router exposes the LAN to remote clients.
   * **🔐 Vaultwarden**: Self-hosted password manager.
 
 ### Infrastructure Diagram
@@ -62,8 +63,8 @@ graph TD
         LocalClient[💻 Local Devices]
 
         subgraph Server[🖥️ Homelab Server]
-            WireGuard[🔒 WireGuard VPN]
-            UFW[🛡️ UFW Firewall]
+            Headscale[🛰️ Headscale]
+            Firewall[🛡️ firewalld]
 
             subgraph Docker[🐳 Docker Network]
                 Traefik[🔀 Traefik Reverse Proxy]
@@ -71,11 +72,10 @@ graph TD
                 Vaultwarden[🔐 Vaultwarden]
                 Samba[📁 Samba SMB]
                 WebDAV[📂 SFTPGo WebDAV]
-                Portainer[📦 Portainer]
+                Dockhand[📦 Dockhand]
                 Dashboard[🏠 Homelab Dashboard]
                 Ollama[🤖 Ollama AI]
-                Netdata[📊 Netdata Monitoring]
-                UptimeKuma[📈 Uptime Kuma]
+                Gatus[📈 Gatus]
                 Apprise[🔔 Apprise Gateway]
                 Pihole[🚫 Pi-hole DNS]
                 Unbound[🔎 Unbound DNS Resolver]
@@ -85,34 +85,34 @@ graph TD
     end
 
     %% Entry chain
-    RemoteClient --> Router --> WireGuard --> UFW
-    LocalClient --> UFW
+    RemoteClient -->|Tailscale| Headscale --> Firewall
+    LocalClient --> Firewall
 
     %% DNS chain
     Pihole --> Unbound
-    UFW -->|DNS| Pihole
+    Firewall -->|DNS| Pihole
 
     %% Firewall routes
-    UFW -->|HTTP| Traefik
-    UFW -->|Remote Access| Rustdesk --> LocalClient
+    Firewall -->|HTTP| Traefik
+    Firewall -->|Remote Access| Rustdesk --> LocalClient
 
     %% Proxy/Auth flows
     Traefik --> Authentik
     Traefik --> Vaultwarden
     Traefik --> WebDAV
-    Traefik --> Portainer
+    Traefik --> Dockhand
     Traefik --> Dashboard
-    Traefik --> Netdata
-    Traefik --> UptimeKuma
+    Traefik --> Gatus
+    Traefik --> Headscale
+    Authentik -.->|OIDC| Headscale
 
     %% Dashboard flows
     Dashboard --> Ollama
-    Dashboard --> Netdata
     Dashboard -->|WOL| LocalClient
     Dashboard --> Apprise
 
     %% Notifications
-    UptimeKuma --> Apprise
+    Gatus --> Apprise
     Vaultwarden --> Apprise
 ```
 
@@ -135,15 +135,17 @@ For more info see the [GitHub Docs 🔗](https://docs.github.com/en/get-started/
 
 ### 1\. 📋 Install Host Prerequisites
 
-Before running any configuration scripts, install all base dependencies on your Arch Linux host, including Docker, UFW, and WireGuard tools.
+Before running any configuration scripts, install all base dependencies on your Arch Linux host, including Docker and host tooling.
 
 ➡️ **Follow the detailed instructions here:** **[1. Prerequisites](./docs/1-prerequisites.md)**
 
 ### 2\. ⚙️ Configure and Harden Host
 
-This is the most critical security phase. You will configure SSH key access, set up the UFW firewall rules, and establish the WireGuard VPN tunnel.
+This is the most critical security phase. You will configure SSH key access, set up firewalld rules, and prepare the host for Headscale / Tailscale remote access.
 
 ➡️ **Follow the detailed instructions here:** **[2. Host Machine Configuration](./docs/2-host-config.md)**
+
+> **🅰️ Ansible alternative:** Steps 1 and 2 (packages, firewall, SSH, Docker, VPN host prep, host DNS) can be applied automatically with the playbook in [`ansible/`](./ansible/README.md). App setup below still uses `setup.py`.
 
 ### 3\. 🚀 Deploy the Services
 

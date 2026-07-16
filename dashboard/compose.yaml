@@ -16,7 +16,7 @@ services:
       - homelab-net
     extra_hosts:
       - "host.docker.internal:host-gateway"
-      - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:10.10.30.100"
+      - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
     environment:
       - HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
       - HOMELAB_USERNAME=${HOMELAB_USERNAME}
