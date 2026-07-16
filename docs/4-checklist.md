@@ -35,7 +35,7 @@ Cert file: [`./volumes/certificates/homelab-ca.crt`](../volumes/certificates/)
 - [ ] Sign in at `https://authentik.<your-hostname>`
 - [ ] Confirm SSO apps appear (Dashboard, Vaultwarden, Gatus, Dockhand, Gotify, LDAP app, etc.)
 - [ ] Prefer MFA here rather than per-app 2FA where possible
-- [ ] LDAP Outpost: after containers are up, `authentik` postsetup copies the managed outpost token into `volumes/secrets/authentik_ldap_outpost_token` (or Admin → Outposts → LDAP Outpost → View Deployment Info)
+- [ ] LDAP Outpost: after containers are up, `authentik` postsetup copies the managed outpost token into `volumes/secrets/authentik_ldap_outpost_token` (or Admin → Outposts → LDAP Outpost → View Deployment Info). Token file must be readable by container UID 1000 (`acl` package + setup ACLs; if `authentik-ldap` logs Permission denied, re-run setup or `ensure_secrets_container_access`).
 - [x] `ldapservice` has **Search full LDAP directory** on the LDAP provider (blueprint object permission)
 
 ### Homelab Dashboard

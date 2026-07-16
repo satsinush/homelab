@@ -626,6 +626,9 @@ def run_setup() -> None:
     print("\n⚙️  Running per-service postsetup()...")
     run_all_postsetup(services, env)
 
+    # Postsetup may rewrite secrets (e.g. LDAP outpost token); refresh ACLs.
+    ensure_secrets_container_access()
+
     wait_for_containers(timeout=120)
     print("✅ Postsetup containers healthy")
 

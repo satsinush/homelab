@@ -102,6 +102,10 @@ class AuthentikService(Service):
 
         prev = _read_secret("authentik_ldap_outpost_token")
         _write_secret("authentik_ldap_outpost_token", token)
+        # Host-owned 0600 secrets need ACL for Authentik UID 1000 (especially on Pi).
+        from setup_utils import ensure_secrets_container_access
+
+        ensure_secrets_container_access()
         if prev != token:
             print("   ✅ Wrote volumes/secrets/authentik_ldap_outpost_token")
             run_cmd("docker compose up -d --force-recreate authentik-ldap", check=False)
