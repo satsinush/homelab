@@ -49,12 +49,6 @@ entries:
 
   - model: authentik_rbac.role
     identifiers:
-      name: gatus-user
-    attrs:
-      name: gatus-user
-
-  - model: authentik_rbac.role
-    identifiers:
       name: vaultwarden-user
     attrs:
       name: vaultwarden-user
@@ -79,7 +73,6 @@ entries:
       is_superuser: false
       roles:
         - !Find [authentik_rbac.role, [name, dashboard-user]]
-        - !Find [authentik_rbac.role, [name, gatus-user]]
         - !Find [authentik_rbac.role, [name, dashboard-devices-user]]
         - !Find [authentik_rbac.role, [name, dashboard-wordgames-user]]
         - !Find [authentik_rbac.role, [name, vaultwarden-user]]
@@ -293,25 +286,16 @@ entries:
       provider: !KeyOf pihole-proxy
       icon: icons/pi_hole_logo.png
 
-  # Gatus Proxy
-  - model: authentik_providers_proxy.proxyprovider
-    id: gatus-proxy
-    identifiers:
-      name: gatus-proxy
-    attrs:
-      name: gatus-proxy
-      mode: forward_single
-      external_host: !Format ["https://%s.%s", !Env GATUS_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
-      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
-      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
-
+  # Gatus (public status page — no SSO / forward-auth)
   - model: authentik_core.application
     identifiers:
       slug: gatus-app
     attrs:
       name: Gatus
       slug: gatus-app
-      provider: !KeyOf gatus-proxy
+      meta_launch_url: !Format ["https://%s.%s", !Env GATUS_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      open_in_new_tab: true
+      meta_description: Service health status dashboard (unauthenticated)
       icon: icons/gatus_logo.png
 
   # Dockhand Proxy
@@ -359,21 +343,6 @@ entries:
       group: !Find [authentik_core.group, [name, homelab-admins]]
     attrs:
       order: 0
-
-  # Gatus
-  - model: authentik_policies.policybinding
-    identifiers:
-      target: !Find [authentik_core.application, [slug, gatus-app]]
-      group: !Find [authentik_core.group, [name, homelab-users]]
-    attrs:
-      order: 0
-
-  - model: authentik_policies.policybinding
-    identifiers:
-      target: !Find [authentik_core.application, [slug, gatus-app]]
-      group: !Find [authentik_core.group, [name, homelab-admins]]
-    attrs:
-      order: 1
 
   # Dockhand
   - model: authentik_policies.policybinding
@@ -462,7 +431,6 @@ entries:
         authentik_host: !Format ["https://%s.%s/", !Env AUTHENTIK_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
       providers:
         - !Find [authentik_providers_proxy.proxyprovider, [name, pihole-proxy]]
-        - !Find [authentik_providers_proxy.proxyprovider, [name, gatus-proxy]]
         - !Find [authentik_providers_proxy.proxyprovider, [name, dockhand-proxy]]
 
   - model: authentik_outposts.outpost

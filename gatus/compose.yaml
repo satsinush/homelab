@@ -17,7 +17,6 @@ services:
       - "traefik.http.routers.gatus.rule=Host(`${GATUS_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
       - "traefik.http.routers.gatus.entrypoints=websecure"
       - "traefik.http.routers.gatus.tls=true"
-      - "traefik.http.routers.gatus.middlewares=authentik-auth@file"
       - "traefik.http.services.gatus.loadbalancer.server.port=8080"
 
 networks:

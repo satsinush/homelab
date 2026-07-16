@@ -80,7 +80,7 @@ Shared files live under [`./storage/`](../storage/) (gitignored; included in Res
 
 ### Gatus
 
-- [ ] Open `https://gatus.<your-hostname>` via SSO and skim endpoint status
+- [ ] Open `https://gatus.<your-hostname>` (no login — public read-only status page)
 - [ ] Alerts are already wired to Apprise (`http://apprise-api/alerts/gatus`) in [`gatus/config.yaml`](../gatus/config.yaml) — adjust only if you change monitoring
 - [ ] Docs: [Gatus](https://gatus.io/)
 

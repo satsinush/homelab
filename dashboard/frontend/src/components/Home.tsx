@@ -142,7 +142,6 @@ const Home = () => {
             title: 'Gatus',
             description: 'Self-hosted service health status monitoring',
             url: `https://${hostnames.gatus || ''}`,
-            role: 'gatus-user',
             logo: GatusLogo,
             logoAlt: 'Gatus'
         },
