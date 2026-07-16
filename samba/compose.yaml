@@ -13,6 +13,9 @@ services:
       SAMBA_CONF_WORKGROUP: WORKGROUP
       SAMBA_CONF_SERVER_STRING: Homelab NAS
       SAMBA_CONF_LOG_LEVEL: "1"
+      # WebDAV (and host) changes won't break SMB3 dir leases — Windows keeps
+      # ghost folders/files until reconnect. Disable leases for dual-protocol use.
+      SAMBA_CONF_SMB3_DIRECTORY_LEASES: "no"
       # Private per-user home: \\server\username → storage/users/<username>
       SAMBA_VOLUME_CONFIG_homes: >-
         [homes];
