@@ -202,66 +202,6 @@ entries:
       icon: homelab-icon.svg
 
   # =================================================================
-  # LDAP (SFTPGo WebDAV / directory bind)
-  # =================================================================
-  - model: authentik_core.group
-    identifiers:
-      name: ldapsearch
-    attrs:
-      name: ldapsearch
-
-  - model: authentik_core.user
-    id: ldapservice
-    identifiers:
-      username: ldapservice
-    attrs:
-      username: ldapservice
-      name: LDAP Search Service
-      email: ldap@goauthentik.io
-      is_active: true
-      path: users
-      type: service_account
-      password: !File /run/secrets/ldap_bind_password
-      groups:
-        - !Find [authentik_core.group, [name, ldapsearch]]
-
-  - model: authentik_providers_ldap.ldapprovider
-    id: ldap-provider
-    identifiers:
-      name: LDAP
-    attrs:
-      name: LDAP
-      authorization_flow: !Find [authentik_flows.flow, [slug, default-authentication-flow]]
-      invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
-      base_dn: dc=ldap,dc=goauthentik,dc=io
-      # direct avoids stale cached searches after permission/policy changes
-      bind_mode: direct
-      search_mode: direct
-      uid_start_number: 2000
-      gid_start_number: 2000
-      mfa_support: false
-    # Object permission via managed role (user: creates it). Codename must be
-    # app_label.codename — Authentik's assign_perm always splits on '.'.
-    permissions:
-      - permission: authentik_providers_ldap.search_full_directory
-        user: !KeyOf ldapservice
-
-  - model: authentik_core.application
-    id: ldap-app
-    identifiers:
-      slug: ldap
-    attrs:
-      name: LDAP
-      slug: ldap
-      provider: !KeyOf ldap-provider
-      meta_launch_url: blank://blank
-      policy_engine_mode: any
-
-  # Outpost service account + AUTHENTIK_TOKEN are created by Authentik when the
-  # LDAP Outpost object is created. authentik/setup.py postsetup copies that
-  # token into volumes/secrets/authentik_ldap_outpost_token.
-
-  # =================================================================
   # Proxy Providers for Traefik Forward-Auth
   # =================================================================
 
@@ -397,29 +337,6 @@ entries:
     attrs:
       order: 1
 
-  # LDAP open to ldapsearch + all users (directory bind for apps)
-  - model: authentik_policies.policybinding
-    identifiers:
-      target: !Find [authentik_core.application, [slug, ldap]]
-      group: !Find [authentik_core.group, [name, ldapsearch]]
-    attrs:
-      order: 0
-
-  - model: authentik_policies.policybinding
-    identifiers:
-      target: !Find [authentik_core.application, [slug, ldap]]
-      group: !Find [authentik_core.group, [name, homelab-users]]
-    attrs:
-      order: 1
-
-  - model: authentik_policies.policybinding
-    identifiers:
-      target: !Find [authentik_core.application, [slug, ldap]]
-      group: !Find [authentik_core.group, [name, homelab-admins]]
-    attrs:
-      order: 2
-
-
   # =================================================================
   # Outpost Association
   # =================================================================
@@ -432,18 +349,6 @@ entries:
       providers:
         - !Find [authentik_providers_proxy.proxyprovider, [name, pihole-proxy]]
         - !Find [authentik_providers_proxy.proxyprovider, [name, dockhand-proxy]]
-
-  - model: authentik_outposts.outpost
-    identifiers:
-      name: "LDAP Outpost"
-    attrs:
-      name: LDAP Outpost
-      type: ldap
-      providers:
-        - !KeyOf ldap-provider
-      config:
-        authentik_host: !Format ["http://authentik-server:9000"]
-        authentik_host_insecure: true
 
   # Brand styling to match dark dashboard theme
   - model: authentik_brands.brand

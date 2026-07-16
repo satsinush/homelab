@@ -1,20 +1,22 @@
-"""SFTPGo WebDAV — volumes + LDAP bind secret (Authentik LDAP outpost)."""
+"""SFTPGo WebDAV — local users from Samba accounts.env (no Authentik LDAP)."""
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 
+from file_accounts import ACCOUNTS_ENV, read_accounts_env
 from service import Service, VolumeDir
-from setup_utils import gen_secret
-from storage_layout import ensure_all_user_homes, ensure_storage_layout
-
+from storage_layout import ensure_all_user_homes, ensure_storage_layout, ensure_user_home
+from setup_utils import run_cmd
 
 _LEGACY_HOME_PREFIX = "/srv/sftpgo/homes/"
 _USERS_HOME_PREFIX = "/srv/sftpgo/storage/users/"
+LOADDATA_PATH = "./sftpgo/volumes/config/loaddata.json"
+SHARED_GROUP = "file-users"
 
 
 def _migrate_legacy_home_dirs() -> None:
-    """Point LDAP-created users still on /homes at /storage/users."""
     db_path = "./sftpgo/volumes/data/sftpgo.db"
     if not os.path.isfile(db_path):
         return
@@ -39,10 +41,83 @@ def _migrate_legacy_home_dirs() -> None:
         print(f"   ⚠️  Could not migrate SFTPGo home dirs: {exc}")
 
 
+def write_sftpgo_loaddata(accounts: dict[str, tuple[str, str, str]] | None = None) -> str:
+    """Generate loaddata.json: shared folder + local users from accounts.env."""
+    if accounts is None:
+        accounts = read_accounts_env()
+    puid = int(os.environ.get("PUID") or "1000")
+    pgid = int(os.environ.get("PGID") or "1000")
+
+    users = []
+    for username, (password, _uid, _gid) in sorted(accounts.items()):
+        ensure_user_home(username, puid, pgid)
+        users.append(
+            {
+                "status": 1,
+                "username": username,
+                "password": password,
+                "home_dir": f"{_USERS_HOME_PREFIX}{username}",
+                "permissions": {"/": ["*"]},
+                "groups": [{"name": SHARED_GROUP, "type": 2}],
+            }
+        )
+
+    payload = {
+        "users": users,
+        "folders": [
+            {
+                "name": "shared",
+                "mapped_path": "/srv/sftpgo/storage/shared",
+                "description": "Shared storage for all file-access users",
+                "filesystem": {"provider": 0},
+            }
+        ],
+        "groups": [
+            {
+                "name": SHARED_GROUP,
+                "description": "All Samba/WebDAV users — /shared virtual folder",
+                "virtual_folders": [
+                    {
+                        "name": "shared",
+                        "virtual_path": "/shared",
+                        "quota_size": 0,
+                        "quota_files": 0,
+                    }
+                ],
+            }
+        ],
+        "version": 17,
+    }
+
+    os.makedirs(os.path.dirname(LOADDATA_PATH), exist_ok=True)
+    with open(LOADDATA_PATH, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+        f.write("\n")
+    try:
+        os.chmod(LOADDATA_PATH, 0o600)
+    except OSError:
+        pass
+    return LOADDATA_PATH
+
+
+def sync_sftpgo_from_accounts(*, recreate: bool = True) -> None:
+    """Regenerate loaddata from accounts.env and optionally recreate SFTPGo."""
+    accounts = read_accounts_env()
+    path = write_sftpgo_loaddata(accounts)
+    print(f"   ✅ Wrote SFTPGo loaddata ({len(accounts)} user(s)) → {path}")
+    if recreate and accounts:
+        run_cmd(
+            "docker compose up -d --force-recreate sftpgo",
+            check=False,
+        )
+        print("   ✅ Recreated sftpgo to load local WebDAV users")
+
+
 class SftpgoService(Service):
     name = "sftpgo"
     volume_dirs = [
         VolumeDir("./sftpgo/volumes/data", mode=0o755),
+        VolumeDir("./sftpgo/volumes/config", mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:
@@ -53,12 +128,20 @@ class SftpgoService(Service):
         ensure_storage_layout(puid, pgid)
         ensure_all_user_homes(puid, pgid)
         _migrate_legacy_home_dirs()
-        # Shared with Authentik blueprint: cn=ldapservice bind password
-        gen_secret("ldap_bind_password", 32)
-        print("   ✅ SFTPGo volumes + ldap_bind_password ready")
-        print("   ℹ️  WebDAV / = storage/users/<user>  (private)")
-        print("   ℹ️  WebDAV /shared = storage/shared (Authentik homelab-* group)")
-        print("   ℹ️  Obsidian Remotely Save: https://dav.<hostname>/ (Authentik password)")
+        accounts = read_accounts_env()
+        write_sftpgo_loaddata(accounts)
+        if accounts:
+            print(
+                f"   ✅ WebDAV users from {ACCOUNTS_ENV} "
+                f"({len(accounts)}): {', '.join(sorted(accounts))}"
+            )
+        else:
+            print(
+                f"   ⚠️  No accounts in {ACCOUNTS_ENV} yet — "
+                "run Samba setup (same file feeds WebDAV)"
+            )
+        print("   ℹ️  WebDAV / = private home; /shared = storage/shared")
+        print("   ℹ️  Password = Samba file password (≠ Authentik)")
 
 
 service = SftpgoService()

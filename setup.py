@@ -619,14 +619,13 @@ def run_setup() -> None:
     print("\n🐳 Starting Docker containers...")
     run_cmd("docker compose up -d", capture=False)
 
-    # authentik-ldap stays unhealthy until postsetup writes the real outpost token
-    wait_for_containers(exclude={"authentik-ldap"})
+    wait_for_containers()
     print("✅ Docker containers started")
 
     print("\n⚙️  Running per-service postsetup()...")
     run_all_postsetup(services, env)
 
-    # Postsetup may rewrite secrets (e.g. LDAP outpost token); refresh ACLs.
+    # Postsetup may rewrite secrets (e.g. notification tokens); refresh ACLs.
     ensure_secrets_container_access()
 
     wait_for_containers(timeout=120)
@@ -718,7 +717,7 @@ def run_restore(snapshot: str = "latest") -> None:
     print("\n♻️  Running per-service restore() hooks...")
     run_all_restore(services, env)
 
-    wait_for_containers(exclude={"authentik-ldap"})
+    wait_for_containers()
     print("\n⚙️  Running per-service postsetup()...")
     run_all_postsetup(services, env)
     wait_for_containers(timeout=120)

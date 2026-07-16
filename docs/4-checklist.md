@@ -33,10 +33,8 @@ Cert file: [`./volumes/certificates/homelab-ca.crt`](../volumes/certificates/)
 ### Authentik
 
 - [ ] Sign in at `https://authentik.<your-hostname>`
-- [ ] Confirm SSO apps appear (Dashboard, Vaultwarden, Gatus, Dockhand, Gotify, LDAP app, etc.)
+- [ ] Confirm SSO apps appear (Dashboard, Vaultwarden, Gatus, Dockhand, Gotify, etc.)
 - [ ] Prefer MFA here rather than per-app 2FA where possible
-- [ ] LDAP Outpost: after containers are up, `authentik` postsetup copies the managed outpost token into `volumes/secrets/authentik_ldap_outpost_token` (or Admin → Outposts → LDAP Outpost → View Deployment Info). Token file must be readable by container UID 1000 (`acl` package + setup ACLs; if `authentik-ldap` logs Permission denied, re-run setup or `ensure_secrets_container_access`).
-- [x] `ldapservice` has **Search full LDAP directory** on the LDAP provider (blueprint object permission)
 
 ### Homelab Dashboard
 
@@ -61,15 +59,15 @@ Shared files live under [`./storage/`](../storage/) (gitignored; included in Res
 
 | Access | URL / path | Password |
 | --- | --- | --- |
-| **SMB (LAN)** | `\\<HOMELAB_IP>\<username>` or `\\<IP>\shared` | **Samba-local** (`samba/volumes/config/accounts.env`) — not Authentik |
-| **WebDAV** | `https://dav.<your-hostname>/` | **Authentik** username + password (LDAP) |
+| **SMB (LAN)** | `\\<HOMELAB_IP>\<username>` or `\\<IP>\shared` | Shared file password (`samba/volumes/config/accounts.env`) |
+| **WebDAV** | `https://dav.<your-hostname>/` | **Same** file password (SFTPGo loads from that accounts file) |
 
 - [ ] Open firewall for SMB: `445/tcp` on local + vpn zones (see [host config](./2-host-config.md)). On Docker Desktop/WSL, Samba is published as `4445` (Windows already owns `445`); **Windows Explorer cannot open `\\host:4445\…`** — use WebDAV from Windows, or SMB clients that allow a custom port. Pi uses real `445`.
-- [ ] Confirm Samba user(s) exist (`samba/volumes/config/accounts.env`) and dirs under `storage/users/` + `storage/shared/`
-- [ ] New person checklist: Authentik account (WebDAV works on first login) → optional Samba user if they need LAN SMB
-- [ ] **Obsidian Remotely Save:** server `https://dav.<your-hostname>/`, Authentik credentials; vault under private home; shared files at `/shared`
+- [ ] Confirm file-access user(s) exist (`samba/volumes/config/accounts.env`) and dirs under `storage/users/` + `storage/shared/`
+- [ ] New person checklist: Authentik account (SSO) → file-access user in `accounts.env` (SMB + WebDAV)
+- [ ] **Obsidian / WebDAV Sync:** server `https://dav.<your-hostname>/`, **file-access** credentials (not Authentik); vault under private home; shared files at `/shared`
 - [ ] Optional migrate former Nextcloud files: `nextcloud/volumes/html/data/<user>/files/` → `storage/users/<user>/`, then remove leftover `nextcloud/volumes/`
-- [ ] Docs: [Samba](https://www.samba.org/) · [SFTPGo](https://docs.sftpgo.com/) · [Authentik LDAP](https://docs.goauthentik.io/add-secure-apps/providers/ldap/)
+- [ ] Docs: [Samba](https://www.samba.org/) · [SFTPGo](https://docs.sftpgo.com/)
 
 ### Gotify / Apprise
 

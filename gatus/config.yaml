@@ -172,16 +172,6 @@ endpoints:
       - type: custom
         description: "SFTPGo WebDAV is unreachable"
 
-  - name: "Authentik LDAP"
-    group: "Infrastructure"
-    url: "tcp://authentik-ldap:3389"
-    interval: 30s
-    conditions:
-      - "[CONNECTED] == true"
-    alerts:
-      - type: custom
-        description: "Authentik LDAP outpost is unreachable"
-
   # ─── NOTIFICATIONS & ALERTS ───
   - name: "Gotify"
     group: "Alerting Pipeline"

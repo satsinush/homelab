@@ -81,8 +81,6 @@ services:
       - homelab_password
       - vaultwarden_oidc_secret
       - dashboard_oidc_secret
-      - ldap_bind_password
-      - authentik_ldap_outpost_token
     networks:
       - homelab-net
     labels:
@@ -153,8 +151,6 @@ services:
       - homelab_password
       - vaultwarden_oidc_secret
       - dashboard_oidc_secret
-      - ldap_bind_password
-      - authentik_ldap_outpost_token
     networks:
       - homelab-net
     depends_on:
@@ -162,27 +158,6 @@ services:
         condition: service_healthy
       authentik-redis:
         condition: service_healthy
-
-  authentik-ldap:
-    image: ghcr.io/goauthentik/ldap:${AUTHENTIK_TAG:-2026.5.3}
-    container_name: authentik-ldap
-    restart: unless-stopped
-    entrypoint: ["/bin/sh", "/ldap_entrypoint.sh"]
-    environment:
-      AUTHENTIK_HOST: http://authentik-server:9000
-      AUTHENTIK_INSECURE: "true"
-    secrets:
-      - authentik_ldap_outpost_token
-    volumes:
-      - ${PROJECT_ROOT}/authentik/ldap_entrypoint.sh:/ldap_entrypoint.sh:ro
-    networks:
-      - homelab-net
-    depends_on:
-      authentik-server:
-        condition: service_healthy
-    expose:
-      - "3389"
-      - "6636"
 
 secrets:
   authentik_pg_pass:
@@ -197,10 +172,6 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_oidc_secret
   dashboard_oidc_secret:
     file: ${PROJECT_ROOT}/volumes/secrets/dashboard_oidc_secret
-  ldap_bind_password:
-    file: ${PROJECT_ROOT}/volumes/secrets/ldap_bind_password
-  authentik_ldap_outpost_token:
-    file: ${PROJECT_ROOT}/volumes/secrets/authentik_ldap_outpost_token
 
 networks:
   homelab-net:

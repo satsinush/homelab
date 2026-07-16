@@ -41,7 +41,7 @@ This project bundles several open-source services, managed via `docker-compose`,
   * **🚫 Pi-hole & Unbound**: Network-wide ad-blocking and recursive DNS.
   * **🌐 ddclient**: Dynamic DNS client to keep your domain pointed to your IP.
   * **🖥️ RustDesk**: Self-hosted remote desktop (ID + relay).
-  * **📁 Samba + WebDAV**: LAN SMB (local passwords) and HTTPS WebDAV via SFTPGo (Authentik LDAP) on `./storage/users/` + `./storage/shared/`.
+  * **📁 Samba + WebDAV**: LAN SMB and HTTPS WebDAV (SFTPGo) share local passwords in `samba/volumes/config/accounts.env` on `./storage/users/` + `./storage/shared/`.
   * **🔐 Vaultwarden**: Self-hosted password manager.
 
 ### Infrastructure Diagram

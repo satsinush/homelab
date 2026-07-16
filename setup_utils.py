@@ -296,8 +296,7 @@ def network_curl(network, method, url, data=None, headers=None):
 def wait_for_containers(timeout=300, exclude: set[str] | frozenset[str] | None = None):
     """Wait for Docker Compose containers to be running and healthy.
 
-    exclude: container Name or Service names to skip (e.g. authentik-ldap, which
-    needs a postsetup token sync before it can become healthy).
+    exclude: container Name or Service names to skip (rarely needed).
     """
     skip = {n.lower() for n in (exclude or ())}
     print("   Waiting for all containers to be running and healthy...")

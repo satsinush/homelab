@@ -444,9 +444,8 @@ class Service(ABC):
     def postsetup(self, env: dict) -> None:
         """After the first health wait. Default: no-op.
 
-        Services that cannot become healthy until a secret is synced (e.g.
-        authentik-ldap) are excluded from that wait and fixed here; setup then
-        waits again.
+        Override for one-shot wiring that needs healthy containers (OIDC,
+        notification tokens, etc.).
         """
         return None
 
