@@ -102,8 +102,6 @@ app.get('/api/config', (req: Request, res: Response) => {
         vaultwardenWebHostname: config.vaultwardenWebHostname,
         gatusWebHostname: config.gatusWebHostname,
         gotifyWebHostname: config.gotifyWebHostname,
-        rustdeskWebHostname: config.rustdeskWebHostname,
-        nextcloudWebHostname: config.nextcloudWebHostname,
         authentikWebHostname: config.authentikWebHostname,
         disableLocalAuth: config.disableLocalAuth,
         ssoEnabled: config.ssoEnabled

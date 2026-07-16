@@ -7,8 +7,6 @@ export interface Hostnames {
     vaultwarden: string;
     gatus: string;
     gotify: string;
-    rustdesk: string;
-    nextcloud: string;
     authentik: string;
 }
 

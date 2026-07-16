@@ -7,17 +7,17 @@ from service import Service
 def get_services() -> list[Service]:
     from authentik.setup import service as authentik
     from apprise.setup import service as apprise
-    from collabora.setup import service as collabora
     from dashboard.setup import service as dashboard
     from ddclient.setup import service as ddclient
     from dockhand.setup import service as dockhand
     from gatus.setup import service as gatus
     from gotify.setup import service as gotify
-    from nextcloud.setup import service as nextcloud
     from ollama.setup import service as ollama
     from pihole.setup import service as pihole
     from restic.setup import service as restic
     from rustdesk.setup import service as rustdesk
+    from samba.setup import service as samba
+    from sftpgo.setup import service as sftpgo
     from traefik.setup import service as traefik
     from unbound.setup import service as unbound
     from vaultwarden.setup import service as vaultwarden
@@ -35,8 +35,8 @@ def get_services() -> list[Service]:
         gotify,
         apprise,
         vaultwarden,
-        collabora,
-        nextcloud,
+        samba,
+        sftpgo,
         rustdesk,
         ddclient,
         ollama,

@@ -1,0 +1,64 @@
+# sftpgo/compose.yaml — WebDAV + LDAP auth against Authentik LDAP outpost
+services:
+  sftpgo:
+    image: drakkan/sftpgo:v2.6.6-plugins
+    container_name: sftpgo
+    restart: unless-stopped
+    user: "${PUID}:${PGID}"
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    command: ["serve"]
+    environment:
+      TZ: ${TZ}
+      SFTPGO_DATA_PROVIDER__CREATE_DEFAULT_ADMIN: "false"
+      SFTPGO_SFTPD__BINDINGS__0__PORT: "0"
+      SFTPGO_FTPD__BINDINGS__0__PORT: "0"
+      SFTPGO_WEBDAVD__BINDINGS__0__PORT: "8080"
+      SFTPGO_WEBDAVD__BINDINGS__0__PREFIX: "/"
+      SFTPGO_HTTPD__BINDINGS__0__PORT: "8081"
+      SFTPGO_HTTPD__BINDINGS__0__ENABLE_WEB_ADMIN: "false"
+      SFTPGO_HTTPD__BINDINGS__0__ENABLE_WEB_CLIENT: "false"
+      # Idempotent: folder + groups for /shared (see loaddata.json)
+      SFTPGO_LOADDATA_FROM: /etc/sftpgo/loaddata.json
+      SFTPGO_LOADDATA_MODE: "0"
+      SFTPGO_PLUGINS__0__TYPE: auth
+      SFTPGO_PLUGINS__0__CMD: /usr/local/bin/sftpgo-plugin-auth
+      SFTPGO_PLUGINS__0__ARGS: serve
+      SFTPGO_PLUGINS__0__AUTH_OPTIONS__SCOPE: "5"
+      # Outpost listens on 3389 inside the container (host 389 maps to it).
+      SFTPGO_PLUGIN_AUTH_LDAP_URL: ldap://authentik-ldap:3389
+      SFTPGO_PLUGIN_AUTH_LDAP_BASE_DN: ou=users,dc=ldap,dc=goauthentik,dc=io
+      SFTPGO_PLUGIN_AUTH_LDAP_BIND_DN: cn=ldapservice,ou=users,dc=ldap,dc=goauthentik,dc=io
+      # Authentik LDAP has limited filter support; cn matches username.
+      # Base DN is ou=users so cn=%username% does not also match virtual-groups.
+      SFTPGO_PLUGIN_AUTH_LDAP_SEARCH_QUERY: "(cn=%username%)"
+      # Map Authentik groups whose CN starts with homelab- → SFTPGo secondary groups
+      # (homelab-users / homelab-admins carry the /shared virtual folder).
+      SFTPGO_PLUGIN_AUTH_LDAP_GROUP_ATTRIBUTES: memberOf
+      SFTPGO_PLUGIN_AUTH_SECONDARY_GROUP_PREFIX: "homelab-"
+      # Private homes under storage/users/<username>; shared is a virtual folder.
+      SFTPGO_PLUGIN_AUTH_USERS_BASE_DIR: /srv/sftpgo/storage/users
+      SFTPGO_PLUGIN_AUTH_USER_REQUIREMENTS: "0"
+    secrets:
+      - ldap_bind_password
+    volumes:
+      - ${PROJECT_ROOT}/sftpgo/entrypoint.sh:/entrypoint.sh:ro
+      - ${PROJECT_ROOT}/sftpgo/loaddata.json:/etc/sftpgo/loaddata.json:ro
+      - ${PROJECT_ROOT}/storage:/srv/sftpgo/storage
+      - ${PROJECT_ROOT}/sftpgo/volumes/data:/var/lib/sftpgo
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dav.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.dav.entrypoints=websecure"
+      - "traefik.http.routers.dav.tls=true"
+      - "traefik.http.routers.dav.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.services.dav.loadbalancer.server.port=8080"
+
+secrets:
+  ldap_bind_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/ldap_bind_password
+
+networks:
+  homelab-net:
+    external: true

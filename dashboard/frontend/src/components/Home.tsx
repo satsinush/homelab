@@ -31,8 +31,6 @@ import GatusLogo from '../assets/gatus_logo.png';
 import GotifyLogo from '../assets/gotify_logo.png';
 import AuthIcon from '../assets/authentik_logo.png';
 import DockhandLogo from '../assets/dockhand_logo.png';
-import RustdeskLogo from '../assets/rustdesk_logo.png';
-import NextcloudLogo from '../assets/nextcloud_logo.png';
 
 interface QuickLink {
     title: string;
@@ -141,14 +139,6 @@ const Home = () => {
             logoAlt: 'Vaultwarden'
         },
         {
-            title: 'Nextcloud',
-            description: 'Files, WebDAV sync, and collaboration',
-            url: `https://${hostnames.nextcloud || ''}`,
-            role: 'nextcloud-user',
-            logo: NextcloudLogo,
-            logoAlt: 'Nextcloud'
-        },
-        {
             title: 'Gatus',
             description: 'Self-hosted service health status monitoring',
             url: `https://${hostnames.gatus || ''}`,
@@ -162,13 +152,6 @@ const Home = () => {
             url: `https://${hostnames.gotify || ''}`,
             logo: GotifyLogo,
             logoAlt: 'Gotify'
-        },
-        {
-            title: 'RustDesk',
-            description: 'Self-hosted remote desktop API console',
-            url: `https://${hostnames.rustdesk || ''}/_admin/`,
-            logo: RustdeskLogo,
-            logoAlt: 'RustDesk'
         },
         {
             title: 'Authentik',

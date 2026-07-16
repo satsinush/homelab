@@ -98,27 +98,6 @@ endpoints:
       - type: custom
         description: "Vaultwarden is unreachable"
 
-  - name: "Nextcloud"
-    group: "Identity & Security"
-    url: "http://nextcloud/status.php"
-    interval: 30s
-    conditions:
-      - "[STATUS] == 200"
-    alerts:
-      - type: custom
-        description: "Nextcloud is unreachable"
-
-  - name: "Collabora"
-    group: "Identity & Security"
-    url: "http://collabora:9980/hosting/discovery"
-    interval: 30s
-    conditions:
-      - "[STATUS] == 200"
-      - "[BODY] == pat(*wopi-discovery*)"
-    alerts:
-      - type: custom
-        description: "Collabora Online is unreachable"
-
   # ─── NETWORKING & INFRA ───
   - name: "Pi-hole"
     group: "Infrastructure"
@@ -173,15 +152,35 @@ endpoints:
       - type: custom
         description: "RustDesk Relay Server (hbbr) is unreachable"
 
-  - name: "RustDesk Console"
+  - name: "Samba SMB"
     group: "Infrastructure"
-    url: "http://rustdesk-console:21114/health"
+    url: "tcp://samba:445"
     interval: 30s
     conditions:
-      - "[STATUS] == 200"
+      - "[CONNECTED] == true"
     alerts:
       - type: custom
-        description: "RustDesk Console / API server is unhealthy"
+        description: "Samba SMB is unreachable"
+
+  - name: "WebDAV (SFTPGo)"
+    group: "Infrastructure"
+    url: "tcp://sftpgo:8080"
+    interval: 30s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: custom
+        description: "SFTPGo WebDAV is unreachable"
+
+  - name: "Authentik LDAP"
+    group: "Infrastructure"
+    url: "tcp://authentik-ldap:3389"
+    interval: 30s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: custom
+        description: "Authentik LDAP outpost is unreachable"
 
   # ─── NOTIFICATIONS & ALERTS ───
   - name: "Gotify"

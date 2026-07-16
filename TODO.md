@@ -1,3 +1,15 @@
+- simplify setup.py scripts to remove unnecessary commands
+- add sticky header for package manager table
+- Make gatus dashboard unrestricted 
+- Add logos / other apps for Gotify, use other service?
+- Open links in native app like rustdesk:// for gotify, obsidian:// for obsidian, etc.
+- Set max height for results sections in mobile view?
+- Set max height for results sections in mobile view?
+- Fix WOL
+- Make spelling bee colors match
+- add firewalld and other prerequisites to setup script
+- Use ansible to setup servers?
+
 - Add obsidian sync (desktop client and WebDAV for mobile)
 - Setup immich
 - Setup jellyfin

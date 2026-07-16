@@ -137,8 +137,13 @@ sudo firewall-cmd --permanent --service=ssh-custom --add-port=2222/tcp
 # Create a service entry tracking RustDesk relay loops
 sudo firewall-cmd --permanent --new-service=rustdesk
 sudo firewall-cmd --permanent --service=rustdesk --set-description="RustDesk Self-Hosted Remote Desktop"
-sudo firewall-cmd --permanent --service=rustdesk --add-port=21114-21119/tcp
+sudo firewall-cmd --permanent --service=rustdesk --add-port=21115-21119/tcp
 sudo firewall-cmd --permanent --service=rustdesk --add-port=21116/udp
+
+# SMB (Samba homes)
+sudo firewall-cmd --permanent --new-service=samba-homelab
+sudo firewall-cmd --permanent --service=samba-homelab --set-description="Homelab Samba SMB"
+sudo firewall-cmd --permanent --service=samba-homelab --add-port=445/tcp
 ```
 
 **Step 4: Configure Rules for the Local, VPN, and Docker Zones**
@@ -153,6 +158,7 @@ sudo firewall-cmd --permanent --zone=local --add-service=http
 sudo firewall-cmd --permanent --zone=local --add-service=https
 sudo firewall-cmd --permanent --zone=local --add-service=dns
 sudo firewall-cmd --permanent --zone=local --add-service=rustdesk
+sudo firewall-cmd --permanent --zone=local --add-service=samba-homelab
 sudo firewall-cmd --permanent --zone=local --add-port=51820/udp
 
 # --- VPN ZONE RULES (Authenticated Remote Tunnels) ---
@@ -162,6 +168,7 @@ sudo firewall-cmd --permanent --zone=vpn --add-service=http
 sudo firewall-cmd --permanent --zone=vpn --add-service=https
 sudo firewall-cmd --permanent --zone=vpn --add-service=dns
 sudo firewall-cmd --permanent --zone=vpn --add-service=rustdesk
+sudo firewall-cmd --permanent --zone=vpn --add-service=samba-homelab
 
 # --- DOCKER ZONE RULES (Container Leashes) ---
 # Allow containers to resolve queries via host DNS (Pi-hole) and hit the custom host instrumentation API

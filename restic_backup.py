@@ -149,6 +149,8 @@ def backup_targets() -> list[str]:
         targets.append(".env")
     if os.path.isdir("volumes"):
         targets.append("volumes")
+    if os.path.isdir("storage"):
+        targets.append("storage")
     for path in sorted(glob.glob("*/volumes")):
         if os.path.isdir(path):
             targets.append(path)
@@ -203,7 +205,7 @@ def restic_backup(*, auto: bool = False) -> None:
     env = restic_env(prompt=not auto, confirm_password=True)
     targets = backup_targets()
     if not targets:
-        print("⚠️  No backup targets found (.env / volumes / */volumes)")
+        print("⚠️  No backup targets found (.env / volumes / */volumes / storage)")
         return
 
     print("\n☁️  Streaming encrypted snapshot to Restic repository...")

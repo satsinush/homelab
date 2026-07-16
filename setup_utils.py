@@ -293,9 +293,16 @@ def network_curl(network, method, url, data=None, headers=None):
     return body, status_code
 
 
-def wait_for_containers(timeout=300):
-    """Wait for all Docker Compose containers to be running and healthy."""
+def wait_for_containers(timeout=300, exclude: set[str] | frozenset[str] | None = None):
+    """Wait for Docker Compose containers to be running and healthy.
+
+    exclude: container Name or Service names to skip (e.g. authentik-ldap, which
+    needs a postsetup token sync before it can become healthy).
+    """
+    skip = {n.lower() for n in (exclude or ())}
     print("   Waiting for all containers to be running and healthy...")
+    if skip:
+        print(f"   (excluding until postsetup: {', '.join(sorted(skip))})")
     start_time = time.time()
 
     while time.time() - start_time < timeout:
@@ -325,10 +332,13 @@ def wait_for_containers(timeout=300):
 
         for c in containers:
             name = c.get("Name", c.get("Service", "unknown"))
+            service = c.get("Service", "")
             state = c.get("State", "").lower()
             health = c.get("Health", "").lower()
 
             if state in ["exited", "stopped"] and name == "setup":
+                continue
+            if name.lower() in skip or service.lower() in skip:
                 continue
 
             if state != "running":

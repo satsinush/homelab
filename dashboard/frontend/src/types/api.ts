@@ -29,8 +29,6 @@ export interface ConfigResponse {
     vaultwardenWebHostname?: string;
     gatusWebHostname?: string;
     gotifyWebHostname?: string;
-    rustdeskWebHostname?: string;
-    nextcloudWebHostname?: string;
     authentikWebHostname?: string;
 }
 

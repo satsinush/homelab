@@ -59,24 +59,6 @@ entries:
     attrs:
       name: vaultwarden-user
 
-  - model: authentik_rbac.role
-    identifiers:
-      name: rustdesk-admin
-    attrs:
-      name: rustdesk-admin
-
-  - model: authentik_rbac.role
-    identifiers:
-      name: rustdesk-user
-    attrs:
-      name: rustdesk-user
-
-  - model: authentik_rbac.role
-    identifiers:
-      name: nextcloud-user
-    attrs:
-      name: nextcloud-user
-
   # =================================================================
   # Groups
   # =================================================================
@@ -86,11 +68,8 @@ entries:
     attrs:
       name: homelab-admins
       is_superuser: true
-      attributes:
-        nextcloud_quota: "100 GB"
       roles:
         - !Find [authentik_rbac.role, [name, homelab-admin]]
-        - !Find [authentik_rbac.role, [name, rustdesk-admin]]
 
   - model: authentik_core.group
     identifiers:
@@ -98,16 +77,12 @@ entries:
     attrs:
       name: homelab-users
       is_superuser: false
-      attributes:
-        nextcloud_quota: "10 GB"
       roles:
         - !Find [authentik_rbac.role, [name, dashboard-user]]
         - !Find [authentik_rbac.role, [name, gatus-user]]
         - !Find [authentik_rbac.role, [name, dashboard-devices-user]]
         - !Find [authentik_rbac.role, [name, dashboard-wordgames-user]]
         - !Find [authentik_rbac.role, [name, vaultwarden-user]]
-        - !Find [authentik_rbac.role, [name, rustdesk-user]]
-        - !Find [authentik_rbac.role, [name, nextcloud-user]]
 
   # =================================================================
   # Admin User
@@ -160,33 +135,6 @@ entries:
             "email_verified": True
         }
 
-  - model: authentik_providers_oauth2.scopemapping
-    id: scope-nextcloud
-    identifiers:
-      scope_name: nextcloud
-    attrs:
-      name: "custom-scope-nextcloud"
-      scope_name: nextcloud
-      description: "Nextcloud profile, groups, quota, and admin mapping"
-      expression: |
-        groups = [g.name for g in request.user.ak_groups.all()]
-        # Nextcloud admin group name is fixed as "admin"
-        if request.user.is_superuser or "homelab-admins" in groups:
-            if "admin" not in groups:
-                groups.append("admin")
-        quota = request.user.group_attributes().get(
-            "nextcloud_quota",
-            request.user.attributes.get("nextcloud_quota", "10 GB"),
-        )
-        return {
-            "name": request.user.name,
-            "groups": groups,
-            "quota": quota,
-            "user_id": request.user.attributes.get(
-                "nextcloud_user_id", request.user.username
-            ),
-        }
-
   # OIDC Providers & Applications
   # =================================================================
 
@@ -224,46 +172,6 @@ entries:
       provider: !KeyOf vaultwarden
       icon: icons/vaultwarden_logo.png
 
-  # Nextcloud
-  - model: authentik_providers_oauth2.oauth2provider
-    id: nextcloud
-    identifiers:
-      name: nextcloud
-    attrs:
-      name: nextcloud
-      client_id: nextcloud
-      client_secret: !File /run/secrets/nextcloud_oidc_secret
-      client_type: confidential
-      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
-      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
-      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
-      subject_mode: user_uuid
-      include_claims_in_id_token: true
-      grant_types:
-        - authorization_code
-        - refresh_token
-      redirect_uris:
-        - url: !Format ["https://%s.%s/apps/user_oidc/code", !Env NEXTCLOUD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
-          matching_mode: strict
-        - url: !Format ["https://%s.%s/index.php/apps/user_oidc/code", !Env NEXTCLOUD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
-          matching_mode: strict
-      property_mappings:
-        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
-        - !KeyOf scope-email
-        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
-        - !KeyOf scope-groups
-        - !KeyOf scope-nextcloud
-
-  - model: authentik_core.application
-    identifiers:
-      slug: nextcloud
-    attrs:
-      name: Nextcloud
-      slug: nextcloud
-      provider: !KeyOf nextcloud
-      meta_launch_url: !Format ["https://%s.%s", !Env NEXTCLOUD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
-      icon: icons/nextcloud_logo.png
-
   # Homelab Dashboard
   - model: authentik_providers_oauth2.oauth2provider
     id: homelab_dashboard
@@ -300,42 +208,65 @@ entries:
       meta_launch_url: !Format ["https://%s.%s", !Env DASHBOARD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
       icon: homelab-icon.svg
 
-  # RustDesk Console (OIDC; configure provider in rustdesk-console /_admin/)
-  - model: authentik_providers_oauth2.oauth2provider
-    id: rustdesk
+  # =================================================================
+  # LDAP (SFTPGo WebDAV / directory bind)
+  # =================================================================
+  - model: authentik_core.group
     identifiers:
-      name: rustdesk
+      name: ldapsearch
     attrs:
-      name: rustdesk
-      client_id: rustdesk
-      client_secret: !File /run/secrets/rustdesk_oidc_secret
-      client_type: confidential
-      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
-      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
-      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
-      grant_types:
-        - authorization_code
-        - refresh_token
-      redirect_uris:
-        - url: !Format ["https://%s.%s/api/oidc/callback", !Env RUSTDESK_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
-          matching_mode: strict
-      property_mappings:
-        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
-        - !KeyOf scope-email
-        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
-        - !KeyOf scope-groups
+      name: ldapsearch
+
+  - model: authentik_core.user
+    id: ldapservice
+    identifiers:
+      username: ldapservice
+    attrs:
+      username: ldapservice
+      name: LDAP Search Service
+      email: ldap@goauthentik.io
+      is_active: true
+      path: users
+      type: service_account
+      password: !File /run/secrets/ldap_bind_password
+      groups:
+        - !Find [authentik_core.group, [name, ldapsearch]]
+
+  - model: authentik_providers_ldap.ldapprovider
+    id: ldap-provider
+    identifiers:
+      name: LDAP
+    attrs:
+      name: LDAP
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-authentication-flow]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
+      base_dn: dc=ldap,dc=goauthentik,dc=io
+      # direct avoids stale cached searches after permission/policy changes
+      bind_mode: direct
+      search_mode: direct
+      uid_start_number: 2000
+      gid_start_number: 2000
+      mfa_support: false
+    # Object permission via managed role (user: creates it). Codename must be
+    # app_label.codename — Authentik's assign_perm always splits on '.'.
+    permissions:
+      - permission: authentik_providers_ldap.search_full_directory
+        user: !KeyOf ldapservice
 
   - model: authentik_core.application
+    id: ldap-app
     identifiers:
-      slug: rustdesk
+      slug: ldap
     attrs:
-      name: RustDesk
-      slug: rustdesk
-      provider: !KeyOf rustdesk
-      meta_launch_url: !Format ["https://%s.%s/_admin/", !Env RUSTDESK_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
-      open_in_new_tab: true
-      meta_description: RustDesk API console (SSO via OIDC)
-      icon: icons/rustdesk_logo.png
+      name: LDAP
+      slug: ldap
+      provider: !KeyOf ldap-provider
+      meta_launch_url: blank://blank
+      policy_engine_mode: any
+
+  # Outpost service account + AUTHENTIK_TOKEN are created by Authentik when the
+  # LDAP Outpost object is created. authentik/setup.py postsetup copies that
+  # token into volumes/secrets/authentik_ldap_outpost_token.
 
   # =================================================================
   # Proxy Providers for Traefik Forward-Auth
@@ -482,21 +413,6 @@ entries:
     attrs:
       order: 1
 
-  # Nextcloud
-  - model: authentik_policies.policybinding
-    identifiers:
-      target: !Find [authentik_core.application, [slug, nextcloud]]
-      group: !Find [authentik_core.group, [name, homelab-users]]
-    attrs:
-      order: 0
-
-  - model: authentik_policies.policybinding
-    identifiers:
-      target: !Find [authentik_core.application, [slug, nextcloud]]
-      group: !Find [authentik_core.group, [name, homelab-admins]]
-    attrs:
-      order: 1
-
   # Homelab Dashboard
   - model: authentik_policies.policybinding
     identifiers:
@@ -512,20 +428,27 @@ entries:
     attrs:
       order: 1
 
-  # RustDesk Console
+  # LDAP open to ldapsearch + all users (directory bind for apps)
   - model: authentik_policies.policybinding
     identifiers:
-      target: !Find [authentik_core.application, [slug, rustdesk]]
-      group: !Find [authentik_core.group, [name, homelab-users]]
+      target: !Find [authentik_core.application, [slug, ldap]]
+      group: !Find [authentik_core.group, [name, ldapsearch]]
     attrs:
       order: 0
 
   - model: authentik_policies.policybinding
     identifiers:
-      target: !Find [authentik_core.application, [slug, rustdesk]]
-      group: !Find [authentik_core.group, [name, homelab-admins]]
+      target: !Find [authentik_core.application, [slug, ldap]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
     attrs:
       order: 1
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, ldap]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 2
 
 
   # =================================================================
@@ -541,6 +464,18 @@ entries:
         - !Find [authentik_providers_proxy.proxyprovider, [name, pihole-proxy]]
         - !Find [authentik_providers_proxy.proxyprovider, [name, gatus-proxy]]
         - !Find [authentik_providers_proxy.proxyprovider, [name, dockhand-proxy]]
+
+  - model: authentik_outposts.outpost
+    identifiers:
+      name: "LDAP Outpost"
+    attrs:
+      name: LDAP Outpost
+      type: ldap
+      providers:
+        - !KeyOf ldap-provider
+      config:
+        authentik_host: !Format ["http://authentik-server:9000"]
+        authentik_host_insecure: true
 
   # Brand styling to match dark dashboard theme
   - model: authentik_brands.brand

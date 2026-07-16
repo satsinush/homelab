@@ -45,3 +45,11 @@ services:
     ports:
       - "9005:9000"
       - "9445:9443"
+
+  # Windows/Docker Desktop: host 445 is owned by Windows SMB. Publish Samba on 4445.
+  # Windows Explorer cannot use a custom SMB port (\\host:4445\share will fail).
+  # Prefer WebDAV from Windows, or smbclient/macOS with :4445. Pi: omit this block (use 445).
+  # Clients that support non-445: smb://host:4445/username
+  samba:
+    ports: !override
+      - "4445:445"

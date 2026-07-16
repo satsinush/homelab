@@ -10,8 +10,8 @@ include:
   - ./apprise/compose.yaml
   - ./vaultwarden/compose.yaml
   - ./gotify/compose.yaml
-  - ./nextcloud/compose.yaml
-  - ./collabora/compose.yaml
+  - ./samba/compose.yaml
+  - ./sftpgo/compose.yaml
   - ./rustdesk/compose.yaml
   - ./ddclient/compose.yaml
   - ./ollama/compose.yaml

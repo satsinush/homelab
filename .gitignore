@@ -17,6 +17,9 @@ volumes/
 # Per-service generated volumes (gitignored universally)
 */volumes/
 
+# Shared NAS / homes (Samba + WebDAV) — backed up by Restic
+storage/
+
 backups/
 
 tmp/

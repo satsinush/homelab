@@ -33,8 +33,10 @@ Cert file: [`./volumes/certificates/homelab-ca.crt`](../volumes/certificates/)
 ### Authentik
 
 - [ ] Sign in at `https://authentik.<your-hostname>`
-- [ ] Confirm SSO apps appear (Dashboard, Nextcloud, Vaultwarden, Gatus, Dockhand, Gotify, RustDesk console, etc.)
+- [ ] Confirm SSO apps appear (Dashboard, Vaultwarden, Gatus, Dockhand, Gotify, LDAP app, etc.)
 - [ ] Prefer MFA here rather than per-app 2FA where possible
+- [ ] LDAP Outpost: after containers are up, `authentik` postsetup copies the managed outpost token into `volumes/secrets/authentik_ldap_outpost_token` (or Admin → Outposts → LDAP Outpost → View Deployment Info)
+- [x] `ldapservice` has **Search full LDAP directory** on the LDAP provider (blueprint object permission)
 
 ### Homelab Dashboard
 
@@ -48,13 +50,26 @@ Cert file: [`./volumes/certificates/homelab-ca.crt`](../volumes/certificates/)
 - [ ] If asked for an SSO identifier, any string is fine
 - [ ] Docs: [Vaultwarden](https://github.com/dani-garcia/vaultwarden/blob/main/README.md)
 
-### Nextcloud
+### Storage (Samba + WebDAV)
 
-- [ ] Sign in with Authentik SSO at `https://nextcloud.<your-hostname>` (account is provisioned on first login)
-- [ ] Confirm members of `homelab-admins` land in Nextcloud’s **admin** group
-- [ ] Open an Office file to verify Collabora (`https://collabora.<your-hostname>`; admin secret in `volumes/secrets/collabora_admin_password`)
-- [ ] Optional break-glass local admin: `/login?direct=1` (password in `volumes/secrets/nextcloud_admin_password`)
-- [ ] Docs: [Nextcloud](https://docs.nextcloud.com/) · [Authentik + Nextcloud](https://integrations.goauthentik.io/chat-communication-collaboration/nextcloud/)
+Shared files live under [`./storage/`](../storage/) (gitignored; included in Restic):
+
+| Path | Purpose |
+| --- | --- |
+| `storage/users/<username>/` | Private home (Samba `\\…\<username>`, WebDAV `/`) |
+| `storage/shared/` | Shared by everyone (Samba `\\…\shared`, WebDAV `/shared` virtual folder) |
+
+| Access | URL / path | Password |
+| --- | --- | --- |
+| **SMB (LAN)** | `\\<HOMELAB_IP>\<username>` or `\\<IP>\shared` | **Samba-local** (`samba/volumes/config/accounts.env`) — not Authentik |
+| **WebDAV** | `https://dav.<your-hostname>/` | **Authentik** username + password (LDAP) |
+
+- [ ] Open firewall for SMB: `445/tcp` on local + vpn zones (see [host config](./2-host-config.md)). On Docker Desktop/WSL, Samba is published as `4445` (Windows already owns `445`); **Windows Explorer cannot open `\\host:4445\…`** — use WebDAV from Windows, or SMB clients that allow a custom port. Pi uses real `445`.
+- [ ] Confirm Samba user(s) exist (`samba/volumes/config/accounts.env`) and dirs under `storage/users/` + `storage/shared/`
+- [ ] New person checklist: Authentik account (WebDAV works on first login) → optional Samba user if they need LAN SMB
+- [ ] **Obsidian Remotely Save:** server `https://dav.<your-hostname>/`, Authentik credentials; vault under private home; shared files at `/shared`
+- [ ] Optional migrate former Nextcloud files: `nextcloud/volumes/html/data/<user>/files/` → `storage/users/<user>/`, then remove leftover `nextcloud/volumes/`
+- [ ] Docs: [Samba](https://www.samba.org/) · [SFTPGo](https://docs.sftpgo.com/) · [Authentik LDAP](https://docs.goauthentik.io/add-secure-apps/providers/ldap/)
 
 ### Gotify
 
@@ -78,24 +93,18 @@ Cert file: [`./volumes/certificates/homelab-ca.crt`](../volumes/certificates/)
 
 ### RustDesk
 
-Client **Network** → **ID/Relay server** (and key):
+Client **Network** → **ID/Relay server** (and key). There is **no** API/console in this stack — ID + relay only.
 
 | Field | Recommended value | Notes |
 | --- | --- | --- |
-| **ID server** | Host LAN IP (e.g. `HOMELAB_IP_ADDRESS` from `.env`), port implied `21116` | Prefer IP over domain — more reliable on LAN / WireGuard |
-| **Relay server** | Same IP (relay TCP `21117`) | Prefer leaving blank if the ID server already advertises `-r IP:21117`; if set, use the same LAN IP |
-| **API server** | Leave blank in the desktop/mobile client | See note below |
-| **Key** | Public key from setup / dashboard Secrets / [`volumes/secrets/rustdesk_public_key`](../volumes/secrets/rustdesk_public_key) | Must match the server key logged by `rustdesk-id-server` |
+| **ID server** | Host LAN IP (`HOMELAB_IP_ADDRESS`), port `21116` | Prefer IP over domain |
+| **Relay server** | Same IP (`21117`) or leave blank if hbbs advertises `-r` | |
+| **API server** | Leave blank | |
+| **Key** | [`volumes/secrets/rustdesk_public_key`](../volumes/secrets/rustdesk_public_key) | Must match `docker logs rustdesk-id-server` |
 
-> **Note — do not stay logged into the API in the RustDesk app.**  
-> Remotes use free OSS `hbbs`/`hbbr` (ID + key). `rustdesk-console` is a third-party address-book/API stand-in for Pro. On current clients (~1.4.1+), logging into that API often breaks the encrypted handshake with `Failed to secure tcp: deadline has elapsed`. Fix: log out of the account / clear **API server**, keep ID + key. Use the web console (`https://rustdesk.<your-hostname>/_admin/`) for admin/OIDC only — not as a persistent in-app login for remotes.
-
-- [ ] Fill ID server (+ optional Relay) with your homelab IP
-- [ ] Leave API server blank in the client; paste the public key
-- [ ] Confirm a remote works by ID/password without any API login
-- [ ] Optional web console: SSO once at `https://rustdesk.<your-hostname>/_admin/` (Authentik) — do not rely on in-app API login for connections
-- [ ] Break-glass admin password: `volumes/secrets/rustdesk_admin_password`
-- [ ] Docs: [RustDesk](https://rustdesk.com/docs/) · [rustdesk-console](https://github.com/dockers-x/rustdesk-console)
+- [ ] Fill ID (+ optional Relay) and paste the public key
+- [ ] Confirm a remote works by ID/password
+- [ ] Docs: [RustDesk](https://rustdesk.com/docs/)
 
 ### ddclient
 
@@ -113,6 +122,7 @@ Client **Network** → **ID/Relay server** (and key):
 - [ ] Confirm Restic secrets exist under `volumes/secrets/restic_*` (configured during setup if you enabled cloud backup)
 - [ ] Confirm the backup timer is active: `systemctl status homelab-backup.timer` (installed by setup)
 - [ ] Optional dry run: `python3 setup.py backup`
+- [ ] Confirm `storage/` is included in snapshots (homes / Samba / WebDAV data)
 - [ ] Details: [5. Backup and Restore](./5-backup-restore.md)
 
 ---

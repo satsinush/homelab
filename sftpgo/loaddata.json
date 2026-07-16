@@ -1,0 +1,40 @@
+{
+  "users": [],
+  "folders": [
+    {
+      "name": "shared",
+      "mapped_path": "/srv/sftpgo/storage/shared",
+      "description": "Shared storage for all Authentik/WebDAV users",
+      "filesystem": {
+        "provider": 0
+      }
+    }
+  ],
+  "groups": [
+    {
+      "name": "homelab-users",
+      "description": "Mapped from Authentik group homelab-users (LDAP memberOf)",
+      "virtual_folders": [
+        {
+          "name": "shared",
+          "virtual_path": "/shared",
+          "quota_size": 0,
+          "quota_files": 0
+        }
+      ]
+    },
+    {
+      "name": "homelab-admins",
+      "description": "Mapped from Authentik group homelab-admins (LDAP memberOf)",
+      "virtual_folders": [
+        {
+          "name": "shared",
+          "virtual_path": "/shared",
+          "quota_size": 0,
+          "quota_files": 0
+        }
+      ]
+    }
+  ],
+  "version": 17
+}

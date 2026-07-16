@@ -62,7 +62,7 @@ const LoginChoice = () => {
         window.location.href = '/api/users/sso-login';
     };
 
-    // Like Nextcloud: start OIDC immediately. Authentik finishes silently when a
+    // Start OIDC immediately. Authentik finishes silently when a
     // session already exists; otherwise the IdP login page is shown.
     const shouldAutoSso =
         !configLoading && ssoEnabled && !skipAutoSso && !preferLocal && !showLocalLogin;

@@ -367,9 +367,7 @@ def ensure_env_file() -> dict:
     os.environ["GATUS_SERVICE_NAME"] = "gatus"
     os.environ["GOTIFY_SERVICE_NAME"] = "gotify"
     os.environ["AUTHENTIK_SERVICE_NAME"] = "authentik"
-    os.environ["RUSTDESK_SERVICE_NAME"] = "rustdesk"
-    os.environ["NEXTCLOUD_SERVICE_NAME"] = "nextcloud"
-    os.environ["COLLABORA_SERVICE_NAME"] = "collabora"
+    os.environ["DAV_SERVICE_NAME"] = "dav"
 
     content = substitute_env_vars(content)
     with open(".env", "w", encoding="utf-8") as f:
@@ -393,9 +391,7 @@ def ensure_bootstrap_and_locale(env: dict) -> dict:
     os.chmod("./volumes/secrets", 0o700)
 
     for key, default in (
-        ("RUSTDESK_SERVICE_NAME", "rustdesk"),
-        ("NEXTCLOUD_SERVICE_NAME", "nextcloud"),
-        ("COLLABORA_SERVICE_NAME", "collabora"),
+        ("DAV_SERVICE_NAME", "dav"),
     ):
         if not env.get(key):
             with open(".env", "a", encoding="utf-8") as f:
@@ -623,11 +619,15 @@ def run_setup() -> None:
     print("\n🐳 Starting Docker containers...")
     run_cmd("docker compose up -d", capture=False)
 
-    wait_for_containers()
+    # authentik-ldap stays unhealthy until postsetup writes the real outpost token
+    wait_for_containers(exclude={"authentik-ldap"})
     print("✅ Docker containers started")
 
     print("\n⚙️  Running per-service postsetup()...")
     run_all_postsetup(services, env)
+
+    wait_for_containers(timeout=120)
+    print("✅ Postsetup containers healthy")
 
     print("\n🎉 Homelab Setup Complete!")
     print("==========================")
@@ -674,7 +674,7 @@ def run_backup(auto: bool = False) -> None:
 
 def run_restore(snapshot: str = "latest") -> None:
     from restic_backup import restic_restore
-    from service import run_all_restore, run_all_setup
+    from service import run_all_postsetup, run_all_restore, run_all_setup
     from services_registry import get_services
     from setup_utils import load_env, load_secrets, run_cmd, wait_for_containers
 
@@ -715,7 +715,10 @@ def run_restore(snapshot: str = "latest") -> None:
     print("\n♻️  Running per-service restore() hooks...")
     run_all_restore(services, env)
 
-    wait_for_containers()
+    wait_for_containers(exclude={"authentik-ldap"})
+    print("\n⚙️  Running per-service postsetup()...")
+    run_all_postsetup(services, env)
+    wait_for_containers(timeout=120)
 
     print("\n✅ Restore complete.")
 

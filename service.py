@@ -442,7 +442,12 @@ class Service(ABC):
         print(f"   ✅ {self.name} volumes ready")
 
     def postsetup(self, env: dict) -> None:
-        """After containers are healthy. Default: no-op."""
+        """After the first health wait. Default: no-op.
+
+        Services that cannot become healthy until a secret is synced (e.g.
+        authentik-ldap) are excluded from that wait and fixed here; setup then
+        waits again.
+        """
         return None
 
     def backup(self, env: dict) -> None:

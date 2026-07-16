@@ -1,15 +1,15 @@
 ## Backup and Restore (Restic + Service hooks)
 
-Homelab state lives in gitignored bind mounts (`volumes/` and `*/volumes/`) plus `.env`. Cloud backups use **Restic** to an S3-compatible bucket (Backblaze B2). Per-service logic is implemented on the `Service` base class (`setup` / `postsetup` / `backup` / `restore`) and driven by root [`setup.py`](../setup.py).
+Homelab state lives in gitignored bind mounts (`volumes/`, `*/volumes/`, `storage/`) plus `.env`. Cloud backups use **Restic** to an S3-compatible bucket (Backblaze B2). Per-service logic is implemented on the `Service` base class (`setup` / `postsetup` / `backup` / `restore`) and driven by root [`setup.py`](../setup.py).
 
 ### Architecture
 
 | Layer | Role |
 | --- | --- |
 | Git | Compose stacks, scripts, `*/setup.py` services |
-| Bind mounts | Secrets, certs, databases, app data under `volumes/` and `*/volumes/` |
+| Bind mounts | Secrets, certs, databases, app data under `volumes/`, `*/volumes/`, and NAS homes under `storage/` |
 | `Service.backup()` | Consistent dumps (Postgres `pg_dump`, SQLite `.backup`) before upload |
-| Restic → B2 | Encrypted offsite snapshots of `.env`, `volumes/`, `*/volumes/` |
+| Restic → B2 | Encrypted offsite snapshots of `.env`, `volumes/`, `*/volumes/`, `storage/` |
 | `Service.restore()` | Apply dumps into live DBs after a cloud restore |
 
 Compose services use host bind mounts (not Docker named volumes). Directory ownership is created in each service’s `setup()`.
@@ -33,7 +33,7 @@ Compose services use host bind mounts (not Docker named volumes). Directory owne
 python3 setup.py backup
 ```
 
-Flow: load env/secrets → each `Service.backup()` → `restic backup` of `.env`, `volumes/`, `*/volumes/` → retention `forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune`.
+Flow: load env/secrets → each `Service.backup()` → `restic backup` of `.env`, `volumes/`, `*/volumes/`, `storage/` → retention `forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune`.
 
 ### Automated backups (systemd)
 
@@ -74,11 +74,12 @@ Flow: `restic restore` → `Service.setup()` (permissions) → `docker compose u
 
 | Service | Hook |
 | --- | --- |
-| Authentik / Nextcloud | `pg_dump` → `*/volumes/db-dumps/`; live `*/volumes/db/` excluded from Restic. Nextcloud dumps also include `oc_*` roles (`pg_dumpall --roles-only`) so restore does not scrape `config.php`. |
-| Vaultwarden, Dashboard, Gotify, RustDesk console | SQLite online `.backup` into the service bind mount |
+| Authentik | `pg_dump` → `*/volumes/db-dumps/`; live `*/volumes/db/` excluded from Restic |
+| Vaultwarden, Dashboard, Gotify | SQLite online `.backup` into the service bind mount |
+| Samba / WebDAV data | `storage/users/` (private) + `storage/shared/` (included as `storage/` target) |
 | ddclient | Config at `ddclient/volumes/ddclient.conf` (included via `*/volumes/`) |
 
-`.backup_exclude` skips `ollama/volumes/ollama/` (large models) until S3 capacity grows. Nextcloud `html/data` (including `appdata_*`) is included in Restic.
+`.backup_exclude` skips `ollama/volumes/ollama/` (large models) until S3 capacity grows.
 
 Pi-hole, Dockhand, RustDesk id/relay, word-games data are still uploaded as ordinary files (no freeze hook).
 

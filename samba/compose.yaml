@@ -1,0 +1,55 @@
+# samba/compose.yaml
+services:
+  samba:
+    image: ghcr.io/servercontainers/samba:latest
+    container_name: samba
+    restart: unless-stopped
+    env_file:
+      - ${PROJECT_ROOT}/samba/volumes/config/accounts.env
+    environment:
+      MODEL: ${HOMELAB_HOSTNAME:-homelab}
+      AVAHI_DISABLE: "true"
+      WSDD2_DISABLE: "true"
+      SAMBA_CONF_WORKGROUP: WORKGROUP
+      SAMBA_CONF_SERVER_STRING: Homelab NAS
+      SAMBA_CONF_LOG_LEVEL: "1"
+      # Private per-user home: \\server\username → storage/users/<username>
+      SAMBA_VOLUME_CONFIG_homes: >-
+        [homes];
+        path=/shares/users/%U;
+        comment=Private User Storage;
+        valid users=%S;
+        browseable=no;
+        read only=no;
+        writable=yes;
+        create mask=0700;
+        directory mask=0700;
+        hide unreadable=yes
+      # Shared by all Samba users: \\server\shared → storage/shared
+      SAMBA_VOLUME_CONFIG_shared: >-
+        [shared];
+        path=/shares/shared;
+        comment=Shared Storage;
+        browseable=yes;
+        read only=no;
+        writable=yes;
+        create mask=0664;
+        directory mask=0775;
+        force create mode=0664;
+        force directory mode=0775
+    volumes:
+      - ${PROJECT_ROOT}/storage:/shares
+      - ${PROJECT_ROOT}/samba/volumes/data:/var/lib/samba
+      - ${PROJECT_ROOT}/samba/entrypoint.sh:/entrypoint-homelab.sh:ro
+    entrypoint: ["/bin/sh", "/entrypoint-homelab.sh"]
+    command: ["runsvdir", "-P", "/container/config/runit"]
+    ports:
+      # Pi / bare metal: 445. On Docker Desktop (Windows), 445 is usually taken —
+      # set SAMBA_HOST_PORT=4445 in .env or override ports (see example.docker-compose.override.yml).
+      - "${SAMBA_HOST_PORT:-445}:445"
+    networks:
+      - homelab-net
+
+networks:
+  homelab-net:
+    external: true
