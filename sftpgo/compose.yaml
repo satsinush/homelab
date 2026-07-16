@@ -35,6 +35,8 @@ services:
       # (homelab-users / homelab-admins carry the /shared virtual folder).
       SFTPGO_PLUGIN_AUTH_LDAP_GROUP_ATTRIBUTES: memberOf
       SFTPGO_PLUGIN_AUTH_SECONDARY_GROUP_PREFIX: "homelab-"
+      # Cache LDAP auth so Obsidian/WebDAV isn't a full Authentik bind per request.
+      SFTPGO_PLUGIN_AUTH_CACHE_TIME: "300"
       # Private homes under storage/users/<username>; shared is a virtual folder.
       SFTPGO_PLUGIN_AUTH_USERS_BASE_DIR: /srv/sftpgo/storage/users
       SFTPGO_PLUGIN_AUTH_USER_REQUIREMENTS: "0"
