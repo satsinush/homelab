@@ -2,34 +2,15 @@
 from __future__ import annotations
 
 import os
-import shutil
 
 
 USERS_ROOT = "./storage/users"
 SHARED_ROOT = "./storage/shared"
-LEGACY_HOMES = "./storage/homes"
 
 
 def ensure_storage_layout(puid: int, pgid: int) -> None:
-    """Create users/ + shared/, migrate legacy homes/ if needed."""
+    """Create users/ + shared/."""
     os.makedirs("./storage", mode=0o755, exist_ok=True)
-
-    if os.path.isdir(LEGACY_HOMES):
-        if not os.path.exists(USERS_ROOT):
-            os.rename(LEGACY_HOMES, USERS_ROOT)
-            print(f"   ✅ Migrated {LEGACY_HOMES} → {USERS_ROOT}")
-        else:
-            for name in os.listdir(LEGACY_HOMES):
-                src = os.path.join(LEGACY_HOMES, name)
-                dst = os.path.join(USERS_ROOT, name)
-                if not os.path.exists(dst):
-                    shutil.move(src, dst)
-                    print(f"   ✅ Moved leftover {src} → {dst}")
-            try:
-                os.rmdir(LEGACY_HOMES)
-            except OSError:
-                print(f"   ⚠️  Left {LEGACY_HOMES} in place (not empty)")
-
     os.makedirs(USERS_ROOT, mode=0o755, exist_ok=True)
     os.makedirs(SHARED_ROOT, mode=0o2775, exist_ok=True)
     try:
@@ -61,17 +42,6 @@ def ensure_user_home(username: str, puid: int, pgid: int) -> str:
         os.chmod(home, 0o700)
     except OSError:
         pass
-
-    # Remove leftover symlink/mountpoint from the old "shared inside home" layout.
-    leftover = os.path.join(home, "shared")
-    if os.path.islink(leftover):
-        os.unlink(leftover)
-    elif os.path.isdir(leftover) and not os.listdir(leftover):
-        try:
-            os.rmdir(leftover)
-        except OSError:
-            pass
-
     return home
 
 

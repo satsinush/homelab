@@ -66,7 +66,6 @@ Shared files live under [`./storage/`](../storage/) (gitignored; included in Res
 - [ ] Confirm file-access user(s) exist (`samba/volumes/config/accounts.env`) and dirs under `storage/users/` + `storage/shared/`
 - [ ] New person checklist: Authentik account (SSO) → file-access user in `accounts.env` (SMB + WebDAV)
 - [ ] **Obsidian / WebDAV Sync:** server `https://dav.<your-hostname>/`, **file-access** credentials (not Authentik); vault under private home; shared files at `/shared`
-- [ ] Optional migrate former Nextcloud files: `nextcloud/volumes/html/data/<user>/files/` → `storage/users/<user>/`, then remove leftover `nextcloud/volumes/`
 - [ ] Docs: [Samba](https://www.samba.org/) · [SFTPGo](https://docs.sftpgo.com/)
 
 ### Gotify / Apprise
