@@ -234,9 +234,12 @@ entries:
       authorization_flow: !Find [authentik_flows.flow, [slug, default-authentication-flow]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
       base_dn: dc=ldap,dc=goauthentik,dc=io
-      # direct avoids stale cached searches after permission/policy changes
-      bind_mode: direct
-      search_mode: direct
+      # Cached modes: WebDAV auth is per-request; direct bind/search is ~1–2s each
+      # (Authentik runs a flow per bind). Cached bind keeps sessions in the outpost;
+      # cached search answers from memory. Tradeoff: password/group changes can lag
+      # until the outpost session/cache refreshes (restart authentik-ldap to force).
+      bind_mode: cached
+      search_mode: cached
       uid_start_number: 2000
       gid_start_number: 2000
       mfa_support: false
