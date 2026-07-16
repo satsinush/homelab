@@ -8,7 +8,9 @@ services:
       - "53:53/tcp"
       - "53:53/udp"
     environment:
-      - TZ=America/Chicago
+      - TZ=${TZ:-America/Chicago}
+      - PIHOLE_UID=${PUID}
+      - PIHOLE_GID=${PGID}
       - FTLCONF_dns_upstreams=unbound#53
       - FTLCONF_dns_domain=${HOMELAB_HOSTNAME}
       - FTLCONF_dns_piholePTR=HOSTNAMEFQDN
