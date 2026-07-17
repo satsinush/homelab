@@ -1,8 +1,4 @@
 ## 🌐 Network & Infrastructure Core
- * [ ] set up headscale
- * [ ] rename subdomains (auth, notify, vault, docker, status, dns, webdav)
- * [ ] add firewalld and other prerequisites to setup script
- * [ ] remove old authentik ldap users and services?
  * [ ] implement HSTS?
  * [ ] fail2ban?
  * [ ] add health checks for all containers?

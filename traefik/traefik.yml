@@ -32,6 +32,9 @@ entryPoints:
   # HTTPS — internal (LAN/VPN) entrypoint serving every service.
   websecure:
     address: ":443"
+    http:
+      middlewares:
+        - hsts-headers@file   # HSTS on every HTTPS response
 
   # HTTPS — public entrypoint. The home router forwards WAN 443 → host 8443,
   # and ONLY the Headscale control endpoint binds here (see its compose labels).
@@ -39,6 +42,9 @@ entryPoints:
   # the internet even if an attacker sends its Host header to the public IP.
   websecure-public:
     address: ":8443"
+    http:
+      middlewares:
+        - hsts-headers@file
 
 providers:
   # Docker provider — discovers services by reading container labels

@@ -6,6 +6,17 @@
 
 http:
   middlewares:
+    # HSTS — browsers refuse plain-HTTP for these hosts after first visit.
+    # Applied as a default middleware on the websecure/websecure-public
+    # entrypoints (see traefik.yml), so it covers every router.
+    # Note: with HSTS active, certificate-error bypass is blocked; in private
+    # (self-signed) SSL mode devices must trust the homelab CA.
+    hsts-headers:
+      headers:
+        stsSeconds: 31536000        # 1 year
+        stsIncludeSubdomains: true
+        stsPreload: false           # preload requires registrable-domain scope; keep off
+
     authentik-auth:
       forwardAuth:
         address: "http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
