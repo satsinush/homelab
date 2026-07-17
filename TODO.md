@@ -12,6 +12,7 @@
 
 ## 📱 Frontend, Mobile & UI UX
  * [ ] verify password before seeing secrets page?
+ * [ ] put dashboard and SMB/WebDAV on separate tabs
  * [ ] Fix secrets page on mobile, make sure full secret name is always visible
  * [ ] remove header on mobile and just have transparent sidebar icon in the top or bottom?
  * [ ] Make package manager header smaller and make sure table fits nicely on page

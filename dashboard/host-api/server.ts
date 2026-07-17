@@ -424,37 +424,53 @@ app.post('/network/wake-on-lan', (req: Request, res: Response) => {
         macBytes.copy(buf, 6 + i * 6);
     }
 
-    // Send magic packet to broadcast address via UDP
+    // Send magic packet to broadcast address via UDP. The socket must be bound
+    // before SO_BROADCAST can be enabled; without setBroadcast(true) Linux
+    // rejects sends to 255.255.255.255 with EACCES.
     const socket = dgram.createSocket('udp4');
-    socket.once('error', (err) => {
-        socket.close();
-        res.status(500).json({
-            success: false,
-            error: 'Failed to send Wake-on-LAN packet',
-            details: err.message,
-            timestamp: new Date().toISOString()
-        });
-    });
+    let responded = false;
 
-    socket.send(buf, 0, buf.length, 9, '255.255.255.255', (err) => {
-        socket.close();
-        if (err) {
-            return res.status(500).json({
+    const fail = (err: Error) => {
+        console.error(`WOL send to ${mac} failed:`, err.message);
+        try {
+            socket.close();
+        } catch { /* already closed */ }
+        if (!responded) {
+            responded = true;
+            res.status(500).json({
                 success: false,
                 error: 'Failed to send Wake-on-LAN packet',
                 details: err.message,
                 timestamp: new Date().toISOString()
             });
         }
-        
-        res.json({
-            success: true,
-            data: {
-                message: `Wake-on-LAN packet sent to ${mac}`,
-                mac: mac,
-                platform: os.platform()
-            },
-            timestamp: new Date().toISOString()
+    };
+
+    socket.once('error', fail);
+
+    socket.bind(() => {
+        try {
+            socket.setBroadcast(true);
+        } catch (err) {
+            return fail(err as Error);
+        }
+        socket.send(buf, 0, buf.length, 9, '255.255.255.255', (err) => {
+            if (err) {
+                return fail(err);
+            }
+            socket.close();
+            if (!responded) {
+                responded = true;
+                res.json({
+                    success: true,
+                    data: {
+                        message: `Wake-on-LAN packet sent to ${mac}`,
+                        mac: mac,
+                        platform: os.platform()
+                    },
+                    timestamp: new Date().toISOString()
+                });
+            }
         });
     });
 });
