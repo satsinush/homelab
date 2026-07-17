@@ -14,7 +14,8 @@ services:
       - CURL_CA_BUNDLE=/etc/ssl/certs/homelab-ca.crt
       - PYTHONUNBUFFERED=1
       # Direct Gotify sends (for notification click URLs, which Apprise can't forward).
-      - GOTIFY_INTERNAL_URL=http://${GOTIFY_SERVICE_NAME}
+      # Container name, not ${GOTIFY_SERVICE_NAME} (that's the public subdomain).
+      - GOTIFY_INTERNAL_URL=http://gotify
       # Per-tag default URL opened when a notification is tapped (Android).
       - GATUS_CLICK_URL=https://${GATUS_SERVICE_NAME}.${HOMELAB_HOSTNAME}
       - DASHBOARD_CLICK_URL=https://${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}
