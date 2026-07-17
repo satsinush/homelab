@@ -59,9 +59,10 @@ services:
       TS_HOSTNAME: homelab-router
       # No SNAT: preserves tailnet source IPs and permits true bidirectional
       # routing. The LAN gateway needs HEADSCALE_IPV4_PREFIX via this host.
-      # Pin the WireGuard data-plane port so the router can forward WAN
-      # 41641/udp here for direct (non-relayed) peer connections.
-      TS_EXTRA_ARGS: --advertise-routes=${LAN_SUBNET} --accept-routes --accept-dns=false --snat-subnet-routes=false --port=41641
+      TS_EXTRA_ARGS: --advertise-routes=${LAN_SUBNET} --accept-routes --accept-dns=false --snat-subnet-routes=false
+      # Pin the WireGuard data-plane port (tailscaled flag, not `tailscale up`)
+      # so the router can forward WAN 41641/udp for direct peer connections.
+      TS_TAILSCALED_EXTRA_ARGS: --port=41641
       TS_ACCEPT_DNS: "false"
     volumes:
       - ${PROJECT_ROOT}/headscale/volumes/router:/var/lib/tailscale
