@@ -55,8 +55,10 @@ import {
     Star as StarIcon,
     StarBorder as StarBorderIcon,
     CastConnected as RustDeskIcon,
-    Warning as WarningIcon
+    Warning as WarningIcon,
+    Devices as DevicesIcon
 } from '@mui/icons-material';
+import PageHeader from './PageHeader';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/useNotification';
 import { formatDevicesForDisplay, formatMacForDisplay, normalizeMacForApi } from '../utils/formatters';
@@ -792,14 +794,7 @@ const Devices = () => {
             {/* Header Section */}
             <Box sx={{ mb: 4 }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
-                    <Box>
-                        <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600, color: 'text.primary' }}>
-                            Network Devices
-                        </Typography>
-                        <Typography variant="h6" color="text.secondary">
-                            Monitor and wake up devices on your network
-                        </Typography>
-                    </Box>
+                    <PageHeader title="Devices" icon={<DevicesIcon />} />
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
                         <ToggleButtonGroup
                             value={viewMode}

@@ -10,7 +10,6 @@ import {
     Table,
     TableBody,
     TableCell,
-    TableContainer,
     TableHead,
     TableRow,
     Chip,
@@ -21,14 +20,17 @@ import {
     Select,
     MenuItem,
     InputLabel,
-    Paper
+    Tooltip
 } from '@mui/material';
 import {
     Search as SearchIcon,
     Refresh as RefreshIcon,
+    Inventory as InventoryIcon,
 } from '@mui/icons-material';
+import PageHeader from './PageHeader';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/useNotification';
+import ScrollContainer from './ScrollContainer';
 
 import { getErrorMessage } from '../utils/errors';
 
@@ -61,7 +63,6 @@ const PackageManager = () => {
             setPackages(result.data.packages || []);
             setLastSynced(result.data.lastSynced);
 
-            // Show notes from the backend
             if (result.data.note) {
                 console.log('Package status:', result.data.note);
             }
@@ -78,17 +79,11 @@ const PackageManager = () => {
         fetchPackages();
     }, [fetchPackages]);
 
-
-
     const filteredPackages = packages.filter(pkg => {
-        // Filter by package name search term
         const matchesPackageSearch = pkg.name?.toLowerCase().includes(searchTerm.toLowerCase());
-
-        // Filter by version search term
         const packageVersion = pkg.hasUpdate ? `${pkg.currentVersion} → ${pkg.newVersion}` : pkg.currentVersion;
         const matchesVersionSearch = packageVersion?.toLowerCase().includes(versionSearchTerm.toLowerCase());
 
-        // Filter by status
         let matchesFilter = true;
         if (filterStatus === 'updates') {
             matchesFilter = pkg.hasUpdate === true;
@@ -98,11 +93,8 @@ const PackageManager = () => {
 
         return matchesPackageSearch && matchesVersionSearch && matchesFilter;
     }).sort((a, b) => {
-        // Sort by update status first (updates available at top)
         if (a.hasUpdate && !b.hasUpdate) return -1;
         if (!a.hasUpdate && b.hasUpdate) return 1;
-
-        // Then sort alphabetically by package name
         return a.name.localeCompare(b.name);
     });
 
@@ -116,24 +108,22 @@ const PackageManager = () => {
                     variant="filled"
                 />
             );
-        } else {
-            return (
-                <Chip
-                    label="Up to Date"
-                    size="small"
-                    color="success"
-                    variant="outlined"
-                />
-            );
         }
+        return (
+            <Chip
+                label="Up to Date"
+                size="small"
+                color="success"
+                variant="outlined"
+            />
+        );
     };
 
     const getVersionDisplay = (pkg: SystemPackage) => {
         if (pkg.hasUpdate) {
             return `${pkg.currentVersion} → ${pkg.newVersion}`;
-        } else {
-            return pkg.currentVersion;
         }
+        return pkg.currentVersion;
     };
 
     const getStatsForFilter = (filter: string) => {
@@ -144,14 +134,12 @@ const PackageManager = () => {
 
     const formatSyncTime = (syncTime: string | null) => {
         if (!syncTime) return 'Unknown';
-
-        const date = new Date(syncTime);
-        return date.toLocaleString();
+        return new Date(syncTime).toLocaleString();
     };
 
     if (loading) {
         return (
-            <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
+            <Container maxWidth={false} sx={{ py: { xs: 2, md: 3 }, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: '100%' }}>
                 <Box sx={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -170,37 +158,38 @@ const PackageManager = () => {
     }
 
     return (
-        <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
-            <Box sx={{ mb: 4 }}>
-                <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
-                    Package Manager
-                </Typography>
-                <Typography variant="h6" color="text.secondary" sx={{ mb: 3 }}>
-                    Manage Arch Linux packages with update information
-                </Typography>
+        <Container maxWidth={false} sx={{ py: { xs: 2, md: 3 }, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: '100%' }}>
+            <Box sx={{ mb: { xs: 2, md: 3 } }}>
+                <PageHeader title="Packages" icon={<InventoryIcon />} />
 
-                {/* Stats and Sync Info */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-                    <Box>
-                        <Typography variant="body1" color="text.secondary">
+                <Box sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: { xs: 'stretch', sm: 'center' },
+                    mb: 2,
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    flexWrap: 'wrap',
+                    gap: 1.5
+                }}>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" color="text.secondary">
                             {packages.length > 0 && `Total: ${packages.length} packages, ${packages.filter(pkg => pkg.hasUpdate).length} updates available`}
                         </Typography>
                         {lastSynced && (
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
                                 Package database last synced: {formatSyncTime(lastSynced)}
                             </Typography>
                         )}
                     </Box>
 
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                        <Button
-                            variant="contained"
-                            startIcon={<RefreshIcon />}
-                            onClick={fetchPackages}
-                        >
-                            Sync Database
-                        </Button>
-                    </Box>
+                    <Button
+                        variant="contained"
+                        startIcon={<RefreshIcon />}
+                        onClick={fetchPackages}
+                        sx={{ width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
+                    >
+                        Sync Database
+                    </Button>
                 </Box>
             </Box>
 
@@ -211,7 +200,7 @@ const PackageManager = () => {
                             No packages available
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                            Package information could not be retrieved. This feature requires an Arch Linux host with package management configured.
+                            Package information could not be retrieved. This feature requires a host with package management configured.
                         </Typography>
                         <Button
                             variant="outlined"
@@ -224,9 +213,8 @@ const PackageManager = () => {
                 </Card>
             ) : (
                 <>
-                    {/* Filter controls */}
-                    <Card sx={{ mb: 4 }}>
-                        <CardContent>
+                    <Card sx={{ mb: 2 }}>
+                        <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
                             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                                 <TextField
                                     label="Search Packages"
@@ -242,7 +230,7 @@ const PackageManager = () => {
                                             )
                                         }
                                     }}
-                                    sx={{ flexGrow: 1, minWidth: '200px' }}
+                                    sx={{ flexGrow: 1, width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 180 } }}
                                 />
 
                                 <TextField
@@ -259,10 +247,10 @@ const PackageManager = () => {
                                             )
                                         }
                                     }}
-                                    sx={{ flexGrow: 1, minWidth: '200px' }}
+                                    sx={{ flexGrow: 1, width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 180 } }}
                                 />
 
-                                <FormControl size="small" sx={{ minWidth: '180px' }}>
+                                <FormControl size="small" sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 180 } }}>
                                     <InputLabel>Status</InputLabel>
                                     <Select
                                         value={filterStatus}
@@ -278,19 +266,18 @@ const PackageManager = () => {
                         </CardContent>
                     </Card>
 
-                    {/* Packages Table */}
                     <Card>
-                        <TableContainer
-                            component={Paper}
-                            elevation={0}
-                            sx={{ maxHeight: 'calc(100vh - 320px)', overflow: 'auto' }}
+                        <ScrollContainer
+                            contentMinWidth={560}
+                            maxHeight={{ xs: 'min(60dvh, 480px)', md: 'calc(100vh - 280px)' }}
+                            vertical
                         >
                             <Table stickyHeader size="small">
                                 <TableHead>
                                     <TableRow>
-                                        <TableCell>Package Name</TableCell>
-                                        <TableCell>Status</TableCell>
-                                        <TableCell>Installed Version</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Package Name</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Status</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Installed Version</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -303,19 +290,42 @@ const PackageManager = () => {
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        filteredPackages.map((pkg) => (
-                                            <TableRow key={pkg.name}>
-                                                <TableCell sx={{ fontWeight: 500 }}>{pkg.name}</TableCell>
-                                                <TableCell>{getUpdateStatusChip(pkg)}</TableCell>
-                                                <TableCell sx={{ fontFamily: 'monospace' }}>
-                                                    {getVersionDisplay(pkg)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
+                                        filteredPackages.map((pkg) => {
+                                            const version = getVersionDisplay(pkg);
+                                            return (
+                                                <TableRow key={pkg.name}>
+                                                    <TableCell sx={{ fontWeight: 500, maxWidth: 220 }}>
+                                                        <Tooltip title={pkg.name}>
+                                                            <Box sx={{
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap'
+                                                            }}>
+                                                                {pkg.name}
+                                                            </Box>
+                                                        </Tooltip>
+                                                    </TableCell>
+                                                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                                        {getUpdateStatusChip(pkg)}
+                                                    </TableCell>
+                                                    <TableCell sx={{ fontFamily: 'monospace', maxWidth: 280 }}>
+                                                        <Tooltip title={version}>
+                                                            <Box sx={{
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap'
+                                                            }}>
+                                                                {version}
+                                                            </Box>
+                                                        </Tooltip>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })
                                     )}
                                 </TableBody>
                             </Table>
-                        </TableContainer>
+                        </ScrollContainer>
                     </Card>
                 </>
             )}

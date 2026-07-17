@@ -20,7 +20,9 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    TextField
+    TextField,
+    Tabs,
+    Tab
 } from '@mui/material';
 import {
     Shield as AdminIcon,
@@ -28,8 +30,10 @@ import {
     Computer as LocalIcon,
     Folder as FolderIcon,
     Add as AddIcon,
-    Key as KeyIcon
+    Key as KeyIcon,
+    People as PeopleIcon
 } from '@mui/icons-material';
+import PageHeader from './PageHeader';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/useNotification';
 import { useAuth } from '../contexts/useAuth';
@@ -121,7 +125,7 @@ const FileAccountDialog = ({ open, mode, username: initialUsername, onClose, onS
                         <>
                             <Typography variant="body2" color="text.secondary">
                                 Used for Samba (SMB) shares and WebDAV. The username should match the
-                                person's Authentik login, but the password is separate from SSO.
+                                person&apos;s Authentik login, but the password is separate from SSO.
                             </Typography>
                             <TextField
                                 label="Username"
@@ -172,10 +176,12 @@ const FileAccountDialog = ({ open, mode, username: initialUsername, onClose, onS
 };
 
 const Users = () => {
+    const [tabValue, setTabValue] = useState(0);
     const [usersList, setUsersList] = useState<UserListItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [fileAccounts, setFileAccounts] = useState<FileAccountItem[]>([]);
     const [fileAccountsLoading, setFileAccountsLoading] = useState(true);
+    const [fileLoaded, setFileLoaded] = useState(false);
     const [fileDialog, setFileDialog] = useState<{ open: boolean; mode: 'create' | 'password'; username: string }>({
         open: false,
         mode: 'create',
@@ -201,6 +207,7 @@ const Users = () => {
         try {
             const result = await tryApiCall<{ accounts: FileAccountItem[] }>('/users/file-accounts');
             setFileAccounts(result.data.accounts || []);
+            setFileLoaded(true);
         } catch (err) {
             showError(`Failed to load file-access accounts: ${getErrorMessage(err)}`);
         } finally {
@@ -210,8 +217,13 @@ const Users = () => {
 
     useEffect(() => {
         fetchUsers();
-        fetchFileAccounts();
-    }, [fetchUsers, fetchFileAccounts]);
+    }, [fetchUsers]);
+
+    useEffect(() => {
+        if (tabValue === 1 && !fileLoaded) {
+            fetchFileAccounts();
+        }
+    }, [tabValue, fileLoaded, fetchFileAccounts]);
 
     const handleDeleteFileAccount = (username: string) => {
         showConfirmDialog({
@@ -256,171 +268,241 @@ const Users = () => {
         });
     };
 
-    if (loading) {
-        return (
-            <Container maxWidth={false} sx={{ py: 4 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-                    <CircularProgress />
-                </Box>
-            </Container>
-        );
-    }
-
     return (
-        <Container maxWidth={false} sx={{ py: 4 }}>
-            <Box sx={{ mb: 3 }}>
-                <Typography variant="h3" component="h1" sx={{ fontWeight: 600 }}>
-                    Users
-                </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-                    Manage user accounts and permissions
-                </Typography>
+        <Container maxWidth={false} sx={{ py: { xs: 2, md: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
+            <PageHeader title="Users" icon={<PeopleIcon />} />
+
+            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                <Tabs
+                    value={tabValue}
+                    onChange={(_e, v: number) => setTabValue(v)}
+                    aria-label="user management tabs"
+                    variant="scrollable"
+                    scrollButtons="auto"
+                    allowScrollButtonsMobile
+                >
+                    <Tab
+                        icon={<PeopleIcon />}
+                        iconPosition="start"
+                        label="Dashboard Users"
+                        id="users-tab-0"
+                        aria-controls="users-tabpanel-0"
+                        sx={{
+                            minWidth: { xs: 'auto', sm: 160 },
+                            '& .MuiTab-iconWrapper': { display: { xs: 'none', sm: 'inline-flex' } }
+                        }}
+                    />
+                    <Tab
+                        icon={<FolderIcon />}
+                        iconPosition="start"
+                        label="SMB / WebDAV"
+                        id="users-tab-1"
+                        aria-controls="users-tabpanel-1"
+                        sx={{
+                            minWidth: { xs: 'auto', sm: 160 },
+                            '& .MuiTab-iconWrapper': { display: { xs: 'none', sm: 'inline-flex' } }
+                        }}
+                    />
+                </Tabs>
             </Box>
 
-            <Card>
-                <CardContent>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        {usersList.length} user{usersList.length !== 1 ? 's' : ''} registered
-                    </Typography>
-                    <List disablePadding>
-                        {usersList.map((u, idx) => (
-                            <React.Fragment key={u.id}>
-                                {idx > 0 && <Divider component="li" />}
-                                <ListItem
-                                    secondaryAction={
-                                        u.id !== currentUser?.id && (
-                                            <Button
-                                                variant="outlined"
-                                                color="error"
-                                                size="small"
-                                                onClick={() => handleDeleteUser(u)}
-                                            >
-                                                Delete
-                                            </Button>
-                                        )
-                                    }
-                                >
-                                    <ListItemAvatar>
-                                        <Avatar sx={{ bgcolor: u.roles?.includes('homelab-admin') ? 'warning.main' : 'primary.main' }}>
-                                            {u.username?.charAt(0).toUpperCase()}
-                                        </Avatar>
-                                    </ListItemAvatar>
-                                    <ListItemText
-                                        primary={
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                                                    {u.username}
-                                                </Typography>
-                                                {u.id === currentUser?.id && (
-                                                    <Chip label="You" size="small" color="primary" variant="outlined" />
-                                                )}
-                                                {u.roles?.includes('homelab-admin') && (
-                                                    <Chip icon={<AdminIcon />} label="Admin" size="small" color="warning" variant="outlined" />
-                                                )}
-                                            </Box>
-                                        }
-                                        secondary={
-                                            <Stack direction="row" spacing={1} sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }}>
-                                                {u.email && (
-                                                    <Typography variant="body2" color="text.secondary" component="span">
-                                                        {u.email}
-                                                    </Typography>
-                                                )}
-                                                <Chip
-                                                    icon={u.is_sso_user ? <SSOIcon /> : <LocalIcon />}
-                                                    label={u.is_sso_user ? 'SSO' : 'Local'}
-                                                    size="small"
-                                                    variant="outlined"
-                                                    sx={{ height: 22 }}
-                                                />
-                                            </Stack>
-                                        }
-                                        slotProps={{ secondary: { component: 'div' } }}
-                                    />
-                                </ListItem>
-                            </React.Fragment>
-                        ))}
-                    </List>
-                </CardContent>
-            </Card>
-
-            <Card sx={{ mt: 3 }}>
-                <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 1 }}>
-                        <Box>
-                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                File Access (SMB / WebDAV)
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                Local accounts for Samba shares and WebDAV — passwords are separate from SSO.
-                                Changes restart the samba and sftpgo containers.
-                            </Typography>
+            {tabValue === 0 && (
+                <Box role="tabpanel" id="users-tabpanel-0" aria-labelledby="users-tab-0">
+                    {loading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '280px' }}>
+                            <CircularProgress />
                         </Box>
-                        <Button
-                            variant="contained"
-                            size="small"
-                            startIcon={<AddIcon />}
-                            onClick={() => setFileDialog({ open: true, mode: 'create', username: '' })}
-                        >
-                            Add Account
-                        </Button>
-                    </Box>
-
-                    {fileAccountsLoading ? (
-                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-                            <CircularProgress size={28} />
-                        </Box>
-                    ) : fileAccounts.length === 0 ? (
-                        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                            No file-access accounts yet. Add one to enable SMB and WebDAV logins.
-                        </Typography>
                     ) : (
-                        <List disablePadding>
-                            {fileAccounts.map((acct, idx) => (
-                                <React.Fragment key={acct.username}>
-                                    {idx > 0 && <Divider component="li" />}
-                                    <ListItem
-                                        secondaryAction={
-                                            <Stack direction="row" spacing={1}>
-                                                <Button
-                                                    variant="outlined"
-                                                    size="small"
-                                                    startIcon={<KeyIcon />}
-                                                    onClick={() => setFileDialog({ open: true, mode: 'password', username: acct.username })}
-                                                >
-                                                    Reset Password
-                                                </Button>
-                                                <Button
-                                                    variant="outlined"
-                                                    color="error"
-                                                    size="small"
-                                                    onClick={() => handleDeleteFileAccount(acct.username)}
-                                                >
-                                                    Delete
-                                                </Button>
-                                            </Stack>
-                                        }
-                                    >
-                                        <ListItemAvatar>
-                                            <Avatar sx={{ bgcolor: 'info.main' }}>
-                                                <FolderIcon />
-                                            </Avatar>
-                                        </ListItemAvatar>
-                                        <ListItemText
-                                            primary={
-                                                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                                                    {acct.username}
-                                                </Typography>
-                                            }
-                                            secondary={`SMB: \\\\server\\${acct.username} + \\\\server\\shared · WebDAV: / and /shared`}
-                                        />
-                                    </ListItem>
-                                </React.Fragment>
-                            ))}
-                        </List>
+                        <Card>
+                            <CardContent>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                    {usersList.length} user{usersList.length !== 1 ? 's' : ''} registered
+                                </Typography>
+                                <List disablePadding>
+                                    {usersList.map((u, idx) => (
+                                        <React.Fragment key={u.id}>
+                                            {idx > 0 && <Divider component="li" />}
+                                            <ListItem
+                                                alignItems="flex-start"
+                                                sx={{
+                                                    flexDirection: { xs: 'column', sm: 'row' },
+                                                    alignItems: { xs: 'stretch', sm: 'flex-start' },
+                                                    gap: { xs: 1.5, sm: 0 },
+                                                    py: 1.5
+                                                }}
+                                                secondaryAction={
+                                                    u.id !== currentUser?.id ? (
+                                                        <Box
+                                                            sx={{
+                                                                position: { xs: 'static', sm: 'absolute' },
+                                                                right: { sm: 16 },
+                                                                top: { sm: '50%' },
+                                                                transform: { sm: 'translateY(-50%)' },
+                                                                alignSelf: { xs: 'stretch', sm: 'auto' },
+                                                                mt: { xs: 0.5, sm: 0 }
+                                                            }}
+                                                        >
+                                                            <Button
+                                                                variant="outlined"
+                                                                color="error"
+                                                                size="small"
+                                                                fullWidth
+                                                                onClick={() => handleDeleteUser(u)}
+                                                            >
+                                                                Delete
+                                                            </Button>
+                                                        </Box>
+                                                    ) : undefined
+                                                }
+                                            >
+                                                <ListItemAvatar>
+                                                    <Avatar sx={{ bgcolor: u.roles?.includes('homelab-admin') ? 'warning.main' : 'primary.main' }}>
+                                                        {u.username?.charAt(0).toUpperCase()}
+                                                    </Avatar>
+                                                </ListItemAvatar>
+                                                <ListItemText
+                                                    sx={{ pr: { sm: u.id !== currentUser?.id ? 12 : 0 } }}
+                                                    primary={
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                                                {u.username}
+                                                            </Typography>
+                                                            {u.id === currentUser?.id && (
+                                                                <Chip label="You" size="small" color="primary" variant="outlined" />
+                                                            )}
+                                                            {u.roles?.includes('homelab-admin') && (
+                                                                <Chip icon={<AdminIcon />} label="Admin" size="small" color="warning" variant="outlined" />
+                                                            )}
+                                                        </Box>
+                                                    }
+                                                    secondary={
+                                                        <Stack direction="row" spacing={1} sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }}>
+                                                            {u.email && (
+                                                                <Typography variant="body2" color="text.secondary" component="span" sx={{ overflowWrap: 'anywhere' }}>
+                                                                    {u.email}
+                                                                </Typography>
+                                                            )}
+                                                            <Chip
+                                                                icon={u.is_sso_user ? <SSOIcon /> : <LocalIcon />}
+                                                                label={u.is_sso_user ? 'SSO' : 'Local'}
+                                                                size="small"
+                                                                variant="outlined"
+                                                                sx={{ height: 22 }}
+                                                            />
+                                                        </Stack>
+                                                    }
+                                                    slotProps={{ secondary: { component: 'div' } }}
+                                                />
+                                            </ListItem>
+                                        </React.Fragment>
+                                    ))}
+                                </List>
+                            </CardContent>
+                        </Card>
                     )}
-                </CardContent>
-            </Card>
+                </Box>
+            )}
+
+            {tabValue === 1 && (
+                <Box role="tabpanel" id="users-tabpanel-1" aria-labelledby="users-tab-1">
+                    <Card>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
+                                <Box sx={{ minWidth: 0, flex: '1 1 220px' }}>
+                                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                                        File Access (SMB / WebDAV)
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Local accounts for Samba shares and WebDAV — passwords are separate from SSO.
+                                        Changes restart the samba and sftpgo containers.
+                                    </Typography>
+                                </Box>
+                                <Button
+                                    variant="contained"
+                                    size="small"
+                                    startIcon={<AddIcon />}
+                                    onClick={() => setFileDialog({ open: true, mode: 'create', username: '' })}
+                                    sx={{ width: { xs: '100%', sm: 'auto' } }}
+                                >
+                                    Add Account
+                                </Button>
+                            </Box>
+
+                            {fileAccountsLoading ? (
+                                <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                                    <CircularProgress size={28} />
+                                </Box>
+                            ) : fileAccounts.length === 0 ? (
+                                <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                                    No file-access accounts yet. Add one to enable SMB and WebDAV logins.
+                                </Typography>
+                            ) : (
+                                <List disablePadding>
+                                    {fileAccounts.map((acct, idx) => (
+                                        <React.Fragment key={acct.username}>
+                                            {idx > 0 && <Divider component="li" />}
+                                            <ListItem
+                                                alignItems="flex-start"
+                                                sx={{
+                                                    flexDirection: { xs: 'column', sm: 'row' },
+                                                    alignItems: { xs: 'stretch', sm: 'flex-start' },
+                                                    gap: { xs: 1.5, sm: 0 },
+                                                    py: 1.5
+                                                }}
+                                            >
+                                                <Box sx={{ display: 'flex', alignItems: 'flex-start', width: '100%', minWidth: 0 }}>
+                                                    <ListItemAvatar>
+                                                        <Avatar sx={{ bgcolor: 'info.main' }}>
+                                                            <FolderIcon />
+                                                        </Avatar>
+                                                    </ListItemAvatar>
+                                                    <ListItemText
+                                                        primary={
+                                                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                                                {acct.username}
+                                                            </Typography>
+                                                        }
+                                                        secondary={`SMB: \\\\server\\${acct.username} + \\\\server\\shared · WebDAV: / and /shared`}
+                                                        slotProps={{
+                                                            secondary: {
+                                                                sx: { overflowWrap: 'anywhere' }
+                                                            }
+                                                        }}
+                                                    />
+                                                </Box>
+                                                <Stack
+                                                    direction={{ xs: 'column', sm: 'row' }}
+                                                    spacing={1}
+                                                    sx={{ width: { xs: '100%', sm: 'auto' }, flexShrink: 0, ml: { sm: 2 } }}
+                                                >
+                                                    <Button
+                                                        variant="outlined"
+                                                        size="small"
+                                                        startIcon={<KeyIcon />}
+                                                        onClick={() => setFileDialog({ open: true, mode: 'password', username: acct.username })}
+                                                        sx={{ width: { xs: '100%', sm: 'auto' } }}
+                                                    >
+                                                        Reset Password
+                                                    </Button>
+                                                    <Button
+                                                        variant="outlined"
+                                                        color="error"
+                                                        size="small"
+                                                        onClick={() => handleDeleteFileAccount(acct.username)}
+                                                        sx={{ width: { xs: '100%', sm: 'auto' } }}
+                                                    >
+                                                        Delete
+                                                    </Button>
+                                                </Stack>
+                                            </ListItem>
+                                        </React.Fragment>
+                                    ))}
+                                </List>
+                            )}
+                        </CardContent>
+                    </Card>
+                </Box>
+            )}
 
             <FileAccountDialog
                 open={fileDialog.open}

@@ -33,6 +33,7 @@ import {
     Cloud as SSOIcon,
     Computer as LocalIcon
 } from '@mui/icons-material';
+import PageHeader from './PageHeader';
 import { useAuth } from '../contexts/useAuth';
 import { useNotification } from '../contexts/useNotification';
 import { tryApiCall } from '../utils/api';
@@ -334,6 +335,7 @@ const Profile = () => {
 
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
+            <PageHeader title="Profile" icon={<PersonIcon />} />
             <Paper elevation={1} sx={{ p: 4 }}>
                 {/* Header */}
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>

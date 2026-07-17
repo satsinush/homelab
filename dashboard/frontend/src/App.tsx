@@ -133,13 +133,13 @@ function AppContent() {
       <CssBaseline />
       <NotificationProvider>
         <AuthGuard>
-          <Box 
-          sx={{ 
-            display: 'flex', 
-            minHeight: '100vh', 
-            width: '100%',         // Fill layout base horizontally
+          <Box
+          sx={{
+            display: 'flex',
+            minHeight: '100vh',
+            width: '100%',
             boxSizing: 'border-box',
-            overflowX: 'hidden'   
+            overflowX: 'hidden'
           }}>
             <Navigation
               activeTab={getCurrentTab()}
@@ -149,13 +149,15 @@ function AppContent() {
             <Box
               component="main"
               sx={{
-                flexGrow: 1,
+                flex: '1 1 0',
                 bgcolor: 'background.default',
                 minHeight: '100vh',
-                width: '100%', // Ensure main content fills available space
-                mt: { xs: '64px', md: 0 }, // Add top margin on mobile for app bar
+                width: 'auto',
+                minWidth: 0,
+                mt: { xs: '56px', sm: '64px', md: 0 }, // Offset for mobile AppBar
                 display: 'flex',
                 flexDirection: 'column',
+                overflowX: 'hidden',
               }}
             >
               <Routes>

@@ -1,4 +1,4 @@
-// src/components/Navigation.jsx
+// src/components/Navigation.tsx
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -81,11 +81,13 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
 
     const handleProfileClick = () => {
         handleMenuClose();
+        setMobileOpen(false);
         navigate('/profile');
     };
 
     const handleLogout = async () => {
         handleMenuClose();
+        setMobileOpen(false);
         try {
             const redirected = await logout();
             // Navigating to Authentik end-session — don't toast over that transition
@@ -99,44 +101,47 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
 
     const drawerContent = (
         <Box sx={{ overflow: 'auto', height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Header */}
-            <Box sx={{
-                p: 3,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                cursor: 'pointer',
-                '&:hover': {
-                    backgroundColor: actualMode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
-                }
-            }}>
-                <Box
-                    component={Link}
-                    to="/home"
-                    sx={{
-                        textDecoration: 'none',
-                        color: 'inherit',
+            {/* Header — the mobile AppBar already shows branding, so desktop only */}
+            {!isMobile && (
+                <>
+                    <Box sx={{
+                        p: 3,
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 1
-                    }}
-                    onClick={() => {
-                        if (isMobile) {
-                            setMobileOpen(false);
+                        gap: 1,
+                        cursor: 'pointer',
+                        '&:hover': {
+                            backgroundColor: actualMode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
                         }
-                    }}
-                >
-                    <Box component="img" src="/homelab-icon.svg" alt="Logo" sx={{ width: 40, height: 40 }} />
-                    <Typography variant="h5" component="h2" sx={{
-                        fontWeight: 600,
-                        color: 'text.primary'
                     }}>
-                        Homelab Dashboard
-                    </Typography>
-                </Box>
-            </Box>
+                        <Box
+                            component={Link}
+                            to="/home"
+                            sx={{
+                                textDecoration: 'none',
+                                color: 'inherit',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1,
+                                minWidth: 0
+                            }}
+                        >
+                            <Box component="img" src="/homelab-icon.svg" alt="Logo" sx={{ width: 40, height: 40, flexShrink: 0 }} />
+                            <Typography variant="h6" component="h2" sx={{
+                                fontWeight: 600,
+                                color: 'text.primary',
+                                whiteSpace: 'normal',
+                                overflowWrap: 'break-word',
+                                lineHeight: 1.25
+                            }}>
+                                Homelab Dashboard
+                            </Typography>
+                        </Box>
+                    </Box>
 
-            <Divider />
+                    <Divider />
+                </>
+            )}
 
             {/* Navigation List */}
             <Box sx={{ flexGrow: 1 }}>
@@ -149,7 +154,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
                                 selected={activeTab === tab.id}
                                 onClick={() => {
                                     if (isMobile) {
-                                        setMobileOpen(false); // Close drawer on mobile when tab is selected
+                                        setMobileOpen(false);
                                     }
                                 }}
                                 sx={{
@@ -212,8 +217,8 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
                     >
                         {user?.username?.charAt(0).toUpperCase()}
                     </Avatar>
-                    <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {user?.username}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
@@ -258,7 +263,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
                     sx={{
                         width: '100%',
                         backgroundColor: 'primary.main',
-                        zIndex: (theme) => theme.zIndex.drawer + 1,
+                        zIndex: (t) => t.zIndex.drawer + 1,
                     }}
                 >
                     <Toolbar>
@@ -272,24 +277,9 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
                             <MenuIcon />
                         </IconButton>
                         <Box component="img" src="/homelab-icon.svg" alt="Logo" sx={{ width: 32, height: 32, mr: 1.5 }} />
-                        <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-                            Homelab Admin
+                        <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            Homelab Dashboard
                         </Typography>
-                        <IconButton
-                            color="inherit"
-                            onClick={handleMenuClick}
-                        >
-                            <Avatar
-                                sx={{
-                                    width: 32,
-                                    height: 32,
-                                    bgcolor: 'primary.light',
-                                    fontSize: '0.875rem'
-                                }}
-                            >
-                                {user?.username?.charAt(0).toUpperCase()}
-                            </Avatar>
-                        </IconButton>
                     </Toolbar>
                 </AppBar>
             )}
@@ -320,7 +310,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
                     open={mobileOpen}
                     onClose={handleDrawerToggle}
                     ModalProps={{
-                        keepMounted: true, // Better open performance on mobile.
+                        keepMounted: true,
                     }}
                     sx={{
                         '& .MuiDrawer-paper': {
@@ -328,7 +318,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
                             boxSizing: 'border-box',
                             backgroundColor: 'background.paper',
                             borderRight: `1px solid ${actualMode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)'}`,
-                            paddingTop: '56px', // Height of mobile AppBar toolbar
+                            paddingTop: { xs: '56px', sm: '64px' }, // Height of mobile AppBar toolbar
                         },
                     }}
                 >

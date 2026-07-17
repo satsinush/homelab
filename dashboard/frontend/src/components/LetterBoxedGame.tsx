@@ -32,6 +32,7 @@ import {
 } from '@mui/material';
 import { PlayArrow as PlayIcon, Settings as SettingsIcon, ContentCopy as CopyIcon } from '@mui/icons-material';
 import { LetterBoxedResultState, GameStatus } from '../types/api';
+import { resultsCardContentSx, resultsCardSx, resultsColumnSx, resultsScrollBodySx } from './puzzleResultsSx';
 
 interface LetterBoxedGridProps {
     letters: string;
@@ -158,8 +159,8 @@ const LetterBoxedResults = React.memo(({
     const totalSolutionsCount = lastGameData?.actualTotalFound || lastGameData?.totalSolutions || 0;
 
     return (
-        <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <CardContent sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', minHeight: 0, '&:last-child': { pb: 2 } }}>
+        <Card sx={resultsCardSx}>
+            <CardContent sx={resultsCardContentSx}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexShrink: 0 }}>
                     <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
                         Solutions ({solutions.length}/{totalSolutionsCount})
@@ -176,8 +177,8 @@ const LetterBoxedResults = React.memo(({
                     )}
                 </Box>
 
-                <TableContainer component={Paper} variant="outlined" sx={{ flexGrow: 1, overflowY: 'auto', minHeight: 0 }}>
-                    <Table size="small" stickyHeader>
+                <TableContainer component={Paper} variant="outlined" sx={resultsScrollBodySx}>
+                    <Table size="small" stickyHeader sx={{ minWidth: 420 }}>
                         <TableHead>
                             <TableRow>
                                 <TableCell sx={{ fontWeight: 'bold' }}>Solution</TableCell>
@@ -628,7 +629,7 @@ const LetterBoxedGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
             </Grid>
 
             {/* Results Column */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: { xs: 350, md: 0 } }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={resultsColumnSx}>
                 {results && results.gameData ? (
                     <LetterBoxedResults
                         solutions={results.solutions || []}

@@ -22,6 +22,7 @@ import {
 import { PlayArrow as PlayIcon, Settings as SettingsIcon, ContentCopy as CopyIcon } from '@mui/icons-material';
 import GameSettingsDialog, { FieldDefinition, DialogConfig } from './GameSettingsDialog';
 import { SpellingBeeResultState, GameStatus } from '../types/api';
+import { resultsCardContentSx, resultsCardSx, resultsColumnSx, resultsScrollBodySx } from './puzzleResultsSx';
 
 interface SpellingBeeDisplayProps {
     letters: string;
@@ -119,8 +120,8 @@ const SpellingBeeResults = React.memo(({ results, onCopy, onLoadMore, isLoading 
     const hasMore = solutions.length < totalFound;
 
     return (
-        <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <CardContent sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', minHeight: 0, '&:last-child': { pb: 2 } }}>
+        <Card sx={resultsCardSx}>
+            <CardContent sx={resultsCardContentSx}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexShrink: 0 }}>
                     <Typography variant="h6" component="h2" sx={{ fontWeight: 600 }}>
                         Solutions ({solutions.length}/{totalFound})
@@ -137,8 +138,8 @@ const SpellingBeeResults = React.memo(({ results, onCopy, onLoadMore, isLoading 
                     )}
                 </Box>
 
-                <TableContainer component={Paper} variant="outlined" sx={{ flexGrow: 1, overflowY: 'auto', minHeight: 0 }}>
-                    <Table size="small" stickyHeader>
+                <TableContainer component={Paper} variant="outlined" sx={resultsScrollBodySx}>
+                    <Table size="small" stickyHeader sx={{ minWidth: 360 }}>
                         <TableHead>
                             <TableRow>
                                 <TableCell sx={{ fontWeight: 'bold' }}>Word</TableCell>
@@ -424,7 +425,7 @@ const SpellingBeeGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
             </Grid>
 
             {/* Results */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: { xs: 350, md: 0 } }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={resultsColumnSx}>
                 {results && results.gameData ? (
                     <SpellingBeeResults
                         results={results}

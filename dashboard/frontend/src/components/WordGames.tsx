@@ -26,6 +26,7 @@ import {
     ArrowBack as ArrowBackIcon,
     Apps as AppsIcon
 } from '@mui/icons-material';
+import PageHeader from './PageHeader';
 import { tryApiCall } from '../utils/api';
 import { getErrorMessage } from '../utils/errors';
 import { useNotification } from '../contexts/useNotification';
@@ -701,20 +702,11 @@ const WordGames = () => {
     if (showHome) {
         return (
             <Container maxWidth="lg" sx={{ py: 3 }}>
-                <Box sx={{ mb: 4, textAlign: 'center' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, mb: 1 }}>
-                        <Box component="img" src={puzzleIcon} sx={{ width: 36, height: 36 }} alt="Puzzle++ Logo" />
-                        <Typography variant="h3" component="h1">
-                            Puzzle++
-                        </Typography>
-                    </Box>
-                    <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
-                        Choose a word game solver
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                        {statusControls}
-                    </Box>
-                </Box>
+                <PageHeader
+                    title="Puzzle++"
+                    icon={<Box component="img" src={puzzleIcon} alt="Puzzle++ Logo" />}
+                    actions={statusControls}
+                />
 
                 {gameStatus && !gameStatus.healthy && (
                     <Alert severity="error" sx={{ mb: 3 }}>

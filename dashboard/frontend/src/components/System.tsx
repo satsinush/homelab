@@ -24,8 +24,10 @@ import {
     Timeline as NetworkIcon,
     Computer as ComputerIcon,
     CheckCircle as CheckIcon,
+    Dashboard as DashboardIcon,
     // Other icons...
 } from '@mui/icons-material';
+import PageHeader from './PageHeader';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/useNotification';
 import { SystemInfo, ResourceMetrics, SystemTemperature, NetworkInfo, SystemDataResponse } from '../types/api';
@@ -197,21 +199,19 @@ const System = () => {
 
     return (
         <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%' }}>
-            {/* Header remains the same */}
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'center' }, mb: 4, gap: 2 }}>
-                <Box>
-                    <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600 }}>System Dashboard</Typography>
-                    <Chip label="System Online" color="success" icon={<CheckIcon />} />
-                </Box>
-                <Paper elevation={1} sx={{ p: 2, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <FormControlLabel control={<Switch checked={autoRefresh} onChange={handleAutoRefreshToggle} />} label="Auto-refresh" />
+            <PageHeader
+                title="System"
+                icon={<DashboardIcon />}
+                actions={
+                    <>
+                        <Chip label="System Online" color="success" icon={<CheckIcon />} />
+                        <FormControlLabel control={<Switch checked={autoRefresh} onChange={handleAutoRefreshToggle} />} label="Auto-refresh" sx={{ ml: 0.5 }} />
                         <IconButton onClick={handleManualRefresh} disabled={refreshing} color="primary" sx={{ '&:disabled': { bgcolor: 'action.disabledBackground' } }}>
                             <RefreshIcon sx={{ animation: refreshing ? 'spin 1s linear infinite' : 'none', '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } } }} />
                         </IconButton>
-                    </Box>
-                </Paper>
-            </Box>
+                    </>
+                }
+            />
 
             {/* Unified Dashboard Grid - All cards are placed here */}
             <Grid container spacing={3}>

@@ -14,11 +14,13 @@ import {
     Table,
     TableBody,
     TableCell,
-    TableContainer,
     TableHead,
     TableRow,
-    Paper,
-    Tooltip
+    Tooltip,
+    Stack,
+    Divider,
+    useMediaQuery,
+    useTheme
 } from '@mui/material';
 import {
     ContentCopy as CopyIcon,
@@ -27,9 +29,11 @@ import {
     Search as SearchIcon,
     VpnKey as KeyIcon
 } from '@mui/icons-material';
+import PageHeader from './PageHeader';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/useNotification';
 import { SecretsResponse } from '../types/api';
+import ScrollContainer from './ScrollContainer';
 
 import { getErrorMessage } from '../utils/errors';
 
@@ -39,14 +43,14 @@ interface SecretItem {
     description?: string;
 }
 
-
-
 const Secrets = () => {
     const [secrets, setSecrets] = useState<SecretItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
     const { showSuccess, showError } = useNotification();
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
     const fetchSecrets = useCallback(async () => {
         setLoading(true);
@@ -86,7 +90,7 @@ const Secrets = () => {
 
     if (loading) {
         return (
-            <Container maxWidth={false} sx={{ py: 4 }}>
+            <Container maxWidth={false} sx={{ py: { xs: 2, md: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
                     <CircularProgress />
                 </Box>
@@ -95,21 +99,20 @@ const Secrets = () => {
     }
 
     return (
-        <Container maxWidth={false} sx={{ py: 4 }}>
-            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
-                <Box>
-                    <Typography variant="h3" component="h1" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <KeyIcon color="primary" sx={{ fontSize: '2.5rem' }} />
-                        System Secrets
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-                        View files under the secrets directory (Admin Only)
-                    </Typography>
-                </Box>
-                <Button variant="outlined" color="primary" onClick={fetchSecrets}>
-                    Refresh
-                </Button>
-            </Box>
+        <Container maxWidth={false} sx={{ py: { xs: 2, md: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
+            <PageHeader
+                title="Secrets"
+                icon={<KeyIcon />}
+                actions={
+                    <Button
+                        variant="outlined"
+                        color="primary"
+                        onClick={fetchSecrets}
+                    >
+                        Refresh
+                    </Button>
+                }
+            />
 
             <Box sx={{ mb: 3 }}>
                 <TextField
@@ -130,63 +133,145 @@ const Secrets = () => {
             </Box>
 
             <Card>
-                <CardContent sx={{ p: 0 }}>
-                    <TableContainer component={Paper} elevation={0} sx={{ maxHeight: '550px', overflowY: 'auto' }}>
-                        <Table stickyHeader sx={{ tableLayout: 'fixed' }}>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell sx={{ fontWeight: 600, width: '30%' }}>Secret Name</TableCell>
-                                    <TableCell sx={{ fontWeight: 600, width: '55%' }}>Value</TableCell>
-                                    <TableCell align="right" sx={{ fontWeight: 600, pr: 3, width: '15%' }}>Actions</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {filteredSecrets.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
-                                            <Typography variant="body1" color="text.secondary">
-                                                No secrets found matching query
-                                            </Typography>
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    filteredSecrets.map((sec, index) => {
+                <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
+                    {isMobile ? (
+                        <ScrollContainer maxHeight="min(70dvh, 560px)" vertical>
+                            {filteredSecrets.length === 0 ? (
+                                <Box sx={{ py: 4, px: 2, textAlign: 'center' }}>
+                                    <Typography variant="body1" color="text.secondary">
+                                        No secrets found matching query
+                                    </Typography>
+                                </Box>
+                            ) : (
+                                <Stack divider={<Divider />} sx={{ px: 2 }}>
+                                    {filteredSecrets.map((sec, index) => {
                                         const isVisible = !!visibleSecrets[sec.name];
                                         return (
-                                            <TableRow key={sec.name || index} hover>
-                                                <TableCell sx={{ fontFamily: 'monospace', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {sec.name}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Box sx={{
+                                            <Box key={sec.name || index} sx={{ py: 2 }}>
+                                                <Typography
+                                                    variant="subtitle2"
+                                                    sx={{
                                                         fontFamily: 'monospace',
-                                                        whiteSpace: 'nowrap',
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        width: '100%'
-                                                    }}>
-                                                        {isVisible ? sec.value : '••••••••••••••••••••••••••••••••'}
-                                                    </Box>
-                                                </TableCell>
-                                                <TableCell align="right" sx={{ pr: 2, whiteSpace: 'nowrap' }}>
-                                                    <Tooltip title={isVisible ? "Hide value" : "Show value"}>
-                                                        <IconButton onClick={() => handleToggleVisibility(sec.name)} size="small" sx={{ mr: 1 }}>
+                                                        fontWeight: 600,
+                                                        overflowWrap: 'anywhere',
+                                                        wordBreak: 'break-word',
+                                                        mb: 1
+                                                    }}
+                                                >
+                                                    {sec.name}
+                                                </Typography>
+                                                <Box
+                                                    sx={{
+                                                        fontFamily: 'monospace',
+                                                        fontSize: '0.875rem',
+                                                        overflowWrap: 'anywhere',
+                                                        wordBreak: 'break-word',
+                                                        whiteSpace: isVisible ? 'pre-wrap' : 'nowrap',
+                                                        overflowX: isVisible ? 'visible' : 'auto',
+                                                        mb: 1.5,
+                                                        color: 'text.secondary'
+                                                    }}
+                                                >
+                                                    {isVisible ? sec.value : '••••••••••••••••••••••••••••••••'}
+                                                </Box>
+                                                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                                    <Tooltip title={isVisible ? 'Hide value' : 'Show value'}>
+                                                        <IconButton onClick={() => handleToggleVisibility(sec.name)} size="small">
                                                             {isVisible ? <HideIcon /> : <ShowIcon />}
                                                         </IconButton>
                                                     </Tooltip>
                                                     <Tooltip title="Copy to clipboard">
-                                                        <IconButton onClick={() => handleCopyToClipboard(sec.value, sec.name)} size="small" color="primary">
+                                                        <IconButton
+                                                            onClick={() => handleCopyToClipboard(sec.value, sec.name)}
+                                                            size="small"
+                                                            color="primary"
+                                                        >
                                                             <CopyIcon />
                                                         </IconButton>
                                                     </Tooltip>
-                                                </TableCell>
-                                            </TableRow>
+                                                </Stack>
+                                            </Box>
                                         );
-                                    })
-                                )}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
+                                    })}
+                                </Stack>
+                            )}
+                        </ScrollContainer>
+                    ) : (
+                        <ScrollContainer
+                            contentMinWidth={720}
+                            maxHeight="min(70dvh, 550px)"
+                            vertical
+                        >
+                            <Table stickyHeader size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 600, width: '35%' }}>Secret Name</TableCell>
+                                        <TableCell sx={{ fontWeight: 600, width: 'calc(65% - 104px)' }}>Value</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 600, width: 104, pr: 2 }}>Actions</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {filteredSecrets.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                                                <Typography variant="body1" color="text.secondary">
+                                                    No secrets found matching query
+                                                </Typography>
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        filteredSecrets.map((sec, index) => {
+                                            const isVisible = !!visibleSecrets[sec.name];
+                                            return (
+                                                <TableRow key={sec.name || index} hover>
+                                                    <TableCell sx={{ verticalAlign: 'top' }}>
+                                                        <Box
+                                                            sx={{
+                                                                fontFamily: 'monospace',
+                                                                fontWeight: 500,
+                                                                overflowWrap: 'anywhere',
+                                                                wordBreak: 'break-word',
+                                                                whiteSpace: 'normal'
+                                                            }}
+                                                        >
+                                                            {sec.name}
+                                                        </Box>
+                                                    </TableCell>
+                                                    <TableCell sx={{ verticalAlign: 'top', minWidth: 0 }}>
+                                                        <Box
+                                                            sx={{
+                                                                fontFamily: 'monospace',
+                                                                overflowWrap: isVisible ? 'anywhere' : 'normal',
+                                                                wordBreak: isVisible ? 'break-word' : 'normal',
+                                                                whiteSpace: isVisible ? 'pre-wrap' : 'nowrap',
+                                                                overflow: isVisible ? 'visible' : 'hidden',
+                                                                textOverflow: isVisible ? 'clip' : 'ellipsis',
+                                                                maxWidth: '100%'
+                                                            }}
+                                                        >
+                                                            {isVisible ? sec.value : '••••••••••••••••••••••••••••••••'}
+                                                        </Box>
+                                                    </TableCell>
+                                                    <TableCell align="right" sx={{ pr: 1, whiteSpace: 'nowrap', width: 104 }}>
+                                                        <Tooltip title={isVisible ? 'Hide value' : 'Show value'}>
+                                                            <IconButton onClick={() => handleToggleVisibility(sec.name)} size="small" sx={{ mr: 0.5 }}>
+                                                                {isVisible ? <HideIcon /> : <ShowIcon />}
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                        <Tooltip title="Copy to clipboard">
+                                                            <IconButton onClick={() => handleCopyToClipboard(sec.value, sec.name)} size="small" color="primary">
+                                                                <CopyIcon />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </ScrollContainer>
+                    )}
                 </CardContent>
             </Card>
         </Container>

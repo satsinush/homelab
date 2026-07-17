@@ -59,6 +59,7 @@ const getDungleonCharacterUrl = (name: string) =>
     dungleonCharacterUrls[`../assets/dungleon_characters/${name}.png`] ?? '';
 import GameSettingsDialog, { FieldDefinition, DialogConfig } from './GameSettingsDialog';
 import { DungleonResultState, GameStatus } from '../types/api';
+import { resultsCardContentSx, resultsCardSx, resultsColumnSx, resultsScrollBodySx } from './puzzleResultsSx';
 
 // Character data matching C++ definition
 const CHARACTERS = [
@@ -197,7 +198,7 @@ const DungleonResults = React.memo(({
     if (!showPossible && !showSuggestions && !lastGameData) return null;
 
     return (
-        <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <Card sx={resultsCardSx}>
             <Box sx={{ 
                 borderBottom: 1, 
                 borderColor: 'divider', 
@@ -235,12 +236,11 @@ const DungleonResults = React.memo(({
                     )}
                 </Stack>
             </Box>
-            <CardContent sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <CardContent sx={resultsCardContentSx}>
                 {tabVal === 0 && (
                     showSuggestions ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-                            <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
-                                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
+                            <TableContainer component={Paper} variant="outlined" sx={resultsScrollBodySx}>
                                     <Table size="small" stickyHeader sx={{ minWidth: 500 }}>
                                         <TableHead>
                                             <TableRow>
@@ -291,7 +291,6 @@ const DungleonResults = React.memo(({
                                         </TableBody>
                                     </Table>
                                 </TableContainer>
-                            </Box>
                             {lastGameData && lastGameData.isLimitedGuesses && guessesWithEntropy.length < (lastGameData.guessesCount || 0) && (
                                 <Button variant="contained" onClick={() => onLoadMore('guesses')} disabled={isLoading} sx={{ mt: 2, alignSelf: 'flex-start' }} size="small">
                                     Load More
@@ -307,8 +306,7 @@ const DungleonResults = React.memo(({
                 {tabVal === 1 && (
                     showPossible ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-                            <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
-                                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
+                            <TableContainer component={Paper} variant="outlined" sx={resultsScrollBodySx}>
                                     <Table size="small" stickyHeader sx={{ minWidth: 500 }}>
                                         <TableHead>
                                             <TableRow>
@@ -359,7 +357,6 @@ const DungleonResults = React.memo(({
                                         </TableBody>
                                     </Table>
                                 </TableContainer>
-                            </Box>
                             {lastGameData && lastGameData.isLimitedPossible && possiblePatterns.length < (lastGameData.possiblePatternsCount || 0) && (
                                 <Button variant="contained" onClick={() => onLoadMore('possible')} disabled={isLoading} sx={{ mt: 2, alignSelf: 'flex-start' }} size="small">
                                     Load More
@@ -1026,7 +1023,7 @@ const DungleonGame = forwardRef<DungleonGameRef, DungleonGameProps>(({ gameStatu
             </Grid>
 
             {/* Results Column */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: { xs: 350, md: 0 } }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={resultsColumnSx}>
                 {results && results.gameData ? (
                     <DungleonResults
                         possiblePatterns={results.possiblePatterns || []}

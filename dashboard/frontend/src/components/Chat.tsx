@@ -38,8 +38,10 @@ import {
     Clear as ClearIcon,
     Download as DownloadIcon,
     Storage as StorageIcon,
-    Delete as DeleteIcon
+    Delete as DeleteIcon,
+    Chat as ChatIcon
 } from '@mui/icons-material';
+import PageHeader from './PageHeader';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/useNotification';
 import {
@@ -386,12 +388,11 @@ const Chat = () => {
 
     return (
         <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Box>
-                    <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
-                        AI Chat Assistant
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <PageHeader
+                title="AI Chat"
+                icon={<ChatIcon />}
+                actions={
+                    <>
                         {ollamaStatus && (
                             <Chip
                                 label={ollamaStatus.status === 'online' ? 'Online' : 'Offline'}
@@ -453,9 +454,9 @@ const Chat = () => {
                                 </IconButton>
                             </span>
                         </Tooltip>
-                    </Box>
-                </Box>
-            </Box>
+                    </>
+                }
+            />
 
             {ollamaStatus && ollamaStatus.status === 'offline' && (
                 <Alert severity="warning" sx={{ mb: 3 }}>

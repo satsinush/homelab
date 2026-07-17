@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material';
 import GameSettingsDialog, { FieldDefinition, DialogConfig } from './GameSettingsDialog';
 import { WordleResultState } from '../types/api';
+import { resultsCardContentSx, resultsCardSx, resultsColumnSx, resultsScrollBodySx } from './puzzleResultsSx';
 
 const pulseKeyframes = keyframes`
   0% {
@@ -313,7 +314,7 @@ const WordleResults = ({ possibleWords, guessesWithEntropy, lastGameData, isLoad
     if (possibleWords.length === 0 && guessesWithEntropy.length === 0 && !lastGameData) return null;
 
     return (
-        <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <Card sx={resultsCardSx}>
             <Box sx={{ 
                 borderBottom: 1, 
                 borderColor: 'divider', 
@@ -351,12 +352,11 @@ const WordleResults = ({ possibleWords, guessesWithEntropy, lastGameData, isLoad
                     )}
                 </Stack>
             </Box>
-            <CardContent sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <CardContent sx={resultsCardContentSx}>
                 {tabVal === 0 && (
                     guessesWithEntropy.length > 0 ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-                            <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
-                                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
+                            <TableContainer component={Paper} variant="outlined" sx={resultsScrollBodySx}>
                                     <Table size="small" stickyHeader sx={{ minWidth: 500 }}>
                                         <TableHead>
                                             <TableRow>
@@ -399,7 +399,6 @@ const WordleResults = ({ possibleWords, guessesWithEntropy, lastGameData, isLoad
                                         </TableBody>
                                     </Table>
                                 </TableContainer>
-                            </Box>
                             {lastGameData && lastGameData.isLimitedGuesses && guessesWithEntropy.length < (lastGameData.guessesCount || 0) && (
                                 <Button variant="contained" onClick={() => onLoadMore('guesses')} disabled={isLoading} sx={{ mt: 2, alignSelf: 'flex-start' }} size="small">
                                     Load More
@@ -415,8 +414,7 @@ const WordleResults = ({ possibleWords, guessesWithEntropy, lastGameData, isLoad
                 {tabVal === 1 && (
                     possibleWords.length > 0 ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-                            <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
-                                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
+                            <TableContainer component={Paper} variant="outlined" sx={resultsScrollBodySx}>
                                     <Table size="small" stickyHeader sx={{ minWidth: 500 }}>
                                         <TableHead>
                                             <TableRow>
@@ -459,7 +457,6 @@ const WordleResults = ({ possibleWords, guessesWithEntropy, lastGameData, isLoad
                                         </TableBody>
                                     </Table>
                                 </TableContainer>
-                            </Box>
                             {lastGameData && lastGameData.isLimitedPossible && possibleWords.length < (lastGameData.possibleWordsCount || 0) && (
                                 <Button variant="contained" onClick={() => onLoadMore('possible')} disabled={isLoading} sx={{ mt: 2, alignSelf: 'flex-start' }} size="small">
                                     Load More
@@ -824,7 +821,7 @@ const WordleGame = forwardRef<WordleGameRef, WordleGameProps>(({ isLoading, isSo
             </Grid>
 
             {/* Results Column */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: { xs: 350, md: 0 } }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={resultsColumnSx}>
                 {results && results.gameData ? (
                     <WordleResults
                         possibleWords={results.possibleWords || []}

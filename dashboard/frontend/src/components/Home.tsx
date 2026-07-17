@@ -21,8 +21,10 @@ import {
     Extension as ExtensionIcon,
     Chat as ChatIcon,
     People as PeopleIcon,
+    Home as HomeIcon,
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
+import PageHeader from './PageHeader';
 import { useAuth } from '../contexts/useAuth';
 import { useConfig } from '../contexts/useConfig';
 import PiHoleLogo from '../assets/pi_hole_logo.png';
@@ -163,15 +165,10 @@ const Home = () => {
 
     return (
         <Container maxWidth="lg" sx={{ py: 3 }}>
-            {/* Welcome Section */}
-            <Box sx={{ mb: 4, textAlign: 'center' }}>
-                <Typography variant="h3" component="h1" gutterBottom>
-                    Welcome to Homelab Dashboard
-                </Typography>
-                <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
-                    Comprehensive monitoring and management for your home server
-                </Typography>
-                {user && (
+            <PageHeader
+                title="Home"
+                icon={<HomeIcon />}
+                actions={user && (
                     <Chip
                         avatar={<Avatar><PersonIcon /></Avatar>}
                         label={`Welcome back, ${user.username}`}
@@ -179,7 +176,7 @@ const Home = () => {
                         variant="outlined"
                     />
                 )}
-            </Box>
+            />
 
             {/* Quick Links Section */}
             <Box sx={{ mb: 4 }}>

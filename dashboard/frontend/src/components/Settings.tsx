@@ -31,8 +31,10 @@ import {
     Palette as ThemeIcon,
     LightMode as LightIcon,
     DarkMode as DarkIcon,
-    SettingsBrightness as DeviceIcon
+    SettingsBrightness as DeviceIcon,
+    Settings as SettingsIcon
 } from '@mui/icons-material';
+import PageHeader from './PageHeader';
 import { tryApiCall } from '../utils/api';
 import { ServerSettings, UserSettings } from '../types/api';
 import { useThemeMode } from '../contexts/useThemeMode';
@@ -170,11 +172,10 @@ const Settings = () => {
 
     return (
         <Container maxWidth={false} sx={{ py: 4 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h3" component="h1" sx={{ fontWeight: 600 }}>
-                    Settings
-                </Typography>
-                {autoSaving && (
+            <PageHeader
+                title="Settings"
+                icon={<SettingsIcon />}
+                actions={autoSaving && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <CircularProgress size={16} />
                         <Typography variant="body2" color="text.secondary">
@@ -182,7 +183,7 @@ const Settings = () => {
                         </Typography>
                     </Box>
                 )}
-            </Box>
+            />
 
             <Box sx={{ width: '100%' }}>
                 <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>

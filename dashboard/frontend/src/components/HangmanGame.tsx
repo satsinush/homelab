@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import GameSettingsDialog, { DialogConfig, FieldDefinition } from './GameSettingsDialog';
 import { HangmanResultState, GameStatus } from '../types/api';
+import { resultsCardContentSx, resultsCardSx, resultsColumnSx, resultsScrollBodySx } from './puzzleResultsSx';
 
 interface HangmanResultsProps {
     results: HangmanResultState | null;
@@ -58,7 +59,7 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isL
     const showPossible = results.possibleWords && results.possibleWords.length > 0;
 
     return (
-        <Card sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <Card sx={resultsCardSx}>
             <Box sx={{ 
                 borderBottom: 1, 
                 borderColor: 'divider', 
@@ -105,12 +106,11 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isL
                     )}
                 </Stack>
             </Box>
-            <CardContent sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <CardContent sx={resultsCardContentSx}>
                 {tabVal === 0 && (
                     showSuggestions ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-                            <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
-                                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
+                            <TableContainer component={Paper} variant="outlined" sx={resultsScrollBodySx}>
                                     <Table size="small" stickyHeader>
                                         <TableHead>
                                             <TableRow>
@@ -151,7 +151,6 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isL
                                         </TableBody>
                                     </Table>
                                 </TableContainer>
-                            </Box>
                         </Box>
                     ) : (
                         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
@@ -162,8 +161,7 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isL
                 {tabVal === 1 && (
                     showPossible ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-                            <Box sx={{ flexGrow: 1, overflowY: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, minHeight: 0 }}>
-                                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: '100%' }}>
+                            <TableContainer component={Paper} variant="outlined" sx={resultsScrollBodySx}>
                                     <Table size="small" stickyHeader>
                                         <TableHead>
                                             <TableRow>
@@ -181,7 +179,6 @@ const HangmanResults = React.memo(({ results, onCopyToClipboard, onLoadMore, isL
                                         </TableBody>
                                     </Table>
                                 </TableContainer>
-                            </Box>
                             {results.gameData && results.gameData.isLimited && results.possibleWords.length < (results.gameData.possibleWordsCount || 0) && (
                                 <Button
                                     variant="contained"
@@ -485,7 +482,7 @@ const HangmanGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, onCl
             </Grid>
 
             {/* Results Column */}
-            <Grid size={{ xs: 12, md: 6 }} sx={{ height: { xs: 'auto', md: '100%' }, display: 'flex', flexDirection: 'column', minHeight: { xs: 350, md: 0 } }}>
+            <Grid size={{ xs: 12, md: 6 }} sx={resultsColumnSx}>
                 {results && results.gameData ? (
                     <HangmanResults
                         results={results}
