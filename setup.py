@@ -85,7 +85,7 @@ def parse_args() -> argparse.Namespace:
         "command",
         nargs="?",
         default="setup",
-        choices=["setup", "backup", "restore", "reset"],
+        choices=["setup", "backup", "restore", "reset", "restart"],
         help="Mode to run (default: setup)",
     )
     parser.add_argument(
@@ -845,6 +845,30 @@ def run_restore(snapshot: str = "latest") -> None:
     ok("Restore complete.")
 
 
+def run_restart() -> None:
+    from setup.utils import compose_up, load_env, load_secrets, wait_for_containers
+    import subprocess
+
+    banner("🔄 Homelab Full Restart", "=======================")
+
+    if not os.path.exists(".env"):
+        error(".env not found. Run setup first.")
+        sys.exit(1)
+
+    env = load_env(".env")
+    load_secrets()
+    os.environ.setdefault("PROJECT_ROOT", os.getcwd())
+
+    section("Stopping and removing all containers...", emoji="🐳")
+    subprocess.run(["docker", "compose", "down"], check=True)
+
+    section("Starting all containers...", emoji="🐳")
+    compose_up()
+
+    wait_for_containers(timeout=120)
+    ok("All containers restarted and healthy.")
+
+
 def main() -> None:
     args = parse_args()
 
@@ -856,6 +880,8 @@ def main() -> None:
         run_restore(args.snapshot or "latest")
     elif args.command == "reset":
         do_reset()
+    elif args.command == "restart":
+        run_restart()
     else:
         print(f"Unknown command: {args.command}")
         sys.exit(1)
