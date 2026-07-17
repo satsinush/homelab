@@ -191,7 +191,6 @@ interface FileAccountCardProps {
 
 const FileAccountCard = ({ acct, davHost, homelabHost, onResetPassword, onDelete }: FileAccountCardProps) => {
     const [expanded, setExpanded] = useState(false);
-    const [osTab, setOsTab] = useState(0);
     const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
     const handleCopy = (text: string, id: string) => {
@@ -254,191 +253,65 @@ const FileAccountCard = ({ acct, davHost, homelabHost, onResetPassword, onDelete
             <Collapse in={expanded} timeout="auto" unmountOnExit>
                 <Divider />
                 <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: 'action.hover' }}>
-                    <Tabs
-                        value={osTab}
-                        onChange={(_e, v) => setOsTab(v)}
-                        variant="fullWidth"
-                        sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
-                    >
-                        <Tab label="Windows" />
-                        <Tab label="macOS" />
-                        <Tab label="Linux & Mobile" />
-                    </Tabs>
-
-                    {osTab === 0 && (
-                        <Stack spacing={2}>
-                            <Box>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                                    Option A: Samba (SMB) Shares (Recommended for Windows)
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                    Open File Explorer, click <strong>Map network drive</strong>, choose a drive letter, and enter:
-                                </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider', mb: 1 }}>
+                    <Stack spacing={3}>
+                        <Box>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                                Samba (SMB) Connection Paths
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                                Recommended for mounting on Windows and macOS computers.
+                            </Typography>
+                            <Stack spacing={1}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="caption" color="text.secondary" display="block">Private Share (Home)</Typography>
+                                        <Typography variant="caption" color="text.secondary" display="block">Private Home (Windows: {smbPrivateWin} | macOS: {smbPrivateMac})</Typography>
                                         <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{smbPrivateWin}</Typography>
                                     </Box>
-                                    <Button size="small" startIcon={copyFeedback === 'win_smb_priv' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(smbPrivateWin, 'win_smb_priv')}>
-                                        {copyFeedback === 'win_smb_priv' ? 'Copied' : 'Copy'}
+                                    <Button size="small" startIcon={copyFeedback === 'smb_priv' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(smbPrivateWin, 'smb_priv')}>
+                                        {copyFeedback === 'smb_priv' ? 'Copied' : 'Copy'}
                                     </Button>
                                 </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="caption" color="text.secondary" display="block">Shared Folder</Typography>
+                                        <Typography variant="caption" color="text.secondary" display="block">Shared Folder (Windows: {smbSharedWin} | macOS: {smbSharedMac})</Typography>
                                         <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{smbSharedWin}</Typography>
                                     </Box>
-                                    <Button size="small" startIcon={copyFeedback === 'win_smb_shared' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(smbSharedWin, 'win_smb_shared')}>
-                                        {copyFeedback === 'win_smb_shared' ? 'Copied' : 'Copy'}
+                                    <Button size="small" startIcon={copyFeedback === 'smb_shared' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(smbSharedWin, 'smb_shared')}>
+                                        {copyFeedback === 'smb_shared' ? 'Copied' : 'Copy'}
                                     </Button>
                                 </Box>
-                            </Box>
+                            </Stack>
+                        </Box>
 
-                            <Divider />
-
-                            <Box>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                                    Option B: WebDAV Connection (Best for Obsidian / Syncing)
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                    In File Explorer, right-click <strong>This PC</strong> → <strong>Add a network location</strong> and enter:
-                                </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider', mb: 1 }}>
+                        <Box>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                                WebDAV Connection URLs
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                                Recommended for mobile files integration or syncing plugins (e.g. Obsidian).
+                            </Typography>
+                            <Stack spacing={1}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="caption" color="text.secondary" display="block">Private WebDAV URL</Typography>
+                                        <Typography variant="caption" color="text.secondary" display="block">Private Home Folder</Typography>
                                         <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{webdavPrivate}</Typography>
                                     </Box>
-                                    <Button size="small" startIcon={copyFeedback === 'win_dav_priv' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(webdavPrivate, 'win_dav_priv')}>
-                                        {copyFeedback === 'win_dav_priv' ? 'Copied' : 'Copy'}
+                                    <Button size="small" startIcon={copyFeedback === 'dav_priv' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(webdavPrivate, 'dav_priv')}>
+                                        {copyFeedback === 'dav_priv' ? 'Copied' : 'Copy'}
                                     </Button>
                                 </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="caption" color="text.secondary" display="block">Shared WebDAV URL</Typography>
+                                        <Typography variant="caption" color="text.secondary" display="block">Shared Folder</Typography>
                                         <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{webdavShared}</Typography>
                                     </Box>
-                                    <Button size="small" startIcon={copyFeedback === 'win_dav_shared' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(webdavShared, 'win_dav_shared')}>
-                                        {copyFeedback === 'win_dav_shared' ? 'Copied' : 'Copy'}
+                                    <Button size="small" startIcon={copyFeedback === 'dav_shared' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(webdavShared, 'dav_shared')}>
+                                        {copyFeedback === 'dav_shared' ? 'Copied' : 'Copy'}
                                     </Button>
                                 </Box>
-                            </Box>
-                        </Stack>
-                    )}
-
-                    {osTab === 1 && (
-                        <Stack spacing={2}>
-                            <Box>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                                    Option A: Connect via Finder (Recommended for macOS)
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                    In Finder, press <strong>Cmd + K</strong> (Go → Connect to Server) and enter:
-                                </Typography>
-                                
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider', mb: 1 }}>
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="caption" color="text.secondary" display="block">Private Share (Samba)</Typography>
-                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{smbPrivateMac}</Typography>
-                                    </Box>
-                                    <Button size="small" startIcon={copyFeedback === 'mac_smb_priv' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(smbPrivateMac, 'mac_smb_priv')}>
-                                        {copyFeedback === 'mac_smb_priv' ? 'Copied' : 'Copy'}
-                                    </Button>
-                                </Box>
-
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="caption" color="text.secondary" display="block">Shared Folder (Samba)</Typography>
-                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{smbSharedMac}</Typography>
-                                    </Box>
-                                    <Button size="small" startIcon={copyFeedback === 'mac_smb_shared' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(smbSharedMac, 'mac_smb_shared')}>
-                                        {copyFeedback === 'mac_smb_shared' ? 'Copied' : 'Copy'}
-                                    </Button>
-                                </Box>
-                            </Box>
-
-                            <Divider />
-
-                            <Box>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                                    Option B: WebDAV Connection (Best for Obsidian / Syncing)
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                    In Finder, press <strong>Cmd + K</strong> and enter:
-                                </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider', mb: 1 }}>
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="caption" color="text.secondary" display="block">Private WebDAV URL</Typography>
-                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{webdavPrivate}</Typography>
-                                    </Box>
-                                    <Button size="small" startIcon={copyFeedback === 'mac_dav_priv' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(webdavPrivate, 'mac_dav_priv')}>
-                                        {copyFeedback === 'mac_dav_priv' ? 'Copied' : 'Copy'}
-                                    </Button>
-                                </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="caption" color="text.secondary" display="block">Shared WebDAV URL</Typography>
-                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{webdavShared}</Typography>
-                                    </Box>
-                                    <Button size="small" startIcon={copyFeedback === 'mac_dav_shared' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(webdavShared, 'mac_dav_shared')}>
-                                        {copyFeedback === 'mac_dav_shared' ? 'Copied' : 'Copy'}
-                                    </Button>
-                                </Box>
-                            </Box>
-                        </Stack>
-                    )}
-
-                    {osTab === 2 && (
-                        <Stack spacing={2}>
-                            <Box>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                                    Linux / GNOME Files
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                    In Files, select <strong>+ Other Locations</strong> and enter under "Connect to Server":
-                                </Typography>
-                                
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider', mb: 1 }}>
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="caption" color="text.secondary" display="block">Samba (SMB) URI</Typography>
-                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{smbPrivateMac}</Typography>
-                                    </Box>
-                                    <Button size="small" startIcon={copyFeedback === 'lin_smb_priv' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(smbPrivateMac, 'lin_smb_priv')}>
-                                        {copyFeedback === 'lin_smb_priv' ? 'Copied' : 'Copy'}
-                                    </Button>
-                                </Box>
-
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="caption" color="text.secondary" display="block">WebDAV (HTTPS) URI (Best for Obsidian / Syncing)</Typography>
-                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>davs://{davHost}/</Typography>
-                                    </Box>
-                                    <Button size="small" startIcon={copyFeedback === 'lin_dav_priv' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(`davs://${davHost}/`, 'lin_dav_priv')}>
-                                        {copyFeedback === 'lin_dav_priv' ? 'Copied' : 'Copy'}
-                                    </Button>
-                                </Box>
-                            </Box>
-
-                            <Divider />
-
-                            <Box>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                                    iOS / Android Files & Sync Apps (Recommended for Mobile / Obsidian)
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                    Use the built-in iOS Files app or Android file managers to connect. WebDAV is highly recommended for mobile and plugins like Obsidian Sync:
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ pl: 2, mb: 0.5 }}>
-                                    • <strong>WebDAV URL:</strong> {webdavPrivate}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ pl: 2, mb: 0.5 }}>
-                                    • <strong>Samba Server:</strong> {homelabHost}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ pl: 2 }}>
-                                    • <strong>Username:</strong> {acct.username}
-                                </Typography>
-                            </Box>
-                        </Stack>
-                    )}
+                            </Stack>
+                        </Box>
+                    </Stack>
                 </Box>
             </Collapse>
         </Card>
