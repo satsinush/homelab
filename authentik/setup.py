@@ -35,8 +35,7 @@ class AuthentikService(Service):
         ok("Authentik volume directories ready")
 
     def backup(self, env: dict) -> None:
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        dest = f"./authentik/volumes/db-dumps/authentik-{stamp}.sql"
+        dest = "./authentik/volumes/db-dumps/authentik-backup.sql"
         user = env.get("AUTHENTIK_PG_USER", "authentik")
         db = env.get("AUTHENTIK_PG_DB", "authentik")
         pg_dump_to_file(
