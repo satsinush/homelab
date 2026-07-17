@@ -29,6 +29,8 @@ services:
       # public entrypoint (websecure-public/8443). No other service is on 8443.
       - "traefik.http.routers.headscale.entrypoints=websecure,websecure-public"
       - "traefik.http.routers.headscale.tls=true"
+      - "traefik.http.routers.headscale.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.routers.headscale.tls.domains[0].main=${HEADSCALE_WEB_HOSTNAME}"
       - "traefik.http.services.headscale.loadbalancer.server.port=8080"
     healthcheck:
       test: ["CMD", "headscale", "health"]
