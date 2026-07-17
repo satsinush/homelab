@@ -101,7 +101,9 @@ endpoints:
   # ─── NETWORKING & INFRA ───
   - name: "Pi-hole"
     group: "Infrastructure"
-    url: "http://pihole:80/"
+    # Root path 403s when the Host header isn't the admin domain; the login
+    # page is always an unauthenticated 200.
+    url: "http://pihole:80/admin/login"
     interval: 30s
     conditions:
       - "[STATUS] == 200"
