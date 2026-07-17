@@ -15,3 +15,11 @@
   notify:
     - restart systemd-resolved
     - restart dhcpcd
+
+- name: Prefer resolv.conf DNS before systemd-resolved
+  ansible.builtin.lineinfile:
+    path: /etc/nsswitch.conf
+    regexp: '^hosts:'
+    line: 'hosts: mymachines files myhostname dns resolve [!UNAVAIL=return]'
+    backup: true
+  when: manage_dns
