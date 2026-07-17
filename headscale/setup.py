@@ -258,6 +258,21 @@ class HeadscaleService(Service):
             "up -d --force-recreate headscale-router",
             check=False,
         )
+        # TS_AUTH_ONCE skips `tailscale up` after first login, so compose-env
+        # flag changes won't reapply — set prefs explicitly once the daemon is up.
+        for _ in range(30):
+            status = run_cmd(
+                "docker exec headscale-router tailscale status --json",
+                check=False,
+            )
+            if status and '"BackendState": "Running"' in status:
+                break
+            time.sleep(2)
+        run_cmd(
+            "docker exec headscale-router "
+            "tailscale set --netfilter-mode=off --snat-subnet-routes=false",
+            check=False,
+        )
         _approve_lan_routes(env.get("LAN_SUBNET") or os.environ.get("LAN_SUBNET", ""))
 
     def backup(self, env: dict) -> None:
