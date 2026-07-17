@@ -79,15 +79,31 @@ def _hs(*args: str, check: bool = True) -> str:
     return run_cmd(cmd, check=check) or ""
 
 
-def _ensure_router_user() -> None:
-    users = _hs("users", "list", "-o", "json", check=False) or ""
-    if ROUTER_USER in users:
-        return
+def _router_user_id() -> str:
+    """Numeric id of the subnet-router user ('' if absent)."""
+    import json
+
+    raw = _hs("users", "list", "-o", "json", check=False) or "[]"
+    try:
+        users = json.loads(raw)
+    except ValueError:
+        return ""
+    for user in users:
+        if user.get("name") == ROUTER_USER:
+            return str(user.get("id", ""))
+    return ""
+
+
+def _ensure_router_user() -> str:
+    user_id = _router_user_id()
+    if user_id:
+        return user_id
     _hs("users", "create", ROUTER_USER, "--display-name", "Homelab Subnet Router")
     print(f"   ✅ Created Headscale user `{ROUTER_USER}`")
+    return _router_user_id()
 
 
-def _ensure_router_authkey() -> str:
+def _ensure_router_authkey(user_id: str) -> str:
     """Return a reusable preauth key for the subnet router; create if needed."""
     secret_path = f"./volumes/secrets/{AUTHKEY_SECRET}"
     if os.path.isfile(secret_path):
@@ -97,11 +113,12 @@ def _ensure_router_authkey() -> str:
             return existing
 
     # 90-day reusable key; rotate by deleting the secret and re-running setup.
+    # headscale 0.29 expects the numeric user id, not the name.
     key = _hs(
         "preauthkeys",
         "create",
         "--user",
-        ROUTER_USER,
+        user_id,
         "--reusable",
         "--expiration",
         "2160h",
@@ -228,8 +245,10 @@ class HeadscaleService(Service):
             return
 
         try:
-            _ensure_router_user()
-            _ensure_router_authkey()
+            user_id = _ensure_router_user()
+            if not user_id:
+                raise RuntimeError(f"user `{ROUTER_USER}` not found after create")
+            _ensure_router_authkey(user_id)
         except Exception as exc:
             print(f"   ⚠️  Failed to provision router auth key: {exc}")
             return
