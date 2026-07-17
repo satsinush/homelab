@@ -1,7 +1,7 @@
 """Gatus service — config is git-tracked; no bind volumes."""
 from __future__ import annotations
 
-from service import Service
+from setup.service import Service
 
 
 class GatusService(Service):

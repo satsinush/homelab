@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 
-from service import Service, VolumeDir
+from setup.service import Service, VolumeDir
 
 
 class PiholeService(Service):

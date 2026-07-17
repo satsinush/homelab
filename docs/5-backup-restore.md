@@ -85,14 +85,14 @@ Pi-hole, Dockhand, RustDesk id/relay, word-games data are still uploaded as ordi
 
 ### Service lifecycle (developers)
 
-Each `*/setup.py` exports `service = SomeService()` subclassing [`service.Service`](../service.py):
+Each `*/setup.py` exports `service = SomeService()` subclassing [`setup.service.Service`](../setup/service.py):
 
 - `setup(env)` — before containers (volume mkdir/chown, secrets prep)
 - `postsetup(env)` — after containers healthy (OIDC, theming, …)
 - `backup(env)` — before Restic upload
 - `restore(env)` — after cloud restore + compose up
 
-Registry: [`services_registry.py`](../services_registry.py).
+Registry: [`setup/registry.py`](../setup/registry.py).
 
 
 ## Next: 6. Development

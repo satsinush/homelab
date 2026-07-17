@@ -8,6 +8,8 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import Iterable
 
+from setup.ui import info, ok, section, step, warn
+
 
 @dataclass(frozen=True)
 class VolumeDir:
@@ -52,7 +54,7 @@ def remove_path(path: str) -> bool:
         pass
     if _sudo(["rm", "-rf", path]):
         return True
-    print(f"   ⚠️  Failed to remove {path}")
+    warn(f"Failed to remove {path}")
     return False
 
 
@@ -168,7 +170,7 @@ def write_host_file(path: str, content: str, mode: int = 0o644) -> None:
 
 
 def container_running(name: str) -> bool:
-    from setup_utils import run_cmd
+    from setup.utils import run_cmd
 
     state = run_cmd(
         f"docker inspect -f '{{{{.State.Running}}}}' {name} 2>/dev/null",
@@ -202,11 +204,11 @@ def sqlite_snapshot(
     helper container runs as uid 0 to write the snapshot beside the live DB.
     """
     if not container_running(container):
-        print(f"   ℹ️  {container} not running; skipping SQLite snapshot for {db_path}")
+        info(f"{container} not running; skipping SQLite snapshot for {db_path}")
         return False
 
     if not host_bind:
-        print(f"   ⚠️  No host_bind for {container}:{db_path}; cannot snapshot")
+        warn(f"No host_bind for {container}:{db_path}; cannot snapshot")
         return False
 
     db_name = os.path.basename(db_path)
@@ -214,7 +216,7 @@ def sqlite_snapshot(
     host_db = os.path.join(host_bind, db_name)
     host_snap = os.path.join(host_bind, snap_name)
     if not os.path.isfile(host_db):
-        print(f"   ⚠️  Host DB not found at {host_db}; skipping snapshot")
+        warn(f"Host DB not found at {host_db}; skipping snapshot")
         return False
 
     abs_bind = os.path.abspath(host_bind)
@@ -239,12 +241,12 @@ def sqlite_snapshot(
         check=False,
     )
     if result.returncode == 0 and os.path.isfile(host_snap):
-        print(f"   ✅ SQLite snapshot: {host_snap} ({os.path.getsize(host_snap)} bytes)")
+        ok(f"SQLite snapshot: {host_snap} ({os.path.getsize(host_snap)} bytes)")
         return True
 
     err = (result.stderr or result.stdout or "").strip()
     detail = f" ({err})" if err else ""
-    print(f"   ⚠️  SQLite snapshot failed for {host_db}{detail}")
+    warn(f"SQLite snapshot failed for {host_db}{detail}")
     return False
 
 
@@ -255,18 +257,18 @@ def restore_sqlite_snapshot(
     host_bind: str,
 ) -> bool:
     """Replace live SQLite DB with snapshot (stop container briefly)."""
-    from setup_utils import run_cmd
+    from setup.utils import run_cmd
 
     host_snap = snapshot_path
     if not os.path.isabs(host_snap) and not os.path.isfile(host_snap):
         host_snap = os.path.join(host_bind, os.path.basename(snapshot_path))
     if not os.path.isfile(host_snap):
-        print(f"   ℹ️  No snapshot at {host_snap}; skipping SQLite restore for {container}")
+        info(f"No snapshot at {host_snap}; skipping SQLite restore for {container}")
         return False
 
     live_name = os.path.basename(live_db)
     host_live = os.path.join(host_bind, live_name)
-    print(f"   Restoring SQLite for {container} from {host_snap}...")
+    step(f"Restoring SQLite for {container} from {host_snap}...")
     run_cmd(f"docker stop {container}", check=False)
     try:
         try:
@@ -291,13 +293,13 @@ def restore_sqlite_snapshot(
                 check=False,
             )
             if copied.returncode != 0:
-                print(f"   ⚠️  Failed to restore {host_live}")
+                warn(f"Failed to restore {host_live}")
                 return False
         for suffix in ("-wal", "-shm"):
             companion = host_live + suffix
             if os.path.exists(companion):
                 remove_path(companion)
-        print(f"   ✅ Restored {host_live}")
+        ok(f"Restored {host_live}")
         return True
     finally:
         run_cmd(f"docker start {container}", check=False)
@@ -336,10 +338,10 @@ def pg_dump_to_file(
     pg_dumpall --roles-only so restores get login roles/password hashes that
     plain pg_dump omits.
     """
-    from setup_utils import run_cmd
+    from setup.utils import run_cmd
 
     if not container_running(container):
-        print(f"   ℹ️  {container} not running; skipping pg_dump")
+        info(f"{container} not running; skipping pg_dump")
         return False
 
     os.makedirs(os.path.dirname(dest_path) or ".", exist_ok=True)
@@ -362,9 +364,9 @@ def pg_dump_to_file(
                     + "\n"
                 )
             else:
-                print(f"   ⚠️  No roles matching prefix {role_prefix!r} in pg_dumpall")
+                warn(f"No roles matching prefix {role_prefix!r} in pg_dumpall")
         else:
-            print(f"   ⚠️  pg_dumpall --roles-only failed for {container}")
+            warn(f"pg_dumpall --roles-only failed for {container}")
 
     dump_cmd = (
         f'docker exec {container} sh -c "{pw}pg_dump -U {user} -d {database} '
@@ -372,7 +374,7 @@ def pg_dump_to_file(
     )
     dump_out = run_cmd(dump_cmd, check=False)
     if not dump_out:
-        print(f"   ⚠️  pg_dump failed for {container}/{database}")
+        warn(f"pg_dump failed for {container}/{database}")
         return False
     parts.append(dump_out)
 
@@ -383,9 +385,9 @@ def pg_dump_to_file(
 
     size = os.path.getsize(dest_path)
     if size > 0:
-        print(f"   ✅ pg_dump → {dest_path} ({size} bytes)")
+        ok(f"pg_dump → {dest_path} ({size} bytes)")
         return True
-    print(f"   ⚠️  pg_dump failed for {container}/{database}")
+    warn(f"pg_dump failed for {container}/{database}")
     return False
 
 
@@ -396,16 +398,16 @@ def pg_restore_from_file(
     dump_path: str,
     password_file: str | None = None,
 ) -> bool:
-    from setup_utils import run_cmd
+    from setup.utils import run_cmd
 
     if not os.path.isfile(dump_path):
-        print(f"   ℹ️  No dump at {dump_path}; skipping pg restore for {container}")
+        info(f"No dump at {dump_path}; skipping pg restore for {container}")
         return False
     if not container_running(container):
-        print(f"   ⚠️  {container} not running; cannot restore Postgres")
+        warn(f"{container} not running; cannot restore Postgres")
         return False
 
-    print(f"   Restoring Postgres {database} from {dump_path}...")
+    step(f"Restoring Postgres {database} from {dump_path}...")
     if password_file:
         inner = (
             f"export PGPASSWORD=\\\"\\$(cat {password_file})\\\" && "
@@ -418,9 +420,9 @@ def pg_restore_from_file(
         check=False,
     )
     if result is not None:
-        print(f"   ✅ Postgres restore applied for {container}/{database}")
+        ok(f"Postgres restore applied for {container}/{database}")
         return True
-    print(f"   ⚠️  Postgres restore may have failed for {container}/{database}")
+    warn(f"Postgres restore may have failed for {container}/{database}")
     return False
 
 
@@ -436,10 +438,10 @@ class Service(ABC):
         """Before containers are up. Default: ensure volume_dirs."""
         if not self.volume_dirs:
             return
-        print(f"\n📁 Preparing {self.name} volume directories...")
+        section(f"Preparing {self.name} volume directories...", emoji="📁")
         for spec in self.volume_dirs:
             ensure_volume_dir(spec)
-        print(f"   ✅ {self.name} volumes ready")
+        ok(f"{self.name} volumes ready")
 
     def postsetup(self, env: dict) -> None:
         """After the first health wait. Default: no-op.
@@ -465,14 +467,14 @@ class Service(ABC):
 
     def reset(self, env: dict) -> None:
         """Remove this service's local bind-mount / config state."""
-        print(f"\n🧹 Resetting {self.name}...")
+        section(f"Resetting {self.name}...", emoji="🧹")
         removed_any = False
         for path in self.reset_paths():
             if remove_path(path):
-                print(f"   ✅ Removed {path}")
+                ok(f"Removed {path}")
                 removed_any = True
         if not removed_any:
-            print("   ℹ️  Nothing to remove")
+            info("Nothing to remove")
 
 
 def run_all_setup(services: Iterable[Service], env: dict) -> None:
@@ -487,13 +489,13 @@ def run_all_postsetup(services: Iterable[Service], env: dict) -> None:
 
 def run_all_backup(services: Iterable[Service], env: dict) -> None:
     for svc in services:
-        print(f"\n💾 Backup hooks: {svc.name}")
+        section(f"Backup hooks: {svc.name}", emoji="💾")
         svc.backup(env)
 
 
 def run_all_restore(services: Iterable[Service], env: dict) -> None:
     for svc in services:
-        print(f"\n♻️  Restore hooks: {svc.name}")
+        section(f"Restore hooks: {svc.name}", emoji="♻️")
         svc.restore(env)
 
 

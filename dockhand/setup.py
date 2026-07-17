@@ -1,7 +1,7 @@
 """Dockhand service — data bind mount."""
 from __future__ import annotations
 
-from service import Service, VolumeDir
+from setup.service import Service, VolumeDir
 
 
 class DockhandService(Service):

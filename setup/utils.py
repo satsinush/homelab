@@ -10,6 +10,8 @@ import subprocess
 import time
 from collections.abc import Callable
 
+from setup.ui import info, ok, step, warn
+
 
 def prompt_nonempty(
     label: str,
@@ -26,12 +28,12 @@ def prompt_nonempty(
         if not value and default is not None:
             value = default
         if not value:
-            print("   ⚠️  Value required.")
+            warn("Value required.")
             continue
         if validate is not None:
-            error = validate(value)
-            if error:
-                print(f"   ⚠️  {error}")
+            err = validate(value)
+            if err:
+                warn(err)
                 continue
         return value
 
@@ -42,7 +44,7 @@ def prompt_secret(label: str) -> str:
         value = getpass.getpass(label).strip()
         if value:
             return value
-        print("   ⚠️  Value required.")
+        warn("Value required.")
 
 
 def prompt_password(
@@ -56,15 +58,15 @@ def prompt_password(
     while True:
         password = getpass.getpass(label).strip()
         if not password:
-            print("   ⚠️  Value required.")
+            warn("Value required.")
             continue
         if min_length and len(password) < min_length:
-            print(f"   ⚠️  Use at least {min_length} characters.")
+            warn(f"Use at least {min_length} characters.")
             continue
         if confirm:
             again = getpass.getpass(confirm_label).strip()
             if password != again:
-                print("   ⚠️  Passwords do not match. Try again.")
+                warn("Passwords do not match. Try again.")
                 continue
         return password
 
@@ -79,7 +81,7 @@ def prompt_yes_no(label: str, *, default: bool | None = None) -> bool:
             return True
         if answer in ("n", "no"):
             return False
-        print("   ⚠️  Please answer with y or n.")
+        warn("Please answer with y or n.")
 
 
 def run_cmd(cmd, cwd=None, shell=True, check=True, capture=True):
@@ -114,6 +116,67 @@ def run_cmd(cmd, cwd=None, shell=True, check=True, capture=True):
         return None
 
 
+def docker_exec(container: str, *args: str, check: bool = True) -> str:
+    """Run `docker exec <container> …` and return stripped stdout (or '')."""
+    import shlex
+
+    quoted = " ".join(shlex.quote(a) for a in args)
+    return run_cmd(f"docker exec {shlex.quote(container)} {quoted}", check=check) or ""
+
+
+def compose_up(
+    *services: str,
+    profiles: tuple[str, ...] | list[str] = (),
+    force_recreate: bool = False,
+    check: bool = True,
+) -> str | None:
+    """`docker compose [--profile …] up -d [--force-recreate] [services…]`."""
+    parts = ["docker", "compose"]
+    for profile in profiles:
+        parts.extend(["--profile", profile])
+    parts.extend(["up", "-d"])
+    if force_recreate:
+        parts.append("--force-recreate")
+    parts.extend(services)
+    return run_cmd(" ".join(parts), check=check, capture=False)
+
+
+def append_env(env: dict, key: str, value: str, path: str = ".env") -> None:
+    """Append KEY='value' to .env and update env + os.environ."""
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(f"\n{key}='{value}'\n")
+    env[key] = value
+    os.environ[key] = value
+
+
+def wait_for(
+    predicate: Callable[[], bool],
+    *,
+    timeout: float = 120,
+    interval: float = 2,
+) -> bool:
+    """Poll predicate until True or timeout. Returns whether it succeeded."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if predicate():
+            return True
+        time.sleep(interval)
+    return False
+
+
+def wait_for_container_healthy(name: str, timeout: float = 120) -> bool:
+    """Wait until docker inspect reports Health.Status == healthy."""
+
+    def _healthy() -> bool:
+        status = run_cmd(
+            f'docker inspect -f "{{{{.State.Health.Status}}}}" {name} 2>/dev/null',
+            check=False,
+        )
+        return (status or "").strip() == "healthy"
+
+    return wait_for(_healthy, timeout=timeout, interval=2)
+
+
 def gen_secret(name, length_bytes):
     """Generate a secret file in ./volumes/secrets/ if it doesn't already exist.
 
@@ -132,7 +195,7 @@ def gen_secret(name, length_bytes):
         val = secrets.token_hex(length_bytes)
         with open(path, "w", encoding="utf-8") as f:
             f.write(val)
-        print(f"     Generated {name}")
+        step(f"Generated {name}")
     try:
         os.chmod(path, 0o600)
     except OSError:
@@ -171,13 +234,13 @@ def ensure_secrets_container_access() -> None:
                 stripped_n += 1
             os.chmod(path, 0o600)
         except OSError as e:
-            print(f"   ⚠️  Could not normalize {path}: {e}")
+            warn(f"Could not normalize {path}: {e}")
 
     if stripped_n:
-        print(f"   ✅ Stripped trailing newlines from {stripped_n} secret file(s)")
+        ok(f"Stripped trailing newlines from {stripped_n} secret file(s)")
 
     if not shutil.which("setfacl"):
-        print("   ⚠️  setfacl not found — install the 'acl' package so non-root")
+        warn("setfacl not found — install the 'acl' package so non-root")
         print("      containers (Authentik UID 1000) can read 0600 secrets.")
         print("      Until then, Authentik may fail with Permission denied on /run/secrets.")
         return
@@ -192,7 +255,7 @@ def ensure_secrets_container_access() -> None:
             capture_output=True,
         )
     except OSError as e:
-        print(f"   ⚠️  setfacl on {secrets_dir} failed: {e}")
+        warn(f"setfacl on {secrets_dir} failed: {e}")
         return
 
     for name in sorted(os.listdir(secrets_dir)):
@@ -205,8 +268,8 @@ def ensure_secrets_container_access() -> None:
             capture_output=True,
         )
 
-    print(
-        "   ✅ Secrets remain mode 0600; ACL read granted for UID(s) "
+    ok(
+        "Secrets remain mode 0600; ACL read granted for UID(s) "
         + ", ".join(str(u) for u in _SECRET_READER_UIDS)
     )
 
@@ -286,7 +349,7 @@ def network_curl(network, method, url, data=None, headers=None):
     lines = stdout.strip().split("\n")
     if not lines or len(lines) < 2:
         if stderr.strip():
-            print(f"   ⚠️  network_curl failed: {stderr.strip()}")
+            warn(f"network_curl failed: {stderr.strip()}")
         return "", 0
     status_code = int(lines[-1])
     body = "\n".join(lines[:-1])
@@ -299,9 +362,9 @@ def wait_for_containers(timeout=300, exclude: set[str] | frozenset[str] | None =
     exclude: container Name or Service names to skip (rarely needed).
     """
     skip = {n.lower() for n in (exclude or ())}
-    print("   Waiting for all containers to be running and healthy...")
+    step("Waiting for all containers to be running and healthy...")
     if skip:
-        print(f"   (excluding until postsetup: {', '.join(sorted(skip))})")
+        step(f"(excluding until postsetup: {', '.join(sorted(skip))})")
     start_time = time.time()
 
     while time.time() - start_time < timeout:
@@ -352,7 +415,7 @@ def wait_for_containers(timeout=300, exclude: set[str] | frozenset[str] | None =
         if all_ok:
             # Finish/clear the in-place status line (ANSI clear is flaky in some WSL TTYs).
             _clear_status_line()
-            print("   All containers are running and healthy! 🎉")
+            step("All containers are running and healthy! 🎉")
             return True
 
         elapsed = int(time.time() - start_time)
@@ -361,7 +424,7 @@ def wait_for_containers(timeout=300, exclude: set[str] | frozenset[str] | None =
         time.sleep(2)
 
     _clear_status_line()
-    print("   ⚠️  Timeout reached. Proceeding with configuration anyway...")
+    warn("Timeout reached. Proceeding with configuration anyway...")
     return False
 
 

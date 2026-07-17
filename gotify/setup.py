@@ -1,8 +1,9 @@
 """Gotify service — data volume, admin + alerts passwords, SQLite snapshot/restore."""
 from __future__ import annotations
 
-from service import Service, VolumeDir, restore_sqlite_snapshot, sqlite_snapshot
-from setup_utils import gen_secret
+from setup.service import Service, VolumeDir, restore_sqlite_snapshot, sqlite_snapshot
+from setup.ui import info, ok, section
+from setup.utils import gen_secret
 
 # Shared login for phone clients / family — owns per-service Gotify apps.
 GOTIFY_ALERTS_USERNAME = "alerts"
@@ -16,11 +17,14 @@ class GotifyService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        print("\n🔔 Preparing Gotify secrets...")
+        section("Preparing Gotify secrets...", emoji="🔔")
         gen_secret("gotify_admin_password", 32)
         gen_secret("gotify_alerts_password", 32)
-        print("   ✅ Gotify admin + alerts user secrets ready")
-        print(f"   ℹ️  Share Gotify login `{GOTIFY_ALERTS_USERNAME}` (password in volumes/secrets/gotify_alerts_password)")
+        ok("Gotify admin + alerts user secrets ready")
+        info(
+            f"Share Gotify login `{GOTIFY_ALERTS_USERNAME}` "
+            "(password in volumes/secrets/gotify_alerts_password)"
+        )
 
     def backup(self, env: dict) -> None:
         sqlite_snapshot(

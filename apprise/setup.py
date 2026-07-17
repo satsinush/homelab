@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import json
 import os
-import time
 from typing import Any
 
-from service import Service, VolumeDir, write_host_file
-from setup_utils import container_curl, run_cmd, substitute_env_vars
+from setup.service import Service, VolumeDir, write_host_file
+from setup.ui import error, info, ok, section, step, warn
+from setup.utils import container_curl, run_cmd, substitute_env_vars, wait_for
 
 # Must match gotify/setup.py
 GOTIFY_ALERTS_USERNAME = "alerts"
@@ -111,7 +111,7 @@ def _ensure_admin_password(admin_pwd: str) -> None:
 def _ensure_alerts_user(admin_auth: str, alerts_pwd: str) -> None:
     users, status = _gotify_json("GET", "/user", auth=admin_auth)
     if status != 200 or not isinstance(users, list):
-        print(f"   ⚠️  Could not list Gotify users (HTTP {status})")
+        warn(f"Could not list Gotify users (HTTP {status})")
         return
 
     existing = next((u for u in users if u.get("name") == GOTIFY_ALERTS_USERNAME), None)
@@ -124,9 +124,9 @@ def _ensure_alerts_user(admin_auth: str, alerts_pwd: str) -> None:
             data={"name": GOTIFY_ALERTS_USERNAME, "pass": alerts_pwd, "admin": False},
         )
         if put_status in (200, 204):
-            print(f"   ✅ Gotify user `{GOTIFY_ALERTS_USERNAME}` password synced from secrets")
+            ok(f"Gotify user `{GOTIFY_ALERTS_USERNAME}` password synced from secrets")
         else:
-            print(f"   ⚠️  Could not update `{GOTIFY_ALERTS_USERNAME}` password (HTTP {put_status})")
+            warn(f"Could not update `{GOTIFY_ALERTS_USERNAME}` password (HTTP {put_status})")
         return
 
     created, create_status = _gotify_json(
@@ -136,9 +136,9 @@ def _ensure_alerts_user(admin_auth: str, alerts_pwd: str) -> None:
         data={"name": GOTIFY_ALERTS_USERNAME, "pass": alerts_pwd, "admin": False},
     )
     if create_status == 200:
-        print(f"   ✅ Created Gotify user `{GOTIFY_ALERTS_USERNAME}` (non-admin)")
+        ok(f"Created Gotify user `{GOTIFY_ALERTS_USERNAME}` (non-admin)")
     else:
-        print(f"   ⚠️  Failed to create `{GOTIFY_ALERTS_USERNAME}` (HTTP {create_status}): {created}")
+        warn(f"Failed to create `{GOTIFY_ALERTS_USERNAME}` (HTTP {create_status}): {created}")
 
 
 def _ensure_app(
@@ -149,7 +149,7 @@ def _ensure_app(
     name = spec["name"]
     apps, status = _gotify_json("GET", "/application", auth=alerts_auth)
     if status != 200 or not isinstance(apps, list):
-        print(f"   ⚠️  Could not list applications (HTTP {status})")
+        warn(f"Could not list applications (HTTP {status})")
         return token_cache.get(name)
 
     existing = next((a for a in apps if a.get("name") == name), None)
@@ -159,8 +159,8 @@ def _ensure_app(
         app_id = existing.get("id")
         token = existing.get("token") or token_cache.get(name)
         if not token:
-            print(
-                f"   ⚠️  App `{name}` exists but token unknown "
+            warn(
+                f"App `{name}` exists but token unknown "
                 "(Gotify hides tokens after create). Delete it in the UI to recreate."
             )
             return None
@@ -172,11 +172,11 @@ def _ensure_app(
             data={"name": name, "description": spec["description"]},
         )
         if create_status != 200 or not isinstance(created, dict):
-            print(f"   ⚠️  Failed to create app `{name}` (HTTP {create_status}): {created}")
+            warn(f"Failed to create app `{name}` (HTTP {create_status}): {created}")
             return token_cache.get(name)
         app_id = created.get("id")
         token = created.get("token")
-        print(f"   ✅ Created Gotify app `{name}`")
+        ok(f"Created Gotify app `{name}`")
 
     if token:
         token_cache[name] = token
@@ -211,28 +211,25 @@ class AppriseService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        print("\n🔔 Preparing Apprise config directory...")
-        print("   ✅ Apprise volumes ready")
+        section("Preparing Apprise config directory...", emoji="🔔")
+        ok("Apprise volumes ready")
 
     def postsetup(self, env: dict) -> None:
-        print("\n🔔 Setting up Gotify alerts user, apps, and Apprise routing...")
+        section("Setting up Gotify alerts user, apps, and Apprise routing...", emoji="🔔")
         admin_pwd = os.environ.get("GOTIFY_ADMIN_PASSWORD") or ""
         alerts_pwd = os.environ.get("GOTIFY_ALERTS_PASSWORD") or ""
         if not admin_pwd or not alerts_pwd:
-            print("   ❌ Missing GOTIFY_ADMIN_PASSWORD or GOTIFY_ALERTS_PASSWORD secrets")
+            error("Missing GOTIFY_ADMIN_PASSWORD or GOTIFY_ALERTS_PASSWORD secrets")
             return
 
-        print("   Waiting for Gotify to initialize...")
-        gotify_ready = False
-        for _ in range(30):
-            _body, status = container_curl("gotify", "GET", "http://localhost:80/version")
-            if status == 200:
-                gotify_ready = True
-                break
-            time.sleep(2)
-
-        if not gotify_ready:
-            print("   ❌ Gotify failed to start or did not become ready.")
+        step("Waiting for Gotify to initialize...")
+        if not wait_for(
+            lambda: container_curl("gotify", "GET", "http://localhost:80/version")[1]
+            == 200,
+            timeout=60,
+            interval=2,
+        ):
+            error("Gotify failed to start or did not become ready.")
             return
 
         _ensure_admin_password(admin_pwd)
@@ -243,7 +240,7 @@ class AppriseService(Service):
         # Verify alerts login
         _apps, auth_status = _gotify_json("GET", "/application", auth=alerts_auth)
         if auth_status != 200:
-            print(f"   ❌ Cannot authenticate as `{GOTIFY_ALERTS_USERNAME}` (HTTP {auth_status})")
+            error(f"Cannot authenticate as `{GOTIFY_ALERTS_USERNAME}` (HTTP {auth_status})")
             return
 
         token_cache = _load_token_cache()
@@ -257,7 +254,7 @@ class AppriseService(Service):
 
         missing = [s["token_env"] for s in GOTIFY_APPS if s["token_env"] not in tokens_by_env]
         if missing:
-            print(f"   ❌ Missing Gotify app tokens: {', '.join(missing)}")
+            error(f"Missing Gotify app tokens: {', '.join(missing)}")
             return
 
         for key, value in tokens_by_env.items():
@@ -270,13 +267,13 @@ class AppriseService(Service):
             template = f.read()
         apprise_content = substitute_env_vars(template)
         write_host_file(f"{config_dir}/apprise.yaml", apprise_content, mode=0o644)
-        print("   ✅ Wrote Apprise config with per-service Gotify apps")
-        print(
-            f"   ℹ️  Clients: sign in as `{GOTIFY_ALERTS_USERNAME}` "
+        ok("Wrote Apprise config with per-service Gotify apps")
+        info(
+            f"Clients: sign in as `{GOTIFY_ALERTS_USERNAME}` "
             "(password: volumes/secrets/gotify_alerts_password)"
         )
         container_curl("apprise-api", "GET", "http://localhost:80/health")
-        print("   ✅ SMTP/HTTP notification gateway ready")
+        ok("SMTP/HTTP notification gateway ready")
 
 
 service = AppriseService()

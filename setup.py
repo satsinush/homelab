@@ -10,6 +10,8 @@ import shutil
 import subprocess
 import sys
 
+from setup.ui import banner, error, info, ok, section, skip, step, warn
+
 
 def _parse_ipv4_network(value: str) -> ipaddress.IPv4Network | None:
     """IPv4-only CIDR parse (IPv6 raises ValueError in IPv4Network)."""
@@ -49,7 +51,7 @@ def _traefik_ip_for_subnet(subnet: str) -> str:
 
 
 def _ensure_docker_network(env: dict) -> None:
-    from setup_utils import run_cmd
+    from setup.utils import run_cmd
 
     subnet = env.get("DOCKER_SUBNET") or "10.10.30.0/24"
     current = run_cmd(
@@ -101,62 +103,66 @@ def parse_args() -> argparse.Namespace:
 
 
 def do_reset() -> None:
-    from service import remove_path, run_all_reset
-    from services_registry import get_services
+    from setup.service import remove_path, run_all_reset
+    from setup.registry import get_services
 
-    print("🏠 Homelab Reset Utility")
-    print("========================")
-    print("\n⚠️  WARNING: This will permanently destroy your entire homelab state:")
-    print("   - Stop and remove all Docker containers")
-    print("   - Run each service's reset() (typically ./{service}/volumes)")
-    print("   - Delete shared state (.env, volumes/ secrets & certificates)")
-    print("\n🚨 THIS ACTION IS IRREVERSIBLE!")
+    banner(
+        "🏠 Homelab Reset Utility",
+        "========================",
+        "",
+        "⚠️  WARNING: This will permanently destroy your entire homelab state:",
+        "   - Stop and remove all Docker containers",
+        "   - Run each service's reset() (typically ./{service}/volumes)",
+        "   - Delete shared state (.env, volumes/ secrets & certificates)",
+        "",
+        "🚨 THIS ACTION IS IRREVERSIBLE!",
+    )
 
     try:
-        from setup_utils import prompt_yes_no
+        from setup.utils import prompt_yes_no
 
         if not prompt_yes_no(
             "\nAre you absolutely sure you want to reset your homelab? (y/N): ",
             default=False,
         ):
-            print("\n❌ Reset aborted.")
+            error("Reset aborted.")
             sys.exit(0)
 
-        print("\n🔥 Resetting homelab stack...")
+        section("Resetting homelab stack...", emoji="🔥")
         subprocess.run("docker compose down -v", shell=True, check=False)
 
         env: dict = {}
         if os.path.exists(".env"):
-            from setup_utils import load_env
+            from setup.utils import load_env
 
             env = load_env(".env")
 
-        print("\n🧹 Running per-service reset()...")
+        section("Running per-service reset()...", emoji="🧹")
         run_all_reset(get_services(), env)
 
-        print("\n🧹 Removing shared host state...")
+        section("Removing shared host state...", emoji="🧹")
         for path in (".env", "./volumes"):
             if remove_path(path):
-                print(f"   ✅ Removed {path}")
+                ok(f"Removed {path}")
 
-        print("\n✅ Homelab has been successfully reset.")
+        ok("Homelab has been successfully reset.")
         sys.exit(0)
     except KeyboardInterrupt:
-        print("\n❌ Reset aborted.")
+        error("Reset aborted.")
         sys.exit(1)
 
 
 def check_prereqs(extra: list[str] | None = None) -> None:
-    print("🔍 Checking prerequisites...")
+    section("Checking prerequisites...", emoji="🔍")
     required = ["openssl", "argon2", "docker", "jq"]
     if extra:
         required.extend(extra)
     missing = [p for p in required if not shutil.which(p)]
     if missing:
-        print(f"❌ Missing required programs: {', '.join(missing)}")
-        print("   Please install them and try again.")
+        error(f"Missing required programs: {', '.join(missing)}")
+        step("Please install them and try again.")
         sys.exit(1)
-    print("✅ All prerequisites found")
+    ok("All prerequisites found")
 
 
 def _username_for_puid(puid: str) -> str | None:
@@ -187,20 +193,20 @@ def ensure_systemd_services() -> None:
     import shlex
     import tempfile
 
-    from setup_utils import load_env, prompt_yes_no, run_cmd, substitute_env_vars
+    from setup.utils import load_env, prompt_yes_no, run_cmd, substitute_env_vars
 
-    print("\n⚙️  Configuring systemd host services...")
+    section("Configuring systemd host services...", emoji="⚙️")
     if not prompt_yes_no(
         "   Install/enable systemd units (host-api, backup timer, docker, timesyncd)? [Y/n]: ",
         default=True,
     ):
-        print("   ⏭️  Skipping systemd host services (dev / manual manage)")
+        skip("Skipping systemd host services (dev / manual manage)")
         return
 
     project_root = os.path.abspath(os.getcwd())
     units_src = os.path.join(project_root, "systemd", "system")
     if not os.path.isdir(units_src):
-        print(f"   ⚠️  Missing {units_src}; skipping systemd install")
+        warn(f"Missing {units_src}; skipping systemd install")
         return
 
     # Prefer the setup-generated .env (same substitution model as .env.template).
@@ -219,11 +225,11 @@ def ensure_systemd_services() -> None:
         with open(src, encoding="utf-8") as f:
             content = substitute_env_vars(f.read())
         if "${" in content or "$PUID" in content or "$PROJECT_ROOT" in content:
-            print(f"❌ Unsubstituted variables remain in {name} after env expand")
-            print("   Ensure .env defines PROJECT_ROOT, PUID, and PGID.")
+            error(f"Unsubstituted variables remain in {name} after env expand")
+            step("Ensure .env defines PROJECT_ROOT, PUID, and PGID.")
             sys.exit(1)
         dest = f"/etc/systemd/system/{name}"
-        print(f"   Installing {dest}")
+        step(f"Installing {dest}")
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, suffix=f"-{name}") as tmp:
             tmp.write(content)
             tmp_path = tmp.name
@@ -235,56 +241,56 @@ def ensure_systemd_services() -> None:
 
     host_api = os.path.join(os.environ["PROJECT_ROOT"], "dashboard", "host-api")
     if not shutil.which("npm"):
-        print("❌ npm is required for the host API (install Node.js / npm)")
+        error("npm is required for the host API (install Node.js / npm)")
         sys.exit(1)
-    print(f"   npm install in {host_api}")
+    step(f"npm install in {host_api}")
     run_cmd("npm install", cwd=host_api, capture=False)
 
     run_cmd("sudo systemctl daemon-reload")
 
-    print("   Enabling docker…")
+    step("Enabling docker…")
     run_cmd("sudo systemctl enable --now docker.socket docker.service")
 
     for unit in (
         "homelab-host-api.service",
         "homelab-backup.timer",
     ):
-        print(f"   Enabling {unit}…")
+        step(f"Enabling {unit}…")
         run_cmd(f"sudo systemctl enable --now {unit}")
 
     if shutil.which("pacman"):
-        print("   Enabling pacman-sync.timer…")
+        step("Enabling pacman-sync.timer…")
         run_cmd("sudo systemctl enable --now pacman-sync.timer")
     else:
-        print("   ℹ️  pacman not found; skipping pacman-sync.timer")
+        info("pacman not found; skipping pacman-sync.timer")
 
     run_cmd("sudo systemctl restart homelab-host-api.service", check=False)
 
-    print("   Enabling systemd-timesyncd…")
+    step("Enabling systemd-timesyncd…")
     run_cmd("sudo systemctl enable --now systemd-timesyncd.service", check=False)
     sync = run_cmd("timedatectl show -p NTPSynchronized --value", check=False) or ""
     if sync.strip() == "yes":
-        print("   ✅ System clock is NTP-synchronized")
+        ok("System clock is NTP-synchronized")
     else:
-        print("   ⚠️  System clock not yet NTP-synchronized")
-        print("      If this persists, see ./systemd/timesyncd.conf and restart systemd-timesyncd")
+        warn("System clock not yet NTP-synchronized")
+        step("If this persists, see ./systemd/timesyncd.conf and restart systemd-timesyncd")
 
     user = _username_for_puid(os.environ["PUID"]) or _host_user_group()[0]
     added_docker_group = False
     if user != "root":
         groups = run_cmd(f"id -nG {user}", check=False) or ""
         if "docker" not in groups.split():
-            print(f"   Adding {user} to the docker group…")
+            step(f"Adding {user} to the docker group…")
             run_cmd(f"sudo usermod -aG docker {shlex.quote(user)}")
             added_docker_group = True
 
-    print("✅ Systemd host services configured")
+    ok("Systemd host services configured")
 
     if added_docker_group and os.geteuid() != 0:
         setup_py = shlex.quote(os.path.abspath(__file__))
         py = shlex.quote(sys.executable)
         root = shlex.quote(project_root)
-        print("\n🔄 Re-running setup under the docker group (new membership)…")
+        section("Re-running setup under the docker group (new membership)…", emoji="🔄")
         os.execvp(
             "sg",
             ["sg", "docker", "-c", f"cd {root} && {py} {setup_py} setup"],
@@ -292,7 +298,7 @@ def ensure_systemd_services() -> None:
 
 
 def ensure_env_file() -> dict:
-    from setup_utils import (
+    from setup.utils import (
         detect_homelab_locale,
         load_env,
         phone_region_from_tz,
@@ -301,17 +307,17 @@ def ensure_env_file() -> dict:
     )
 
     if os.path.exists(".env"):
-        print("✅ Environment configuration already exists")
+        ok("Environment configuration already exists")
         return load_env(".env")
 
-    print("\n📝 Generating environment configuration...")
+    section("Generating environment configuration...", emoji="📝")
     if not os.path.exists(".env.template"):
-        print("❌ Template file .env.template not found")
+        error("Template file .env.template not found")
         sys.exit(1)
 
-    from setup_utils import prompt_nonempty, prompt_password, prompt_yes_no
+    from setup.utils import prompt_nonempty, prompt_password, prompt_yes_no
 
-    print("   Enter username and password for homelab services:")
+    step("Enter username and password for homelab services:")
     username = prompt_nonempty("                       Username: ")
     password = prompt_password(
         "   Password (min 12 characters): ",
@@ -442,7 +448,7 @@ def ensure_env_file() -> dict:
     language, locale = detect_homelab_locale(tz, region=phone_region_from_tz(tz))
     os.environ["HOMELAB_LANGUAGE"] = language
     os.environ["HOMELAB_LOCALE"] = locale
-    print(f"   Detected locale: {language} / {locale} (from host LANG or TZ={tz})")
+    step(f"Detected locale: {language} / {locale} (from host LANG or TZ={tz})")
 
     os.environ["DASHBOARD_SERVICE_NAME"] = "dashboard"
     os.environ["PIHOLE_SERVICE_NAME"] = "dns"
@@ -465,18 +471,18 @@ def ensure_env_file() -> dict:
 
     env = load_env(".env")
     if has_public:
-        print("   ✅ Let's Encrypt (Cloudflare DNS-01) mode configured")
+        ok("Let's Encrypt (Cloudflare DNS-01) mode configured")
     else:
-        print("   ✅ Self-signed certificate mode configured")
-    print("✅ Environment configuration created")
+        ok("Self-signed certificate mode configured")
+    ok("Environment configuration created")
     return env
 
 
 def ensure_bootstrap_and_locale(env: dict) -> dict:
     """Shared bootstrap only; per-service secrets are created in Service.setup()."""
-    from setup_utils import detect_homelab_locale, phone_region_from_tz
+    from setup.utils import append_env, detect_homelab_locale, phone_region_from_tz
 
-    print("   Ensuring shared bootstrap secrets...")
+    step("Ensuring shared bootstrap secrets...")
     os.makedirs("./volumes/secrets", exist_ok=True)
     os.chmod("./volumes/secrets", 0o700)
 
@@ -491,10 +497,7 @@ def ensure_bootstrap_and_locale(env: dict) -> dict:
         ("HEADSCALE_IPV4_PREFIX", "100.64.0.0/24"),
     ):
         if not env.get(key):
-            with open(".env", "a", encoding="utf-8") as f:
-                f.write(f"\n{key}='{default}'\n")
-            env[key] = default
-            os.environ[key] = default
+            append_env(env, key, default)
 
     if not env.get("HOMELAB_LANGUAGE") or not env.get("HOMELAB_LOCALE"):
         tz = env.get("TZ") or os.environ.get("TZ") or "UTC"
@@ -508,13 +511,13 @@ def ensure_bootstrap_and_locale(env: dict) -> dict:
                 f.write(f"\nHOMELAB_LOCALE='{locale}'\n")
                 env["HOMELAB_LOCALE"] = locale
                 os.environ["HOMELAB_LOCALE"] = locale
-        print(f"   Locale defaults: {env.get('HOMELAB_LANGUAGE')} / {env.get('HOMELAB_LOCALE')}")
+        step(f"Locale defaults: {env.get('HOMELAB_LANGUAGE')} / {env.get('HOMELAB_LOCALE')}")
 
     if not os.path.exists("./volumes/secrets/homelab_password") or os.path.getsize(
         "./volumes/secrets/homelab_password"
     ) == 0:
-        print("   ⚠️  homelab_password secret is missing from volumes/secrets!")
-        from setup_utils import prompt_password
+        warn("homelab_password secret is missing from volumes/secrets!")
+        from setup.utils import prompt_password
 
         password = prompt_password(
             "   Please re-enter your homelab Password (min 12 characters): ",
@@ -528,12 +531,12 @@ def ensure_bootstrap_and_locale(env: dict) -> dict:
 
 
 def ensure_certificates(env: dict) -> None:
-    from setup_utils import run_cmd
+    from setup.utils import run_cmd
 
     hostname = env.get("HOMELAB_HOSTNAME", "homelab.home.arpa")
     cert_resolver = env.get("TRAEFIK_CERT_RESOLVER", "")
 
-    print("\n🔐 Setting up certificates and keys...")
+    section("Setting up certificates and keys...", emoji="🔐")
     certs_dir = "./volumes/certificates"
     os.makedirs(certs_dir, exist_ok=True)
 
@@ -548,19 +551,19 @@ def ensure_certificates(env: dict) -> None:
     # primary TLS. Let's Encrypt mode still needs valid PEM here for Traefik's
     # defaultCertificate fallback (and for services that mount the CA).
     if cert_resolver == "letsencrypt":
-        print("   Let's Encrypt is enabled; also ensuring local CA/fallback certs exist…")
+        step("Let's Encrypt is enabled; also ensuring local CA/fallback certs exist…")
 
     if not os.path.exists(ca_key) or not os.path.exists(ca_cert):
-        print("   Generating local Certificate Authority (CA)...")
+        step("Generating local Certificate Authority (CA)...")
         run_cmd(f"openssl genrsa -out {ca_key} 4096")
         run_cmd(
             f'openssl req -x509 -new -nodes -key {ca_key} -sha256 -days 3650 '
             f'-out {ca_cert} -subj "/CN=Homelab Root CA/O=Homelab/C=US"'
         )
-        print("   ✅ CA certificate and key generated")
+        ok("CA certificate and key generated")
 
     if not os.path.exists(server_key) or not os.path.exists(server_cert):
-        print(f"   Generating server certificate for {hostname}...")
+        step(f"Generating server certificate for {hostname}...")
         conf_file = "/tmp/server_ssl_config.cnf"
         csr_file = f"/tmp/{hostname}.csr"
         config_content = f"""[req]
@@ -597,7 +600,7 @@ DNS.3 = *.home.arpa
             os.remove(conf_file)
         if os.path.exists(csr_file):
             os.remove(csr_file)
-        print("   ✅ Server certificate generated")
+        ok("Server certificate generated")
 
     # Traefik defaultCertificate paths (stable names, independent of hostname)
     if (
@@ -608,14 +611,14 @@ DNS.3 = *.home.arpa
     ):
         shutil.copy(server_cert, fallback_cert)
         shutil.copy(server_key, fallback_key)
-        print("   ✅ Traefik fallback homelab.crt / homelab.key ready")
+        ok("Traefik fallback homelab.crt / homelab.key ready")
 
     # Localhost-only default used when Let's Encrypt is enabled (must not match
     # production SNI or Homelab CA shadows ACME).
     default_cert = f"{certs_dir}/traefik-default.crt"
     default_key = f"{certs_dir}/traefik-default.key"
     if not os.path.exists(default_cert) or not os.path.exists(default_key):
-        print("   Generating Traefik localhost-only default certificate…")
+        step("Generating Traefik localhost-only default certificate…")
         conf_file = "/tmp/traefik_default_ssl.cnf"
         csr_file = "/tmp/traefik-default.csr"
         with open(conf_file, "w", encoding="utf-8") as f:
@@ -651,7 +654,7 @@ IP.1 = 127.0.0.1
                 os.remove(path)
 
     if os.path.exists(ca_cert):
-        print("   Trusting CA certificate locally...")
+        step("Trusting CA certificate locally...")
         if os.path.exists("/etc/ca-certificates/trust-source/anchors") and shutil.which("trust"):
             run_cmd(
                 f"sudo cp {ca_cert} /etc/ca-certificates/trust-source/anchors/ && "
@@ -675,17 +678,16 @@ IP.1 = 127.0.0.1
     )
     tls_dst = "./traefik/volumes/tls.yml"
     shutil.copy(tls_src, tls_dst)
-    print(f"   ✅ Traefik TLS config: {tls_src} → {tls_dst}")
-    print("   ✅ SSL certificates ready")
+    ok(f"Traefik TLS config: {tls_src} → {tls_dst}")
+    ok("SSL certificates ready")
 
 
 def run_setup() -> None:
-    from service import run_all_postsetup, run_all_setup
-    from services_registry import get_services
-    from setup_utils import run_cmd, wait_for_containers
+    from setup.service import run_all_postsetup, run_all_setup
+    from setup.registry import get_services
+    from setup.utils import compose_up, run_cmd, wait_for_containers
 
-    print("🏠 Homelab Python Setup Script")
-    print("==============================")
+    banner("🏠 Homelab Python Setup Script", "==============================")
     check_prereqs()
 
     env = ensure_env_file()
@@ -698,38 +700,37 @@ def run_setup() -> None:
     os.environ.setdefault("PROJECT_ROOT", os.getcwd())
 
     services = get_services()
-    print("\n📁 Running per-service setup()...")
+    section("Running per-service setup()...", emoji="📁")
     run_all_setup(services, env)
 
     # Reload secrets written by services so postsetup / compose-adjacent tools see them
-    from setup_utils import ensure_secrets_container_access, load_secrets
+    from setup.utils import ensure_secrets_container_access, load_secrets
 
-    print("\n🔐 Ensuring secrets stay private but readable by containers...")
+    section("Ensuring secrets stay private but readable by containers...", emoji="🔐")
     ensure_secrets_container_access()
     load_secrets()
 
     _ensure_docker_network(env)
 
-    print("\n🔨 Building Docker containers...")
+    section("Building Docker containers...", emoji="🔨")
     run_cmd("docker compose build", capture=False)
 
-    print("\n🐳 Starting Docker containers...")
-    run_cmd("docker compose up -d", capture=False)
+    section("Starting Docker containers...", emoji="🐳")
+    compose_up()
 
     wait_for_containers()
-    print("✅ Docker containers started")
+    ok("Docker containers started")
 
-    print("\n⚙️  Running per-service postsetup()...")
+    section("Running per-service postsetup()...", emoji="⚙️")
     run_all_postsetup(services, env)
 
     # Postsetup may rewrite secrets (e.g. notification tokens); refresh ACLs.
     ensure_secrets_container_access()
 
     wait_for_containers(timeout=120)
-    print("✅ Postsetup containers healthy")
+    ok("Postsetup containers healthy")
 
-    print("\n🎉 Homelab Setup Complete!")
-    print("==========================")
+    banner("", "🎉 Homelab Setup Complete!", "==========================")
     print(
         f"📋 Access Information:\n   Username: {env.get('HOMELAB_USERNAME')}\n"
         f"   Email:    {env.get('HOMELAB_USERNAME')}@{hostname}"
@@ -739,22 +740,21 @@ def run_setup() -> None:
     ssl_mode = "Self-signed (private)" if cert_resolver != "letsencrypt" else "Public (Let's Encrypt)"
     print(f"\n🔒 SSL Mode: {ssl_mode}")
     if cert_resolver != "letsencrypt":
-        print("⚠️  Remember to add the CA certificate to your devices' trust stores!")
-        print("   CA Certificate: ./volumes/certificates/homelab-ca.crt")
+        warn("Remember to add the CA certificate to your devices' trust stores!")
+        step("CA Certificate: ./volumes/certificates/homelab-ca.crt")
 
 
 def run_backup(auto: bool = False) -> None:
-    from restic_backup import restic_backup
-    from service import run_all_backup
-    from services_registry import get_services
-    from setup_utils import load_env, load_secrets
+    from setup.restic_backup import restic_backup
+    from setup.service import run_all_backup
+    from setup.registry import get_services
+    from setup.utils import load_env, load_secrets
 
-    print("🏠 Homelab Cloud Backup")
-    print("=======================")
+    banner("🏠 Homelab Cloud Backup", "=======================")
     check_prereqs(extra=["restic"])
 
     if not os.path.exists(".env"):
-        print("❌ .env not found. Run setup first or restore from Restic.")
+        error(".env not found. Run setup first or restore from Restic.")
         sys.exit(1)
 
     env = load_env(".env")
@@ -763,39 +763,38 @@ def run_backup(auto: bool = False) -> None:
     os.environ.setdefault("PROJECT_ROOT", os.getcwd())
 
     if auto:
-        print("--> Running in automatic mode.")
+        step("--> Running in automatic mode.")
 
     services = get_services()
-    print("\n💾 Running per-service backup() hooks...")
+    section("Running per-service backup() hooks...", emoji="💾")
     run_all_backup(services, env)
 
     restic_backup(auto=auto)
 
 
 def run_restore(snapshot: str = "latest") -> None:
-    from restic_backup import restic_restore
-    from service import run_all_postsetup, run_all_restore, run_all_setup
-    from services_registry import get_services
-    from setup_utils import load_env, load_secrets, run_cmd, wait_for_containers
+    from setup.restic_backup import restic_restore
+    from setup.service import run_all_postsetup, run_all_restore, run_all_setup
+    from setup.registry import get_services
+    from setup.utils import compose_up, load_env, load_secrets, wait_for_containers
 
-    print("🏠 Homelab Cloud Restore")
-    print("========================")
+    banner("🏠 Homelab Cloud Restore", "========================")
     check_prereqs(extra=["restic"])
 
-    print(
-        "\n⚠️  This will overwrite local gitignored state (.env, volumes/, */volumes/) "
+    warn(
+        "This will overwrite local gitignored state (.env, volumes/, */volumes/) "
         "from the Restic snapshot, then start containers and run restore hooks."
     )
-    from setup_utils import prompt_yes_no
+    from setup.utils import prompt_yes_no
 
     if not prompt_yes_no("Proceed? [y/N]: ", default=False):
-        print("Restore aborted.")
+        step("Restore aborted.")
         sys.exit(0)
 
     restic_restore(snapshot)
 
     if not os.path.exists(".env"):
-        print("❌ .env missing after restore.")
+        error(".env missing after restore.")
         sys.exit(1)
 
     env = load_env(".env")
@@ -803,24 +802,24 @@ def run_restore(snapshot: str = "latest") -> None:
     os.environ.setdefault("PROJECT_ROOT", os.getcwd())
 
     services = get_services()
-    print("\n📁 Re-applying volume permissions via setup()...")
+    section("Re-applying volume permissions via setup()...", emoji="📁")
     run_all_setup(services, env)
 
     _ensure_docker_network(env)
-    print("\n🐳 Starting Docker containers...")
-    run_cmd("docker compose up -d", capture=False)
+    section("Starting Docker containers...", emoji="🐳")
+    compose_up()
 
     # Apply dumps before waiting on healthchecks. Live Postgres dirs are
     # restic-excluded; apps may be unhealthy until restore() runs.
-    print("\n♻️  Running per-service restore() hooks...")
+    section("Running per-service restore() hooks...", emoji="♻️")
     run_all_restore(services, env)
 
     wait_for_containers()
-    print("\n⚙️  Running per-service postsetup()...")
+    section("Running per-service postsetup()...", emoji="⚙️")
     run_all_postsetup(services, env)
     wait_for_containers(timeout=120)
 
-    print("\n✅ Restore complete.")
+    ok("Restore complete.")
 
 
 def main() -> None:

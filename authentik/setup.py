@@ -3,14 +3,15 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from service import (
+from setup.service import (
     Service,
     VolumeDir,
     latest_file,
     pg_dump_to_file,
     pg_restore_from_file,
 )
-from setup_utils import gen_secret
+from setup.ui import ok, section
+from setup.utils import gen_secret
 
 
 class AuthentikService(Service):
@@ -27,11 +28,11 @@ class AuthentikService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        print("\n🔑 Preparing Authentik volumes and secrets...")
+        section("Preparing Authentik volumes and secrets...", emoji="🔑")
         gen_secret("authentik_secret_key", 50)
         gen_secret("authentik_pg_pass", 32)
         gen_secret("authentik_akadmin_password", 32)
-        print("   ✅ Authentik volume directories ready")
+        ok("Authentik volume directories ready")
 
     def backup(self, env: dict) -> None:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")

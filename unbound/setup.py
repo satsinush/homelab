@@ -1,7 +1,7 @@
 """Unbound service — redis cache bind mount."""
 from __future__ import annotations
 
-from service import Service, VolumeDir
+from setup.service import Service, VolumeDir
 
 
 class UnboundService(Service):

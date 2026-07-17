@@ -1,7 +1,7 @@
 """Ollama service — model bind mount (excluded from Restic by default)."""
 from __future__ import annotations
 
-from service import Service, VolumeDir
+from setup.service import Service, VolumeDir
 
 
 class OllamaService(Service):

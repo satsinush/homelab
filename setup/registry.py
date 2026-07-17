@@ -1,7 +1,7 @@
 """Ordered registry of Service instances used by root setup.py."""
 from __future__ import annotations
 
-from service import Service
+from setup.service import Service
 
 
 def get_services() -> list[Service]:

@@ -1,8 +1,9 @@
 """Homelab Dashboard service — API/word-games volumes + SQLite snapshot."""
 from __future__ import annotations
 
-from service import Service, VolumeDir, restore_sqlite_snapshot, sqlite_snapshot
-from setup_utils import gen_secret
+from setup.service import Service, VolumeDir, restore_sqlite_snapshot, sqlite_snapshot
+from setup.ui import ok, section
+from setup.utils import gen_secret
 
 
 class DashboardService(Service):
@@ -14,10 +15,10 @@ class DashboardService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        print("\n🏠 Preparing Homelab Dashboard secrets...")
+        section("Preparing Homelab Dashboard secrets...", emoji="🏠")
         gen_secret("homelab_api_session_secret", 64)
         gen_secret("dashboard_oidc_secret", 64)
-        print("   ✅ Dashboard secrets ready")
+        ok("Dashboard secrets ready")
 
     def backup(self, env: dict) -> None:
         sqlite_snapshot(

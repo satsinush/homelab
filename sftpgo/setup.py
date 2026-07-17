@@ -4,10 +4,12 @@ from __future__ import annotations
 import json
 import os
 
-from file_accounts import ACCOUNTS_ENV, read_accounts_env
-from service import Service, VolumeDir
-from setup_utils import run_cmd
-from storage_layout import ensure_all_user_homes, ensure_storage_layout, ensure_user_home
+from setup.file_accounts import ACCOUNTS_ENV, read_accounts_env
+from setup.service import Service, VolumeDir
+from setup.storage_layout import ensure_all_user_homes, ensure_storage_layout, ensure_user_home
+from setup.ui import info, ok, section, warn
+from setup.utils import compose_up
+
 
 _USERS_HOME_PREFIX = "/srv/sftpgo/storage/users/"
 LOADDATA_PATH = "./sftpgo/volumes/config/loaddata.json"
@@ -77,13 +79,10 @@ def sync_sftpgo_from_accounts(*, recreate: bool = True) -> None:
     """Regenerate loaddata from accounts.env and optionally recreate SFTPGo."""
     accounts = read_accounts_env()
     path = write_sftpgo_loaddata(accounts)
-    print(f"   ✅ Wrote SFTPGo loaddata ({len(accounts)} user(s)) → {path}")
+    ok(f"Wrote SFTPGo loaddata ({len(accounts)} user(s)) → {path}")
     if recreate and accounts:
-        run_cmd(
-            "docker compose up -d --force-recreate sftpgo",
-            check=False,
-        )
-        print("   ✅ Recreated sftpgo to load local WebDAV users")
+        compose_up("sftpgo", force_recreate=True, check=False)
+        ok("Recreated sftpgo to load local WebDAV users")
 
 
 class SftpgoService(Service):
@@ -95,7 +94,7 @@ class SftpgoService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        print("\n📂 Preparing SFTPGo / WebDAV...")
+        section("Preparing SFTPGo / WebDAV...", emoji="📂")
         puid = int(env.get("PUID") or os.environ.get("PUID") or "1000")
         pgid = int(env.get("PGID") or os.environ.get("PGID") or "1000")
         ensure_storage_layout(puid, pgid)
@@ -103,17 +102,17 @@ class SftpgoService(Service):
         accounts = read_accounts_env()
         write_sftpgo_loaddata(accounts)
         if accounts:
-            print(
-                f"   ✅ WebDAV users from {ACCOUNTS_ENV} "
+            ok(
+                f"WebDAV users from {ACCOUNTS_ENV} "
                 f"({len(accounts)}): {', '.join(sorted(accounts))}"
             )
         else:
-            print(
-                f"   ⚠️  No accounts in {ACCOUNTS_ENV} yet — "
+            warn(
+                f"No accounts in {ACCOUNTS_ENV} yet — "
                 "run Samba setup (same file feeds WebDAV)"
             )
-        print("   ℹ️  WebDAV / = private home; /shared = storage/shared")
-        print("   ℹ️  Password = Samba file password (≠ Authentik)")
+        info("WebDAV / = private home; /shared = storage/shared")
+        info("Password = Samba file password (≠ Authentik)")
 
 
 service = SftpgoService()

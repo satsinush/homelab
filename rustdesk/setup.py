@@ -4,8 +4,9 @@ from __future__ import annotations
 import os
 import shutil
 
-from service import Service, VolumeDir
-from setup_utils import run_cmd
+from setup.service import Service, VolumeDir
+from setup.ui import error, info, ok, section, warn
+from setup.utils import run_cmd
 
 
 class RustdeskService(Service):
@@ -16,17 +17,17 @@ class RustdeskService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        print("\n🖥️  Preparing RustDesk volumes...")
+        section("Preparing RustDesk volumes...", emoji="🖥️")
         os.makedirs("./volumes/secrets", exist_ok=True)
         rustdesk_key_path = "./volumes/secrets/rustdesk_public_key"
         if not os.path.exists(rustdesk_key_path):
             with open(rustdesk_key_path, "w", encoding="utf-8") as f:
                 f.write("\n")
             os.chmod(rustdesk_key_path, 0o600)
-        print("   ✅ RustDesk volumes ready")
+        ok("RustDesk volumes ready")
 
     def postsetup(self, env: dict) -> None:
-        print("\n🖥️  Extracting RustDesk public key...")
+        section("Extracting RustDesk public key...", emoji="🖥️")
         dest_path = "./volumes/secrets/rustdesk_public_key"
         os.makedirs("./volumes/secrets", exist_ok=True)
 
@@ -43,15 +44,15 @@ class RustdeskService(Service):
                     os.chmod(dest_path, 0o600)
                 except OSError:
                     pass
-                print("   ✅ Public key → volumes/secrets/rustdesk_public_key")
+                ok("Public key → volumes/secrets/rustdesk_public_key")
             else:
-                print("   ⚠️  Failed to copy key; start hbbs then re-run setup postsetup")
+                warn("Failed to copy key; start hbbs then re-run setup postsetup")
         else:
-            print("   ❌ Docker not available; skipping key extract")
+            error("Docker not available; skipping key extract")
 
         if pubkey:
-            print(f"   ℹ️  Key: {pubkey}")
-        print("   ℹ️  Clients: ID/Relay = HOMELAB_IP_ADDRESS; leave API blank; paste key")
+            info(f"Key: {pubkey}")
+        info("Clients: ID/Relay = HOMELAB_IP_ADDRESS; leave API blank; paste key")
 
 
 service = RustdeskService()
