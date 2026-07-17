@@ -32,9 +32,6 @@ DEFAULT_CLICK_URLS = {
     "general": os.environ.get("GENERAL_CLICK_URL", ""),
 }
 
-_gotify_token_cache: dict | None = None
-
-
 def _alert_tag(service: str) -> str:
     tag = (service or "general").strip().lower()
     return tag if tag in KNOWN_ALERT_TAGS else "general"
@@ -46,10 +43,6 @@ def _gotify_tokens() -> dict:
     setup.py writes urls.yaml with real (substituted) tokens, so each entry
     looks like `gotify://gotify/<token>: [{tag: <tag>}]`.
     """
-    global _gotify_token_cache
-    if _gotify_token_cache is not None:
-        return _gotify_token_cache
-
     tokens: dict[str, str] = {}
     try:
         with open(CONFIG_PATH, encoding="utf-8") as f:
@@ -67,7 +60,6 @@ def _gotify_tokens() -> dict:
     except Exception as e:  # noqa: BLE001 - config is best-effort
         logger.warning(f"Could not parse Gotify tokens from {CONFIG_PATH}: {e}")
 
-    _gotify_token_cache = tokens
     return tokens
 
 
