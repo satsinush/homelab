@@ -10,6 +10,10 @@ services:
       MODEL: ${HOMELAB_HOSTNAME:-homelab}
       AVAHI_DISABLE: "true"
       WSDD2_DISABLE: "true"
+      # entrypoint.sh creates the "homelab" unix user with this uid/gid; shares
+      # force it so files match host/SFTPGo ownership regardless of SMB account.
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
       SAMBA_CONF_WORKGROUP: WORKGROUP
       SAMBA_CONF_SERVER_STRING: Homelab NAS
       SAMBA_CONF_LOG_LEVEL: "1"
@@ -25,6 +29,8 @@ services:
         browseable=no;
         read only=no;
         writable=yes;
+        force user=homelab;
+        force group=homelab;
         create mask=0700;
         directory mask=0700;
         hide unreadable=yes
@@ -36,6 +42,8 @@ services:
         browseable=yes;
         read only=no;
         writable=yes;
+        force user=homelab;
+        force group=homelab;
         create mask=0664;
         directory mask=0775;
         force create mode=0664;

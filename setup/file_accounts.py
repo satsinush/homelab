@@ -8,20 +8,19 @@ ACCOUNTS_ENV = "./volumes/file-accounts/accounts.env"
 
 
 def safe_username(name: str) -> str:
-    cleaned = re.sub(r"[^a-zA-Z0-9._-]", "", name.strip())
+    # Lowercased because the samba image lowercases account names when hashing;
+    # keeping one canonical form avoids SMB/WebDAV mismatches.
+    cleaned = re.sub(r"[^a-zA-Z0-9._-]", "", name.strip()).lower()
     if not cleaned:
         raise ValueError("empty username")
     return cleaned
 
 
-def read_accounts_env(path: str = ACCOUNTS_ENV) -> dict[str, tuple[str, str, str]]:
-    """Parse accounts.env → username -> (password, uid, gid)."""
-    accounts: dict[str, tuple[str, str, str]] = {}
+def read_accounts_env(path: str = ACCOUNTS_ENV) -> dict[str, str]:
+    """Parse accounts.env → username -> password."""
+    accounts: dict[str, str] = {}
     if not os.path.isfile(path):
         return accounts
-    passwords: dict[str, str] = {}
-    uids: dict[str, str] = {}
-    gids: dict[str, str] = {}
     with open(path, encoding="utf-8") as f:
         for raw in f:
             line = raw.strip()
@@ -29,25 +28,21 @@ def read_accounts_env(path: str = ACCOUNTS_ENV) -> dict[str, tuple[str, str, str
                 continue
             key, value = line.split("=", 1)
             if key.startswith("ACCOUNT_"):
-                passwords[key[len("ACCOUNT_") :]] = value
-            elif key.startswith("UID_"):
-                uids[key[len("UID_") :]] = value
-            elif key.startswith("GROUPS_"):
-                gids[key[len("GROUPS_") :]] = value
-    for username, password in passwords.items():
-        accounts[username] = (
-            password,
-            uids.get(username, "1000"),
-            gids.get(username, "1000"),
-        )
+                accounts[key[len("ACCOUNT_") :]] = value
     return accounts
 
 
 def write_accounts_env(
-    accounts: dict[str, tuple[str, str, str]],
+    accounts: dict[str, str],
     path: str = ACCOUNTS_ENV,
 ) -> None:
-    """Write ACCOUNT_/UID_/GROUPS_ for Samba + SFTPGo (same file)."""
+    """Write ACCOUNT_ lines for Samba + SFTPGo (same file).
+
+    UID_/GROUPS_ are intentionally NOT written: giving every account the same
+    uid (PUID) corrupted the samba container's passdb — unix users need unique
+    uids. The container auto-assigns them, and the shares force file ownership
+    to PUID:PGID instead (see samba/compose.yaml + samba/entrypoint.sh).
+    """
     parent = os.path.dirname(path)
     os.makedirs(parent, mode=0o700, exist_ok=True)
     try:
@@ -60,10 +55,7 @@ def write_accounts_env(
         "# Usernames should match Authentik; password is local (≠ Authentik SSO).",
     ]
     for username in sorted(accounts):
-        password, uid, gid = accounts[username]
-        lines.append(f"ACCOUNT_{username}={password}")
-        lines.append(f"UID_{username}={uid}")
-        lines.append(f"GROUPS_{username}={gid}")
+        lines.append(f"ACCOUNT_{username}={accounts[username]}")
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
     os.chmod(path, 0o600)

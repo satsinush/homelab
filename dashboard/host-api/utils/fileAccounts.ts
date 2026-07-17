@@ -22,12 +22,11 @@ const SFTPGO_SHARED_GROUP = 'file-users';
 export interface FileAccount {
     username: string;
     password: string;
-    uid: string;
-    gid: string;
 }
 
 export function safeUsername(name: string): string {
-    const cleaned = (name || '').trim().replace(/[^a-zA-Z0-9._-]/g, '');
+    // Lowercased because the samba image lowercases account names when hashing.
+    const cleaned = (name || '').trim().replace(/[^a-zA-Z0-9._-]/g, '').toLowerCase();
     if (!cleaned) {
         throw new Error('Invalid username: only letters, digits, ".", "_" and "-" are allowed');
     }
@@ -49,26 +48,16 @@ export function readAccounts(): Map<string, FileAccount> {
     if (!fs.existsSync(ACCOUNTS_ENV)) {
         return accounts;
     }
-    const passwords: Record<string, string> = {};
-    const uids: Record<string, string> = {};
-    const gids: Record<string, string> = {};
     for (const raw of fs.readFileSync(ACCOUNTS_ENV, 'utf8').split('\n')) {
         const line = raw.trim();
         if (!line || line.startsWith('#') || !line.includes('=')) continue;
         const idx = line.indexOf('=');
         const key = line.slice(0, idx);
         const value = line.slice(idx + 1);
-        if (key.startsWith('ACCOUNT_')) passwords[key.slice('ACCOUNT_'.length)] = value;
-        else if (key.startsWith('UID_')) uids[key.slice('UID_'.length)] = value;
-        else if (key.startsWith('GROUPS_')) gids[key.slice('GROUPS_'.length)] = value;
-    }
-    for (const [username, password] of Object.entries(passwords)) {
-        accounts.set(username, {
-            username,
-            password,
-            uid: uids[username] || '1000',
-            gid: gids[username] || '1000'
-        });
+        if (key.startsWith('ACCOUNT_')) {
+            const username = key.slice('ACCOUNT_'.length);
+            accounts.set(username, { username, password: value });
+        }
     }
     return accounts;
 }
@@ -81,16 +70,16 @@ function writeAccounts(accounts: Map<string, FileAccount>): void {
     } catch {
         // Best-effort.
     }
+    // UID_/GROUPS_ are intentionally NOT written: duplicate uids corrupt the
+    // samba container's passdb. Uids are auto-assigned in the container and
+    // file ownership is forced to PUID:PGID by the share config.
     const lines = [
         '# File access accounts for Samba (SMB) and SFTPGo (WebDAV).',
         '# Shared source of truth — managed by samba/setup.py and the dashboard.',
         '# Usernames should match Authentik; password is local (≠ Authentik SSO).'
     ];
     for (const username of [...accounts.keys()].sort()) {
-        const acct = accounts.get(username)!;
-        lines.push(`ACCOUNT_${username}=${acct.password}`);
-        lines.push(`UID_${username}=${acct.uid}`);
-        lines.push(`GROUPS_${username}=${acct.gid}`);
+        lines.push(`ACCOUNT_${username}=${accounts.get(username)!.password}`);
     }
     fs.writeFileSync(ACCOUNTS_ENV, lines.join('\n') + '\n', { mode: 0o600 });
     fs.chmodSync(ACCOUNTS_ENV, 0o600);
@@ -171,9 +160,9 @@ async function applyAccounts(accounts: Map<string, FileAccount>): Promise<void> 
     await recreateContainers();
 }
 
-export function listAccounts(): Array<{ username: string; uid: string; gid: string }> {
+export function listAccounts(): Array<{ username: string }> {
     return [...readAccounts().values()]
-        .map(({ username, uid, gid }) => ({ username, uid, gid }))
+        .map(({ username }) => ({ username }))
         .sort((a, b) => a.username.localeCompare(b.username));
 }
 
@@ -184,10 +173,8 @@ export async function createAccount(usernameRaw: string, password: string): Prom
     if (accounts.has(username)) {
         throw new Error(`Account "${username}" already exists`);
     }
-    const uid = String(process.getuid ? process.getuid() : 1000);
-    const gid = String(process.getgid ? process.getgid() : 1000);
     ensureUserHome(username);
-    accounts.set(username, { username, password, uid, gid });
+    accounts.set(username, { username, password });
     await applyAccounts(accounts);
     return username;
 }

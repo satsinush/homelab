@@ -50,8 +50,6 @@ interface UserListItem {
 
 interface FileAccountItem {
     username: string;
-    uid: string;
-    gid: string;
 }
 
 // Creating/updating accounts recreates the samba + sftpgo containers, which can take a while.

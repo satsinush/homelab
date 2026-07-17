@@ -16,7 +16,7 @@ LOADDATA_PATH = "./sftpgo/volumes/config/loaddata.json"
 SHARED_GROUP = "file-users"
 
 
-def write_sftpgo_loaddata(accounts: dict[str, tuple[str, str, str]] | None = None) -> str:
+def write_sftpgo_loaddata(accounts: dict[str, str] | None = None) -> str:
     """Generate loaddata.json: shared folder + local users from file-accounts/accounts.env."""
     if accounts is None:
         accounts = read_accounts_env()
@@ -24,7 +24,7 @@ def write_sftpgo_loaddata(accounts: dict[str, tuple[str, str, str]] | None = Non
     pgid = int(os.environ.get("PGID") or "1000")
 
     users = []
-    for username, (password, _uid, _gid) in sorted(accounts.items()):
+    for username, password in sorted(accounts.items()):
         ensure_user_home(username, puid, pgid)
         users.append(
             {

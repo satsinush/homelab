@@ -85,7 +85,7 @@ class SambaService(Service):
                 password = pysecrets.token_urlsafe(16)
                 info(f"Generated password for {username} (store it somewhere safe)")
             ensure_user_home(username, int(puid), int(pgid))
-            accounts[username] = (password, puid, pgid)
+            accounts[username] = password
             created += 1
             if not prompt_yes_no("   Add another user? (y/N): ", default=False):
                 break
