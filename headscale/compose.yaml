@@ -56,11 +56,13 @@ services:
       TS_STATE_DIR: /var/lib/tailscale
       TS_USERSPACE: "false"
       TS_HOSTNAME: homelab-router
-      # No SNAT: preserves tailnet source IPs and permits true bidirectional
-      # routing. The LAN gateway needs HEADSCALE_IPV4_PREFIX via this host.
+      # No SNAT preserves tailnet source IPs for bidirectional routing. Host
+      # firewalld owns filtering/forwarding, so avoid parallel legacy iptables
+      # rules from tailscaled. The LAN gateway needs HEADSCALE_IPV4_PREFIX via
+      # this host.
       # containerboot has no TS_LOGIN_SERVER variable; custom control servers
       # are selected through the arguments passed to `tailscale up`.
-      TS_EXTRA_ARGS: --login-server=https://${HEADSCALE_SERVICE_NAME}.${HOMELAB_HOSTNAME} --advertise-routes=${LAN_SUBNET} --accept-routes --accept-dns=false --snat-subnet-routes=false
+      TS_EXTRA_ARGS: --login-server=https://${HEADSCALE_SERVICE_NAME}.${HOMELAB_HOSTNAME} --advertise-routes=${LAN_SUBNET} --accept-routes --accept-dns=false --snat-subnet-routes=false --netfilter-mode=off
       # Pin the WireGuard data-plane port (tailscaled flag, not `tailscale up`)
       # so the router can forward WAN 41641/udp for direct peer connections.
       TS_TAILSCALED_EXTRA_ARGS: --port=41641
