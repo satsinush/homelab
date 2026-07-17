@@ -190,7 +190,7 @@ entries:
         - authorization_code
         - refresh_token
       redirect_uris:
-        - url: !Format ["https://%s.%s/oidc/callback", !Env HEADSCALE_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+        - url: !Format ["https://%s/oidc/callback", !Env HEADSCALE_WEB_HOSTNAME]
           matching_mode: strict
       property_mappings:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
