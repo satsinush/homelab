@@ -7,7 +7,7 @@ include:
   - ./gatus/compose.yaml
   - ./dashboard/compose.yaml
   - ./dockhand/compose.yaml
-  - ./apprise/compose.yaml
+  - ./alerts/compose.yaml
   - ./vaultwarden/compose.yaml
   - ./gotify/compose.yaml
   - ./samba/compose.yaml

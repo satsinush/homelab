@@ -1,6 +1,6 @@
-# Apprise Configuration File
-# Generated/templated by apprise/setup.py — tokens come from the Gotify alerts user apps.
-# Gateway posts with tag=<service> (gatus|dashboard|vaultwarden|dockhand|general).
+# Apprise URL config (library still used for tag routing / SMTP fallback).
+# Generated/templated by alerts/setup.py — tokens come from the Gotify alerts user apps.
+# Gateway posts with path /{service} (gatus|dashboard|vaultwarden|dockhand|general).
 
 urls:
   - gotify://gotify/${GOTIFY_TOKEN_GATUS}:

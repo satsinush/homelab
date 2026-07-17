@@ -6,7 +6,7 @@ from setup.service import Service
 
 def get_services() -> list[Service]:
     from authentik.setup import service as authentik
-    from apprise.setup import service as apprise
+    from alerts.setup import service as alerts
     from dashboard.setup import service as dashboard
     from ddclient.setup import service as ddclient
     from dockhand.setup import service as dockhand
@@ -35,7 +35,7 @@ def get_services() -> list[Service]:
         dashboard,
         dockhand,
         gotify,
-        apprise,
+        alerts,
         vaultwarden,
         samba,
         sftpgo,

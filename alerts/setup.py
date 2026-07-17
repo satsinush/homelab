@@ -1,4 +1,4 @@
-"""Apprise & Gotify postsetup — alerts user, per-service apps, Apprise YAML."""
+"""Alerts gateway & Gotify postsetup — alerts user, per-service apps, URL routing."""
 from __future__ import annotations
 
 import json
@@ -51,7 +51,7 @@ GOTIFY_APPS: list[dict[str, str]] = [
     },
 ]
 
-TOKENS_CACHE = "./apprise/volumes/config/gotify_app_tokens.json"
+TOKENS_CACHE = "./alerts/volumes/config/gotify_app_tokens.json"
 
 
 def _gotify_json(
@@ -203,19 +203,19 @@ def _ensure_app(
     return token
 
 
-class AppriseService(Service):
-    name = "apprise"
+class AlertsService(Service):
+    name = "alerts"
     volume_dirs = [
-        VolumeDir("./apprise/volumes/config", mode=0o755),
+        VolumeDir("./alerts/volumes/config", mode=0o755),
     ]
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        section("Preparing Apprise config directory...", emoji="🔔")
-        ok("Apprise volumes ready")
+        section("Preparing alerts config directory...", emoji="🔔")
+        ok("Alerts volumes ready")
 
     def postsetup(self, env: dict) -> None:
-        section("Setting up Gotify alerts user, apps, and Apprise routing...", emoji="🔔")
+        section("Setting up Gotify alerts user, apps, and alert routing...", emoji="🔔")
         admin_pwd = os.environ.get("GOTIFY_ADMIN_PASSWORD") or ""
         alerts_pwd = os.environ.get("GOTIFY_ALERTS_PASSWORD") or ""
         if not admin_pwd or not alerts_pwd:
@@ -260,20 +260,20 @@ class AppriseService(Service):
         for key, value in tokens_by_env.items():
             os.environ[key] = value
 
-        config_dir = "./apprise/volumes/config"
+        config_dir = "./alerts/volumes/config"
         os.makedirs(config_dir, exist_ok=True)
-        template_path = "./apprise/apprise.yaml"
+        template_path = "./alerts/urls.yaml"
         with open(template_path, encoding="utf-8") as f:
             template = f.read()
-        apprise_content = substitute_env_vars(template)
-        write_host_file(f"{config_dir}/apprise.yaml", apprise_content, mode=0o644)
-        ok("Wrote Apprise config with per-service Gotify apps")
+        urls_content = substitute_env_vars(template)
+        write_host_file(f"{config_dir}/urls.yaml", urls_content, mode=0o644)
+        ok("Wrote alert URL config with per-service Gotify apps")
         info(
             f"Clients: sign in as `{GOTIFY_ALERTS_USERNAME}` "
             "(password: volumes/secrets/gotify_alerts_password)"
         )
-        container_curl("apprise-api", "GET", "http://localhost:80/health")
+        container_curl("alerts", "GET", "http://localhost:80/health")
         ok("SMTP/HTTP notification gateway ready")
 
 
-service = AppriseService()
+service = AlertsService()

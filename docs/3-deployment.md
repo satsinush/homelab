@@ -33,7 +33,7 @@ Execute the main setup script. It will prompt you to create a username and passw
 ./setup.py
 ```
 
-> **⚠️ Important**: The setup script creates a user-specific email address. You **must** use this email for services like Vaultwarden to receive password-reset and similar mail. The Apprise SMTP gateway routes those messages to Gotify.
+> **⚠️ Important**: The setup script creates a user-specific email address. You **must** use this email for services like Vaultwarden to receive password-reset and similar mail. The alerts SMTP gateway routes those messages to Gotify.
 
 > **ℹ️ Tip**: You can run this script again at any time to recreate SSL certificates. The CA certificate will not be affected and all other settings will stay the same.
 

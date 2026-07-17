@@ -6,9 +6,9 @@
  * [ ] manage dashboard, webdav, and smb users from dashboard?
  * [ ] Setup immich
  * [ ] Setup jellyfin
- * [ ] Fix WOL
  * [ ] Open links in native app like rustdesk:// for gotify, obsidian:// for obsidian, etc.
  * [ ] Add CalDAV and CardDAV
+ * [ ] Use secure SMTP for email instead of unsecure SMTP relay
 
 ## 📱 Frontend, Mobile & UI UX
  * [ ] verify password before seeing secrets page?

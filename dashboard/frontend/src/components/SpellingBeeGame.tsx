@@ -49,7 +49,7 @@ const SpellingBeeDisplay = ({ letters, mustIncludeFirstLetter = true }: Spelling
                         width: { xs: 56, sm: 72 },
                         height: { xs: 48, sm: 62 },
                         clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)',
-                        bgcolor: mustIncludeFirstLetter ? 'warning.main' : 'action.hover',
+                        bgcolor: mustIncludeFirstLetter ? '#f4ce1c' : 'action.hover',
                         color: mustIncludeFirstLetter ? 'warning.contrastText' : 'text.primary',
                         display: 'flex',
                         alignItems: 'center',
@@ -376,7 +376,7 @@ const SpellingBeeGame = ({ gameStatus, isLoading, isSolving, onSolve, onCancel, 
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
                                                 fontWeight: 'bold',
-                                                bgcolor: (idx === 0 && config.mustIncludeFirstLetter) ? 'warning.main' : 'background.paper',
+                                                bgcolor: (idx === 0 && config.mustIncludeFirstLetter) ? '#f4ce1c' : 'background.paper',
                                                 color: (idx === 0 && config.mustIncludeFirstLetter) ? 'warning.contrastText' : 'text.primary',
                                                 borderRadius: 1
                                             }}

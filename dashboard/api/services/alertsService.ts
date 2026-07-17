@@ -7,6 +7,7 @@ interface NotificationPayload {
     message: string;
     priority?: number;
     tags?: string[];
+    clickUrl?: string;
 }
 
 interface PackageUpdate {
@@ -17,17 +18,17 @@ interface PackageUpdate {
     status?: string;
 }
 
-class AppriseService {
-    private appriseUrl: string;
+class AlertsService {
+    private alertsUrl: string;
 
     constructor() {
-        this.appriseUrl = config.apprise.url;
+        this.alertsUrl = config.alerts.url;
     }
 
     async sendPackageUpdateNotification(updatesCount: number, packages: PackageUpdate[] = []) {
         try {
             const title = `${updatesCount} Package Update${updatesCount > 1 ? 's' : ''} Available`;
-            const message = updatesCount <= 5 
+            const message = updatesCount <= 5
                 ? `Updates available for: ${packages.slice(0, 5).map(pkg => pkg.name).join(', ')}`
                 : `${updatesCount} packages have updates available. Check the dashboard for details.`;
 
@@ -35,7 +36,8 @@ class AppriseService {
                 title,
                 message,
                 priority: 3,
-                tags: ['package', 'update']
+                tags: ['package', 'update'],
+                clickUrl: `https://${config.dashBoardWebHostname}/packages`
             });
 
             console.log(`Package update notification sent: ${updatesCount} updates available`);
@@ -44,11 +46,11 @@ class AppriseService {
         }
     }
 
-    async sendNotification({ title, message, priority = 3, tags = [] }: NotificationPayload): Promise<boolean> {
+    async sendNotification({ title, message, priority = 3, tags = [], clickUrl }: NotificationPayload): Promise<boolean> {
         try {
-            const url = `${this.appriseUrl}/alerts/dashboard`;
+            const url = `${this.alertsUrl}/dashboard`;
             console.log(`Sending alert notification to: ${url}`);
-            console.log(`Notification content:`, { title, message, priority, tags });
+            console.log(`Notification content:`, { title, message, priority, tags, clickUrl });
 
             const response = await fetch(url, {
                 method: 'POST',
@@ -59,24 +61,25 @@ class AppriseService {
                     title,
                     message,
                     priority,
-                    tags
+                    tags,
+                    ...(clickUrl ? { click_url: clickUrl } : {})
                 }),
                 signal: AbortSignal.timeout(10000)
             });
 
-            console.log(`Apprise Gateway response status: ${response.status} ${response.statusText}`);
+            console.log(`Alerts gateway response status: ${response.status} ${response.statusText}`);
 
             if (!response.ok) {
                 const responseText = await response.text().catch(() => 'Unable to read response');
-                throw new Error(`Apprise Gateway request failed: ${response.status} ${response.statusText} - ${responseText}`);
+                throw new Error(`Alerts gateway request failed: ${response.status} ${response.statusText} - ${responseText}`);
             }
 
             return true;
         } catch (error: unknown) {
-            console.error('Apprise notification failed:', getErrorMessage(error));
+            console.error('Alert notification failed:', getErrorMessage(error));
             return false;
         }
     }
 }
 
-export default AppriseService;
+export default AlertsService;

@@ -37,7 +37,7 @@ This project bundles several open-source services, managed via `docker-compose`,
   * **📊 Netdata**: Real-time performance monitoring.
   * **📦 Portainer**: Docker container management UI.
   * **📈 Uptime Kuma**: Service monitoring and status pages.
-  * **🔔 Apprise**: Unified HTTP and SMTP notification gateway routing alerts to Matrix.
+  * **🔔 Alerts**: HTTP and SMTP notification gateway (Apprise + Gotify) for Gatus, dashboard, Vaultwarden, and Dockhand.
   * **🚫 Pi-hole & Unbound**: Network-wide ad-blocking and recursive DNS.
   * **🌐 ddclient**: Dynamic DNS client to keep your domain pointed to your IP.
   * **🖥️ RustDesk**: Self-hosted remote desktop (ID + relay).
@@ -76,7 +76,7 @@ graph TD
                 Dashboard[🏠 Homelab Dashboard]
                 Ollama[🤖 Ollama AI]
                 Gatus[📈 Gatus]
-                Apprise[🔔 Apprise Gateway]
+                Alerts[🔔 Alerts Gateway]
                 Pihole[🚫 Pi-hole DNS]
                 Unbound[🔎 Unbound DNS Resolver]
                 Rustdesk[🖥️ RustDesk ID & Relay]
@@ -109,11 +109,11 @@ graph TD
     %% Dashboard flows
     Dashboard --> Ollama
     Dashboard -->|WOL| LocalClient
-    Dashboard --> Apprise
+    Dashboard --> Alerts
 
     %% Notifications
-    Gatus --> Apprise
-    Vaultwarden --> Apprise
+    Gatus --> Alerts
+    Vaultwarden --> Alerts
 ```
 
 ## 🚀 Quick Start Guide

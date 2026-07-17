@@ -141,8 +141,8 @@ const config = {
     hostApi: {
         url: `http://host.docker.internal:5001`
     },
-    apprise: {
-        url: 'http://apprise-api'
+    alerts: {
+        url: 'http://alerts'
     },
     dashBoardWebHostname: DASHBOARD_WEB_HOSTNAME,
     authentikWebHostname: AUTHENTIK_WEB_HOSTNAME,

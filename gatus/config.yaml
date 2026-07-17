@@ -3,7 +3,7 @@ web:
 
 alerting:
   custom:
-    url: "http://apprise-api/alerts/gatus"
+    url: "http://alerts/gatus"
     method: "POST"
     headers:
       Content-Type: "application/json"
@@ -198,12 +198,12 @@ endpoints:
       - type: custom
         description: "Gotify notification server is unhealthy"
 
-  - name: "Apprise Gateway"
+  - name: "Alerts Gateway"
     group: "Monitoring"
-    url: "http://apprise-api:80/health"
+    url: "http://alerts:80/health"
     interval: 30s
     conditions:
       - "[STATUS] == 200"
     alerts:
       - type: custom
-        description: "Apprise API Gateway is down (Alerting chain compromised!)"
+        description: "Alerts gateway is down (Alerting chain compromised!)"

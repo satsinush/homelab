@@ -17,7 +17,7 @@ services:
       - SIGNUPS_ALLOWED=false
       - DOMAIN=https://${VAULTWARDEN_SERVICE_NAME}.${HOMELAB_HOSTNAME}
       - SMTP_SSL_CA_CERT=/etc/ssl/certs/homelab-ca.crt
-      - SMTP_HOST=apprise-api
+      - SMTP_HOST=alerts
       - SMTP_PORT=8025
       - SMTP_SECURITY=off
       - SMTP_FROM=vaultwarden@${HOMELAB_HOSTNAME}
@@ -37,7 +37,7 @@ services:
       - "traefik.http.routers.vaultwarden.tls=true"
       - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
     depends_on:
-      apprise-api:
+      alerts:
         condition: service_healthy
     healthcheck:
       test: [ "CMD", "curl", "-fs", "http://localhost:80/alive" ]

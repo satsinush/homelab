@@ -1,10 +1,10 @@
 import SystemController from '../controllers/systemController';
-import AppriseService from './appriseService';
+import AlertsService from './alertsService';
 import { getErrorMessage } from '../utils/errors';
 
 class PackageUpdateChecker {
     private systemController: SystemController;
-    private notificationService: AppriseService;
+    private notificationService: AlertsService;
     private intervalId: NodeJS.Timeout | null;
     private isRunning: boolean;
     private lastNotificationTime: number | null;
@@ -14,7 +14,7 @@ class PackageUpdateChecker {
 
     constructor() {
         this.systemController = new SystemController();
-        this.notificationService = new AppriseService();
+        this.notificationService = new AlertsService();
         this.intervalId = null;
         this.isRunning = false;
         this.lastNotificationTime = null;

@@ -53,7 +53,7 @@ Cert file: [`./volumes/certificates/homelab-ca.crt`](../volumes/certificates/)
 
 ### Vaultwarden
 
-- [ ] Sign in with SSO using the **homelab email** printed by setup (`HOMELAB_EMAIL`) — password-reset mail is relayed by Apprise → Gotify
+- [ ] Sign in with SSO using the **homelab email** printed by setup (`HOMELAB_EMAIL`) — password-reset mail is relayed by the alerts gateway → Gotify
 - [ ] If asked for an SSO identifier, any string is fine
 - [ ] Docs: [Vaultwarden](https://github.com/dani-garcia/vaultwarden/blob/main/README.md)
 
@@ -77,26 +77,26 @@ Shared files live under [`./storage/`](../storage/) (gitignored; included in Res
 - [ ] **Obsidian / WebDAV Sync:** server `https://dav.<your-hostname>/`, **file-access** credentials (not Authentik); vault under private home; shared files at `/shared`
 - [ ] Docs: [Samba](https://www.samba.org/) · [SFTPGo](https://docs.sftpgo.com/)
 
-### Gotify / Apprise
+### Gotify / Alerts
 
 - [ ] Open `https://gotify.<your-hostname>` and sign in as **`alerts`** (password: `volumes/secrets/gotify_alerts_password`) — share this login with anyone who should see push alerts
 - [ ] Install a Gotify client with the `alerts` account (not `admin`)
 - [ ] Confirm per-service apps appear: Gatus, Dashboard, Vaultwarden, Dockhand, Homelab (each with its own icon)
-- [ ] Confirm Apprise-routed alerts arrive (Gatus → `/alerts/gatus`, Dashboard packages → `/alerts/dashboard`, Vaultwarden SMTP → Vaultwarden app)
+- [ ] Confirm routed alerts arrive (Gatus → `http://alerts/gatus`, Dashboard packages → `http://alerts/dashboard`, Vaultwarden SMTP → Vaultwarden app)
 - [ ] Keep `volumes/secrets/gotify_admin_password` for break-glass admin only
 - [ ] Docs: [Gotify](https://gotify.net/docs/)
 
 ### Gatus
 
 - [ ] Open `https://gatus.<your-hostname>` (no login — public read-only status page)
-- [ ] Alerts are already wired to Apprise (`http://apprise-api/alerts/gatus`) in [`gatus/config.yaml`](../gatus/config.yaml) — adjust only if you change monitoring
+- [ ] Alerts are already wired to the alerts gateway (`http://alerts/gatus`) in [`gatus/config.yaml`](../gatus/config.yaml) — adjust only if you change monitoring
 - [ ] Docs: [Gatus](https://gatus.io/)
 
 ### Dockhand
 
 - [ ] Open `https://dockhand.<your-hostname>` via SSO
 - [ ] Confirm containers from the compose stack are visible
-- [ ] Optional: point Dockhand notifications at `http://apprise-api/alerts/dockhand`
+- [ ] Optional: point Dockhand notifications at `http://alerts/dockhand`
 - [ ] Docs: [Dockhand](https://github.com/Finsys/dockhand)
 
 ### RustDesk
