@@ -19,6 +19,6 @@ dns_fallback: 8.8.8.8
 
 # --- Deploy ---
 # Repo is expected at {{ homelab_dir }} (clone it yourself or set a URL).
-homelab_repo_url: ""            # e.g. git@github.com:you/homelab.git; empty = don't clone
+homelab_repo_url: "https://github.com/satsinush/homelab.git"            # e.g. git@github.com:you/homelab.git; empty = don't clone
 compose_up: true                # run docker compose up -d --remove-orphans
-run_pacman_upgrade: false       # set true to pacman -Syu during the packages role
+run_pacman_upgrade: true       # set true to pacman -Syu during the packages role
