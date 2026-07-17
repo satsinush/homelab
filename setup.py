@@ -353,6 +353,7 @@ def ensure_env_file() -> dict:
     )
 
     print("")
+    headscale_web_hostname = ""
     if has_public:
         print("   Enter homelab hostname (public domain, e.g. homelab.your-domain.com):")
         hostname = prompt_nonempty(
@@ -366,6 +367,26 @@ def ensure_env_file() -> dict:
                 else "That doesn't look like a valid hostname. Please try again."
             ),
         )
+        print("\n   By default, VPN uses vpn.<homelab-hostname>.")
+        print("   If your DNS is configured to point your main subdomains to local IPs,")
+        print("   you can specify a separate public domain/hostname specifically for the VPN:")
+        if prompt_yes_no(
+            "   Configure a separate public domain for VPN? (y/N): ",
+            default=False
+        ):
+            headscale_web_hostname = prompt_nonempty(
+                "              VPN Public Hostname: ",
+                validate=lambda h: (
+                    None
+                    if re.match(
+                        r"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$",
+                        h,
+                    )
+                    else "That doesn't look like a valid hostname. Please try again."
+                ),
+            )
+        else:
+            headscale_web_hostname = f"vpn.{hostname}"
     else:
         print("   Enter homelab hostname (private local domain, e.g. homelab.home.arpa):")
         hostname = prompt_nonempty(
@@ -380,6 +401,7 @@ def ensure_env_file() -> dict:
                 else "That doesn't look like a valid hostname. Please try again."
             ),
         )
+        headscale_web_hostname = f"vpn.{hostname}"
 
     dns_domain = hostname.split(".", 1)[1] if "." in hostname else hostname
 
@@ -459,6 +481,7 @@ def ensure_env_file() -> dict:
     os.environ["AUTHENTIK_SERVICE_NAME"] = "auth"
     os.environ["DAV_SERVICE_NAME"] = "webdav"
     os.environ["HEADSCALE_SERVICE_NAME"] = "vpn"
+    os.environ["HEADSCALE_WEB_HOSTNAME"] = headscale_web_hostname
     os.environ["HEADSCALE_BASE_DOMAIN"] = f"ts.{dns_domain}"
     os.environ["LAN_SUBNET"] = lan_subnet
     os.environ["DOCKER_SUBNET"] = docker_subnet

@@ -24,7 +24,7 @@ services:
       - homelab-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.headscale.rule=Host(`${HEADSCALE_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.headscale.rule=Host(`${HEADSCALE_WEB_HOSTNAME}`)"
       # Reachable internally (websecure/443) AND from the internet-forwarded
       # public entrypoint (websecure-public/8443). No other service is on 8443.
       - "traefik.http.routers.headscale.entrypoints=websecure,websecure-public"
@@ -62,7 +62,7 @@ services:
       # this host.
       # containerboot has no TS_LOGIN_SERVER variable; custom control servers
       # are selected through the arguments passed to `tailscale up`.
-      TS_EXTRA_ARGS: --login-server=https://${HEADSCALE_SERVICE_NAME}.${HOMELAB_HOSTNAME} --advertise-routes=${LAN_SUBNET} --accept-routes --accept-dns=false --snat-subnet-routes=false --netfilter-mode=off
+      TS_EXTRA_ARGS: --login-server=https://${HEADSCALE_WEB_HOSTNAME} --advertise-routes=${LAN_SUBNET} --advertise-exit-node --accept-routes --accept-dns=false --snat-subnet-routes=false --netfilter-mode=off
       # Pin the WireGuard data-plane port (tailscaled flag, not `tailscale up`)
       # so the router can forward WAN 41641/udp for direct peer connections.
       TS_TAILSCALED_EXTRA_ARGS: --port=41641

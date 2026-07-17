@@ -22,6 +22,12 @@ Finish these steps after [`setup.sh`](../setup.sh) succeeds. Check off each item
 - [ ] Verify remote clients can reach LAN IPs (subnet router advertises `LAN_SUBNET`) and DNS (Pi-hole via MagicDNS)
 - [ ] Verify a LAN device can initiate a connection to a tailnet client address
 - [ ] Confirm connections are direct (`tailscale status` shows `direct …:41641`, not `relay`) once NAT settles
+- [ ] **Exit Node Routing (Optional)**: Route all internet traffic through your home Pi server (useful for securing public or corporate Wi-Fi):
+  - The subnet router (`headscale-router`) is automatically configured to advertise as an exit node and approved during setup.
+  - **Mobile (iOS/Android)**: In the Tailscale app, select **homelab-router** under *Exit Nodes* and toggle it on.
+  - **Desktop (Windows/macOS)**: Click the Tailscale tray icon, find *Exit Nodes*, and select **homelab-router**.
+  - **CLI (Linux/macOS)**: Run `tailscale up --exit-node=homelab-router`.
+  - *Note*: Restrictive corporate firewalls that drop UDP packets may block Tailscale entirely. If internet drops when using the exit node, simply turn it back off.
 - [ ] Docs: [Headscale](https://headscale.net/) · [Authentik + Headscale](https://integrations.goauthentik.io/networking/headscale/)
 
 ### CA certificate (private SSL mode only)

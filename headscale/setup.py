@@ -161,7 +161,7 @@ def _router_node_id() -> str:
 
 
 def _approve_lan_routes(lan_subnet: str) -> None:
-    """Enable advertised LAN routes on the subnet-router node."""
+    """Enable advertised LAN and exit node routes on the subnet-router node."""
     if not lan_subnet:
         return
     # Wait briefly for the router to register and advertise.
@@ -174,7 +174,7 @@ def _approve_lan_routes(lan_subnet: str) -> None:
             "Subnet router node not registered yet — "
             "approve routes later with: "
             f"docker exec headscale headscale nodes approve-routes "
-            f"--identifier <id> --routes {lan_subnet}"
+            f"--identifier <id> --routes {lan_subnet},0.0.0.0/0,::/0"
         )
         return
 
@@ -184,10 +184,10 @@ def _approve_lan_routes(lan_subnet: str) -> None:
         "--identifier",
         node_id,
         "--routes",
-        lan_subnet,
+        f"{lan_subnet},0.0.0.0/0,::/0",
         check=False,
     )
-    ok(f"Approved LAN route {lan_subnet} on node {node_id}")
+    ok(f"Approved LAN route {lan_subnet} and exit node routes (0.0.0.0/0, ::/0) on node {node_id}")
 
 
 class HeadscaleService(Service):
@@ -222,15 +222,17 @@ class HeadscaleService(Service):
         if not env.get("HEADSCALE_SERVICE_NAME"):
             append_env(env, "HEADSCALE_SERVICE_NAME", "vpn")
 
+        if not env.get("HEADSCALE_WEB_HOSTNAME"):
+            dns_domain = env.get("DNS_DOMAIN") or "home.arpa"
+            hostname = env.get("HOMELAB_HOSTNAME") or f"homelab.{dns_domain}"
+            append_env(env, "HEADSCALE_WEB_HOSTNAME", f"vpn.{hostname}")
+
         _write_config(env)
         _write_ca_bundle()
         ok(f"Wrote {CONFIG_PATH}")
         ok(f"Wrote {CA_BUNDLE_PATH}")
         info("Clients: Tailscale app → custom control URL")
-        step(
-            f"https://{env.get('HEADSCALE_SERVICE_NAME', 'vpn')}."
-            f"{env.get('HOMELAB_HOSTNAME', '…')}"
-        )
+        step(f"https://{env.get('HEADSCALE_WEB_HOSTNAME', 'vpn.homelab.local')}")
         info("Sign-in uses Authentik (same users/groups as SSO)")
 
     def postsetup(self, env: dict) -> None:
