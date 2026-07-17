@@ -9,10 +9,18 @@
     content: "net.ipv4.ip_forward=1\n"
   notify: reload sysctl
 
-- name: Ensure TUN device exists
-  ansible.builtin.command: modprobe tun
-  changed_when: false
-  failed_when: false
+- name: Load TUN module now (fails if modules for the running kernel are gone — reboot)
+  community.general.modprobe:
+    name: tun
+    state: present
+
+- name: Load TUN module on every boot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/tun.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: "tun\n"
 
 - name: Stop legacy WireGuard (wg-quick@wg0) if present
   ansible.builtin.systemd:
