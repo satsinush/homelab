@@ -6,7 +6,10 @@ chmod 700 /var/lib/samba/private
 
 # accounts.env is the source of truth — rebuild the passdb from env on every
 # start so deleted accounts don't linger as orphaned (passdb-corrupting) entries.
+# Pre-create with 0600 or smbpasswd creates it 0644 and logs a warning.
 rm -f /var/lib/samba/private/smbpasswd
+touch /var/lib/samba/private/smbpasswd
+chmod 600 /var/lib/samba/private/smbpasswd
 
 # Create the "homelab" owner (PUID:PGID) BEFORE the image entrypoint adds the
 # ACCOUNT_ users, so it reserves that uid. Shares use force user/group=homelab
