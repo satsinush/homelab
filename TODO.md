@@ -1,10 +1,9 @@
 ## 🛠️ DevOps, Scripts & Automation
  * [ ] use proper MCP servers
  * [ ] CI/CD to run lint and what not, single version file to set C++ frontend, api, and host api version
- * [ ] SMB is always inacessible, shared is unauthorized, user folders don't even show up, webdav is fine
 
 ## 🖥️ Homelab Apps & Services
- * [ ] manage dashboard, webdav, and smb users from dashboard?
+ * [ ] Improve SMB / WebDAV user editing page, display mount locations better
  * [ ] Setup immich
  * [ ] Setup jellyfin
  * [ ] Add CalDAV and CardDAV

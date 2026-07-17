@@ -19,8 +19,10 @@ export const ConfigProvider = ({ children }: ConfigProviderProps) => {
             vaultwarden: '',
             gatus: '',
             gotify: '',
-            authentik: ''
-        }
+            authentik: '',
+            dav: ''
+        },
+        homelabHostname: ''
     });
     const [loading, setLoading] = useState(true);
 
@@ -40,8 +42,10 @@ export const ConfigProvider = ({ children }: ConfigProviderProps) => {
                             vaultwarden: d.vaultwardenWebHostname || '',
                             gatus: d.gatusWebHostname || '',
                             gotify: d.gotifyWebHostname || '',
-                            authentik: d.authentikWebHostname || ''
-                        }
+                            authentik: d.authentikWebHostname || '',
+                            dav: d.davWebHostname || ''
+                        },
+                        homelabHostname: d.homelabHostname || ''
                     });
                 }
             } catch (error) {

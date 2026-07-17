@@ -8,12 +8,14 @@ export interface Hostnames {
     gatus: string;
     gotify: string;
     authentik: string;
+    dav: string;
 }
 
 export interface AppConfig {
     disableLocalAuth: boolean;
     ssoEnabled: boolean;
     hostnames: Hostnames;
+    homelabHostname: string;
 }
 
 export interface ConfigContextType {

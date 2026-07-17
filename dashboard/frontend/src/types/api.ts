@@ -30,6 +30,8 @@ export interface ConfigResponse {
     gatusWebHostname?: string;
     gotifyWebHostname?: string;
     authentikWebHostname?: string;
+    davWebHostname?: string;
+    homelabHostname?: string;
 }
 
 export interface RustdeskConfig {

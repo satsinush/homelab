@@ -103,6 +103,8 @@ app.get('/api/config', (req: Request, res: Response) => {
         gatusWebHostname: config.gatusWebHostname,
         gotifyWebHostname: config.gotifyWebHostname,
         authentikWebHostname: config.authentikWebHostname,
+        davWebHostname: config.davWebHostname,
+        homelabHostname: config.homelabHostname,
         disableLocalAuth: config.disableLocalAuth,
         ssoEnabled: config.ssoEnabled
     });

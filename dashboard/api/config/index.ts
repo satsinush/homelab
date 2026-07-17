@@ -32,6 +32,7 @@ const dockhandServiceName = process.env.DOCKHAND_SERVICE_NAME || 'dockhand';
 const vaultwardenServiceName = process.env.VAULTWARDEN_SERVICE_NAME || 'vaultwarden';
 const gatusServiceName = process.env.GATUS_SERVICE_NAME || 'gatus';
 const gotifyServiceName = process.env.GOTIFY_SERVICE_NAME || 'gotify';
+const davServiceName = process.env.DAV_SERVICE_NAME || 'dav';
 
 const DASHBOARD_WEB_HOSTNAME = `${dashboardServiceName}.${homelabHostname}`;
 const AUTHENTIK_WEB_HOSTNAME = `${authentikServiceName}.${homelabHostname}`;
@@ -40,6 +41,7 @@ const DOCKHAND_WEB_HOSTNAME = `${dockhandServiceName}.${homelabHostname}`;
 const VAULTWARDEN_WEB_HOSTNAME = `${vaultwardenServiceName}.${homelabHostname}`;
 const GATUS_WEB_HOSTNAME = `${gatusServiceName}.${homelabHostname}`;
 const GOTIFY_WEB_HOSTNAME = `${gotifyServiceName}.${homelabHostname}`;
+const DAV_WEB_HOSTNAME = `${davServiceName}.${homelabHostname}`;
 
 export interface DefaultSettings {
     scanTimeout: number;
@@ -146,6 +148,7 @@ const config = {
     },
     dashBoardWebHostname: DASHBOARD_WEB_HOSTNAME,
     authentikWebHostname: AUTHENTIK_WEB_HOSTNAME,
+    davWebHostname: DAV_WEB_HOSTNAME,
     homelabHostname: homelabHostname,
     secretsDir: SECRETS_DIR,
     rustdeskPubKeyPath:
