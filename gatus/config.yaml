@@ -22,50 +22,9 @@ alerting:
       }
 
 endpoints:
-  # ─── CORE SERVICES ───
-  - name: "Dashboard"
-    group: "Core Services"
-    url: "http://dashboard:5000/health"
-    interval: 30s
-    conditions:
-      - "[STATUS] == 200"
-    alerts:
-      - type: custom
-        description: "Homelab Dashboard is down"
-
-  - name: "Dockhand"
-    group: "Core Services"
-    url: "http://dockhand:3000/"
-    interval: 30s
-    conditions:
-      - "[STATUS] == 200"
-    alerts:
-      - type: custom
-        description: "Dockhand is unreachable"
-
-  - name: "Host API"
-    group: "Core Services"
-    url: "http://host.docker.internal:5001/health"
-    interval: 30s
-    conditions:
-      - "[STATUS] == 200"
-    alerts:
-      - type: custom
-        description: "Homelab Host API is unreachable"
-
-  - name: "Ollama"
-    group: "Core Services"
-    url: "http://ollama:11434/"
-    interval: 30s
-    conditions:
-      - "[STATUS] == 200"
-      - "[BODY] == Ollama is running"
-    alerts:
-      - type: custom
-        description: "Ollama service is unresponsive"
-
+  # ─── REVERSE PROXY ───
   - name: "Traefik"
-    group: "Core Services"
+    group: "Reverse Proxy"
     url: "http://traefik:8082/ping"
     interval: 30s
     conditions:
@@ -75,9 +34,51 @@ endpoints:
       - type: custom
         description: "Traefik reverse proxy is unhealthy"
 
-  # ─── SECURITY & AUTH ───
+  # ─── APPLICATIONS ───
+  - name: "Dashboard"
+    group: "Applications"
+    url: "http://dashboard:5000/health"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Homelab Dashboard is down"
+
+  - name: "Dockhand"
+    group: "Applications"
+    url: "http://dockhand:3000/"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Dockhand is unreachable"
+
+  - name: "Host API"
+    group: "Applications"
+    url: "http://host.docker.internal:5001/health"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Homelab Host API is unreachable"
+
+  - name: "Ollama"
+    group: "Applications"
+    url: "http://ollama:11434/"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY] == Ollama is running"
+    alerts:
+      - type: custom
+        description: "Ollama service is unresponsive"
+
+  # ─── IDENTITY ───
   - name: "Authentik"
-    group: "Identity & Security"
+    group: "Identity"
     url: "http://authentik-server:9000/-/health/live/"
     interval: 30s
     conditions:
@@ -89,7 +90,7 @@ endpoints:
         failure-threshold: 1
 
   - name: "Vaultwarden"
-    group: "Identity & Security"
+    group: "Identity"
     url: "http://vaultwarden:80/alive"
     interval: 30s
     conditions:
@@ -98,9 +99,9 @@ endpoints:
       - type: custom
         description: "Vaultwarden is unreachable"
 
-  # ─── NETWORKING & INFRA ───
+  # ─── DNS ───
   - name: "Pi-hole"
-    group: "Infrastructure"
+    group: "DNS"
     # Root path 403s when the Host header isn't the admin domain; the login
     # page is always an unauthenticated 200.
     url: "http://pihole:80/admin/login"
@@ -112,7 +113,7 @@ endpoints:
         description: "Pi-hole DNS admin portal is unresponsive"
 
   - name: "DNS Resolution"
-    group: "Infrastructure"
+    group: "DNS"
     url: "pihole"
     interval: 30s
     dns:
@@ -125,7 +126,7 @@ endpoints:
         description: "DNS resolution through Pi-hole is failing"
 
   - name: "ddclient"
-    group: "Infrastructure"
+    group: "DNS"
     url: "icmp://ddclient"
     interval: 1m
     conditions:
@@ -134,8 +135,19 @@ endpoints:
       - type: custom
         description: "ddclient container is unreachable"
 
+  # ─── VPN & REMOTE ACCESS ───
+  - name: "Headscale"
+    group: "VPN & Remote Access"
+    url: "http://headscale:8080/health"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Headscale control plane is unreachable"
+
   - name: "RustDesk ID Server"
-    group: "Infrastructure"
+    group: "VPN & Remote Access"
     url: "tcp://rustdesk-id-server:21116"
     interval: 30s
     conditions:
@@ -145,7 +157,7 @@ endpoints:
         description: "RustDesk ID Server (hbbs) is unreachable"
 
   - name: "RustDesk Relay Server"
-    group: "Infrastructure"
+    group: "VPN & Remote Access"
     url: "tcp://rustdesk-relay-server:21117"
     interval: 30s
     conditions:
@@ -154,8 +166,9 @@ endpoints:
       - type: custom
         description: "RustDesk Relay Server (hbbr) is unreachable"
 
+  # ─── FILE SHARING ───
   - name: "Samba SMB"
-    group: "Infrastructure"
+    group: "File Sharing"
     url: "tcp://samba:445"
     interval: 30s
     conditions:
@@ -165,7 +178,7 @@ endpoints:
         description: "Samba SMB is unreachable"
 
   - name: "WebDAV (SFTPGo)"
-    group: "Infrastructure"
+    group: "File Sharing"
     url: "tcp://sftpgo:8080"
     interval: 30s
     conditions:
@@ -174,19 +187,9 @@ endpoints:
       - type: custom
         description: "SFTPGo WebDAV is unreachable"
 
-  - name: "Headscale"
-    group: "Infrastructure"
-    url: "http://headscale:8080/health"
-    interval: 30s
-    conditions:
-      - "[STATUS] == 200"
-    alerts:
-      - type: custom
-        description: "Headscale control plane is unreachable"
-
-  # ─── NOTIFICATIONS & ALERTS ───
+  # ─── MONITORING ───
   - name: "Gotify"
-    group: "Alerting Pipeline"
+    group: "Monitoring"
     url: "http://gotify:80/health"
     interval: 30s
     conditions:
@@ -196,7 +199,7 @@ endpoints:
         description: "Gotify notification server is unhealthy"
 
   - name: "Apprise Gateway"
-    group: "Alerting Pipeline"
+    group: "Monitoring"
     url: "http://apprise-api:80/health"
     interval: 30s
     conditions:
