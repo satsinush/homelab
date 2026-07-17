@@ -28,8 +28,8 @@ ssh user@server_ip   # confirm key login works
 Follow [`ansible/README.md`](../ansible/README.md): copy `inventory.example.yml` to the gitignored `inventory.yml`, fill in your host's address, user, interfaces, and subnets, then:
 
 ```shell
-ansible-playbook site.yml --check --diff   # dry run
-ansible-playbook site.yml
+ansible-playbook site.yml --check --diff -K   # dry run; -K asks for your sudo password
+ansible-playbook site.yml -K
 ```
 
 What it configures (source of truth is the role files under [`ansible/roles/`](../ansible/roles/)):

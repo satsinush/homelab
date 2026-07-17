@@ -19,8 +19,9 @@ cp inventory.example.yml inventory.yml
 # Edit SSH user/address plus LAN, VPN (tailscale0), and Docker interfaces/subnets.
 
 # 3. Dry run, then apply
-ansible-playbook site.yml --check --diff
-ansible-playbook site.yml
+# -K prompts for your sudo (become) password on the host
+ansible-playbook site.yml --check --diff -K
+ansible-playbook site.yml -K
 ```
 
 The example starts on SSH port 22. After the first run, change `ansible_port` in
