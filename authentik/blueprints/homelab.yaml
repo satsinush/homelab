@@ -205,7 +205,7 @@ entries:
       name: Headscale
       slug: headscale
       provider: !KeyOf headscale
-      meta_launch_url: !Format ["https://%s.%s", !Env HEADSCALE_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      meta_launch_url: ""
 
   # Homelab Dashboard
   - model: authentik_providers_oauth2.oauth2provider
