@@ -134,28 +134,37 @@ def _ensure_router_authkey(user_id: str) -> str:
     return key
 
 
+def _router_node_id() -> str:
+    """Numeric id of the subnet-router node ('' if not registered)."""
+    import json
+
+    raw = _hs("nodes", "list", "-o", "json", check=False) or "[]"
+    try:
+        nodes = json.loads(raw)
+    except ValueError:
+        return ""
+    for node in nodes:
+        names = " ".join(
+            str(node.get(key) or "") for key in ("name", "given_name", "hostname")
+        ).lower()
+        user = str((node.get("user") or {}).get("name", ""))
+        if "homelab-router" in names or user == ROUTER_USER:
+            return str(node.get("id", ""))
+    return ""
+
+
 def _approve_lan_routes(lan_subnet: str) -> None:
     """Enable advertised LAN routes on the subnet-router node."""
     if not lan_subnet:
         return
     # Wait briefly for the router to register and advertise.
+    node_id = ""
     for _ in range(30):
-        nodes = _hs("nodes", "list", "-o", "json", check=False) or "[]"
-        if "homelab-router" in nodes or ROUTER_USER in nodes:
+        node_id = _router_node_id()
+        if node_id:
             break
         time.sleep(2)
 
-    # headscale 0.29: approve-routes takes node id + comma-separated prefixes.
-    listing = _hs("nodes", "list", check=False) or ""
-    node_id = ""
-    for line in listing.splitlines():
-        lower = line.lower()
-        if "homelab-router" in lower or "subnet-router" in lower:
-            # Typical table: ID | Hostname | Name | ...
-            parts = [p.strip() for p in line.replace("|", " ").split() if p.strip()]
-            if parts and parts[0].isdigit():
-                node_id = parts[0]
-                break
     if not node_id:
         print(
             "   ⚠️  Subnet router node not registered yet — "
