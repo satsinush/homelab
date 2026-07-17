@@ -25,6 +25,7 @@ services:
       - SSO_CLIENT_ID=vaultwarden
       - SSO_AUTHORITY=https://${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}/application/o/vaultwarden/
       - SSO_SCOPES=openid email profile offline_access groups
+      - SSO_AUTH_ONLY_NOT_SESSION=true
       - SSO_CLIENT_SECRET_FILE=/run/secrets/vaultwarden_oidc_secret
       - ADMIN_TOKEN_FILE=/run/secrets/vaultwarden_admin_token
     secrets:

@@ -269,37 +269,7 @@ const FileAccountCard = ({ acct, davHost, homelabHost, onResetPassword, onDelete
                         <Stack spacing={2}>
                             <Box>
                                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                                    Option A: WebDAV (Recommended for Windows)
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                    WebDAV is reliable across all local and VPN network environments, and works natively in Windows Explorer.
-                                    Right-click <strong>This PC</strong> in File Explorer, select <strong>Add a network location</strong>, and enter the URL:
-                                </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider', mb: 1 }}>
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="caption" color="text.secondary" display="block">Private WebDAV URL</Typography>
-                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{webdavPrivate}</Typography>
-                                    </Box>
-                                    <Button size="small" startIcon={copyFeedback === 'win_dav_priv' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(webdavPrivate, 'win_dav_priv')}>
-                                        {copyFeedback === 'win_dav_priv' ? 'Copied' : 'Copy'}
-                                    </Button>
-                                </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="caption" color="text.secondary" display="block">Shared WebDAV URL</Typography>
-                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{webdavShared}</Typography>
-                                    </Box>
-                                    <Button size="small" startIcon={copyFeedback === 'win_dav_shared' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(webdavShared, 'win_dav_shared')}>
-                                        {copyFeedback === 'win_dav_shared' ? 'Copied' : 'Copy'}
-                                    </Button>
-                                </Box>
-                            </Box>
-
-                            <Divider />
-
-                            <Box>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                                    Option B: Samba (SMB) Shares
+                                    Option A: Samba (SMB) Shares (Recommended for Windows)
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
                                     Open File Explorer, click <strong>Map network drive</strong>, choose a drive letter, and enter:
@@ -324,10 +294,34 @@ const FileAccountCard = ({ acct, davHost, homelabHost, onResetPassword, onDelete
                                 </Box>
                             </Box>
 
-                            <Alert severity="info">
-                                <AlertTitle>Samba & Docker Ports Note</AlertTitle>
-                                On developer environments running Docker Desktop (e.g. WSL/macOS hosts), Samba is published on port <strong>4445</strong> because Windows natively reserves port 445. Windows Explorer does not support custom ports for SMB; please use <strong>WebDAV (Option A)</strong> if you are accessing from the host developer OS.
-                            </Alert>
+                            <Divider />
+
+                            <Box>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                                    Option B: WebDAV Connection (Best for Obsidian / Syncing)
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                                    In File Explorer, right-click <strong>This PC</strong> → <strong>Add a network location</strong> and enter:
+                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider', mb: 1 }}>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Typography variant="caption" color="text.secondary" display="block">Private WebDAV URL</Typography>
+                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{webdavPrivate}</Typography>
+                                    </Box>
+                                    <Button size="small" startIcon={copyFeedback === 'win_dav_priv' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(webdavPrivate, 'win_dav_priv')}>
+                                        {copyFeedback === 'win_dav_priv' ? 'Copied' : 'Copy'}
+                                    </Button>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Typography variant="caption" color="text.secondary" display="block">Shared WebDAV URL</Typography>
+                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{webdavShared}</Typography>
+                                    </Box>
+                                    <Button size="small" startIcon={copyFeedback === 'win_dav_shared' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(webdavShared, 'win_dav_shared')}>
+                                        {copyFeedback === 'win_dav_shared' ? 'Copied' : 'Copy'}
+                                    </Button>
+                                </Box>
+                            </Box>
                         </Stack>
                     )}
 
@@ -335,10 +329,10 @@ const FileAccountCard = ({ acct, davHost, homelabHost, onResetPassword, onDelete
                         <Stack spacing={2}>
                             <Box>
                                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                                    Connect via Finder
+                                    Option A: Connect via Finder (Recommended for macOS)
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                    In Finder, press <strong>Cmd + K</strong> (or Go → Connect to Server) and enter one of these paths:
+                                    In Finder, press <strong>Cmd + K</strong> (Go → Connect to Server) and enter:
                                 </Typography>
                                 
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider', mb: 1 }}>
@@ -351,7 +345,7 @@ const FileAccountCard = ({ acct, davHost, homelabHost, onResetPassword, onDelete
                                     </Button>
                                 </Box>
 
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider', mb: 1 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant="caption" color="text.secondary" display="block">Shared Folder (Samba)</Typography>
                                         <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{smbSharedMac}</Typography>
@@ -360,7 +354,17 @@ const FileAccountCard = ({ acct, davHost, homelabHost, onResetPassword, onDelete
                                         {copyFeedback === 'mac_smb_shared' ? 'Copied' : 'Copy'}
                                     </Button>
                                 </Box>
+                            </Box>
 
+                            <Divider />
+
+                            <Box>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                                    Option B: WebDAV Connection (Best for Obsidian / Syncing)
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                                    In Finder, press <strong>Cmd + K</strong> and enter:
+                                </Typography>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider', mb: 1 }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant="caption" color="text.secondary" display="block">Private WebDAV URL</Typography>
@@ -370,7 +374,6 @@ const FileAccountCard = ({ acct, davHost, homelabHost, onResetPassword, onDelete
                                         {copyFeedback === 'mac_dav_priv' ? 'Copied' : 'Copy'}
                                     </Button>
                                 </Box>
-
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant="caption" color="text.secondary" display="block">Shared WebDAV URL</Typography>
@@ -406,7 +409,7 @@ const FileAccountCard = ({ acct, davHost, homelabHost, onResetPassword, onDelete
 
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography variant="caption" color="text.secondary" display="block">WebDAV (HTTPS) URI</Typography>
+                                        <Typography variant="caption" color="text.secondary" display="block">WebDAV (HTTPS) URI (Best for Obsidian / Syncing)</Typography>
                                         <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>davs://{davHost}/</Typography>
                                     </Box>
                                     <Button size="small" startIcon={copyFeedback === 'lin_dav_priv' ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(`davs://${davHost}/`, 'lin_dav_priv')}>
@@ -419,16 +422,16 @@ const FileAccountCard = ({ acct, davHost, homelabHost, onResetPassword, onDelete
 
                             <Box>
                                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                                    iOS / Android Files Apps
+                                    iOS / Android Files & Sync Apps (Recommended for Mobile / Obsidian)
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                    Use the built-in iOS Files app (Select <strong>...</strong> → <strong>Connect to Server</strong>) or Android third-party file managers (like Solid Explorer) to connect:
+                                    Use the built-in iOS Files app or Android file managers to connect. WebDAV is highly recommended for mobile and plugins like Obsidian Sync:
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary" sx={{ pl: 2, mb: 0.5 }}>
-                                    • <strong>Protocol:</strong> SMB / Samba or WebDAV
+                                    • <strong>WebDAV URL:</strong> {webdavPrivate}
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary" sx={{ pl: 2, mb: 0.5 }}>
-                                    • <strong>Server Hostname:</strong> {homelabHost} (for SMB) or {davHost} (for WebDAV)
+                                    • <strong>Samba Server:</strong> {homelabHost}
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary" sx={{ pl: 2 }}>
                                     • <strong>Username:</strong> {acct.username}
