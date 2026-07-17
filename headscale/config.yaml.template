@@ -26,6 +26,8 @@ derp:
     region_code: "homelab"
     region_name: "Homelab DERP"
     stun_listen_addr: "0.0.0.0:3478"
+    # Persisted alongside the DB so the DERP identity survives restarts.
+    private_key_path: /var/lib/headscale/derp_server_private.key
     automatically_add_embedded_derp_region: true
     # Only relay for nodes registered with this Headscale. If DERP fails to
     # start, set this to false and re-run setup.
