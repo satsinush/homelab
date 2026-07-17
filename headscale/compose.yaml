@@ -77,6 +77,19 @@ services:
     cap_add:
       - NET_ADMIN
       - NET_RAW
+    healthcheck:
+      # containerboot puts the socket at /tmp/tailscaled.sock (not the default).
+      test:
+        [
+          "CMD",
+          "tailscale",
+          "--socket=/tmp/tailscaled.sock",
+          "status",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
     depends_on:
       headscale:
         condition: service_healthy

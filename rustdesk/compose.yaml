@@ -15,6 +15,9 @@ services:
       - "21116:21116/udp"
       - "21118:21118"
     restart: unless-stopped
+    # No healthcheck: the image has no shell/nc to probe with (its built-in
+    # script needs the s6 layout we bypass by running hbbs/hbbr separately).
+    # Gatus TCP-checks 21116/21117 from outside instead.
     depends_on:
       - rustdesk-relay-server
 

@@ -1,7 +1,4 @@
 ## 🌐 Network & Infrastructure Core
- * [ ] implement HSTS?
- * [ ] fail2ban?
- * [ ] add health checks for all containers?
  * [ ] better gatus groups?
 
 ## 🛠️ DevOps, Scripts & Automation

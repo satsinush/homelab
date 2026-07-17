@@ -18,6 +18,9 @@ services:
       - "traefik.http.routers.gatus.entrypoints=websecure"
       - "traefik.http.routers.gatus.tls=true"
       - "traefik.http.services.gatus.loadbalancer.server.port=8080"
+    # No healthcheck: scratch-based image (no shell/wget/curl) and the gatus
+    # binary has no health subcommand. Traefik + the dashboard cover liveness;
+    # gatus validates its config at startup and exits on failure.
 
 networks:
   homelab-net:
