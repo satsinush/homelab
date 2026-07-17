@@ -1,6 +1,5 @@
 ## 🛠️ DevOps, Scripts & Automation
  * [ ] use proper MCP servers
- * [ ] simplify setup.py scripts to remove unnecessary commands, move setup scripts into a separate folder? Standardize helpers for proper formatting and input
  * [ ] CI/CD to run lint and what not, single version file to set C++ frontend, api, and host api version
 
 ## 🖥️ Homelab Apps & Services
@@ -9,6 +8,7 @@
  * [ ] Setup jellyfin
  * [ ] Fix WOL
  * [ ] Open links in native app like rustdesk:// for gotify, obsidian:// for obsidian, etc.
+ * [ ] Add CalDAV and CardDAV
 
 ## 📱 Frontend, Mobile & UI UX
  * [ ] verify password before seeing secrets page?

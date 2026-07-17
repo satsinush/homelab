@@ -68,11 +68,11 @@ Shared files live under [`./storage/`](../storage/) (gitignored; included in Res
 
 | Access | URL / path | Password |
 | --- | --- | --- |
-| **SMB (LAN)** | `\\<HOMELAB_IP>\<username>` or `\\<IP>\shared` | Shared file password (`samba/volumes/config/accounts.env`) |
+| **SMB (LAN)** | `\\<HOMELAB_IP>\<username>` or `\\<IP>\shared` | Shared file password (`volumes/file-accounts/accounts.env`) |
 | **WebDAV** | `https://dav.<your-hostname>/` | **Same** file password (SFTPGo loads from that accounts file) |
 
 - [ ] Firewall for SMB (`445/tcp` on local + vpn zones) is applied by the [Ansible playbook](../ansible/README.md) — verify with `sudo firewall-cmd --zone=local --list-services`. On Docker Desktop/WSL, Samba is published as `4445` (Windows already owns `445`); **Windows Explorer cannot open `\\host:4445\…`** — use WebDAV from Windows, or SMB clients that allow a custom port. Pi uses real `445`.
-- [ ] Confirm file-access user(s) exist (`samba/volumes/config/accounts.env`) and dirs under `storage/users/` + `storage/shared/`
+- [ ] Confirm file-access user(s) exist (`volumes/file-accounts/accounts.env`) and dirs under `storage/users/` + `storage/shared/`
 - [ ] New person checklist: Authentik account (SSO) → file-access user in `accounts.env` (SMB + WebDAV)
 - [ ] **Obsidian / WebDAV Sync:** server `https://dav.<your-hostname>/`, **file-access** credentials (not Authentik); vault under private home; shared files at `/shared`
 - [ ] Docs: [Samba](https://www.samba.org/) · [SFTPGo](https://docs.sftpgo.com/)

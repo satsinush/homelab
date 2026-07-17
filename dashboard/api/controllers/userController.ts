@@ -3,8 +3,16 @@ import User, { SSOProfile } from '../models/User';
 import ValidationUtils from '../utils/validation';
 import { sendError, sendSuccess } from '../utils/response';
 import config from '../config';
+import HostApiService from '../services/hostApiService';
 
 import { getErrorMessage } from '../utils/errors';
+
+/** Host API wraps validation failures as "Host API error: 400 - <msg>" — unwrap for the UI. */
+function friendlyHostApiError(error: unknown): string {
+    const raw = getErrorMessage(error);
+    const match = raw.match(/Host API error: \d+ - (.+)$/);
+    return match ? match[1] : raw;
+}
 
 function friendlySsoErrorMessage(error: unknown): string {
     const raw = getErrorMessage(error).toLowerCase();
@@ -27,9 +35,11 @@ function friendlySsoErrorMessage(error: unknown): string {
 
 class UserController {
     private userModel: User;
+    private hostApi: HostApiService;
 
     constructor() {
         this.userModel = new User();
+        this.hostApi = new HostApiService();
     }
 
     // Login endpoint
@@ -520,6 +530,59 @@ class UserController {
         } catch (error: unknown) {
             console.error('Delete user error:', error);
             return sendError(res, 500, 'Failed to delete user', getErrorMessage(error));
+        }
+    }
+
+    // ─── File-access (Samba SMB / SFTPGo WebDAV) accounts — proxied to the host API ───
+
+    async getFileAccounts(req: Request, res: Response) {
+        try {
+            const result = await this.hostApi.getFileAccounts();
+            const data = result.data as { accounts?: Array<{ username: string }> } | undefined;
+            return sendSuccess(res, { accounts: data?.accounts || [] });
+        } catch (error: unknown) {
+            console.error('Get file accounts error:', error);
+            return sendError(res, 500, 'Failed to retrieve file-access accounts', getErrorMessage(error));
+        }
+    }
+
+    async createFileAccount(req: Request, res: Response) {
+        try {
+            const { username, password } = req.body || {};
+            if (!username || !password) {
+                return sendError(res, 400, 'Username and password are required');
+            }
+            await this.hostApi.createFileAccount(username, password);
+            return sendSuccess(res, { message: `File-access account "${username}" created` });
+        } catch (error: unknown) {
+            console.error('Create file account error:', error);
+            return sendError(res, 400, friendlyHostApiError(error));
+        }
+    }
+
+    async updateFileAccountPassword(req: Request, res: Response) {
+        try {
+            const username = req.params.username as string;
+            const { password } = req.body || {};
+            if (!password) {
+                return sendError(res, 400, 'Password is required');
+            }
+            await this.hostApi.updateFileAccountPassword(username, password);
+            return sendSuccess(res, { message: `Password updated for "${username}"` });
+        } catch (error: unknown) {
+            console.error('Update file account password error:', error);
+            return sendError(res, 400, friendlyHostApiError(error));
+        }
+    }
+
+    async deleteFileAccount(req: Request, res: Response) {
+        try {
+            const username = req.params.username as string;
+            await this.hostApi.deleteFileAccount(username);
+            return sendSuccess(res, { message: `File-access account "${username}" deleted` });
+        } catch (error: unknown) {
+            console.error('Delete file account error:', error);
+            return sendError(res, 400, friendlyHostApiError(error));
         }
     }
 }

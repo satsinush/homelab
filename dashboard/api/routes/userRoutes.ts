@@ -193,6 +193,102 @@ router.put('/profile', requireAuth(), (req: Request, res: Response) => userContr
  */
 router.get('/', requireAuth('dashboard-users-user'), (req: Request, res: Response) => userController.getAllUsers(req, res));
 
+// File-access (Samba/WebDAV) accounts
+/**
+ * @openapi
+ * /api/users/file-accounts:
+ *   get:
+ *     summary: List Samba/WebDAV file-access accounts
+ *     tags: [Users]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Accounts list (no passwords)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *   post:
+ *     summary: Create a file-access account (recreates samba/sftpgo)
+ *     tags: [Users]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username, password]
+ *             properties:
+ *               username:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Account created
+ *       400:
+ *         description: Validation error or duplicate account
+ */
+router.get('/file-accounts', requireAuth('dashboard-users-user'), (req: Request, res: Response) => userController.getFileAccounts(req, res));
+router.post('/file-accounts', requireAuth('dashboard-users-user'), (req: Request, res: Response) => userController.createFileAccount(req, res));
+
+/**
+ * @openapi
+ * /api/users/file-accounts/{username}/password:
+ *   put:
+ *     summary: Reset a file-access account password (recreates samba/sftpgo)
+ *     tags: [Users]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: username
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [password]
+ *             properties:
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password updated
+ *       400:
+ *         description: Validation error
+ */
+router.put('/file-accounts/:username/password', requireAuth('dashboard-users-user'), (req: Request, res: Response) => userController.updateFileAccountPassword(req, res));
+
+/**
+ * @openapi
+ * /api/users/file-accounts/{username}:
+ *   delete:
+ *     summary: Delete a file-access account (home files kept; recreates samba/sftpgo)
+ *     tags: [Users]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: username
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Account deleted
+ *       400:
+ *         description: Unknown account
+ */
+router.delete('/file-accounts/:username', requireAuth('dashboard-users-user'), (req: Request, res: Response) => userController.deleteFileAccount(req, res));
+
 // Delete user
 /**
  * @openapi

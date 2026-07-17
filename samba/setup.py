@@ -24,10 +24,10 @@ from setup.utils import prompt_nonempty, prompt_password, prompt_yes_no
 class SambaService(Service):
     name = "samba"
     volume_dirs = [
-        VolumeDir("./samba/volumes/config", mode=0o700),
         VolumeDir("./samba/volumes/data", mode=0o755),
         VolumeDir("./samba/volumes/data/private", mode=0o700),
         VolumeDir("./samba/volumes/data/lock", mode=0o755),
+        VolumeDir("./volumes/file-accounts", mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:

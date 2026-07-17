@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import config from '../config';
 
 export interface HostApiResponse {
@@ -6,6 +8,18 @@ export interface HostApiResponse {
     error?: string;
     code?: number;
     [key: string]: unknown;
+}
+
+const HOST_API_TOKEN_PATH = path.join(config.secretsDir, 'host_api_token');
+
+function readHostApiToken(): string | null {
+    // Read per request so a rotated token (re-run setup) works without a container restart.
+    try {
+        const token = fs.readFileSync(HOST_API_TOKEN_PATH, 'utf8').trim();
+        return token || null;
+    } catch {
+        return null;
+    }
 }
 
 class HostApiService {
@@ -19,10 +33,12 @@ class HostApiService {
         try {
             const url = `${this.baseUrl}${endpoint}`;
             const { timeout, ...fetchOptions } = options;
+            const token = readHostApiToken();
             const response = await fetch(url, {
                 signal: AbortSignal.timeout(timeout || 30000),
                 headers: {
                     'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
                     ...options.headers
                 },
                 ...fetchOptions
@@ -67,6 +83,34 @@ class HostApiService {
 
     async getPackageSyncTime(): Promise<HostApiResponse> {
         return this.makeRequest('/packages/sync-time');
+    }
+
+    // File-access (Samba/WebDAV) account management
+    async getFileAccounts(): Promise<HostApiResponse> {
+        return this.makeRequest('/file-accounts');
+    }
+
+    async createFileAccount(username: string, password: string): Promise<HostApiResponse> {
+        return this.makeRequest('/file-accounts', {
+            method: 'POST',
+            body: JSON.stringify({ username, password }),
+            timeout: 120000 // recreates samba + sftpgo containers
+        });
+    }
+
+    async updateFileAccountPassword(username: string, password: string): Promise<HostApiResponse> {
+        return this.makeRequest(`/file-accounts/${encodeURIComponent(username)}/password`, {
+            method: 'PUT',
+            body: JSON.stringify({ password }),
+            timeout: 120000
+        });
+    }
+
+    async deleteFileAccount(username: string): Promise<HostApiResponse> {
+        return this.makeRequest(`/file-accounts/${encodeURIComponent(username)}`, {
+            method: 'DELETE',
+            timeout: 120000
+        });
     }
 
     // Health check

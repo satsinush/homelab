@@ -1,4 +1,4 @@
-"""SFTPGo WebDAV — local users from Samba accounts.env (no Authentik LDAP)."""
+"""SFTPGo WebDAV — local users from volumes/file-accounts/accounts.env (no Authentik LDAP)."""
 from __future__ import annotations
 
 import json
@@ -17,7 +17,7 @@ SHARED_GROUP = "file-users"
 
 
 def write_sftpgo_loaddata(accounts: dict[str, tuple[str, str, str]] | None = None) -> str:
-    """Generate loaddata.json: shared folder + local users from accounts.env."""
+    """Generate loaddata.json: shared folder + local users from file-accounts/accounts.env."""
     if accounts is None:
         accounts = read_accounts_env()
     puid = int(os.environ.get("PUID") or "1000")
