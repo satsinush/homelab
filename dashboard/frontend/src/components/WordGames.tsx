@@ -778,8 +778,8 @@ const WordGames = () => {
             maxHeight: { md: '100vh' },
             display: 'flex',
             flexDirection: 'column',
-            p: { xs: 1.5, sm: 2, md: 3 },
-            overflow: 'hidden',
+            p: { xs: 2, sm: 2.5, md: 3 },
+            overflow: { xs: 'visible', md: 'hidden' },
             boxSizing: 'border-box'
         }}>
             {/* Header / Game Selector Row */}

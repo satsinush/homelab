@@ -25,11 +25,11 @@ export const resultsCardSx: SxProps<Theme> = {
 export const resultsCardContentSx: SxProps<Theme> = {
     flexGrow: 1,
     overflow: 'hidden',
-    p: { xs: 1, md: 2 },
+    p: { xs: 1.5, md: 2 },
     display: 'flex',
     flexDirection: 'column',
     minHeight: 0,
-    '&:last-child': { pb: { xs: 1, md: 2 } },
+    '&:last-child': { pb: { xs: 1.5, md: 2 } },
 };
 
 /** Single vertical (+ horizontal) scroll owner for result tables/lists */
@@ -38,7 +38,7 @@ export const resultsScrollBodySx: SxProps<Theme> = {
     overflowX: 'auto',
     overflowY: 'auto',
     WebkitOverflowScrolling: 'touch',
-    overscrollBehavior: 'contain',
+    overscrollBehaviorY: { xs: 'auto', md: 'contain' },
     minHeight: 0,
     minWidth: 0,
     border: '1px solid',
