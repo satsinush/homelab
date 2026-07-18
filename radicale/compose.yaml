@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     volumes:
       - ${PROJECT_ROOT}/radicale/volumes/config:/etc/radicale:ro
-      - ${PROJECT_ROOT}/radicale/volumes/collections:/data
+      - ${PROJECT_ROOT}/radicale/volumes/collections:/data/collections
     networks:
       - homelab-net
     labels:
