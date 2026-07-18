@@ -14,8 +14,8 @@ from setup.utils import run_cmd
 _RADICALE_UID = 2999
 
 
-def _bcrypt_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+def _plain_password(password: str) -> str:
+    return password
 
 
 class RadicaleService(Service):
@@ -52,7 +52,7 @@ class RadicaleService(Service):
         # 3. Generate htpasswd contents
         htpasswd_lines = []
         for username, password in sorted(accounts.items()):
-            htpasswd_lines.append(f"{username}:{_bcrypt_password(password)}")
+            htpasswd_lines.append(f"{username}:{_plain_password(password)}")
 
         # 4. Write users file
         users_path = "./radicale/volumes/config/users"
@@ -71,7 +71,7 @@ hosts = 0.0.0.0:5232
 [auth]
 type = htpasswd
 htpasswd_filename = /config/users
-htpasswd_encryption = bcrypt
+htpasswd_encryption = plain
 
 [storage]
 type = filesystem
