@@ -73,7 +73,7 @@ base_prefix = /radicale/
 
 [auth]
 type = htpasswd
-htpasswd_filename = /etc/radicale/users
+htpasswd_filename = /config/users
 htpasswd_encryption = sha1
 
 [storage]
