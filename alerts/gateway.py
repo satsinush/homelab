@@ -119,11 +119,12 @@ async def _deliver(
     tag: str,
     title: str,
     message: str,
-    priority: int | None = None,
+    priority: int | None = 5,
     click_url: str = "",
 ) -> bool:
     """Send with a Gotify click URL when available, else via Apprise."""
-    if click_url and await _send_gotify_direct(tag, title, message, priority, click_url):
+    priority_val = 5 if priority is None else priority
+    if click_url and await _send_gotify_direct(tag, title, message, priority_val, click_url):
         logger.info(f"Delivered via Gotify direct (tag={tag}, click_url set)")
         return True
     if click_url:
@@ -213,9 +214,9 @@ async def handle_alert(request):
 
     priority = data.get("priority")
     try:
-        priority = int(priority) if priority is not None else None
+        priority = int(priority) if priority is not None else 5
     except (TypeError, ValueError):
-        priority = None
+        priority = 5
 
     click_url = _resolve_click_url(tag, data)
     success = await _deliver(tag, title, message, priority, click_url)
