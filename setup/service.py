@@ -459,6 +459,14 @@ class Service(ABC):
         """After cloud restore + compose up. Default: no-op."""
         return None
 
+    def backup_paths(self) -> list[str]:
+        """Directories/files owned by this service to back up via Restic."""
+        paths = []
+        for spec in self.volume_dirs:
+            if os.path.exists(spec.path):
+                paths.append(spec.path)
+        return paths
+
     def reset_paths(self) -> list[str]:
         """Host paths owned by this service that reset() should remove."""
         paths = [f"./{self.name}/volumes"]

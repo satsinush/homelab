@@ -145,6 +145,8 @@ def _exclude_file() -> str | None:
 
 
 def backup_targets() -> list[str]:
+    from setup.registry import get_services
+
     targets: list[str] = []
     if os.path.isfile(".env"):
         targets.append(".env")
@@ -152,9 +154,12 @@ def backup_targets() -> list[str]:
         targets.append("volumes")
     if os.path.isdir("storage"):
         targets.append("storage")
-    for path in sorted(glob.glob("*/volumes")):
-        if os.path.isdir(path):
-            targets.append(path)
+
+    for svc in get_services():
+        for path in svc.backup_paths():
+            clean = os.path.normpath(path)
+            if clean not in targets:
+                targets.append(clean)
     return targets
 
 
