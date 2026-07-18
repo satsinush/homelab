@@ -1,0 +1,21 @@
+services:
+  radicale:
+    image: docker.io/tomsquest/docker-radicale:latest
+    container_name: radicale
+    restart: unless-stopped
+    volumes:
+      - ${PROJECT_ROOT}/radicale/volumes/config:/etc/radicale:ro
+      - ${PROJECT_ROOT}/radicale/volumes/collections:/var/lib/radicale/collections
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.radicale.rule=Host(`radicale.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.radicale.entrypoints=websecure"
+      - "traefik.http.routers.radicale.tls=true"
+      - "traefik.http.routers.radicale.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.services.radicale.loadbalancer.server.port=5232"
+
+networks:
+  homelab-net:
+    external: true

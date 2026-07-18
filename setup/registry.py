@@ -16,6 +16,7 @@ def get_services() -> list[Service]:
     from ollama.setup import service as ollama
     from pihole.setup import service as pihole
     from restic.setup import service as restic
+    from radicale.setup import service as radicale
     from rustdesk.setup import service as rustdesk
     from samba.setup import service as samba
     from sftpgo.setup import service as sftpgo
@@ -39,6 +40,7 @@ def get_services() -> list[Service]:
         vaultwarden,
         samba,
         sftpgo,
+        radicale,
         rustdesk,
         ddclient,
         ollama,

@@ -1,10 +1,10 @@
-"""Shared Samba/SFTPGo account file helpers (./volumes/file-accounts/accounts.env)."""
+"""Shared Samba/SFTPGo account file helpers (./volumes/accounts/accounts.env)."""
 from __future__ import annotations
 
 import os
 import re
 
-ACCOUNTS_ENV = "./volumes/file-accounts/accounts.env"
+ACCOUNTS_ENV = "./volumes/accounts/accounts.env"
 
 
 def safe_username(name: str) -> str:
@@ -50,8 +50,8 @@ def write_accounts_env(
     except OSError:
         pass
     lines = [
-        "# File access accounts for Samba (SMB) and SFTPGo (WebDAV).",
-        "# Shared source of truth — managed by samba/setup.py and the dashboard.",
+        "# User accounts for Samba (SMB), SFTPGo (WebDAV), and Radicale (CalDAV/CardDAV).",
+        "# Shared source of truth — managed by setup scripts and the dashboard.",
         "# Usernames should match Authentik; password is local (≠ Authentik SSO).",
     ]
     for username in sorted(accounts):

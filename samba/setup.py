@@ -27,7 +27,7 @@ class SambaService(Service):
         VolumeDir("./samba/volumes/data", mode=0o755),
         VolumeDir("./samba/volumes/data/private", mode=0o700),
         VolumeDir("./samba/volumes/data/lock", mode=0o755),
-        VolumeDir("./volumes/file-accounts", mode=0o700),
+        VolumeDir("./volumes/accounts", mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:

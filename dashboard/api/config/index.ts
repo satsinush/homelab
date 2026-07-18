@@ -153,7 +153,7 @@ const config = {
     secretsDir: SECRETS_DIR,
     rustdeskPubKeyPath:
         getEnv('RUSTDESK_PUBKEY_PATH', path.join(SECRETS_DIR, 'rustdesk_public_key'))!,
-    disableLocalAuth: (process.env.DISABLE_LOCAL_AUTH ?? 'true') === 'true',
+    disableLocalAuth: (process.env.DISABLE_LOCAL_AUTH ?? 'false') === 'true',
     piholeWebHostname: PIHOLE_WEB_HOSTNAME,
     dockhandWebHostname: DOCKHAND_WEB_HOSTNAME,
     vaultwardenWebHostname: VAULTWARDEN_WEB_HOSTNAME,

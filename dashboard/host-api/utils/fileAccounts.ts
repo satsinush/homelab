@@ -8,11 +8,12 @@
 import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 // host-api runs with WorkingDirectory=${PROJECT_ROOT}/dashboard/host-api (systemd unit)
 export const REPO_ROOT = path.resolve(process.cwd(), '..', '..');
 
-const ACCOUNTS_ENV = path.join(REPO_ROOT, 'volumes', 'file-accounts', 'accounts.env');
+const ACCOUNTS_ENV = path.join(REPO_ROOT, 'volumes', 'accounts', 'accounts.env');
 const LOADDATA_PATH = path.join(REPO_ROOT, 'sftpgo', 'volumes', 'config', 'loaddata.json');
 const USERS_ROOT = path.join(REPO_ROOT, 'storage', 'users');
 
@@ -74,8 +75,8 @@ function writeAccounts(accounts: Map<string, FileAccount>): void {
     // samba container's passdb. Uids are auto-assigned in the container and
     // file ownership is forced to PUID:PGID by the share config.
     const lines = [
-        '# File access accounts for Samba (SMB) and SFTPGo (WebDAV).',
-        '# Shared source of truth — managed by samba/setup.py and the dashboard.',
+        '# User accounts for Samba (SMB), SFTPGo (WebDAV), and Radicale (CalDAV/CardDAV).',
+        '# Shared source of truth — managed by setup scripts and the dashboard.',
         '# Usernames should match Authentik; password is local (≠ Authentik SSO).'
     ];
     for (const username of [...accounts.keys()].sort()) {
@@ -137,14 +138,27 @@ function writeSftpgoLoaddata(accounts: Map<string, FileAccount>): void {
     fs.chmodSync(LOADDATA_PATH, 0o600);
 }
 
+function writeRadicaleUsers(accounts: Map<string, FileAccount>): void {
+    const lines: string[] = [];
+    for (const [username, account] of [...accounts.entries()].sort()) {
+        const hashed = crypto.createHash('sha1').update(account.password).digest();
+        const sha = '{SHA}' + hashed.toString('base64');
+        lines.push(`${username}:${sha}`);
+    }
+    const radicaleUsersPath = path.join(REPO_ROOT, 'radicale', 'volumes', 'config', 'users');
+    fs.mkdirSync(path.dirname(radicaleUsersPath), { recursive: true });
+    fs.writeFileSync(radicaleUsersPath, lines.join('\n') + '\n', { mode: 0o600 });
+    fs.chmodSync(radicaleUsersPath, 0o600);
+}
+
 function recreateContainers(): Promise<void> {
     return new Promise((resolve, reject) => {
         exec(
-            'docker compose up -d --force-recreate samba sftpgo',
+            'docker compose up -d --force-recreate samba sftpgo radicale',
             { cwd: REPO_ROOT, timeout: 120000 },
             (error, _stdout, stderr) => {
                 if (error) {
-                    reject(new Error(`Failed to recreate samba/sftpgo: ${stderr || error.message}`));
+                    reject(new Error(`Failed to recreate containers: ${stderr || error.message}`));
                 } else {
                     resolve();
                 }
@@ -157,6 +171,7 @@ function recreateContainers(): Promise<void> {
 async function applyAccounts(accounts: Map<string, FileAccount>): Promise<void> {
     writeAccounts(accounts);
     writeSftpgoLoaddata(accounts);
+    writeRadicaleUsers(accounts);
     await recreateContainers();
 }
 

@@ -11,6 +11,7 @@ export interface UserProfile {
     roles: string[];
     email: string | null;
     is_sso_user: boolean;
+    has_local_password?: boolean;
     lastLogin?: string;
     createdAt?: string;
 }
@@ -87,6 +88,58 @@ class User {
         }
     }
 
+    async createLocalUser(username: string, password: string, email: string | null = null): Promise<UserProfile> {
+        try {
+            const salt = uuidv4();
+            const passwordHash = await argon2.hash(password, { salt: Buffer.from(salt) });
+            
+            const insertStmt = this.db.prepare(`
+                INSERT INTO users (username, password_hash, salt, groups, roles, email, is_sso_user) 
+                VALUES (?, ?, ?, ?, ?, ?, 0)
+            `);
+            
+            const result = insertStmt.run(
+                username,
+                passwordHash,
+                salt,
+                JSON.stringify(['user']),
+                JSON.stringify([]),
+                email
+            );
+            
+            return {
+                id: Number(result.lastInsertRowid),
+                username: username,
+                groups: ['user'],
+                roles: [],
+                email: email,
+                is_sso_user: false,
+                has_local_password: true
+            };
+        } catch (error) {
+            console.error('Error creating local user:', error);
+            throw error;
+        }
+    }
+
+    async updateLocalPassword(username: string, password: string): Promise<void> {
+        const stmt = this.db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)');
+        const user = stmt.get(username) as { id: number } | undefined;
+        if (!user) {
+            await this.createLocalUser(username, password);
+            return;
+        }
+        
+        const salt = uuidv4();
+        const passwordHash = await argon2.hash(password, { salt: Buffer.from(salt) });
+        const updateStmt = this.db.prepare(`
+            UPDATE users 
+            SET password_hash = ?, salt = ?, updated_at = CURRENT_TIMESTAMP 
+            WHERE id = ?
+        `);
+        updateStmt.run(passwordHash, salt, user.id);
+    }
+
     // Authenticate user (for local login)
     async authenticate(username: string, password: string): Promise<UserProfile | null> {
         try {
@@ -97,7 +150,7 @@ class User {
                 return await this.createFirstUser(username, password, email);
             }
 
-            const stmt = this.db.prepare('SELECT * FROM users WHERE LOWER(username) = LOWER(?) AND is_sso_user = 0');
+            const stmt = this.db.prepare('SELECT * FROM users WHERE LOWER(username) = LOWER(?)');
             const user = stmt.get(username) as DatabaseUserRow | undefined;
             
             if (!user || !user.password_hash) {
@@ -120,7 +173,8 @@ class User {
                 groups: JSON.parse(user.groups),
                 roles: JSON.parse(user.roles || '[]'),
                 email: user.email,
-                is_sso_user: false,
+                is_sso_user: !!user.is_sso_user,
+                has_local_password: !!user.password_hash,
                 lastLogin: user.last_login || undefined
             };
         } catch (error) {
@@ -175,6 +229,12 @@ class User {
                     console.log(`No user found with matching OIDC ID, checking for user with email: ${email}`);
                     const existingUserStmt = this.db.prepare('SELECT * FROM users WHERE LOWER(email) = LOWER(?)');
                     existingUser = existingUserStmt.get(email) as DatabaseUserRow | undefined;
+                }
+
+                if (!existingUser && username) {
+                    console.log(`No user found by email, checking for user with username: ${username}`);
+                    const existingUserStmt = this.db.prepare('SELECT * FROM users WHERE LOWER(username) = LOWER(?)');
+                    existingUser = existingUserStmt.get(username) as DatabaseUserRow | undefined;
                 }
 
                 if (existingUser) {
@@ -284,7 +344,7 @@ class User {
     // Get user by ID
     getUserById(userId: number): UserProfile | null {
         try {
-            const stmt = this.db.prepare('SELECT id, username, groups, roles, email, is_sso_user FROM users WHERE id = ?');
+            const stmt = this.db.prepare('SELECT id, username, password_hash, groups, roles, email, is_sso_user FROM users WHERE id = ?');
             const user = stmt.get(userId) as DatabaseUserRow | undefined;
             
             if (!user) {
@@ -297,7 +357,8 @@ class User {
                 groups: JSON.parse(user.groups),
                 roles: JSON.parse(user.roles || '[]'),
                 email: user.email,
-                is_sso_user: !!user.is_sso_user
+                is_sso_user: !!user.is_sso_user,
+                has_local_password: !!user.password_hash
             };
         } catch (error) {
             console.error('Get user error:', error);
@@ -308,7 +369,7 @@ class User {
     // Get all users in the system
     getAllUsers(): UserProfile[] {
         try {
-            const stmt = this.db.prepare('SELECT id, username, groups, roles, email, is_sso_user, last_login, created_at FROM users ORDER BY id ASC');
+            const stmt = this.db.prepare('SELECT id, username, password_hash, groups, roles, email, is_sso_user, last_login, created_at FROM users ORDER BY id ASC');
             const rows = stmt.all() as DatabaseUserRow[];
             return rows.map(user => ({
                 id: user.id,
@@ -317,6 +378,7 @@ class User {
                 roles: JSON.parse(user.roles || '[]'),
                 email: user.email,
                 is_sso_user: !!user.is_sso_user,
+                has_local_password: !!user.password_hash,
                 lastLogin: user.last_login || undefined,
                 createdAt: user.created_at
             }));

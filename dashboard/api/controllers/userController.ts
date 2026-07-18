@@ -350,9 +350,13 @@ class UserController {
     // Get current user info
     async getMe(req: Request, res: Response) {
         try {
-            const user = req.session.user || req.user;
-            if (!user) {
+            const sessionUser = req.session.user || req.user;
+            if (!sessionUser) {
                 return sendError(res, 401, 'Not authenticated');
+            }
+            const user = this.userModel.getUserById(sessionUser.id);
+            if (!user) {
+                return sendError(res, 404, 'User not found');
             }
             return sendSuccess(res, {
                 user: {
@@ -361,7 +365,8 @@ class UserController {
                     groups: user.groups,
                     roles: user.roles,
                     email: user.email,
-                    is_sso_user: user.is_sso_user
+                    is_sso_user: user.is_sso_user,
+                    has_local_password: user.has_local_password
                 }
             });
         } catch (error: unknown) {
@@ -537,9 +542,11 @@ class UserController {
 
     async getFileAccounts(req: Request, res: Response) {
         try {
-            const result = await this.hostApi.getFileAccounts();
-            const data = result.data as { accounts?: Array<{ username: string }> } | undefined;
-            return sendSuccess(res, { accounts: data?.accounts || [] });
+            const users = this.userModel.getAllUsers();
+            const accounts = users
+                .filter(u => u.has_local_password)
+                .map(u => ({ username: u.username }));
+            return sendSuccess(res, { accounts });
         } catch (error: unknown) {
             console.error('Get file accounts error:', error);
             return sendError(res, 500, 'Failed to retrieve file-access accounts', getErrorMessage(error));
@@ -552,8 +559,11 @@ class UserController {
             if (!username || !password) {
                 return sendError(res, 400, 'Username and password are required');
             }
+            // Create user locally in database
+            await this.userModel.createLocalUser(username, password, `${username}@${config.homelabHostname || 'homelab.home.arpa'}`);
+            // Call host API to write env and sync
             await this.hostApi.createFileAccount(username, password);
-            return sendSuccess(res, { message: `File-access account "${username}" created` });
+            return sendSuccess(res, { message: `User account "${username}" created` });
         } catch (error: unknown) {
             console.error('Create file account error:', error);
             return sendError(res, 400, friendlyHostApiError(error));
@@ -567,8 +577,11 @@ class UserController {
             if (!password) {
                 return sendError(res, 400, 'Password is required');
             }
+            // Update user password locally in database
+            await this.userModel.updateLocalPassword(username, password);
+            // Call host API to write env and sync
             await this.hostApi.updateFileAccountPassword(username, password);
-            return sendSuccess(res, { message: `Password updated for "${username}"` });
+            return sendSuccess(res, { message: `Local password updated for "${username}"` });
         } catch (error: unknown) {
             console.error('Update file account password error:', error);
             return sendError(res, 400, friendlyHostApiError(error));
@@ -578,8 +591,15 @@ class UserController {
     async deleteFileAccount(req: Request, res: Response) {
         try {
             const username = req.params.username as string;
+            // Get user by username
+            const stmt = (this.userModel as any).db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)');
+            const user = stmt.get(username) as { id: number } | undefined;
+            if (user) {
+                this.userModel.deleteUser(user.id);
+            }
+            // Call host API to write env and sync
             await this.hostApi.deleteFileAccount(username);
-            return sendSuccess(res, { message: `File-access account "${username}" deleted` });
+            return sendSuccess(res, { message: `User "${username}" deleted` });
         } catch (error: unknown) {
             console.error('Delete file account error:', error);
             return sendError(res, 400, friendlyHostApiError(error));
