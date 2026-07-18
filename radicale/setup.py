@@ -8,6 +8,10 @@ import os
 from setup.file_accounts import read_accounts_env
 from setup.service import Service, VolumeDir
 from setup.ui import ok, section
+from setup.utils import run_cmd
+
+# UID/GID of the radicale user inside tomsquest/docker-radicale
+_RADICALE_UID = 2999
 
 
 def _sha1_password(password: str) -> str:
@@ -51,6 +55,7 @@ class RadicaleService(Service):
         users_path = "./radicale/volumes/config/users"
         with open(users_path, "w", encoding="utf-8") as f:
             f.write("\n".join(htpasswd_lines) + "\n")
+        run_cmd(f"sudo chown {_RADICALE_UID}:{_RADICALE_UID} {users_path}")
         os.chmod(users_path, 0o600)
         ok(f"Wrote {users_path} ({len(htpasswd_lines)} accounts synced)")
 
@@ -72,7 +77,8 @@ filesystem_folder = /data/collections
         config_path = "./radicale/volumes/config/config"
         with open(config_path, "w", encoding="utf-8") as f:
             f.write(config_content)
-        os.chmod(config_path, 0o644)
+        run_cmd(f"sudo chown {_RADICALE_UID}:{_RADICALE_UID} {config_path}")
+        os.chmod(config_path, 0o600)
         ok(f"Wrote {config_path}")
 
 
