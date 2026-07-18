@@ -30,6 +30,11 @@ class RadicaleService(Service):
         super().setup(env)
         section("Syncing Radicale users and generating config...", emoji="📅")
 
+        # Ensure the collections directory is owned by the Radicale container user
+        # so it can create its lock file and write calendar/contact data.
+        collections_dir = "./radicale/volumes/collections"
+        run_cmd(f"sudo chown -R {_RADICALE_UID}:{_RADICALE_UID} {collections_dir}")
+
         # 1. Read shared accounts
         accounts = read_accounts_env()
 
