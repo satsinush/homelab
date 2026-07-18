@@ -1,10 +1,10 @@
 ## 🛠️ Bug Fixes / Improvements
  * [ ] fix aria hidden and other browser warnings
+ * [ ] update DAV urls to use /files, /calendar, /contacts?
 
 ## ✨ Features
  * [ ] Setup Immich
  * [ ] Setup jellyfin
- * [x] Add CalDAV and CardDAV
  * [ ] add gitea server?
  * [ ] use proper MCP servers for AI chat page
 
