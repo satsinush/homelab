@@ -66,7 +66,7 @@ htpasswd_encryption = sha1
 
 [storage]
 type = filesystem
-filesystem_folder = /var/lib/radicale/collections
+filesystem_folder = /data/collections
 """
         config_path = "./radicale/volumes/config/config"
         with open(config_path, "w", encoding="utf-8") as f:
