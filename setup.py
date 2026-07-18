@@ -371,8 +371,8 @@ def ensure_env_file() -> dict:
         print("   If your DNS is configured to point your main subdomains to local IPs,")
         print("   you can specify a separate public domain/hostname specifically for the VPN:")
         if prompt_yes_no(
-            "   Configure a separate public domain for VPN? (y/N): ",
-            default=False
+            "   Configure a separate public domain for VPN? (Y/n): ",
+            default=True
         ):
             headscale_web_hostname = prompt_nonempty(
                 "              VPN Public Hostname: ",

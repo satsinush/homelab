@@ -95,6 +95,8 @@ def _router_user_id() -> str:
         users = json.loads(raw)
     except ValueError:
         return ""
+    if not users:
+        return ""
     for user in users:
         if user.get("name") == ROUTER_USER:
             return str(user.get("id", ""))
@@ -149,6 +151,8 @@ def _router_node_id() -> str:
     try:
         nodes = json.loads(raw)
     except ValueError:
+        return ""
+    if not nodes:
         return ""
     for node in nodes:
         names = " ".join(
