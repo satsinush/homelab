@@ -15,10 +15,9 @@ services:
       - "traefik.http.routers.radicale.tls=true"
       - "traefik.http.routers.radicale.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
       - "traefik.http.routers.radicale.priority=20"
-      - "traefik.http.routers.radicale.middlewares=radicale-slash"
-      - "traefik.http.middlewares.radicale-slash.redirectregex.regex=^https?://([^/]+)/radicale$$"
-      - "traefik.http.middlewares.radicale-slash.redirectregex.replacement=https://$$1/radicale/"
-      - "traefik.http.middlewares.radicale-slash.redirectregex.permanent=true"
+      - "traefik.http.routers.radicale.middlewares=radicale-strip,radicale-scriptname"
+      - "traefik.http.middlewares.radicale-strip.stripprefix.prefixes=/radicale"
+      - "traefik.http.middlewares.radicale-scriptname.headers.customrequestheaders.X-Script-Name=/radicale"
       - "traefik.http.services.radicale.loadbalancer.server.port=5232"
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5232/.web/')"]
