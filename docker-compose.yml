@@ -12,6 +12,7 @@ include:
   - ./gotify/compose.yaml
   - ./samba/compose.yaml
   - ./sftpgo/compose.yaml
+  - ./radicale/compose.yaml
   - ./rustdesk/compose.yaml
   - ./ddclient/compose.yaml
   - ./ollama/compose.yaml
