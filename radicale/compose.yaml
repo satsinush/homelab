@@ -15,6 +15,12 @@ services:
       - "traefik.http.routers.radicale.tls=true"
       - "traefik.http.routers.radicale.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
       - "traefik.http.services.radicale.loadbalancer.server.port=5232"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5232/.web/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
 networks:
   homelab-net:

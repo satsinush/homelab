@@ -64,8 +64,7 @@ const LoginChoice = () => {
 
     // Start OIDC immediately. Authentik finishes silently when a
     // session already exists; otherwise the IdP login page is shown.
-    const shouldAutoSso =
-        !configLoading && ssoEnabled && !skipAutoSso && !preferLocal && !showLocalLogin;
+    const shouldAutoSso = false;
 
     useEffect(() => {
         if (!shouldAutoSso) return;

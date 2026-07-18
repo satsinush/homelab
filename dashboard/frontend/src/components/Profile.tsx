@@ -213,7 +213,8 @@ const ChangePasswordModal = ({ open, onClose }: ChangePasswordModalProps) => {
         e.preventDefault();
         setError('');
 
-        if (!currentPassword) {
+        const needsCurrentPassword = user?.has_local_password;
+        if (needsCurrentPassword && !currentPassword) {
             setError('Current password is required');
             return;
         }
@@ -235,7 +236,7 @@ const ChangePasswordModal = ({ open, onClose }: ChangePasswordModalProps) => {
                 method: 'PUT',
                 data: {
                     username: user.username,
-                    currentPassword,
+                    currentPassword: needsCurrentPassword ? currentPassword : undefined,
                     newPassword
                 }
             });
@@ -300,12 +301,12 @@ const ChangePasswordModal = ({ open, onClose }: ChangePasswordModalProps) => {
     return (
         <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
             <form onSubmit={handleSubmit}>
-                <DialogTitle>Change Password</DialogTitle>
+                <DialogTitle>{user?.has_local_password ? 'Change Password' : 'Set Local Password'}</DialogTitle>
                 <DialogContent>
                     <Stack spacing={3} sx={{ mt: 1 }}>
                         {error && <Alert severity="error">{error}</Alert>}
-                        {passwordField('Current Password', currentPassword, setCurrentPassword, showCurrent, setShowCurrent, 'Enter your current password')}
-                        <Divider />
+                        {user?.has_local_password && passwordField('Current Password', currentPassword, setCurrentPassword, showCurrent, setShowCurrent, 'Enter your current password')}
+                        {user?.has_local_password && <Divider />}
                         {passwordField('New Password', newPassword, setNewPassword, showNew, setShowNew, 'At least 6 characters')}
                         {passwordField('Confirm New Password', confirmPassword, setConfirmPassword, showConfirm, setShowConfirm, 'Must match new password')}
                     </Stack>
@@ -318,7 +319,7 @@ const ChangePasswordModal = ({ open, onClose }: ChangePasswordModalProps) => {
                         disabled={loading}
                         startIcon={loading ? <CircularProgress size={20} /> : null}
                     >
-                        {loading ? 'Saving...' : 'Change Password'}
+                        {loading ? 'Saving...' : user?.has_local_password ? 'Change Password' : 'Set Password'}
                     </Button>
                 </DialogActions>
             </form>
@@ -411,45 +412,51 @@ const Profile = () => {
                     </CardContent>
                 </Card>
 
-                {/* Security Section - Only for local users */}
-                {!isSSO && (
-                    <Card variant="outlined">
-                        <CardContent>
-                            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Security</Typography>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">Password</Typography>
-                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>••••••••</Typography>
-                                </Box>
-                                <Button
-                                    variant="outlined"
-                                    size="small"
-                                    startIcon={<LockIcon />}
-                                    onClick={() => setPasswordModalOpen(true)}
-                                >
-                                    Change
-                                </Button>
+                {/* Security Section */}
+                <Card variant="outlined">
+                    <CardContent>
+                        <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Security</Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Box>
+                                <Typography variant="body2" color="text.secondary">
+                                    {isSSO ? 'Local Sync Password' : 'Password'}
+                                </Typography>
+                                <Typography variant="body1" sx={{ fontWeight: 500 }}>••••••••</Typography>
+                                {isSSO && (
+                                    <Typography variant="caption" color="text.secondary">
+                                        Used for Samba (file shares), SFTPGo (WebDAV), and CalDAV/CardDAV sync.
+                                    </Typography>
+                                )}
                             </Box>
-                        </CardContent>
-                    </Card>
-                )}
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<LockIcon />}
+                                onClick={() => setPasswordModalOpen(true)}
+                            >
+                                {user?.has_local_password ? 'Change' : 'Set'}
+                            </Button>
+                        </Box>
+                    </CardContent>
+                </Card>
             </Paper>
 
             {/* Modals */}
             {!isSSO && (
-                <>
-                    <ChangeUsernameModal
-                        open={usernameModalOpen}
-                        onClose={() => setUsernameModalOpen(false)}
-                        currentUsername={user?.username || ''}
-                        onSuccess={refreshUser}
-                    />
-                    <ChangePasswordModal
-                        open={passwordModalOpen}
-                        onClose={() => setPasswordModalOpen(false)}
-                    />
-                </>
+                <ChangeUsernameModal
+                    open={usernameModalOpen}
+                    onClose={() => setUsernameModalOpen(false)}
+                    currentUsername={user?.username || ''}
+                    onSuccess={refreshUser}
+                />
             )}
+            <ChangePasswordModal
+                open={passwordModalOpen}
+                onClose={() => {
+                    setPasswordModalOpen(false);
+                    refreshUser();
+                }}
+            />
         </Container>
     );
 };

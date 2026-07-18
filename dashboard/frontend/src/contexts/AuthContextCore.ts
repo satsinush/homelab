@@ -7,6 +7,7 @@ export interface UserProfile {
     roles: string[];
     groups: string[];
     is_sso_user: boolean;
+    has_local_password?: boolean;
 }
 
 export interface AuthContextType {

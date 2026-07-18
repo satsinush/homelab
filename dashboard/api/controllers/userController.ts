@@ -418,13 +418,9 @@ class UserController {
 
             const currentUsername = req.session.user?.username || req.user?.username || '';
 
-            // SSO users cannot change username or password
+            // SSO users cannot change username
             if (isSSO && username !== currentUsername) {
                 return sendError(res, 403, 'SSO users cannot change their username');
-            }
-            
-            if (isSSO && newPassword) {
-                return sendError(res, 403, 'SSO users cannot change their password. Please use your SSO provider.');
             }
             
             // Validate input at controller level
@@ -436,17 +432,20 @@ class UserController {
                 if (newPassword) {
                     validatedNewPassword = ValidationUtils.validatePassword(newPassword);
                 }
-                
-                // Current password required for any change (username or password)
-                const isUsernameChanging = validatedUsername !== currentUsername;
-                if (!isSSO && (isUsernameChanging || newPassword) && !currentPassword) {
-                    throw new Error('Current password is required to make changes');
-                }
             } catch (validationError: unknown) {
                 return sendError(res, 400, getErrorMessage(validationError));
             }
             
             const updatedUser = await this.userModel.updateProfile(userId, validatedUsername, currentPassword, validatedNewPassword);
+            
+            // If the local password was updated, sync to host API!
+            if (validatedNewPassword) {
+                try {
+                    await this.hostApi.updateFileAccountPassword(updatedUser.username, validatedNewPassword);
+                } catch (err) {
+                    console.error(`Failed to sync password to host API for ${updatedUser.username}:`, err);
+                }
+            }
             
             // Update session with new user data
             if (req.session.user) {

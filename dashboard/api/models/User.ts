@@ -293,16 +293,8 @@ class User {
                 throw new Error('User not found');
             }
 
-            // SSO users cannot change passwords locally
-            if (user.is_sso_user && newPassword) {
-                throw new Error('SSO users cannot change passwords locally');
-            }
-            
-            // If changing password for local user, verify current password
-            if (newPassword && !user.is_sso_user) {
-                if (!user.password_hash) {
-                    throw new Error('Local user has no password set');
-                }
+            // If changing password, verify current password if one is already set
+            if (newPassword && user.password_hash) {
                 const isCurrentPasswordValid = await argon2.verify(user.password_hash, currentPassword || '');
                 if (!isCurrentPasswordValid) {
                     throw new Error('Current password is incorrect');
@@ -318,9 +310,9 @@ class User {
             }
             
             // Update user data
-            if (newPassword && !user.is_sso_user) {
+            if (newPassword) {
                 const hashedPassword = await argon2.hash(newPassword);
-                const updateStmt = this.db.prepare('UPDATE users SET username = ?, password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+                const updateStmt = this.db.prepare('UPDATE users SET username = ?, password_hash = ?, salt = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
                 updateStmt.run(username, hashedPassword, userId);
             } else {
                 const updateStmt = this.db.prepare('UPDATE users SET username = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
