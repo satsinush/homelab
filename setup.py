@@ -479,7 +479,7 @@ def ensure_env_file() -> dict:
     os.environ["GATUS_SERVICE_NAME"] = "status"
     os.environ["GOTIFY_SERVICE_NAME"] = "notify"
     os.environ["AUTHENTIK_SERVICE_NAME"] = "auth"
-    os.environ["DAV_SERVICE_NAME"] = "webdav"
+    os.environ["DAV_SERVICE_NAME"] = "dav"
     os.environ["HEADSCALE_SERVICE_NAME"] = "vpn"
     os.environ["HEADSCALE_WEB_HOSTNAME"] = headscale_web_hostname
     os.environ["HEADSCALE_BASE_DOMAIN"] = f"ts.{dns_domain}"
@@ -512,7 +512,6 @@ def ensure_bootstrap_and_locale(env: dict) -> dict:
     docker_subnet = env.get("DOCKER_SUBNET") or "10.10.30.0/24"
     for key, default in (
         ("DAV_SERVICE_NAME", "dav"),
-        ("CAL_SERVICE_NAME", "cal"),
         ("HEADSCALE_SERVICE_NAME", "vpn"),
         ("HEADSCALE_BASE_DOMAIN", f"ts.{env.get('DNS_DOMAIN') or 'home.arpa'}"),
         ("LAN_SUBNET", "10.10.10.0/24"),

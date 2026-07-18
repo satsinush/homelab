@@ -34,6 +34,7 @@ services:
       - "traefik.http.routers.dav.entrypoints=websecure"
       - "traefik.http.routers.dav.tls=true"
       - "traefik.http.routers.dav.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.routers.dav.priority=10"
       - "traefik.http.services.dav.loadbalancer.server.port=8080"
     healthcheck:
       # Built-in probe: hits /healthz on the configured httpd binding (8081).

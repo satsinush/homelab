@@ -186,7 +186,7 @@ const Users = () => {
 
     const davHost = config.hostnames.dav || 'dav.homelab.local';
     const homelabHost = config.homelabHostname || window.location.hostname.replace('dashboard.', '') || 'homelab.local';
-    const radicaleHost = config.hostnames.cal || `cal.${homelabHost}`;
+    const radicaleHost = `${davHost}/radicale`;
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);

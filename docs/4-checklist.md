@@ -125,11 +125,11 @@ Client **Network** → **ID/Relay server** (and key). There is **no** API/consol
 Sync contacts and calendars using **Radicale** over HTTPS. Accounts and credentials are unified with Samba/WebDAV via the Dashboard.
 
 - [ ] Confirm you have set a local password for your account in the dashboard.
-- [ ] Connect your client (e.g., iOS, macOS, Thunderbird) to `https://cal.<your-hostname>` using your username and local sync password.
+- [ ] Connect your client (e.g., iOS, macOS, Thunderbird) to `https://dav.<your-hostname>/radicale/` using your username and local sync password.
 - [ ] Client Account Setup:
-  - **iOS / macOS**: Add account type **CalDAV** or **CardDAV** -> select **Manual** -> enter Server Address `cal.<your-hostname>`, username, and password.
-  - **Android**: Install the open-source **DAVx⁵** sync adapter. Add account -> select **Login with URL and user name** -> Base URL `https://cal.<your-hostname>`, username, and password. DAVx⁵ will auto-sync contacts/calendars directly into Android's native system apps.
-  - **Windows (Thunderbird)**: Open Calendar -> New Calendar -> **On the Network** -> Username, and Location `https://cal.<your-hostname>/<username>/`.
+  - **iOS / macOS**: Add account type **CalDAV** or **CardDAV** -> select **Manual** -> enter Server Address `dav.<your-hostname>`, username, and password. (Apple devices will automatically discover calendars/contacts via Traefik redirects).
+  - **Android**: Install the open-source **DAVx⁵** sync adapter. Add account -> select **Login with URL and user name** -> Base URL `https://dav.<your-hostname>/radicale/`, username, and password. DAVx⁵ will auto-sync contacts/calendars directly into Android's native system apps.
+  - **Windows (Thunderbird)**: Open Calendar -> New Calendar -> **On the Network** -> Username, and Location `https://dav.<your-hostname>/radicale/<username>/`.
   - **Windows (Outlook)**: Outlook requires a third-party plugin such as the open-source **Outlook CalDAV Synchronizer** to sync calendars and contacts.
 - [ ] Docs: [Radicale](https://radicale.org/)
 
