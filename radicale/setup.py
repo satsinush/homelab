@@ -74,7 +74,7 @@ htpasswd_filename = /config/users
 htpasswd_encryption = plain
 
 [storage]
-type = filesystem
+type = multifilesystem
 filesystem_folder = /data/collections
 """
         config_path = "./radicale/volumes/config/config"
