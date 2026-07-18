@@ -4,7 +4,7 @@
 ## ✨ Features
  * [ ] Setup Immich
  * [ ] Setup jellyfin
- * [ ] Add CalDAV and CardDAV
+ * [x] Add CalDAV and CardDAV
  * [ ] add gitea server?
  * [ ] use proper MCP servers for AI chat page
 

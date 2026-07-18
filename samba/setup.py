@@ -45,50 +45,18 @@ class SambaService(Service):
         ensure_all_user_homes(int(puid), int(pgid))
 
         accounts = read_accounts_env(ACCOUNTS_ENV)
-        step("Create file-access user(s) for Samba + WebDAV.")
-        step("Usernames should match Authentik; password is local (≠ SSO).")
-        if accounts:
-            ok(f"Existing users: {', '.join(sorted(accounts))}")
-
         default_user = (env.get("HOMELAB_USERNAME") or "").strip()
-        created = 0
-        while True:
-            if not accounts and default_user and default_user not in accounts:
-                username = default_user
-                step(f"Default username: {username}")
-            else:
-                if not prompt_yes_no(
-                    "   Add a file-access user? (y/N): "
-                    if accounts or created
-                    else "   Create a file-access user? (Y/n): ",
-                    default=bool(not accounts and not created),
-                ):
-                    break
-                username = prompt_nonempty("   Username: ")
-            try:
-                username = safe_username(username)
-            except ValueError:
-                warn("Invalid username; try again")
-                continue
-            if username in accounts:
-                warn(
-                    f"User {username!r} already exists — "
-                    "skipping (edit accounts.env to change password)"
-                )
-                if not prompt_yes_no("   Add another user? (y/N): ", default=False):
-                    break
-                continue
-            password = prompt_password(
-                f"   SMB/WebDAV password for {username}: ", confirm=True
-            )
-            if not password:
-                password = pysecrets.token_urlsafe(16)
-                info(f"Generated password for {username} (store it somewhere safe)")
-            ensure_user_home(username, int(puid), int(pgid))
-            accounts[username] = password
-            created += 1
-            if not prompt_yes_no("   Add another user? (y/N): ", default=False):
-                break
+        
+        if default_user:
+            default_user = default_user.lower()
+            if default_user not in accounts:
+                pw_path = "./volumes/secrets/homelab_password"
+                if os.path.isfile(pw_path):
+                    with open(pw_path, encoding="utf-8") as f:
+                        default_pw = f.read().strip()
+                    if default_pw:
+                        accounts[default_user] = default_pw
+                        step(f"Auto-registered default admin user: {default_user}")
 
         for username in accounts:
             ensure_user_home(username, int(puid), int(pgid))
@@ -100,13 +68,7 @@ class SambaService(Service):
 
         write_sftpgo_loaddata(accounts)
 
-        if created:
-            ok(f"Added {created} account(s) → {ACCOUNTS_ENV}")
-            info(
-                "Recreate after setup if already running: "
-                "docker compose up -d --force-recreate samba sftpgo"
-            )
-        elif accounts:
+        if accounts:
             ok(f"{len(accounts)} account(s) in {ACCOUNTS_ENV}")
         else:
             warn(f"No users yet; re-run setup or edit {ACCOUNTS_ENV}")

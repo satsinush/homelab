@@ -120,6 +120,19 @@ Client **Network** → **ID/Relay server** (and key). There is **no** API/consol
 - [ ] Confirm a remote works by ID/password
 - [ ] Docs: [RustDesk](https://rustdesk.com/docs/)
 
+### CalDAV & CardDAV (Calendar/Contacts)
+
+Sync contacts and calendars using **Radicale** over HTTPS. Accounts and credentials are unified with Samba/WebDAV via the Dashboard.
+
+- [ ] Confirm you have set a local password for your account in the dashboard.
+- [ ] Connect your client (e.g., iOS, macOS, Thunderbird) to `https://cal.<your-hostname>` using your username and local sync password.
+- [ ] Client Account Setup:
+  - **iOS / macOS**: Add account type **CalDAV** or **CardDAV** -> select **Manual** -> enter Server Address `cal.<your-hostname>`, username, and password.
+  - **Android**: Install the open-source **DAVx⁵** sync adapter. Add account -> select **Login with URL and user name** -> Base URL `https://cal.<your-hostname>`, username, and password. DAVx⁵ will auto-sync contacts/calendars directly into Android's native system apps.
+  - **Windows (Thunderbird)**: Open Calendar -> New Calendar -> **On the Network** -> Username, and Location `https://cal.<your-hostname>/<username>/`.
+  - **Windows (Outlook)**: Outlook requires a third-party plugin such as the open-source **Outlook CalDAV Synchronizer** to sync calendars and contacts.
+- [ ] Docs: [Radicale](https://radicale.org/)
+
 ### ddclient
 
 - [ ] Edit [`ddclient/volumes/ddclient.conf`](../ddclient/volumes/ddclient.conf) with your DDNS provider details (seeded from the example on setup)
