@@ -20,7 +20,8 @@ export const ConfigProvider = ({ children }: ConfigProviderProps) => {
             gatus: '',
             gotify: '',
             authentik: '',
-            dav: ''
+            dav: '',
+            cal: ''
         },
         homelabHostname: ''
     });
@@ -43,7 +44,8 @@ export const ConfigProvider = ({ children }: ConfigProviderProps) => {
                             gatus: d.gatusWebHostname || '',
                             gotify: d.gotifyWebHostname || '',
                             authentik: d.authentikWebHostname || '',
-                            dav: d.davWebHostname || ''
+                            dav: d.davWebHostname || '',
+                            cal: d.calWebHostname || ''
                         },
                         homelabHostname: d.homelabHostname || ''
                     });

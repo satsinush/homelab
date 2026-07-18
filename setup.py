@@ -512,6 +512,7 @@ def ensure_bootstrap_and_locale(env: dict) -> dict:
     docker_subnet = env.get("DOCKER_SUBNET") or "10.10.30.0/24"
     for key, default in (
         ("DAV_SERVICE_NAME", "dav"),
+        ("CAL_SERVICE_NAME", "cal"),
         ("HEADSCALE_SERVICE_NAME", "vpn"),
         ("HEADSCALE_BASE_DOMAIN", f"ts.{env.get('DNS_DOMAIN') or 'home.arpa'}"),
         ("LAN_SUBNET", "10.10.10.0/24"),

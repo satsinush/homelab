@@ -31,6 +31,7 @@ export interface ConfigResponse {
     gotifyWebHostname?: string;
     authentikWebHostname?: string;
     davWebHostname?: string;
+    calWebHostname?: string;
     homelabHostname?: string;
 }
 

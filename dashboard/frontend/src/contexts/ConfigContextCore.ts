@@ -9,6 +9,7 @@ export interface Hostnames {
     gotify: string;
     authentik: string;
     dav: string;
+    cal?: string;
 }
 
 export interface AppConfig {

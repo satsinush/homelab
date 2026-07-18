@@ -104,6 +104,7 @@ app.get('/api/config', (req: Request, res: Response) => {
         gotifyWebHostname: config.gotifyWebHostname,
         authentikWebHostname: config.authentikWebHostname,
         davWebHostname: config.davWebHostname,
+        calWebHostname: config.calWebHostname,
         homelabHostname: config.homelabHostname,
         disableLocalAuth: config.disableLocalAuth,
         ssoEnabled: config.ssoEnabled
