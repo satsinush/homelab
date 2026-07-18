@@ -53,6 +53,7 @@ class RadicaleService(Service):
 
         # 4. Write users file
         users_path = "./radicale/volumes/config/users"
+        run_cmd(f"sudo chown {os.getuid()}:{os.getgid()} {users_path} 2>/dev/null || true")
         with open(users_path, "w", encoding="utf-8") as f:
             f.write("\n".join(htpasswd_lines) + "\n")
         os.chmod(users_path, 0o600)
@@ -75,6 +76,7 @@ type = filesystem
 filesystem_folder = /data/collections
 """
         config_path = "./radicale/volumes/config/config"
+        run_cmd(f"sudo chown {os.getuid()}:{os.getgid()} {config_path} 2>/dev/null || true")
         with open(config_path, "w", encoding="utf-8") as f:
             f.write(config_content)
         os.chmod(config_path, 0o600)
