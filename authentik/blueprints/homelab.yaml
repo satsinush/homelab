@@ -117,7 +117,19 @@ entries:
       length_min: 12
       error_message: "Password must be at least 12 characters long."
 
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_flows.flow, [slug, default-password-change]]
+      policy: !Find [authentik_policies_password.passwordpolicy, [name, "12-char-min-policy"]]
+    attrs:
+      order: 0
 
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_flows.flow, [slug, default-source-enrollment]]
+      policy: !Find [authentik_policies_password.passwordpolicy, [name, "12-char-min-policy"]]
+    attrs:
+      order: 0
 
   # =================================================================
   # =================================================================
