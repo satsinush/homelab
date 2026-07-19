@@ -104,6 +104,7 @@ def write_sftpgo_config() -> str:
                     "address": "",
                     "port": 8080,
                     "prefix": _DAV_PREFIX,
+                    "enable_dir_listing": True,
                 }
             ]
         },
