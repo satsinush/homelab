@@ -59,7 +59,11 @@ def write_sftpgo_loaddata(users_list: list[dict], env: dict | None = None) -> st
                 "username": username,
                 "password": password,
                 "home_dir": home_root_dir,
-                "permissions": {"/": ["*"]},
+                "permissions": {
+                    "/": ["list", "download"],
+                    "/personal": ["*"],
+                    "/shared": ["*"]
+                },
                 "filters": {
                     "web_client": ["password-change-disabled"]
                 },
