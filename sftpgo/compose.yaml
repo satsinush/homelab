@@ -27,9 +27,9 @@ services:
     labels:
       - "traefik.enable=true"
 
-      # ── Web client: /files/web → HTTPD (8081) ─────────────────────────────
+      # ── Web client + HTTPD assets: /files/{web,static,api,openapi} → HTTPD (8081) ──
       # sftpgo.json sets web_root=/files so SFTPGo generates correct redirects.
-      - "traefik.http.routers.dav-web.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && PathPrefix(`/files/web`)"
+      - "traefik.http.routers.dav-web.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && (PathPrefix(`/files/web`) || PathPrefix(`/files/static`) || PathPrefix(`/files/api`) || PathPrefix(`/files/openapi`) || Path(`/files/healthz`))"
       - "traefik.http.routers.dav-web.entrypoints=websecure"
       - "traefik.http.routers.dav-web.tls=true"
       - "traefik.http.routers.dav-web.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
