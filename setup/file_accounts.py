@@ -31,8 +31,8 @@ def safe_username(name: str) -> str:
 
 
 def validate_password(password: str) -> None:
-    if not password or len(password) < 8:
-        raise ValueError("password must be at least 8 characters")
+    if not password or len(password) < 12:
+        raise ValueError("password must be at least 12 characters")
     if "\r" in password or "\n" in password:
         raise ValueError("password cannot contain newlines")
 

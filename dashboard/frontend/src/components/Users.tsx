@@ -76,7 +76,7 @@ const FileAccountDialog = ({ open, mode, username: initialUsername, onClose, onS
     const passwordMismatch = confirm.length > 0 && password !== confirm;
     const canSave =
         !saving &&
-        password.length >= 8 &&
+        password.length >= 12 &&
         password === confirm &&
         (mode === 'password' || username.trim().length > 0);
 
@@ -131,7 +131,7 @@ const FileAccountDialog = ({ open, mode, username: initialUsername, onClose, onS
                         onChange={(e) => setPassword(e.target.value)}
                         fullWidth
                         size="small"
-                        helperText="At least 8 characters. Used for SMB, WebDAV, and Calendar/Contacts sync."
+                        helperText="At least 12 characters. Used for SMB, WebDAV, and Calendar/Contacts sync."
                     />
                     <TextField
                         label="Confirm Password"

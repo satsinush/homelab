@@ -100,8 +100,8 @@ class ValidationUtils {
             throw new Error('Password must be a string');
         }
         
-        if (password.length < 6) {
-            throw new Error('Password must be at least 6 characters long');
+        if (password.length < 12) {
+            throw new Error('Password must be at least 12 characters long');
         }
         
         if (password.length > 128) {

@@ -219,8 +219,8 @@ const ChangePasswordModal = ({ open, onClose }: ChangePasswordModalProps) => {
             return;
         }
 
-        if (!newPassword || newPassword.length < 6) {
-            setError('New password must be at least 6 characters long');
+        if (!newPassword || newPassword.length < 12) {
+            setError('New password must be at least 12 characters long');
             return;
         }
 
@@ -307,7 +307,7 @@ const ChangePasswordModal = ({ open, onClose }: ChangePasswordModalProps) => {
                         {error && <Alert severity="error">{error}</Alert>}
                         {user?.has_local_password && passwordField('Current Password', currentPassword, setCurrentPassword, showCurrent, setShowCurrent, 'Enter your current password')}
                         {user?.has_local_password && <Divider />}
-                        {passwordField('New Password', newPassword, setNewPassword, showNew, setShowNew, 'At least 6 characters')}
+                        {passwordField('New Password', newPassword, setNewPassword, showNew, setShowNew, 'At least 12 characters')}
                         {passwordField('Confirm New Password', confirmPassword, setConfirmPassword, showConfirm, setShowConfirm, 'Must match new password')}
                     </Stack>
                 </DialogContent>

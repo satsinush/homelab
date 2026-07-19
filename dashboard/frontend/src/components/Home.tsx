@@ -1,5 +1,5 @@
 // src/components/Home.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import {
     Box,
     Typography,
@@ -10,7 +10,18 @@ import {
     Grid,
     Container,
     Chip,
-    Avatar
+    Avatar,
+    Alert,
+    AlertTitle,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    TextField,
+    InputAdornment,
+    IconButton,
+    Stack,
+    CircularProgress
 } from '@mui/material';
 import {
     Dashboard as DashboardIcon,
@@ -22,11 +33,19 @@ import {
     Chat as ChatIcon,
     People as PeopleIcon,
     Home as HomeIcon,
+    Lock as LockIcon,
+    Visibility as VisibilityIcon,
+    VisibilityOff as VisibilityOffIcon,
+    Key as KeyIcon,
+    Warning as WarningIcon
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import PageHeader from './PageHeader';
 import { useAuth } from '../contexts/useAuth';
 import { useConfig } from '../contexts/useConfig';
+import { tryApiCall } from '../utils/api';
+import { useNotification } from '../contexts/useNotification';
+import { getErrorMessage } from '../utils/errors';
 import PiHoleLogo from '../assets/pi_hole_logo.png';
 import VaultwardenLogo from '../assets/vaultwarden_logo.png';
 import GatusLogo from '../assets/gatus_logo.png';
@@ -55,9 +74,49 @@ interface ExternalService {
 }
 
 const Home = () => {
-    const { user, hasPermission } = useAuth();
+    const { user, hasPermission, refreshUser } = useAuth();
     const { config } = useConfig();
+    const { showSuccess, showError } = useNotification();
     const hostnames = config.hostnames || {};
+
+    const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+    const [password, setPassword] = useState('');
+    const [confirm, setConfirm] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [formError, setFormError] = useState('');
+
+    const passwordMismatch = confirm.length > 0 && password !== confirm;
+    const canSave = !saving && password.length >= 12 && password === confirm;
+
+    const handleSavePassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!canSave) return;
+        setSaving(true);
+        setFormError('');
+        try {
+            if (!user) return;
+            await tryApiCall('/users/profile', {
+                method: 'PUT',
+                data: {
+                    username: user.username,
+                    newPassword: password
+                }
+            });
+            showSuccess('Local sync password configured successfully');
+            setPasswordDialogOpen(false);
+            setPassword('');
+            setConfirm('');
+            await refreshUser();
+        } catch (err) {
+            const msg = getErrorMessage(err);
+            setFormError(msg);
+            showError(msg);
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const quickLinks = [
         {
@@ -193,6 +252,28 @@ const Home = () => {
                     />
                 )}
             />
+
+            {user && !user.has_local_password && (
+                <Alert
+                    severity="warning"
+                    icon={<WarningIcon fontSize="inherit" />}
+                    action={
+                        <Button
+                            color="inherit"
+                            size="small"
+                            variant="outlined"
+                            startIcon={<KeyIcon />}
+                            onClick={() => setPasswordDialogOpen(true)}
+                        >
+                            Configure Password
+                        </Button>
+                    }
+                    sx={{ mb: 4, borderRadius: 2 }}
+                >
+                    <AlertTitle sx={{ fontWeight: 600 }}>Local Sync Password Required</AlertTitle>
+                    You have signed in via SSO but haven't set up a local password. You must configure one to access file shares (Samba, WebDAV) and calendar/contacts (CalDAV/CardDAV).
+                </Alert>
+            )}
 
             {/* Quick Links Section */}
             <Box sx={{ mb: 4 }}>
@@ -330,6 +411,104 @@ const Home = () => {
                     ))}
                 </Grid>
             </Box>
+
+            <Dialog
+                open={passwordDialogOpen}
+                onClose={() => {
+                    if (!saving) {
+                        setPasswordDialogOpen(false);
+                        setPassword('');
+                        setConfirm('');
+                        setFormError('');
+                    }
+                }}
+                maxWidth="xs"
+                fullWidth
+            >
+                <form onSubmit={handleSavePassword}>
+                    <DialogTitle sx={{ fontWeight: 600 }}>Configure Local Sync Password Dialog</DialogTitle>
+                    <DialogContent>
+                        <Stack spacing={3} sx={{ mt: 1 }}>
+                            {formError && <Alert severity="error">{formError}</Alert>}
+                            <Typography variant="body2" color="text.secondary">
+                                Please set a local sync password. This password allows you to access file sync services since SSO logins aren't supported by desktop and mobile network clients.
+                            </Typography>
+                            <TextField
+                                label="New Sync Password"
+                                type={showPassword ? 'text' : 'password'}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                disabled={saving}
+                                fullWidth
+                                slotProps={{
+                                    input: {
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <LockIcon color="action" />
+                                            </InputAdornment>
+                                        ),
+                                        endAdornment: (
+                                            <InputAdornment position="end">
+                                                <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" disabled={saving}>
+                                                    {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ),
+                                    },
+                                }}
+                                helperText="Must be at least 12 characters"
+                            />
+                            <TextField
+                                label="Confirm Sync Password"
+                                type={showConfirm ? 'text' : 'password'}
+                                value={confirm}
+                                onChange={(e) => setConfirm(e.target.value)}
+                                disabled={saving}
+                                error={passwordMismatch}
+                                helperText={passwordMismatch ? "Passwords do not match" : ""}
+                                fullWidth
+                                slotProps={{
+                                    input: {
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <LockIcon color="action" />
+                                            </InputAdornment>
+                                        ),
+                                        endAdornment: (
+                                            <InputAdornment position="end">
+                                                <IconButton onClick={() => setShowConfirm(!showConfirm)} edge="end" disabled={saving}>
+                                                    {showConfirm ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ),
+                                    },
+                                }}
+                            />
+                        </Stack>
+                    </DialogContent>
+                    <DialogActions sx={{ px: 3, pb: 2 }}>
+                        <Button
+                            onClick={() => {
+                                setPasswordDialogOpen(false);
+                                setPassword('');
+                                setConfirm('');
+                                setFormError('');
+                            }}
+                            disabled={saving}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            variant="contained"
+                            disabled={!canSave}
+                            startIcon={saving ? <CircularProgress size={20} /> : null}
+                        >
+                            {saving ? 'Saving...' : 'Set Password'}
+                        </Button>
+                    </DialogActions>
+                </form>
+            </Dialog>
         </Container>
     );
 };

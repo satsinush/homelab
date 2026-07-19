@@ -392,15 +392,21 @@ class UserController {
                 return sendError(res, 401, 'No valid session found');
             }
             
+            const user = this.userModel.getUserById(req.session.user.id);
+            if (!user) {
+                return sendError(res, 404, 'User not found');
+            }
+            
             return sendSuccess(res, {
                 valid: true,
                 user: {
-                    id: req.session.user.id,
-                    username: req.session.user.username,
-                    groups: req.session.user.groups,
-                    roles: req.session.user.roles,
-                    email: req.session.user.email,
-                    is_sso_user: req.session.user.is_sso_user
+                    id: user.id,
+                    username: user.username,
+                    groups: user.groups,
+                    roles: user.roles,
+                    email: user.email,
+                    is_sso_user: user.is_sso_user,
+                    has_local_password: user.has_local_password
                 }
             });
         } catch (error: unknown) {
