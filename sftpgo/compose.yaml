@@ -12,7 +12,7 @@ services:
       SFTPGO_SFTPD__BINDINGS__0__PORT: "0"
       SFTPGO_FTPD__BINDINGS__0__PORT: "0"
       SFTPGO_WEBDAVD__BINDINGS__0__PORT: "8080"
-      SFTPGO_WEBDAVD__BINDINGS__0__PREFIX: "/"
+      SFTPGO_WEBDAVD__BINDINGS__0__PREFIX: "/files"
       # WebDAV has no session — cache authenticated users between PROPFINDs.
       SFTPGO_WEBDAVD__CACHE__USERS__EXPIRATION_TIME: "10"
       SFTPGO_WEBDAVD__CACHE__USERS__MAX_SIZE: "100"
@@ -30,7 +30,7 @@ services:
       - homelab-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.dav.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.dav.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && PathPrefix(`/files`)"
       - "traefik.http.routers.dav.entrypoints=websecure"
       - "traefik.http.routers.dav.tls=true"
       - "traefik.http.routers.dav.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
