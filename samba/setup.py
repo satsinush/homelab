@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 
-from setup.file_accounts import read_accounts_json, write_accounts_json
+from setup.file_accounts import read_accounts_json
 from setup.service import Service, VolumeDir
 from setup.storage_layout import (
     USERS_ROOT,
@@ -18,24 +18,7 @@ def sync_samba_accounts(env: dict, users: list[dict]) -> None:
     puid = str(env.get("PUID") or os.environ.get("PUID") or "1000")
     pgid = str(env.get("PGID") or os.environ.get("PGID") or "1000")
 
-    # 1. Backfill primary admin user if not present
-    default_user = (env.get("HOMELAB_USERNAME") or "").strip()
-    if default_user:
-        default_user = default_user.lower()
-        if not any(u["username"] == default_user for u in users):
-            pw_path = "./volumes/secrets/homelab_password"
-            if os.path.isfile(pw_path):
-                with open(pw_path, encoding="utf-8") as f:
-                    default_pw = f.read().strip()
-                if default_pw:
-                    users.append({
-                        "username": default_user,
-                        "password": default_pw,
-                        "isAdmin": True
-                    })
-                    write_accounts_json(users)
-                    step(f"Auto-registered default admin user: {default_user}")
-
+    # Accounts are created lazily on first dashboard login — no backfill needed here.
     for user_obj in users:
         ensure_user_home(user_obj["username"], int(puid), int(pgid))
 
