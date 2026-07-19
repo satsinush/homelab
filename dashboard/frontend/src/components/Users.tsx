@@ -186,7 +186,8 @@ const Users = () => {
 
     const davHost = config.hostnames.dav || 'dav.homelab.local';
     const homelabHost = config.homelabHostname || window.location.hostname.replace('dashboard.', '') || 'homelab.local';
-    const radicaleHost = `${davHost}/radicale`;
+    const calendarUrl = `https://${davHost}/calendar`;
+    const contactsUrl = `https://${davHost}/contacts`;
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
@@ -294,10 +295,8 @@ const Users = () => {
                                 const smbSharedWin = `\\\\${homelabHost}\\shared`;
                                 const smbPrivateMac = `smb://${homelabHost}/${u.username}`;
                                 const smbSharedMac = `smb://${homelabHost}/shared`;
-                                const webdavPrivate = `https://${davHost}/`;
-                                const webdavShared = `https://${davHost}/shared`;
-                                const radicaleUrl = `https://${radicaleHost}`;
-
+                                const webdavPrivate = `https://${davHost}/files`;
+                                const webdavShared = `https://${davHost}/files/shared`;
                                 const isUserAdmin = u.roles?.includes('homelab-admin') || u.groups?.includes('admin');
                                 const isExpanded = expandedUser === u.id;
 
@@ -441,19 +440,28 @@ const Users = () => {
 
                                                         <Box>
                                                             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                                                                Calendar & Contacts Sync (CalDAV / CardDAV)
+                                                                Calendar &amp; Contacts Sync (CalDAV / CardDAV)
                                                             </Typography>
                                                             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                                                Specify this URL in your phone or computer account settings to synchronize calendar and contacts.
+                                                                Use these URLs in DAVx⁵ (Android), Thunderbird, or iOS account settings.
                                                             </Typography>
                                                             <Stack spacing={1.5}>
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.2, bgcolor: 'background.paper', borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
                                                                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                                        <Typography variant="caption" color="text.secondary" display="block">Server Address</Typography>
-                                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{radicaleUrl}</Typography>
+                                                                        <Typography variant="caption" color="text.secondary" display="block">Calendar (CalDAV)</Typography>
+                                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{calendarUrl}</Typography>
                                                                     </Box>
-                                                                    <Button size="small" startIcon={copyFeedback === `rad_${u.id}` ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(radicaleUrl, `rad_${u.id}`)}>
-                                                                        {copyFeedback === `rad_${u.id}` ? 'Copied' : 'Copy'}
+                                                                    <Button size="small" startIcon={copyFeedback === `cal_${u.id}` ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(calendarUrl, `cal_${u.id}`)}>
+                                                                        {copyFeedback === `cal_${u.id}` ? 'Copied' : 'Copy'}
+                                                                    </Button>
+                                                                </Box>
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.2, bgcolor: 'background.paper', borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
+                                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                                        <Typography variant="caption" color="text.secondary" display="block">Contacts (CardDAV)</Typography>
+                                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{contactsUrl}</Typography>
+                                                                    </Box>
+                                                                    <Button size="small" startIcon={copyFeedback === `con_${u.id}` ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(contactsUrl, `con_${u.id}`)}>
+                                                                        {copyFeedback === `con_${u.id}` ? 'Copied' : 'Copy'}
                                                                     </Button>
                                                                 </Box>
                                                             </Stack>
