@@ -27,9 +27,9 @@ services:
     labels:
       - "traefik.enable=true"
 
-      # ── Web client + HTTPD assets: /files/{web,static,api,openapi} → HTTPD (8081) ──
+      # ── Web client: /files/web → HTTPD (8081) ─────────────────────────────
       # sftpgo.json sets web_root=/files so SFTPGo generates correct redirects.
-      - "traefik.http.routers.dav-web.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && (PathPrefix(`/files/web`) || PathPrefix(`/files/static`) || PathPrefix(`/files/api`) || PathPrefix(`/files/openapi`) || Path(`/files/healthz`))"
+      - "traefik.http.routers.dav-web.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && PathPrefix(`/files/web`)"
       - "traefik.http.routers.dav-web.entrypoints=websecure"
       - "traefik.http.routers.dav-web.tls=true"
       - "traefik.http.routers.dav-web.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
@@ -37,28 +37,22 @@ services:
       - "traefik.http.routers.dav-web.service=dav-web"
       - "traefik.http.services.dav-web.loadbalancer.server.port=8081"
 
-      # ── WebDAV: /files/<username> → WebDAV (8080) ──────────────────────────
-      # sftpgo.json sets webdavd.bindings[0].prefix=/files.
+      # ── WebDAV: /files → WebDAV (8080) ────────────────────────────────────
+      # sftpgo.json sets webdavd.bindings[0].prefix=/files — no strip needed.
+      # Uses a redirectregex middleware to enforce a trailing slash on `/files`.
       - "traefik.http.routers.dav.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && PathPrefix(`/files`)"
       - "traefik.http.routers.dav.entrypoints=websecure"
       - "traefik.http.routers.dav.tls=true"
       - "traefik.http.routers.dav.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
       - "traefik.http.routers.dav.priority=10"
+      - "traefik.http.routers.dav.middlewares=dav-slash"
       - "traefik.http.services.dav.loadbalancer.server.port=8080"
 
-      # ── Fallback: /web/* → /files/web/* redirect (priority 1) ────────────
-      # SFTPGo generates redirects without the /files prefix if web_root is
-      # not honoured; this catches them and sends the browser back on-path.
-      - "traefik.http.routers.dav-web-redirect.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && PathPrefix(`/web`)"
-      - "traefik.http.routers.dav-web-redirect.entrypoints=websecure"
-      - "traefik.http.routers.dav-web-redirect.tls=true"
-      - "traefik.http.routers.dav-web-redirect.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
-      - "traefik.http.routers.dav-web-redirect.priority=1"
-      - "traefik.http.routers.dav-web-redirect.middlewares=dav-web-rewrite"
-      - "traefik.http.routers.dav-web-redirect.service=dav-web"
-      - "traefik.http.middlewares.dav-web-rewrite.redirectregex.regex=^https?://([^/]+)/web(.*)"
-      - "traefik.http.middlewares.dav-web-rewrite.redirectregex.replacement=https://$${1}/files/web$${2}"
-      - "traefik.http.middlewares.dav-web-rewrite.redirectregex.permanent=false"
+      # ── Trailing slash redirect middleware ───────────────────────────────
+      # If a client requests /files, redirect to /files/ so SFTPGo is happy.
+      - "traefik.http.middlewares.dav-slash.redirectregex.regex=^https?://([^/]+)/files$"
+      - "traefik.http.middlewares.dav-slash.redirectregex.replacement=https://$${1}/files/"
+      - "traefik.http.middlewares.dav-slash.redirectregex.permanent=true"
 
     healthcheck:
       test: ["CMD", "sftpgo", "ping"]
