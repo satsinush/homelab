@@ -138,6 +138,9 @@ function writeSftpgoLoaddata(accounts: Map<string, FileAccount>): void {
             password: accounts.get(username)!.password,
             home_dir,
             permissions: { '/': ['*'] },
+            filters: {
+                web_client: ['password-change-disabled']
+            },
             virtual_folders: [
                 {
                     name: `personal_${username}`,

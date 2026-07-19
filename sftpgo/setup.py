@@ -61,6 +61,9 @@ def write_sftpgo_loaddata(accounts: dict[str, str] | None = None, env: dict | No
                 "password": password,
                 "home_dir": home_root_dir,
                 "permissions": {"/": ["*"]},
+                "filters": {
+                    "web_client": ["password-change-disabled"]
+                },
                 "virtual_folders": [
                     {
                         "name": f"personal_{username}",
@@ -135,9 +138,6 @@ def write_sftpgo_config() -> str:
                 }
             ],
             "web_root": _DAV_PREFIX,
-            "web_client_options": {
-                "disable_self_service_change_password": True,
-            },
         },
     }
     os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
