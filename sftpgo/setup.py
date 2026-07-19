@@ -135,6 +135,9 @@ def write_sftpgo_config() -> str:
                 }
             ],
             "web_root": _DAV_PREFIX,
+            "web_client_options": {
+                "disable_self_service_change_password": True,
+            },
         },
     }
     os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
