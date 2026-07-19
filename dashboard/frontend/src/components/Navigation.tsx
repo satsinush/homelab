@@ -58,7 +58,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
         { id: 'chat', label: 'AI Chat', icon: <ChatIcon />, path: '/chat', role: 'dashboard-chat-user' },
         { id: 'wordgames', label: 'Puzzle++', icon: <ExtensionIcon />, path: '/wordgames', role: 'dashboard-wordgames-user' },
         { id: 'packages', label: 'Packages', icon: <PackagesIcon />, path: '/packages', role: 'dashboard-packages-user' },
-        { id: 'files', label: 'Files', icon: <FilesIcon />, path: '/files' },
+        { id: 'files', label: 'Sync & Files', icon: <FilesIcon />, path: '/files' },
         { id: 'users', label: 'Users', icon: <PeopleIcon />, path: '/users', role: 'dashboard-users-user' },
         { id: 'secrets', label: 'Secrets', icon: <KeyIcon />, path: '/secrets', role: 'dashboard-secrets-user' },
         { id: 'settings', label: 'Settings', icon: <SettingsIcon />, path: '/settings' }

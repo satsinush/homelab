@@ -65,17 +65,47 @@ const Files = () => {
     const webBrowserUrl = `https://${davHost}/files/web/client`;
     const calendarPortalUrl = `https://${davHost}/calendar/.web`;
 
-    const smbPrivateWin = `\\\\${homelabHost}\\${username}`;
-    const smbSharedWin = `\\\\${homelabHost}\\shared`;
-    const smbPrivateMac = `smb://${homelabHost}/${username}`;
-    const smbSharedMac = `smb://${homelabHost}/shared`;
-    
-    // WebDAV
-    const webdavUrl = `https://${davHost}/files/`;
+    // Protocol schemes and path strings per OS
+    const formats = {
+        windows: {
+            smbPrivate: `\\\\${homelabHost}\\${username}`,
+            smbShared: `\\\\${homelabHost}\\shared`,
+            webdav: `https://${davHost}/files/`,
+            caldav: `https://${davHost}/calendar/`,
+            carddav: `https://${davHost}/contacts/`
+        },
+        macos: {
+            smbPrivate: `smb://${homelabHost}/${username}`,
+            smbShared: `smb://${homelabHost}/shared`,
+            webdav: `https://${davHost}/files/`,
+            caldav: `https://${davHost}/calendar/`,
+            carddav: `https://${davHost}/contacts/`
+        },
+        linux: {
+            smbPrivate: `smb://${homelabHost}/${username}`,
+            smbShared: `smb://${homelabHost}/shared`,
+            webdav: `https://${davHost}/files/`,
+            caldav: `https://${davHost}/calendar/`,
+            carddav: `https://${davHost}/contacts/`
+        },
+        ios: {
+            smbPrivate: `smb://${homelabHost}/${username}`,
+            smbShared: `smb://${homelabHost}/shared`,
+            webdav: `https://${davHost}/files/`,
+            caldav: `https://${davHost}/calendar/`,
+            carddav: `https://${davHost}/contacts/`
+        },
+        android: {
+            smbPrivate: `smb://${homelabHost}/${username}`,
+            smbShared: `smb://${homelabHost}/shared`,
+            webdav: `https://${davHost}/files/`,
+            caldav: `https://${davHost}/calendar/`,
+            carddav: `https://${davHost}/contacts/`
+        }
+    };
 
-    // CalDAV & CardDAV
-    const calendarUrl = `https://${davHost}/calendar/`;
-    const contactsUrl = `https://${davHost}/contacts/`;
+    const activeOS = (['windows', 'macos', 'linux', 'ios', 'android'] as const)[tabVal];
+    const strings = formats[activeOS];
 
     const handleCopy = (text: string, id: string) => {
         navigator.clipboard.writeText(text);
@@ -92,7 +122,7 @@ const Files = () => {
             <PageHeader title="Sync & Files" icon={<FilesIcon />} />
 
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                Configure network storage, WebDAV file synchronization, and CalDAV/CardDAV calendar and contacts sync.
+                Configure network file shares (Samba), WebDAV file sync, and calendar/contacts sync (CalDAV &amp; CardDAV).
             </Typography>
 
             {/* Quick Web Access Links */}
@@ -143,151 +173,79 @@ const Files = () => {
                 </Tabs>
 
                 <Box sx={{ p: { xs: 2, sm: 3 } }}>
-                    {/* WINDOWS */}
-                    {tabVal === 0 && (
-                        <Stack spacing={3}>
-                            <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Samba (SMB) Network Drives</Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                    Map these paths in File Explorer (This PC → Map network drive) to mount folders directly.
-                                </Typography>
-                                <Stack spacing={2}>
-                                    <CopyRow caption="Private storage (maps directly to your /personal folder)" label="Private Folder" value={smbPrivateWin} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_p_win" />
-                                    <CopyRow caption="Shared public storage (maps to /shared folder)" label="Shared Folder" value={smbSharedWin} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_s_win" />
-                                </Stack>
-                            </Box>
-                            <Divider />
-                            <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>WebDAV Connection</Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                    Connect using an app like Cyberduck, WinSCP or map it as a network location.
-                                </Typography>
-                                <CopyRow caption="Enter your local sync credentials when prompted" label="WebDAV Server URL" value={webdavUrl} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="dav_win" />
-                            </Box>
-                        </Stack>
-                    )}
-
-                    {/* MAC */}
-                    {tabVal === 1 && (
-                        <Stack spacing={3}>
-                            <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Samba (SMB) Shares</Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                    In Finder, press <strong>Cmd + K</strong> (or click Go → Connect to Server) and enter these server paths.
-                                </Typography>
-                                <Stack spacing={2}>
-                                    <CopyRow caption="Private storage (maps directly to your /personal folder)" label="Private Folder Server" value={smbPrivateMac} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_p_mac" />
-                                    <CopyRow caption="Shared public storage (maps to /shared folder)" label="Shared Folder Server" value={smbSharedMac} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_s_mac" />
-                                </Stack>
-                            </Box>
-                            <Divider />
-                            <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>WebDAV Mounting</Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                    Connect in Finder (Cmd + K) using the WebDAV secure protocol.
-                                </Typography>
-                                <CopyRow caption="Enter your local sync username and password when connecting" label="WebDAV Mount URL" value={webdavUrl} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="dav_mac" />
-                            </Box>
-                        </Stack>
-                    )}
-
-                    {/* LINUX */}
-                    {tabVal === 2 && (
-                        <Stack spacing={3}>
-                            <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Mounting via SMB (Samba)</Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                    Use your file manager (e.g. Nautilus, Dolphin) Connect to Server tool with these addresses.
-                                </Typography>
-                                <Stack spacing={2}>
-                                    <CopyRow label="Private Folder Link" value={smbPrivateMac} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_p_lin" />
-                                    <CopyRow label="Shared Folder Link" value={smbSharedMac} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_s_lin" />
-                                </Stack>
-                            </Box>
-                            <Divider />
-                            <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Mounting via WebDAV</Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                    Map WebDAV in your Linux environment. You can use standard URLs inside file managers:
-                                </Typography>
-                                <CopyRow caption="Change protocol scheme to davs:// inside Nautilus/Dolphin if needed" label="WebDAV URL" value={webdavUrl} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="dav_lin" />
-                            </Box>
-                        </Stack>
-                    )}
-
-                    {/* IOS */}
-                    {tabVal === 3 && (
-                        <Stack spacing={3}>
-                            <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Apple Files App (SMB)</Typography>
+                    <Stack spacing={3}>
+                        {/* File Sharing Section */}
+                        <Box>
+                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5 }}>
+                                File Sharing
+                            </Typography>
+                            
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main', mb: 1 }}>
+                                SMB (Samba Network Shares)
+                            </Typography>
+                            {activeOS === 'windows' && (
                                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                    1. Open the <strong>Files</strong> app.<br />
-                                    2. Tap the three dots (top right) and select <strong>Connect to Server</strong>.<br />
-                                    3. Enter either the Private or Shared server address below, select "Registered User", and enter your local sync password.
+                                    Map these in File Explorer (This PC → Map network drive) to mount folders directly.
                                 </Typography>
-                                <Stack spacing={2}>
-                                    <CopyRow label="Private Folder SMB Path" value={smbPrivateMac} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_p_ios" />
-                                    <CopyRow label="Shared Folder SMB Path" value={smbSharedMac} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_s_ios" />
-                                </Stack>
-                            </Box>
-                            <Divider />
-                            <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>iOS Calendar &amp; Contacts Sync (Native Accounts)</Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            )}
+                            {activeOS === 'macos' && (
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                                    In Finder, press <strong>Cmd + K</strong> (or click Go → Connect to Server) to mount these.
+                                </Typography>
+                            )}
+                            {activeOS === 'ios' && (
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                                    In the native <strong>Files</strong> app, tap the three dots (top right), choose <strong>Connect to Server</strong>, and enter either path.
+                                </Typography>
+                            )}
+                            {activeOS === 'android' && (
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                                    Connect using an app like <strong>Material Files</strong> by selecting <strong>SMB</strong> from the sidebar's Add Connection menu.
+                                </Typography>
+                            )}
+                            <Stack spacing={2} sx={{ mb: 3 }}>
+                                <CopyRow caption="Private storage (maps directly to your /personal folder)" label="Private Folder URL" value={strings.smbPrivate} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_priv" />
+                                <CopyRow caption="Shared public storage (maps to /shared folder)" label="Shared Folder URL" value={strings.smbShared} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_shared" />
+                            </Stack>
+
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main', mb: 1 }}>
+                                WebDAV
+                            </Typography>
+                            {activeOS === 'ios' || activeOS === 'android' ? (
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                                    Copy this WebDAV address to connect mobile apps, PDF readers, or document sync plugins (like Obsidian Sync).
+                                </Typography>
+                            ) : (
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                                    Connect using WebDAV clients like Cyberduck, WinSCP, or your OS file manager.
+                                </Typography>
+                            )}
+                            <CopyRow caption="Provide username and local sync password inside app configuration" label="WebDAV URL" value={strings.webdav} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="webdav" />
+                        </Box>
+
+                        <Divider />
+
+                        {/* Calendar / Contacts Section */}
+                        <Box>
+                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5 }}>
+                                Calendar / Contacts
+                            </Typography>
+                            {activeOS === 'ios' && (
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
                                     Go to Settings → Calendar (or Contacts) → Accounts → Add Account → Other. Choose Add CalDAV/CardDAV Account, select "Manual", and enter the sync URLs.
                                 </Typography>
-                                <Stack spacing={2}>
-                                    <CopyRow label="Calendar (CalDAV)" value={calendarUrl} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="cal_ios" />
-                                    <CopyRow label="Contacts (CardDAV)" value={contactsUrl} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="card_ios" />
-                                </Stack>
-                            </Box>
-                            <Divider />
-                            <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Obsidian Sync &amp; Mobile WebDAV Clients</Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                    Copy this WebDAV address to connect mobile apps, PDF readers, or document sync plugins.
-                                </Typography>
-                                <CopyRow caption="Provide username and local sync password inside app configuration" label="WebDAV URL" value={webdavUrl} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="dav_ios" />
-                            </Box>
-                        </Stack>
-                    )}
-
-                    {/* ANDROID */}
-                    {tabVal === 4 && (
-                        <Stack spacing={3}>
-                            <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Material Files Explorer (SMB)</Typography>
+                            )}
+                            {activeOS === 'android' && (
                                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                    1. Open <strong>Material Files</strong>.<br />
-                                    2. Tap the side menu and click <strong>Add connection</strong>.<br />
-                                    3. Choose <strong>SMB</strong> and input the server address and path below.
+                                    Install <strong>DAVx⁵</strong> from Google Play or F-Droid, log in using your sync credentials and one of the URLs.
                                 </Typography>
-                                <Stack spacing={2}>
-                                    <CopyRow caption="Android Private SMB Path" label="Samba Private Path" value={smbPrivateMac} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_p_and" />
-                                    <CopyRow caption="Android Shared SMB Path" label="Samba Shared Path" value={smbSharedMac} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_s_and" />
-                                </Stack>
-                            </Box>
-                            <Divider />
-                            <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>DAVx⁵ Calendar &amp; Contacts Sync</Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                    Install <strong>DAVx⁵</strong> from Google Play or F-Droid. Log in with your sync credentials.
-                                </Typography>
-                                <Stack spacing={2}>
-                                    <CopyRow label="Calendar Sync (CalDAV)" value={calendarUrl} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="cal_and" />
-                                    <CopyRow label="Contacts Sync (CardDAV)" value={contactsUrl} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="card_and" />
-                                </Stack>
-                            </Box>
-                            <Divider />
-                            <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Obsidian Sync &amp; Mobile WebDAV Clients</Typography>
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                    Copy this WebDAV address to connect mobile apps, PDF readers, or document sync plugins.
-                                </Typography>
-                                <CopyRow caption="Provide username and local sync password inside app configuration" label="WebDAV URL" value={webdavUrl} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="dav_and" />
-                            </Box>
-                        </Stack>
-                    )}
+                            )}
+                            <Stack spacing={2}>
+                                <CopyRow label="CalDAV URL" value={strings.caldav} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="caldav" />
+                                <CopyRow label="CardDAV URL" value={strings.carddav} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="carddav" />
+                            </Stack>
+                        </Box>
+                    </Stack>
                 </Box>
             </Paper>
 
