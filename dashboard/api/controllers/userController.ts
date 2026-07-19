@@ -456,9 +456,11 @@ class UserController {
             const updatedUser = await this.userModel.updateProfile(userId, validatedUsername, currentPassword, validatedNewPassword);
             
             // If the local password was updated, sync to host API!
+            // Pass updatedUser.id so the CLI can auto-create the accounts.json entry
+            // for SSO users setting their sync password for the first time.
             if (validatedNewPassword) {
                 try {
-                    await this.hostApi.updateFileAccountPassword(updatedUser.username, validatedNewPassword, undefined, updatedUser.sso_id);
+                    await this.hostApi.updateFileAccountPassword(updatedUser.username, validatedNewPassword, undefined, updatedUser.sso_id, updatedUser.id);
                 } catch (err) {
                     console.error(`Failed to sync password to host API for ${updatedUser.username}:`, err);
                 }
