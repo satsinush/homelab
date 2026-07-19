@@ -22,6 +22,7 @@ import Profile from './components/Profile';
 import Users from './components/Users';
 import Secrets from './components/Secrets';
 import NotFound from './components/NotFound';
+import Files from './components/Files';
 import './App.css';
 
 import { ReactNode } from 'react';
@@ -60,6 +61,7 @@ function AppContent() {
     if (path === '/chat') return 'chat';
     if (path === '/wordgames' || path.startsWith('/wordgames/')) return 'wordgames';
     if (path === '/packages') return 'packages';
+    if (path === '/files') return 'files';
     if (path === '/users') return 'users';
     if (path === '/secrets') return 'secrets';
     if (path === '/settings') return 'settings';
@@ -75,6 +77,7 @@ function AppContent() {
     '/chat',
     '/wordgames',
     '/packages',
+    '/files',
     '/users',
     '/secrets',
     '/settings',
@@ -169,6 +172,7 @@ function AppContent() {
                 <Route path="/wordgames" element={<ProtectedRoute role="dashboard-wordgames-user"><WordGames /></ProtectedRoute>} />
                 <Route path="/wordgames/:gameName" element={<ProtectedRoute role="dashboard-wordgames-user"><WordGames /></ProtectedRoute>} />
                 <Route path="/packages" element={<ProtectedRoute role="dashboard-packages-user"><PackageManager /></ProtectedRoute>} />
+                <Route path="/files" element={<Files />} />
                 <Route path="/users" element={<ProtectedRoute role="dashboard-users-user"><Users /></ProtectedRoute>} />
                 <Route path="/secrets" element={<ProtectedRoute role="dashboard-secrets-user"><Secrets /></ProtectedRoute>} />
                 <Route path="/settings" element={<Settings />} />

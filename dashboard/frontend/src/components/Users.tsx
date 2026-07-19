@@ -346,16 +346,6 @@ const Users = () => {
                                                 </Box>
 
                                                 <Stack direction="row" spacing={1} sx={{ alignSelf: { xs: 'stretch', sm: 'auto' }, justifyContent: 'flex-end', flexWrap: 'wrap', gap: 1 }}>
-                                                    {u.has_local_password && (
-                                                        <Button
-                                                            size="small"
-                                                            variant="outlined"
-                                                            endIcon={isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                                                            onClick={() => setExpandedUser(isExpanded ? null : u.id)}
-                                                        >
-                                                            Instructions
-                                                        </Button>
-                                                    )}
                                                     <Button
                                                         variant="outlined"
                                                         size="small"
@@ -376,99 +366,6 @@ const Users = () => {
                                                     )}
                                                 </Stack>
                                             </Box>
-
-                                            <Collapse in={isExpanded} timeout="auto" unmountOnExit sx={{ width: '100%' }}>
-                                                <Box sx={{ mt: 2.5, p: { xs: 1.5, sm: 2.5 }, bgcolor: 'action.hover', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
-                                                    <Stack spacing={3.5}>
-                                                        <Box>
-                                                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                                                                Samba (SMB) File Sharing Paths
-                                                            </Typography>
-                                                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                                                Use these connection paths to map network drives on your computer.
-                                                            </Typography>
-                                                            <Stack spacing={1.5}>
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.2, bgcolor: 'background.paper', borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
-                                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                                        <Typography variant="caption" color="text.secondary" display="block">Private Home (Windows: {smbPrivateWin} | macOS: {smbPrivateMac})</Typography>
-                                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{smbPrivateWin}</Typography>
-                                                                    </Box>
-                                                                    <Button size="small" startIcon={copyFeedback === `smb_priv_${u.id}` ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(smbPrivateWin, `smb_priv_${u.id}`)}>
-                                                                        {copyFeedback === `smb_priv_${u.id}` ? 'Copied' : 'Copy'}
-                                                                    </Button>
-                                                                </Box>
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.2, bgcolor: 'background.paper', borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
-                                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                                        <Typography variant="caption" color="text.secondary" display="block">Shared Folder (Windows: {smbSharedWin} | macOS: {smbSharedMac})</Typography>
-                                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{smbSharedWin}</Typography>
-                                                                    </Box>
-                                                                    <Button size="small" startIcon={copyFeedback === `smb_shared_${u.id}` ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(smbSharedWin, `smb_shared_${u.id}`)}>
-                                                                        {copyFeedback === `smb_shared_${u.id}` ? 'Copied' : 'Copy'}
-                                                                    </Button>
-                                                                </Box>
-                                                            </Stack>
-                                                        </Box>
-
-                                                        <Box>
-                                                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                                                                WebDAV File Storage URLs
-                                                            </Typography>
-                                                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                                                Recommended for mobile file integrations or plugins.
-                                                            </Typography>
-                                                            <Stack spacing={1.5}>
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.2, bgcolor: 'background.paper', borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
-                                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                                        <Typography variant="caption" color="text.secondary" display="block">Private Home Folder</Typography>
-                                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{webdavPrivate}</Typography>
-                                                                    </Box>
-                                                                    <Button size="small" startIcon={copyFeedback === `dav_priv_${u.id}` ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(webdavPrivate, `dav_priv_${u.id}`)}>
-                                                                        {copyFeedback === `dav_priv_${u.id}` ? 'Copied' : 'Copy'}
-                                                                    </Button>
-                                                                </Box>
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.2, bgcolor: 'background.paper', borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
-                                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                                        <Typography variant="caption" color="text.secondary" display="block">Shared Folder</Typography>
-                                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{webdavShared}</Typography>
-                                                                    </Box>
-                                                                    <Button size="small" startIcon={copyFeedback === `dav_shared_${u.id}` ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(webdavShared, `dav_shared_${u.id}`)}>
-                                                                        {copyFeedback === `dav_shared_${u.id}` ? 'Copied' : 'Copy'}
-                                                                    </Button>
-                                                                </Box>
-                                                            </Stack>
-                                                        </Box>
-
-                                                        <Box>
-                                                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                                                                Calendar &amp; Contacts Sync (CalDAV / CardDAV)
-                                                            </Typography>
-                                                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                                                Use these URLs in DAVx⁵ (Android), Thunderbird, or iOS account settings.
-                                                            </Typography>
-                                                            <Stack spacing={1.5}>
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.2, bgcolor: 'background.paper', borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
-                                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                                        <Typography variant="caption" color="text.secondary" display="block">Calendar (CalDAV)</Typography>
-                                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{calendarUrl}</Typography>
-                                                                    </Box>
-                                                                    <Button size="small" startIcon={copyFeedback === `cal_${u.id}` ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(calendarUrl, `cal_${u.id}`)}>
-                                                                        {copyFeedback === `cal_${u.id}` ? 'Copied' : 'Copy'}
-                                                                    </Button>
-                                                                </Box>
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.2, bgcolor: 'background.paper', borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
-                                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                                        <Typography variant="caption" color="text.secondary" display="block">Contacts (CardDAV)</Typography>
-                                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{contactsUrl}</Typography>
-                                                                    </Box>
-                                                                    <Button size="small" startIcon={copyFeedback === `con_${u.id}` ? <CheckIcon color="success" /> : <CopyIcon />} onClick={() => handleCopy(contactsUrl, `con_${u.id}`)}>
-                                                                        {copyFeedback === `con_${u.id}` ? 'Copied' : 'Copy'}
-                                                                    </Button>
-                                                                </Box>
-                                                            </Stack>
-                                                        </Box>
-                                                    </Stack>
-                                                </Box>
-                                            </Collapse>
                                         </ListItem>
                                     </React.Fragment>
                                 );
