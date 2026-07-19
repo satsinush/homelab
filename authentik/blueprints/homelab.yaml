@@ -102,6 +102,22 @@ entries:
         - !Find [authentik_core.group, [name, homelab-admins]]
 
   # =================================================================
+  # Password Policies
+  # =================================================================
+  - model: authentik_policies_password.passwordpolicy
+    id: password-policy-12-char
+    identifiers:
+      name: "12-char-min-policy"
+    attrs:
+      name: "12-char-min-policy"
+      amount_digits: 0
+      amount_uppercase: 0
+      amount_lowercase: 0
+      amount_symbols: 0
+      length_min: 12
+      error_message: "Password must be at least 12 characters long."
+
+  # =================================================================
   # =================================================================
   # Custom Scope Mappings
   # =================================================================
