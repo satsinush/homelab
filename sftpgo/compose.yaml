@@ -51,6 +51,7 @@ services:
       - "traefik.http.routers.dav.tls=true"
       - "traefik.http.routers.dav.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
       - "traefik.http.routers.dav.priority=10"
+      - "traefik.http.routers.dav.service=dav"
       - "traefik.http.services.dav.loadbalancer.server.port=8080"
 
       # ── Redirect middleware ───────────────────────────────────────────────
