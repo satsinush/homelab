@@ -13,7 +13,11 @@ from setup.utils import compose_up
 
 _USERS_HOME_PREFIX = "/srv/sftpgo/storage/users/"
 LOADDATA_PATH = "./sftpgo/volumes/config/loaddata.json"
+CONFIG_PATH = "./sftpgo/volumes/config/sftpgo.json"
 SHARED_GROUP = "file-users"
+
+# Public URL prefix for both WebDAV and the web client UI.
+_DAV_PREFIX = "/files"
 
 
 def write_sftpgo_loaddata(accounts: dict[str, str] | None = None) -> str:
@@ -75,6 +79,37 @@ def write_sftpgo_loaddata(accounts: dict[str, str] | None = None) -> str:
     return LOADDATA_PATH
 
 
+def write_sftpgo_config() -> str:
+    """Generate sftpgo.json with WebDAV prefix and HTTPD web root set to _DAV_PREFIX."""
+    config = {
+        "webdavd": {
+            "bindings": [
+                {
+                    "address": "",
+                    "port": 8080,
+                    "prefix": _DAV_PREFIX,
+                }
+            ]
+        },
+        "httpd": {
+            "bindings": [
+                {
+                    "address": "",
+                    "port": 8081,
+                    "enable_web_admin": False,
+                    "enable_web_client": True,
+                }
+            ],
+            "web_root": _DAV_PREFIX,
+        },
+    }
+    os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2)
+        f.write("\n")
+    return CONFIG_PATH
+
+
 def sync_sftpgo_from_accounts(*, recreate: bool = True) -> None:
     """Regenerate loaddata from accounts.env and optionally recreate SFTPGo."""
     accounts = read_accounts_env()
@@ -101,6 +136,8 @@ class SftpgoService(Service):
         ensure_all_user_homes(puid, pgid)
         accounts = read_accounts_env()
         write_sftpgo_loaddata(accounts)
+        write_sftpgo_config()
+        ok(f"Wrote SFTPGo config (WebDAV+HTTPD prefix: {_DAV_PREFIX})")
         if accounts:
             ok(
                 f"WebDAV users from {ACCOUNTS_ENV} "
