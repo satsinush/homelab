@@ -120,14 +120,14 @@ entries:
   - model: authentik_policies.policybinding
     identifiers:
       target: !Find [authentik_flows.flow, [slug, default-password-change]]
-      policy: !KeyOf password-policy-12-char
+      policy: !Find [authentik_policies_password.passwordpolicy, [name, "12-char-min-policy"]]
     attrs:
       order: 0
 
   - model: authentik_policies.policybinding
     identifiers:
       target: !Find [authentik_flows.flow, [slug, default-source-enrollment-write]]
-      policy: !KeyOf password-policy-12-char
+      policy: !Find [authentik_policies_password.passwordpolicy, [name, "12-char-min-policy"]]
     attrs:
       order: 0
 
