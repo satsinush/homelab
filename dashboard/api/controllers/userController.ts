@@ -221,6 +221,15 @@ class UserController {
             const user = await this.userModel.createOrUpdateSSOUser(userinfo);
             console.log('User authenticated:', user.username);
 
+            // Synchronize username changes (renames file storage folder if needed)
+            if (userinfo.sub) {
+                try {
+                    await this.hostApi.syncSsoUsername(userinfo.sub, user.username);
+                } catch (err) {
+                    console.error('Failed to sync SSO username to file shares on host API:', err);
+                }
+            }
+
             // Store user info + id_token (for RP-initiated logout) in session
             req.session.userId = user.id;
             req.session.user = {
@@ -561,8 +570,14 @@ class UserController {
             // Create user locally in database
             const localUser = await this.userModel.createLocalUser(username, password, `${username}@${config.homelabHostname || 'homelab.home.arpa'}`);
             const isAdmin = localUser?.roles?.includes('homelab-admin') || false;
-            // Call host API to write env and sync
-            await this.hostApi.createFileAccount(username, password, isAdmin);
+            
+            // Get sso_id if this username corresponds to an SSO user
+            const stmt = (this.userModel as any).db.prepare('SELECT sso_id FROM users WHERE LOWER(username) = LOWER(?)');
+            const row = stmt.get(username) as { sso_id?: string } | undefined;
+            const ssoId = row?.sso_id || undefined;
+
+            // Call host API to write config and sync
+            await this.hostApi.createFileAccount(username, password, isAdmin, ssoId);
             return sendSuccess(res, { message: `User account "${username}" created` });
         } catch (error: unknown) {
             console.error('Create file account error:', error);
@@ -579,12 +594,15 @@ class UserController {
             }
             // Update user password locally in database
             await this.userModel.updateLocalPassword(username, password);
-            // Retrieve target user profile from DB to determine admin status
-            const users = this.userModel.getAllUsers();
-            const targetUser = users.find(u => u.username.toLowerCase() === username.toLowerCase());
-            const isAdmin = targetUser?.roles?.includes('homelab-admin') || false;
-            // Call host API to write env and sync
-            await this.hostApi.updateFileAccountPassword(username, password, isAdmin);
+            // Retrieve target user profile from DB to determine admin status and SSO link
+            const stmt = (this.userModel as any).db.prepare('SELECT roles, sso_id FROM users WHERE LOWER(username) = LOWER(?)');
+            const row = stmt.get(username) as { roles: string; sso_id?: string } | undefined;
+            const userRoles = row ? (JSON.parse(row.roles || '[]') as string[]) : [];
+            const isAdmin = userRoles.includes('homelab-admin');
+            const ssoId = row?.sso_id || undefined;
+
+            // Call host API to write config and sync
+            await this.hostApi.updateFileAccountPassword(username, password, isAdmin, ssoId);
             return sendSuccess(res, { message: `Local password updated for "${username}"` });
         } catch (error: unknown) {
             console.error('Update file account password error:', error);

@@ -15,6 +15,7 @@ import {
     deleteAccount,
     listAccounts,
     updateAccountPassword,
+    syncSsoUsername,
     REPO_ROOT
 } from './utils/fileAccounts';
 
@@ -756,12 +757,12 @@ app.get('/file-accounts', async (req: Request, res: Response) => {
  *         description: Validation error or duplicate account
  */
 app.post('/file-accounts', async (req: Request, res: Response) => {
-    const { username, password, isAdmin } = req.body || {};
+    const { username, password, isAdmin, ssoId } = req.body || {};
     if (!username || !password) {
         return res.status(400).json({ success: false, error: 'username and password are required' });
     }
     try {
-        const created = await createAccount(username, password, isAdmin === true || isAdmin === 'true');
+        const created = await createAccount(username, password, isAdmin === true || isAdmin === 'true', ssoId);
         res.json({ success: true, data: { username: created }, timestamp: new Date().toISOString() });
     } catch (err: unknown) {
         res.status(400).json({ success: false, error: getErrorMessage(err) });
@@ -796,12 +797,12 @@ app.post('/file-accounts', async (req: Request, res: Response) => {
  *         description: Validation error or unknown account
  */
 app.put('/file-accounts/:username/password', async (req: Request, res: Response) => {
-    const { password, isAdmin } = req.body || {};
+    const { password, isAdmin, ssoId } = req.body || {};
     if (!password) {
         return res.status(400).json({ success: false, error: 'password is required' });
     }
     try {
-        const updated = await updateAccountPassword(String(req.params.username), password, isAdmin === true || isAdmin === 'true');
+        const updated = await updateAccountPassword(String(req.params.username), password, isAdmin === true || isAdmin === 'true', ssoId);
         res.json({ success: true, data: { username: updated }, timestamp: new Date().toISOString() });
     } catch (err: unknown) {
         res.status(400).json({ success: false, error: getErrorMessage(err) });
@@ -829,6 +830,19 @@ app.delete('/file-accounts/:username', async (req: Request, res: Response) => {
     try {
         const deleted = await deleteAccount(String(req.params.username));
         res.json({ success: true, data: { username: deleted }, timestamp: new Date().toISOString() });
+    } catch (err: unknown) {
+        res.status(400).json({ success: false, error: getErrorMessage(err) });
+    }
+});
+
+app.post('/file-accounts/sync-username', async (req: Request, res: Response) => {
+    const { ssoId, username } = req.body || {};
+    if (!ssoId || !username) {
+        return res.status(400).json({ success: false, error: 'ssoId and username are required' });
+    }
+    try {
+        await syncSsoUsername(ssoId, username);
+        res.json({ success: true, data: { message: 'Username sync applied successfully' }, timestamp: new Date().toISOString() });
     } catch (err: unknown) {
         res.status(400).json({ success: false, error: getErrorMessage(err) });
     }

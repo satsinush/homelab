@@ -38,10 +38,10 @@ def write_sftpgo_loaddata(users_list: list[dict], env: dict | None = None) -> st
         password = user_obj["password"]
         
         ensure_user_home(username, puid, pgid)
-        # Create an empty hidden directory inside sftpgo volumes to serve as the user's isolated home root.
-        # This keeps the root directory "/" clean and avoids cluttering storage.
-        home_root_dir = f"/var/lib/sftpgo/home_roots/.home_{username}"
-        os.makedirs(f"./sftpgo/volumes/data/home_roots/.home_{username}", exist_ok=True)
+        # Create a single shared empty directory inside sftpgo volumes to serve as the user's isolated home root.
+        # This keeps the root directory "/" clean and avoids cluttering storage or creating directories per user.
+        home_root_dir = "/var/lib/sftpgo/home_roots/empty_root"
+        os.makedirs("./sftpgo/volumes/data/home_roots/empty_root", exist_ok=True)
         
         # Add user's personal directory as an SFTPGo folder
         folders.append(
