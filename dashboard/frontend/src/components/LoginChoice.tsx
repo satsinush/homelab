@@ -21,19 +21,12 @@ import {
 import LocalLogin from './LocalLogin';
 import { useConfig } from '../contexts/useConfig';
 
-/** Sync read — must run before auto-SSO effect (useEffect would be too late). */
-function initialSkipAutoSso(): boolean {
-    if (typeof window === 'undefined') return false;
-    const params = new URLSearchParams(window.location.search);
-    return !!params.get('sso_error') || params.get('local') === '1';
-}
+
 
 const LoginChoice = () => {
     const [showLocalLogin, setShowLocalLogin] = useState(false);
     const [ssoError, setSsoError] = useState('');
     const [ssoLoading, setSsoLoading] = useState(false);
-    const [preferLocal, setPreferLocal] = useState(false);
-    const [skipAutoSso, setSkipAutoSso] = useState(initialSkipAutoSso);
     const { config, loading: configLoading } = useConfig();
     const disableLocalAuth = config.disableLocalAuth;
     const ssoEnabled = config.ssoEnabled;
@@ -43,12 +36,9 @@ const LoginChoice = () => {
         const error = params.get('sso_error');
         if (error) {
             setSsoError(error);
-            setSkipAutoSso(true);
             params.delete('sso_error');
         }
         if (params.get('local') === '1') {
-            setPreferLocal(true);
-            setSkipAutoSso(true);
             params.delete('local');
         }
         const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`;
@@ -57,7 +47,6 @@ const LoginChoice = () => {
 
     const handleSSOLogin = () => {
         setSsoError('');
-        setSkipAutoSso(false);
         setSsoLoading(true);
         window.location.href = '/api/users/sso-login';
     };

@@ -2,8 +2,6 @@
 import React, { useState } from 'react';
 import {
     Box,
-    Card,
-    CardContent,
     Typography,
     Container,
     Tabs,
@@ -11,7 +9,9 @@ import {
     Button,
     Stack,
     Divider,
-    Paper
+    Paper,
+    Link,
+    Alert
 } from '@mui/material';
 import {
     FolderCopy as FilesIcon,
@@ -21,7 +21,10 @@ import {
     Apple as MacIcon,
     Terminal as LinuxIcon,
     PhoneIphone as IosIcon,
-    Android as AndroidIcon
+    Android as AndroidIcon,
+    Launch as OpenIcon,
+    CalendarMonth as CalendarIcon,
+    FolderShared as WebBrowserIcon
 } from '@mui/icons-material';
 import PageHeader from './PageHeader';
 import { useConfig } from '../contexts/useConfig';
@@ -59,11 +62,20 @@ const Files = () => {
     const homelabHost = config.homelabHostname || window.location.hostname.replace('dashboard.', '') || 'homelab.local';
     const username = user?.username || 'username';
 
+    const webBrowserUrl = `https://${davHost}/files/web/client`;
+    const calendarPortalUrl = `https://${davHost}/calendar/.web`;
+
     const smbPrivateWin = `\\\\${homelabHost}\\${username}`;
     const smbSharedWin = `\\\\${homelabHost}\\shared`;
     const smbPrivateMac = `smb://${homelabHost}/${username}`;
     const smbSharedMac = `smb://${homelabHost}/shared`;
+    
+    // WebDAV
     const webdavUrl = `https://${davHost}/files/`;
+
+    // CalDAV & CardDAV
+    const calendarUrl = `https://${davHost}/calendar/`;
+    const contactsUrl = `https://${davHost}/contacts/`;
 
     const handleCopy = (text: string, id: string) => {
         navigator.clipboard.writeText(text);
@@ -77,11 +89,41 @@ const Files = () => {
 
     return (
         <Container maxWidth="md" sx={{ py: { xs: 2, md: 4 } }}>
-            <PageHeader title="File Services" icon={<FilesIcon />} />
+            <PageHeader title="Sync & Files" icon={<FilesIcon />} />
 
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-                Access and sync your private files and shared network storage. You can mount folders directly to your desktop or connect using WebDAV on mobile devices.
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                Configure network storage, WebDAV file synchronization, and CalDAV/CardDAV calendar and contacts sync.
             </Typography>
+
+            {/* Quick Web Access Links */}
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 4 }}>
+                <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<WebBrowserIcon />}
+                    endIcon={<OpenIcon />}
+                    component={Link}
+                    href={webBrowserUrl}
+                    target="_blank"
+                    rel="noopener"
+                    sx={{ flex: 1, textDecoration: 'none', py: 1.5 }}
+                >
+                    Open File Browser
+                </Button>
+                <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<CalendarIcon />}
+                    endIcon={<OpenIcon />}
+                    component={Link}
+                    href={calendarPortalUrl}
+                    target="_blank"
+                    rel="noopener"
+                    sx={{ flex: 1, textDecoration: 'none', py: 1.5 }}
+                >
+                    Open Calendar Portal
+                </Button>
+            </Stack>
 
             <Paper sx={{ mb: 4, border: '1px solid', borderColor: 'divider' }}>
                 <Tabs
@@ -190,6 +232,17 @@ const Files = () => {
                             </Box>
                             <Divider />
                             <Box>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>iOS Calendar &amp; Contacts Sync (Native Accounts)</Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                    Go to Settings → Calendar (or Contacts) → Accounts → Add Account → Other. Choose Add CalDAV/CardDAV Account, select "Manual", and enter the sync URLs.
+                                </Typography>
+                                <Stack spacing={2}>
+                                    <CopyRow label="Calendar (CalDAV)" value={calendarUrl} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="cal_ios" />
+                                    <CopyRow label="Contacts (CardDAV)" value={contactsUrl} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="card_ios" />
+                                </Stack>
+                            </Box>
+                            <Divider />
+                            <Box>
                                 <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Obsidian Sync &amp; Mobile WebDAV Clients</Typography>
                                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                                     Copy this WebDAV address to connect mobile apps, PDF readers, or document sync plugins.
@@ -203,21 +256,47 @@ const Files = () => {
                     {tabVal === 4 && (
                         <Stack spacing={3}>
                             <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Material Files Explorer (WebDAV &amp; SMB)</Typography>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Material Files Explorer (SMB)</Typography>
                                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
                                     1. Open <strong>Material Files</strong>.<br />
                                     2. Tap the side menu and click <strong>Add connection</strong>.<br />
-                                    3. Choose <strong>WebDAV</strong> (recommended for mobile) or **SMB** and enter the credentials below.
+                                    3. Choose <strong>SMB</strong> and input the server address and path below.
                                 </Typography>
                                 <Stack spacing={2}>
-                                    <CopyRow caption="Obsidian sync and mobile explorer target URL" label="WebDAV Connection URL" value={webdavUrl} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="dav_and" />
-                                    <CopyRow caption="Local file sharing server path" label="Samba Private Path" value={smbPrivateMac} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_p_and" />
+                                    <CopyRow caption="Android Private SMB Path" label="Samba Private Path" value={smbPrivateMac} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_p_and" />
+                                    <CopyRow caption="Android Shared SMB Path" label="Samba Shared Path" value={smbSharedMac} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_s_and" />
                                 </Stack>
+                            </Box>
+                            <Divider />
+                            <Box>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>DAVx⁵ Calendar &amp; Contacts Sync</Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                    Install <strong>DAVx⁵</strong> from Google Play or F-Droid. Log in with your sync credentials.
+                                </Typography>
+                                <Stack spacing={2}>
+                                    <CopyRow label="Calendar Sync (CalDAV)" value={calendarUrl} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="cal_and" />
+                                    <CopyRow label="Contacts Sync (CardDAV)" value={contactsUrl} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="card_and" />
+                                </Stack>
+                            </Box>
+                            <Divider />
+                            <Box>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Obsidian Sync &amp; Mobile WebDAV Clients</Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                    Copy this WebDAV address to connect mobile apps, PDF readers, or document sync plugins.
+                                </Typography>
+                                <CopyRow caption="Provide username and local sync password inside app configuration" label="WebDAV URL" value={webdavUrl} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="dav_and" />
                             </Box>
                         </Stack>
                     )}
                 </Box>
             </Paper>
+
+            <Alert severity="info" sx={{ border: '1px solid', borderColor: 'info.light' }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>Note on Sync URLs:</Typography>
+                <Typography variant="body2">
+                    In most modern calendar or contact apps (such as DAVx⁵ or iOS Native settings), you only need to enter <strong>one</strong> of the CalDAV or CardDAV URLs. The client will automatically detect your other resources (calendars, address books) published under your username.
+                </Typography>
+            </Alert>
         </Container>
     );
 };

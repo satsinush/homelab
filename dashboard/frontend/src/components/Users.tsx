@@ -10,8 +10,6 @@ import {
     Button,
     List,
     ListItem,
-    ListItemText,
-    ListItemAvatar,
     Divider,
     Chip,
     Avatar,
@@ -21,7 +19,6 @@ import {
     DialogContent,
     DialogActions,
     TextField,
-    Collapse,
     Alert,
     AlertTitle
 } from '@mui/material';
@@ -29,21 +26,15 @@ import {
     Shield as AdminIcon,
     Cloud as SSOIcon,
     Computer as LocalIcon,
-    Folder as FolderIcon,
     Add as AddIcon,
     Key as KeyIcon,
     People as PeopleIcon,
-    ExpandMore as ExpandMoreIcon,
-    ExpandLess as ExpandLessIcon,
-    ContentCopy as CopyIcon,
-    Check as CheckIcon,
     Warning as WarningIcon
 } from '@mui/icons-material';
 import PageHeader from './PageHeader';
 import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/useNotification';
 import { useAuth } from '../contexts/useAuth';
-import { useConfig } from '../contexts/useConfig';
 
 import { getErrorMessage } from '../utils/errors';
 
@@ -173,8 +164,6 @@ const FileAccountDialog = ({ open, mode, username: initialUsername, onClose, onS
 const Users = () => {
     const [usersList, setUsersList] = useState<UserListItem[]>([]);
     const [loading, setLoading] = useState(true);
-    const [expandedUser, setExpandedUser] = useState<number | null>(null);
-    const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
     const [fileDialog, setFileDialog] = useState<{ open: boolean; mode: 'create' | 'password'; username: string }>({
         open: false,
         mode: 'create',
@@ -182,12 +171,6 @@ const Users = () => {
     });
     const { showSuccess, showError, showConfirmDialog } = useNotification();
     const { user: currentUser } = useAuth();
-    const { config } = useConfig();
-
-    const davHost = config.hostnames.dav || 'dav.homelab.local';
-    const homelabHost = config.homelabHostname || window.location.hostname.replace('dashboard.', '') || 'homelab.local';
-    const calendarUrl = `https://${davHost}/calendar`;
-    const contactsUrl = `https://${davHost}/contacts`;
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
@@ -204,12 +187,6 @@ const Users = () => {
     useEffect(() => {
         fetchUsers();
     }, [fetchUsers]);
-
-    const handleCopy = (text: string, id: string) => {
-        navigator.clipboard.writeText(text);
-        setCopyFeedback(id);
-        setTimeout(() => setCopyFeedback(null), 2000);
-    };
 
     const handleDeleteUser = (u: UserListItem) => {
         showConfirmDialog({
@@ -291,14 +268,7 @@ const Users = () => {
                     ) : (
                         <List disablePadding>
                             {usersList.map((u, idx) => {
-                                const smbPrivateWin = `\\\\${homelabHost}\\${u.username}`;
-                                const smbSharedWin = `\\\\${homelabHost}\\shared`;
-                                const smbPrivateMac = `smb://${homelabHost}/${u.username}`;
-                                const smbSharedMac = `smb://${homelabHost}/shared`;
-                                const webdavPrivate = `https://${davHost}/files`;
-                                const webdavShared = `https://${davHost}/files/shared`;
                                 const isUserAdmin = u.roles?.includes('homelab-admin') || u.groups?.includes('admin');
-                                const isExpanded = expandedUser === u.id;
 
                                 return (
                                     <React.Fragment key={u.id}>
