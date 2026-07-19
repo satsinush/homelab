@@ -1,8 +1,8 @@
-// src/components/AuthGuard.jsx
 import React from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useAuth } from '../contexts/useAuth';
 import LoginChoice from './LoginChoice';
+import SetupLocalPassword from './SetupLocalPassword';
 import { ReactNode } from 'react';
 
 interface AuthGuardProps {
@@ -10,7 +10,7 @@ interface AuthGuardProps {
 }
 
 const AuthGuard = ({ children }: AuthGuardProps) => {
-    const { isAuthenticated, loading } = useAuth();
+    const { isAuthenticated, user, loading } = useAuth();
 
     if (loading) {
         return (
@@ -21,7 +21,6 @@ const AuthGuard = ({ children }: AuthGuardProps) => {
                     alignItems: 'center',
                     justifyContent: 'center',
                     minHeight: '100vh',
-                    // background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
                 }}
             >
                 <CircularProgress size={60} sx={{ mb: 2 }} />
@@ -34,6 +33,10 @@ const AuthGuard = ({ children }: AuthGuardProps) => {
 
     if (!isAuthenticated) {
         return <LoginChoice />;
+    }
+
+    if (user && !user.has_local_password) {
+        return <SetupLocalPassword />;
     }
 
     return children;
