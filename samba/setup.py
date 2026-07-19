@@ -11,7 +11,7 @@ from setup.storage_layout import (
     ensure_storage_layout,
     ensure_user_home,
 )
-from setup.ui import info, ok, section, step, warn
+from setup.ui import info, ok, section, warn
 
 
 def sync_samba_accounts(env: dict, users: list[dict]) -> None:
