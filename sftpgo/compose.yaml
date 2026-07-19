@@ -37,14 +37,28 @@ services:
       - "traefik.http.routers.dav-web.service=dav-web"
       - "traefik.http.services.dav-web.loadbalancer.server.port=8081"
 
-      # ── WebDAV: /files → WebDAV (8080) ────────────────────────────────────
-      # sftpgo.json sets webdavd.bindings[0].prefix=/files — no strip needed.
+      # ── WebDAV: /files/<username> → WebDAV (8080) ──────────────────────────
+      # sftpgo.json sets webdavd.bindings[0].prefix=/files.
       - "traefik.http.routers.dav.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && PathPrefix(`/files`)"
       - "traefik.http.routers.dav.entrypoints=websecure"
       - "traefik.http.routers.dav.tls=true"
       - "traefik.http.routers.dav.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
       - "traefik.http.routers.dav.priority=10"
       - "traefik.http.services.dav.loadbalancer.server.port=8080"
+
+      # ── Fallback: /web/* → /files/web/* redirect (priority 1) ────────────
+      # SFTPGo generates redirects without the /files prefix if web_root is
+      # not honoured; this catches them and sends the browser back on-path.
+      - "traefik.http.routers.dav-web-redirect.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && PathPrefix(`/web`)"
+      - "traefik.http.routers.dav-web-redirect.entrypoints=websecure"
+      - "traefik.http.routers.dav-web-redirect.tls=true"
+      - "traefik.http.routers.dav-web-redirect.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.routers.dav-web-redirect.priority=1"
+      - "traefik.http.routers.dav-web-redirect.middlewares=dav-web-rewrite"
+      - "traefik.http.routers.dav-web-redirect.service=dav-web"
+      - "traefik.http.middlewares.dav-web-rewrite.redirectregex.regex=^https?://([^/]+)/web(.*)"
+      - "traefik.http.middlewares.dav-web-rewrite.redirectregex.replacement=https://$${1}/files/web$${2}"
+      - "traefik.http.middlewares.dav-web-rewrite.redirectregex.permanent=false"
 
     healthcheck:
       test: ["CMD", "sftpgo", "ping"]

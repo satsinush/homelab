@@ -755,12 +755,12 @@ app.get('/file-accounts', (req: Request, res: Response) => {
  *         description: Validation error or duplicate account
  */
 app.post('/file-accounts', async (req: Request, res: Response) => {
-    const { username, password } = req.body || {};
+    const { username, password, isAdmin } = req.body || {};
     if (!username || !password) {
         return res.status(400).json({ success: false, error: 'username and password are required' });
     }
     try {
-        const created = await createAccount(username, password);
+        const created = await createAccount(username, password, isAdmin === true || isAdmin === 'true');
         res.json({ success: true, data: { username: created }, timestamp: new Date().toISOString() });
     } catch (err: unknown) {
         res.status(400).json({ success: false, error: getErrorMessage(err) });
@@ -795,12 +795,12 @@ app.post('/file-accounts', async (req: Request, res: Response) => {
  *         description: Validation error or unknown account
  */
 app.put('/file-accounts/:username/password', async (req: Request, res: Response) => {
-    const { password } = req.body || {};
+    const { password, isAdmin } = req.body || {};
     if (!password) {
         return res.status(400).json({ success: false, error: 'password is required' });
     }
     try {
-        const updated = await updateAccountPassword(String(req.params.username), password);
+        const updated = await updateAccountPassword(String(req.params.username), password, isAdmin === true || isAdmin === 'true');
         res.json({ success: true, data: { username: updated }, timestamp: new Date().toISOString() });
     } catch (err: unknown) {
         res.status(400).json({ success: false, error: getErrorMessage(err) });

@@ -23,6 +23,7 @@ const SFTPGO_SHARED_GROUP = 'file-users';
 export interface FileAccount {
     username: string;
     password: string;
+    isAdmin?: boolean;
 }
 
 export function safeUsername(name: string): string {
@@ -57,6 +58,8 @@ export function readAccounts(): Map<string, FileAccount> {
         const value = line.slice(idx + 1);
         if (key.startsWith('ACCOUNT_')) {
             const username = key.slice('ACCOUNT_'.length);
+            // Read optional config metadata from env variable suffix or similar if we ever need to persist,
+            // but for now, we just pass the flag when calling writeSftpgoLoaddata.
             accounts.set(username, { username, password: value });
         }
     }
@@ -71,9 +74,6 @@ function writeAccounts(accounts: Map<string, FileAccount>): void {
     } catch {
         // Best-effort.
     }
-    // UID_/GROUPS_ are intentionally NOT written: duplicate uids corrupt the
-    // samba container's passdb. Uids are auto-assigned in the container and
-    // file ownership is forced to PUID:PGID by the share config.
     const lines = [
         '# User accounts for Samba (SMB), SFTPGo (WebDAV), and Radicale (CalDAV/CardDAV).',
         '# Shared source of truth — managed by setup scripts and the dashboard.',
@@ -97,6 +97,17 @@ function ensureUserHome(username: string): void {
 }
 
 function writeSftpgoLoaddata(accounts: Map<string, FileAccount>): void {
+    // SFTPGo admins are users who have isAdmin set to true in their FileAccount object
+    const admins = [...accounts.values()]
+        .filter((acc) => acc.isAdmin === true)
+        .sort((a, b) => a.username.localeCompare(b.username))
+        .map((acc) => ({
+            username: acc.username,
+            password: acc.password,
+            status: 1,
+            permissions: ['*']
+        }));
+
     const users = [...accounts.keys()].sort().map((username) => ({
         status: 1,
         username,
@@ -107,6 +118,7 @@ function writeSftpgoLoaddata(accounts: Map<string, FileAccount>): void {
     }));
 
     const payload = {
+        admins,
         users,
         folders: [
             {
@@ -175,13 +187,14 @@ async function applyAccounts(accounts: Map<string, FileAccount>): Promise<void> 
     await recreateContainers();
 }
 
+// Keep signature to match what's exported/used. We'll map internally.
 export function listAccounts(): Array<{ username: string }> {
     return [...readAccounts().values()]
         .map(({ username }) => ({ username }))
         .sort((a, b) => a.username.localeCompare(b.username));
 }
 
-export async function createAccount(usernameRaw: string, password: string): Promise<string> {
+export async function createAccount(usernameRaw: string, password: string, isAdmin?: boolean): Promise<string> {
     const username = safeUsername(usernameRaw);
     validatePassword(password);
     const accounts = readAccounts();
@@ -189,12 +202,12 @@ export async function createAccount(usernameRaw: string, password: string): Prom
         throw new Error(`Account "${username}" already exists`);
     }
     ensureUserHome(username);
-    accounts.set(username, { username, password });
+    accounts.set(username, { username, password, isAdmin });
     await applyAccounts(accounts);
     return username;
 }
 
-export async function updateAccountPassword(usernameRaw: string, password: string): Promise<string> {
+export async function updateAccountPassword(usernameRaw: string, password: string, isAdmin?: boolean): Promise<string> {
     const username = safeUsername(usernameRaw);
     validatePassword(password);
     const accounts = readAccounts();
@@ -202,7 +215,7 @@ export async function updateAccountPassword(usernameRaw: string, password: strin
     if (!existing) {
         throw new Error(`Account "${username}" not found`);
     }
-    accounts.set(username, { ...existing, password });
+    accounts.set(username, { ...existing, password, ...(isAdmin !== undefined ? { isAdmin } : {}) });
     await applyAccounts(accounts);
     return username;
 }

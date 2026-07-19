@@ -20,7 +20,7 @@ SHARED_GROUP = "file-users"
 _DAV_PREFIX = "/files"
 
 
-def write_sftpgo_loaddata(accounts: dict[str, str] | None = None) -> str:
+def write_sftpgo_loaddata(accounts: dict[str, str] | None = None, env: dict | None = None) -> str:
     """Generate loaddata.json: shared folder + local users from accounts/accounts.env."""
     if accounts is None:
         accounts = read_accounts_env()
@@ -41,7 +41,23 @@ def write_sftpgo_loaddata(accounts: dict[str, str] | None = None) -> str:
             }
         )
 
+    admin_user = (env.get("HOMELAB_USERNAME") if env else None) or os.environ.get("HOMELAB_USERNAME") or "admin"
+    admin_user = admin_user.lower()
+    pw_path = "./volumes/secrets/homelab_password"
+    admin_pw = ""
+    if os.path.isfile(pw_path):
+        with open(pw_path, encoding="utf-8") as f:
+            admin_pw = f.read().strip()
+
     payload = {
+        "admins": [
+            {
+                "username": admin_user,
+                "password": admin_pw or "changeme",
+                "status": 1,
+                "permissions": ["*"],
+            }
+        ] if admin_pw or admin_user else [],
         "users": users,
         "folders": [
             {
@@ -135,7 +151,7 @@ class SftpgoService(Service):
         ensure_storage_layout(puid, pgid)
         ensure_all_user_homes(puid, pgid)
         accounts = read_accounts_env()
-        write_sftpgo_loaddata(accounts)
+        write_sftpgo_loaddata(accounts, env=env)
         write_sftpgo_config()
         ok(f"Wrote SFTPGo config (WebDAV+HTTPD prefix: {_DAV_PREFIX})")
         if accounts:

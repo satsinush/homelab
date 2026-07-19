@@ -559,9 +559,10 @@ class UserController {
                 return sendError(res, 400, 'Username and password are required');
             }
             // Create user locally in database
-            await this.userModel.createLocalUser(username, password, `${username}@${config.homelabHostname || 'homelab.home.arpa'}`);
+            const localUser = await this.userModel.createLocalUser(username, password, `${username}@${config.homelabHostname || 'homelab.home.arpa'}`);
+            const isAdmin = localUser?.roles?.includes('homelab-admin') || false;
             // Call host API to write env and sync
-            await this.hostApi.createFileAccount(username, password);
+            await this.hostApi.createFileAccount(username, password, isAdmin);
             return sendSuccess(res, { message: `User account "${username}" created` });
         } catch (error: unknown) {
             console.error('Create file account error:', error);
@@ -578,8 +579,12 @@ class UserController {
             }
             // Update user password locally in database
             await this.userModel.updateLocalPassword(username, password);
+            // Retrieve target user profile from DB to determine admin status
+            const users = this.userModel.getAllUsers();
+            const targetUser = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+            const isAdmin = targetUser?.roles?.includes('homelab-admin') || false;
             // Call host API to write env and sync
-            await this.hostApi.updateFileAccountPassword(username, password);
+            await this.hostApi.updateFileAccountPassword(username, password, isAdmin);
             return sendSuccess(res, { message: `Local password updated for "${username}"` });
         } catch (error: unknown) {
             console.error('Update file account password error:', error);

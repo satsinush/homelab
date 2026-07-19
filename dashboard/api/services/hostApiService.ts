@@ -90,18 +90,18 @@ class HostApiService {
         return this.makeRequest('/file-accounts');
     }
 
-    async createFileAccount(username: string, password: string): Promise<HostApiResponse> {
+    async createFileAccount(username: string, password: string, isAdmin?: boolean): Promise<HostApiResponse> {
         return this.makeRequest('/file-accounts', {
             method: 'POST',
-            body: JSON.stringify({ username, password }),
+            body: JSON.stringify({ username, password, isAdmin }),
             timeout: 120000 // recreates samba + sftpgo containers
         });
     }
 
-    async updateFileAccountPassword(username: string, password: string): Promise<HostApiResponse> {
+    async updateFileAccountPassword(username: string, password: string, isAdmin?: boolean): Promise<HostApiResponse> {
         return this.makeRequest(`/file-accounts/${encodeURIComponent(username)}/password`, {
             method: 'PUT',
-            body: JSON.stringify({ password }),
+            body: JSON.stringify({ password, isAdmin }),
             timeout: 120000
         });
     }
