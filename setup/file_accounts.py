@@ -114,30 +114,7 @@ def run_list() -> None:
     print(json.dumps([{"username": u["username"], "isAdmin": u.get("isAdmin", False), "ssoId": u.get("ssoId")} for u in users], indent=2))
 
 
-def handle_sso_rename_flow(users: list[dict], existing_user: dict, new_username: str) -> None:
-    """Rename user storage folder and update their username when Authentik username changes."""
-    old_username = existing_user["username"]
-    if old_username == new_username:
-        return
-
-    step(f"SSO Username change detected: '{old_username}' -> '{new_username}'")
-    
-    # Check if a user with the target name already exists
-    if any(u["username"] == new_username for u in users):
-        raise ValueError(f"Cannot rename user to '{new_username}': username already in use")
-
-    old_dir = f"./storage/users/{old_username}"
-    new_dir = f"./storage/users/{new_username}"
-
-    if os.path.isdir(old_dir):
-        step(f"Renaming storage folder: {old_dir} -> {new_dir}")
-        try:
-            shutil.move(old_dir, new_dir)
-            ok(f"Successfully renamed storage folder to '{new_username}'")
-        except Exception as e:
-            warn(f"Failed to rename storage folder: {e}. Moving on with configuration update.")
-
-    def handle_user_rename_flow(users: list[dict], existing_user: dict, new_username: str) -> None:
+def handle_user_rename_flow(users: list[dict], existing_user: dict, new_username: str) -> None:
     """Rename user storage folder and update their username when a username change is initiated."""
     old_username = existing_user["username"]
     if old_username == new_username:
