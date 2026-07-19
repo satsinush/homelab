@@ -108,40 +108,58 @@ function writeSftpgoLoaddata(accounts: Map<string, FileAccount>): void {
             permissions: ['*']
         }));
 
-    const users = [...accounts.keys()].sort().map((username) => ({
-        status: 1,
-        username,
-        password: accounts.get(username)!.password,
-        home_dir: `${SFTPGO_USERS_HOME_PREFIX}${username}`,
-        permissions: { '/': ['*'] },
-        groups: [{ name: SFTPGO_SHARED_GROUP, type: 2 }]
-    }));
+    const folders = [
+        {
+            name: 'shared',
+            mapped_path: '/srv/sftpgo/storage/shared',
+            description: 'Shared storage for all file-access users',
+            filesystem: { provider: 0 }
+        }
+    ];
+
+    const users = [...accounts.keys()].sort().map((username) => {
+        const home_dir = `${SFTPGO_USERS_HOME_PREFIX}.home_${username}`;
+        
+        // Ensure the empty home root directory exists
+        const hostHomeRoot = path.join(REPO_ROOT, 'storage', 'users', `.home_${username}`);
+        fs.mkdirSync(hostHomeRoot, { recursive: true, mode: 0o700 });
+        try { fs.chmodSync(hostHomeRoot, 0o700); } catch { /* ignore */ }
+
+        folders.push({
+            name: `personal_${username}`,
+            mapped_path: `${SFTPGO_USERS_HOME_PREFIX}${username}`,
+            description: `Personal storage for ${username}`,
+            filesystem: { provider: 0 }
+        });
+
+        return {
+            status: 1,
+            username,
+            password: accounts.get(username)!.password,
+            home_dir,
+            permissions: { '/': ['*'] },
+            virtual_folders: [
+                {
+                    name: `personal_${username}`,
+                    virtual_path: '/personal',
+                    quota_size: 0,
+                    quota_files: 0
+                },
+                {
+                    name: 'shared',
+                    virtual_path: '/shared',
+                    quota_size: 0,
+                    quota_files: 0
+                }
+            ]
+        };
+    });
 
     const payload = {
         admins,
         users,
-        folders: [
-            {
-                name: 'shared',
-                mapped_path: '/srv/sftpgo/storage/shared',
-                description: 'Shared storage for all file-access users',
-                filesystem: { provider: 0 }
-            }
-        ],
-        groups: [
-            {
-                name: SFTPGO_SHARED_GROUP,
-                description: 'All Samba/WebDAV users — /shared virtual folder',
-                virtual_folders: [
-                    {
-                        name: 'shared',
-                        virtual_path: '/shared',
-                        quota_size: 0,
-                        quota_files: 0
-                    }
-                ]
-            }
-        ],
+        folders,
+        groups: [],
         version: 17
     };
 

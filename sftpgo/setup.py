@@ -28,16 +28,53 @@ def write_sftpgo_loaddata(accounts: dict[str, str] | None = None, env: dict | No
     pgid = int(os.environ.get("PGID") or "1000")
 
     users = []
+    folders = [
+        {
+            "name": "shared",
+            "mapped_path": "/srv/sftpgo/storage/shared",
+            "description": "Shared storage for all file-access users",
+            "filesystem": {"provider": 0},
+        }
+    ]
+
     for username, password in sorted(accounts.items()):
         ensure_user_home(username, puid, pgid)
+        # Create an empty hidden directory to serve as the user's isolated home root.
+        # This keeps the root directory "/" clean.
+        home_root_dir = f"{_USERS_HOME_PREFIX}.home_{username}"
+        os.makedirs(home_root_dir.replace("/srv/sftpgo/storage/", "./storage/"), exist_ok=True)
+        
+        # Add user's personal directory as an SFTPGo folder
+        folders.append(
+            {
+                "name": f"personal_{username}",
+                "mapped_path": f"{_USERS_HOME_PREFIX}{username}",
+                "description": f"Personal storage for {username}",
+                "filesystem": {"provider": 0},
+            }
+        )
+
         users.append(
             {
                 "status": 1,
                 "username": username,
                 "password": password,
-                "home_dir": f"{_USERS_HOME_PREFIX}{username}",
+                "home_dir": home_root_dir,
                 "permissions": {"/": ["*"]},
-                "groups": [{"name": SHARED_GROUP, "type": 2}],
+                "virtual_folders": [
+                    {
+                        "name": f"personal_{username}",
+                        "virtual_path": "/personal",
+                        "quota_size": 0,
+                        "quota_files": 0,
+                    },
+                    {
+                        "name": "shared",
+                        "virtual_path": "/shared",
+                        "quota_size": 0,
+                        "quota_files": 0,
+                    }
+                ],
             }
         )
 
@@ -59,28 +96,8 @@ def write_sftpgo_loaddata(accounts: dict[str, str] | None = None, env: dict | No
             }
         ] if admin_pw or admin_user else [],
         "users": users,
-        "folders": [
-            {
-                "name": "shared",
-                "mapped_path": "/srv/sftpgo/storage/shared",
-                "description": "Shared storage for all file-access users",
-                "filesystem": {"provider": 0},
-            }
-        ],
-        "groups": [
-            {
-                "name": SHARED_GROUP,
-                "description": "All Samba/WebDAV users — /shared virtual folder",
-                "virtual_folders": [
-                    {
-                        "name": "shared",
-                        "virtual_path": "/shared",
-                        "quota_size": 0,
-                        "quota_files": 0,
-                    }
-                ],
-            }
-        ],
+        "folders": folders,
+        "groups": [],
         "version": 17,
     }
 
