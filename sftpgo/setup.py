@@ -1,15 +1,13 @@
-"""SFTPGo WebDAV — local users from volumes/accounts/accounts.env (no Authentik LDAP)."""
+"""SFTPGo WebDAV — local users from volumes/accounts/accounts.json (no Authentik LDAP)."""
 from __future__ import annotations
 
 import json
 import os
 
-from setup.file_accounts import ACCOUNTS_ENV, read_accounts_env
+from setup.file_accounts import read_accounts_json
 from setup.service import Service, VolumeDir
 from setup.storage_layout import ensure_all_user_homes, ensure_storage_layout, ensure_user_home
 from setup.ui import info, ok, section, warn
-from setup.utils import compose_up
-
 
 _USERS_HOME_PREFIX = "/srv/sftpgo/storage/users/"
 LOADDATA_PATH = "./sftpgo/volumes/config/loaddata.json"
@@ -20,10 +18,8 @@ SHARED_GROUP = "file-users"
 _DAV_PREFIX = "/files"
 
 
-def write_sftpgo_loaddata(accounts: dict[str, str] | None = None, env: dict | None = None) -> str:
-    """Generate loaddata.json: shared folder + local users from accounts/accounts.env."""
-    if accounts is None:
-        accounts = read_accounts_env()
+def write_sftpgo_loaddata(users_list: list[dict], env: dict | None = None) -> str:
+    """Generate loaddata.json: shared folder + local users from accounts.json."""
     puid = int(os.environ.get("PUID") or "1000")
     pgid = int(os.environ.get("PGID") or "1000")
 
@@ -37,7 +33,10 @@ def write_sftpgo_loaddata(accounts: dict[str, str] | None = None, env: dict | No
         }
     ]
 
-    for username, password in sorted(accounts.items()):
+    for user_obj in sorted(users_list, key=lambda u: u["username"]):
+        username = user_obj["username"]
+        password = user_obj["password"]
+        
         ensure_user_home(username, puid, pgid)
         # Create an empty hidden directory inside sftpgo volumes to serve as the user's isolated home root.
         # This keeps the root directory "/" clean and avoids cluttering storage.
@@ -144,17 +143,11 @@ def write_sftpgo_config() -> str:
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2)
         f.write("\n")
+    try:
+        os.chmod(CONFIG_PATH, 0o600)
+    except OSError:
+        pass
     return CONFIG_PATH
-
-
-def sync_sftpgo_from_accounts(*, recreate: bool = True) -> None:
-    """Regenerate loaddata from accounts.env and optionally recreate SFTPGo."""
-    accounts = read_accounts_env()
-    path = write_sftpgo_loaddata(accounts)
-    ok(f"Wrote SFTPGo loaddata ({len(accounts)} user(s)) → {path}")
-    if recreate and accounts:
-        compose_up("sftpgo", force_recreate=True, check=False)
-        ok("Recreated sftpgo to load local WebDAV users")
 
 
 class SftpgoService(Service):
@@ -171,22 +164,21 @@ class SftpgoService(Service):
         pgid = int(env.get("PGID") or os.environ.get("PGID") or "1000")
         ensure_storage_layout(puid, pgid)
         ensure_all_user_homes(puid, pgid)
-        accounts = read_accounts_env()
-        write_sftpgo_loaddata(accounts, env=env)
+        
+        users = read_accounts_json()
+        write_sftpgo_loaddata(users, env=env)
         write_sftpgo_config()
         ok(f"Wrote SFTPGo config (WebDAV+HTTPD prefix: {_DAV_PREFIX})")
-        if accounts:
-            ok(
-                f"WebDAV users from {ACCOUNTS_ENV} "
-                f"({len(accounts)}): {', '.join(sorted(accounts))}"
-            )
+        if users:
+            ok(f"WebDAV users synced ({len(users)})")
         else:
-            warn(
-                f"No accounts in {ACCOUNTS_ENV} yet — "
-                "run Samba setup (same file feeds WebDAV)"
-            )
+            warn("No accounts in accounts.json yet")
         info("WebDAV / = private home; /shared = storage/shared")
-        info("Password = Samba file password (≠ Authentik)")
+
+    def sync_accounts(self, env: dict, users: list[dict]) -> bool:
+        write_sftpgo_loaddata(users, env=env)
+        write_sftpgo_config()
+        return True
 
 
 service = SftpgoService()

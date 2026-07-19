@@ -723,9 +723,10 @@ app.get('/system/metrics', async (req: Request, res: Response) => {
  *       200:
  *         description: Accounts list
  */
-app.get('/file-accounts', (req: Request, res: Response) => {
+app.get('/file-accounts', async (req: Request, res: Response) => {
     try {
-        res.json({ success: true, data: { accounts: listAccounts() }, timestamp: new Date().toISOString() });
+        const accounts = await listAccounts();
+        res.json({ success: true, data: { accounts }, timestamp: new Date().toISOString() });
     } catch (err: unknown) {
         res.status(500).json({ success: false, error: getErrorMessage(err) });
     }

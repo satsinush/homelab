@@ -85,7 +85,7 @@ def parse_args() -> argparse.Namespace:
         "command",
         nargs="?",
         default="setup",
-        choices=["setup", "backup", "restore", "reset", "restart"],
+        choices=["setup", "backup", "restore", "reset", "restart", "sync-accounts"],
         help="Mode to run (default: setup)",
     )
     parser.add_argument(
@@ -882,6 +882,9 @@ def main() -> None:
         do_reset()
     elif args.command == "restart":
         run_restart()
+    elif args.command == "sync-accounts":
+        from setup.file_accounts import trigger_accounts_sync
+        trigger_accounts_sync(recreate=True)
     else:
         print(f"Unknown command: {args.command}")
         sys.exit(1)

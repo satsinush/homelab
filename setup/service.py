@@ -484,6 +484,17 @@ class Service(ABC):
         if not removed_any:
             info("Nothing to remove")
 
+    def postreset(self, env: dict) -> None:
+        """Hook executed after all service directories are reset and before completion. Default: no-op."""
+        return None
+
+    def sync_accounts(self, env: dict, users: list[dict]) -> bool:
+        """Hook called when users list inside accounts.json changes.
+        
+        Returns True if configurations were modified and the container should be recreated.
+        """
+        return False
+
 
 def run_all_setup(services: Iterable[Service], env: dict) -> None:
     for svc in services:
@@ -510,3 +521,5 @@ def run_all_restore(services: Iterable[Service], env: dict) -> None:
 def run_all_reset(services: Iterable[Service], env: dict) -> None:
     for svc in services:
         svc.reset(env)
+    for svc in services:
+        svc.postreset(env)
