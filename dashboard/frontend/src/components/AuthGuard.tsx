@@ -2,7 +2,6 @@ import React from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useAuth } from '../contexts/useAuth';
 import LoginChoice from './LoginChoice';
-import SetupLocalPassword from './SetupLocalPassword';
 import { ReactNode } from 'react';
 
 interface AuthGuardProps {
@@ -33,10 +32,6 @@ const AuthGuard = ({ children }: AuthGuardProps) => {
 
     if (!isAuthenticated) {
         return <LoginChoice />;
-    }
-
-    if (user && !user.has_local_password) {
-        return <SetupLocalPassword />;
     }
 
     return children;
