@@ -118,10 +118,10 @@ function writeSftpgoLoaddata(accounts: Map<string, FileAccount>): void {
     ];
 
     const users = [...accounts.keys()].sort().map((username) => {
-        const home_dir = `${SFTPGO_USERS_HOME_PREFIX}.home_${username}`;
+        const home_dir = `/var/lib/sftpgo/home_roots/.home_${username}`;
         
-        // Ensure the empty home root directory exists
-        const hostHomeRoot = path.join(REPO_ROOT, 'storage', 'users', `.home_${username}`);
+        // Ensure the empty home root directory exists inside sftpgo volumes
+        const hostHomeRoot = path.join(REPO_ROOT, 'sftpgo', 'volumes', 'data', 'home_roots', `.home_${username}`);
         fs.mkdirSync(hostHomeRoot, { recursive: true, mode: 0o700 });
         try { fs.chmodSync(hostHomeRoot, 0o700); } catch { /* ignore */ }
 
