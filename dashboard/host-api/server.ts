@@ -757,12 +757,13 @@ app.get('/file-accounts', async (req: Request, res: Response) => {
  *         description: Validation error or duplicate account
  */
 app.post('/file-accounts', async (req: Request, res: Response) => {
-    const { username, password, isAdmin, ssoId } = req.body || {};
+    const { username, password, isAdmin, ssoId, id } = req.body || {};
     if (!username || !password) {
         return res.status(400).json({ success: false, error: 'username and password are required' });
     }
     try {
-        const created = await createAccount(username, password, isAdmin === true || isAdmin === 'true', ssoId);
+        const parsedId = id !== undefined ? Number(id) : undefined;
+        const created = await createAccount(username, password, isAdmin === true || isAdmin === 'true', ssoId, parsedId);
         res.json({ success: true, data: { username: created }, timestamp: new Date().toISOString() });
     } catch (err: unknown) {
         res.status(400).json({ success: false, error: getErrorMessage(err) });
@@ -795,14 +796,17 @@ app.post('/file-accounts', async (req: Request, res: Response) => {
  *         description: Password updated
  *       400:
  *         description: Validation error or unknown account
+ *       500:
+ *         description: Server error
  */
 app.put('/file-accounts/:username/password', async (req: Request, res: Response) => {
-    const { password, isAdmin, ssoId } = req.body || {};
+    const { password, isAdmin, ssoId, id } = req.body || {};
     if (!password) {
         return res.status(400).json({ success: false, error: 'password is required' });
     }
     try {
-        const updated = await updateAccountPassword(String(req.params.username), password, isAdmin === true || isAdmin === 'true', ssoId);
+        const parsedId = id !== undefined ? Number(id) : undefined;
+        const updated = await updateAccountPassword(String(req.params.username), password, isAdmin === true || isAdmin === 'true', ssoId, parsedId);
         res.json({ success: true, data: { username: updated }, timestamp: new Date().toISOString() });
     } catch (err: unknown) {
         res.status(400).json({ success: false, error: getErrorMessage(err) });

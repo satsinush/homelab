@@ -41,7 +41,7 @@ export async function listAccounts(): Promise<Array<{ username: string; isAdmin?
     }
 }
 
-export async function createAccount(usernameRaw: string, password: string, isAdmin?: boolean, ssoId?: string): Promise<string> {
+export async function createAccount(usernameRaw: string, password: string, isAdmin?: boolean, ssoId?: string, id?: number): Promise<string> {
     // Shell escape arguments
     const username = usernameRaw.trim().replace(/[^a-zA-Z0-9._-]/g, '').toLowerCase();
     const cmdArgs = ['create', username, `"${password.replace(/"/g, '\\"')}"` ];
@@ -51,11 +51,14 @@ export async function createAccount(usernameRaw: string, password: string, isAdm
     if (ssoId) {
         cmdArgs.push(`--sso-id "${ssoId.replace(/"/g, '\\"')}"`);
     }
+    if (id !== undefined) {
+        cmdArgs.push(`--id ${id}`);
+    }
     await runPythonCli(cmdArgs);
     return username;
 }
 
-export async function updateAccountPassword(usernameRaw: string, password: string, isAdmin?: boolean, ssoId?: string): Promise<string> {
+export async function updateAccountPassword(usernameRaw: string, password: string, isAdmin?: boolean, ssoId?: string, id?: number): Promise<string> {
     const username = usernameRaw.trim().replace(/[^a-zA-Z0-9._-]/g, '').toLowerCase();
     const cmdArgs = ['update-password', username, `"${password.replace(/"/g, '\\"')}"` ];
     if (isAdmin !== undefined) {
@@ -63,6 +66,9 @@ export async function updateAccountPassword(usernameRaw: string, password: strin
     }
     if (ssoId) {
         cmdArgs.push(`--sso-id "${ssoId.replace(/"/g, '\\"')}"`);
+    }
+    if (id !== undefined) {
+        cmdArgs.push(`--id ${id}`);
     }
     await runPythonCli(cmdArgs);
     return username;

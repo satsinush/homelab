@@ -137,25 +137,49 @@ def handle_sso_rename_flow(users: list[dict], existing_user: dict, new_username:
         except Exception as e:
             warn(f"Failed to rename storage folder: {e}. Moving on with configuration update.")
 
+    def handle_user_rename_flow(users: list[dict], existing_user: dict, new_username: str) -> None:
+    """Rename user storage folder and update their username when a username change is initiated."""
+    old_username = existing_user["username"]
+    if old_username == new_username:
+        return
+
+    step(f"Username change detected: '{old_username}' -> '{new_username}'")
+    
+    # Check if a user with the target name already exists
+    if any(u["username"] == new_username for u in users):
+        raise ValueError(f"Cannot rename user to '{new_username}': username already in use")
+
+    old_dir = f"./storage/users/{old_username}"
+    new_dir = f"./storage/users/{new_username}"
+
+    if os.path.isdir(old_dir):
+        step(f"Renaming storage folder: {old_dir} -> {new_dir}")
+        try:
+            shutil.move(old_dir, new_dir)
+            ok(f"Successfully renamed storage folder to '{new_username}'")
+        except Exception as e:
+            warn(f"Failed to rename storage folder: {e}. Moving on with configuration update.")
+
     existing_user["username"] = new_username
 
 
-def run_create(username_raw: str, password_raw: str, is_admin: bool, sso_id: str | None = None) -> None:
+def run_create(username_raw: str, password_raw: str, is_admin: bool, sso_id: str | None = None, user_id: int | None = None) -> None:
     username = safe_username(username_raw)
     validate_password(password_raw)
     
     users = read_accounts_json()
     
-    # If sso_id is provided, check if we already have this SSO identity
-    if sso_id:
-        existing = next((u for u in users if u.get("ssoId") == sso_id), None)
+    # If user_id is provided, check if we already have this user ID mapping
+    if user_id is not None:
+        existing = next((u for u in users if u.get("id") == user_id), None)
         if existing:
-            # Handle username change if any
-            handle_sso_rename_flow(users, existing, username)
+            handle_user_rename_flow(users, existing, username)
             existing["password"] = password_raw
             existing["isAdmin"] = is_admin
+            if sso_id:
+                existing["ssoId"] = sso_id
             write_accounts_json(users)
-            ok(f"Updated user account: '{username}' via SSO ID bind")
+            ok(f"Updated user account: '{username}' via ID bind")
             trigger_accounts_sync(recreate=True)
             return
 
@@ -168,6 +192,8 @@ def run_create(username_raw: str, password_raw: str, is_admin: bool, sso_id: str
         "password": password_raw,
         "isAdmin": is_admin
     }
+    if user_id is not None:
+        new_account["id"] = user_id
     if sso_id:
         new_account["ssoId"] = sso_id
         
@@ -177,21 +203,23 @@ def run_create(username_raw: str, password_raw: str, is_admin: bool, sso_id: str
     trigger_accounts_sync(recreate=True)
 
 
-def run_update_password(username_raw: str, password_raw: str, is_admin: bool | None = None, sso_id: str | None = None) -> None:
+def run_update_password(username_raw: str, password_raw: str, is_admin: bool | None = None, sso_id: str | None = None, user_id: int | None = None) -> None:
     username = safe_username(username_raw)
     validate_password(password_raw)
     
     users = read_accounts_json()
     
-    if sso_id:
-        existing = next((u for u in users if u.get("ssoId") == sso_id), None)
+    if user_id is not None:
+        existing = next((u for u in users if u.get("id") == user_id), None)
         if existing:
-            handle_sso_rename_flow(users, existing, username)
+            handle_user_rename_flow(users, existing, username)
             existing["password"] = password_raw
             if is_admin is not None:
                 existing["isAdmin"] = is_admin
+            if sso_id:
+                existing["ssoId"] = sso_id
             write_accounts_json(users)
-            ok(f"Updated credentials for: '{username}' via SSO ID bind")
+            ok(f"Updated credentials for: '{username}' via ID bind")
             trigger_accounts_sync(recreate=True)
             return
             
@@ -204,13 +232,15 @@ def run_update_password(username_raw: str, password_raw: str, is_admin: bool | N
                 u["isAdmin"] = is_admin
             if sso_id:
                 u["ssoId"] = sso_id
+            if user_id is not None:
+                u["id"] = user_id
             found = True
             break
             
     if not found:
-        # Create it if it doesn't exist yet but has an sso_id
-        if sso_id:
-            run_create(username_raw, password_raw, is_admin or False, sso_id)
+        # Create it if it doesn't exist yet but has user_id
+        if user_id is not None:
+            run_create(username_raw, password_raw, is_admin or False, sso_id, user_id)
             return
         raise ValueError(f"user '{username}' not found")
         
@@ -229,7 +259,7 @@ def run_sync_sso_username(sso_id: str, username_raw: str) -> None:
     if existing["username"] == username:
         return # Username already matches; no-op.
         
-    handle_sso_rename_flow(users, existing, username)
+    handle_user_rename_flow(users, existing, username)
     write_accounts_json(users)
     ok(f"Synced username change for SSO ID '{sso_id}': -> '{username}'")
     trigger_accounts_sync(recreate=True)
@@ -264,12 +294,14 @@ def main() -> None:
     create_parser.add_argument("password")
     create_parser.add_argument("--admin", action="store_true")
     create_parser.add_argument("--sso-id", default=None)
+    create_parser.add_argument("--id", type=int, default=None)
     
     update_parser = subparsers.add_parser("update-password")
     update_parser.add_argument("username")
     update_parser.add_argument("password")
-    update_parser.add_argument("--admin", type=bool, default=None)
+    update_parser.add_argument("--admin", choices=["True", "False", "true", "false"], default=None)
     update_parser.add_argument("--sso-id", default=None)
+    update_parser.add_argument("--id", type=int, default=None)
     
     delete_parser = subparsers.add_parser("delete")
     delete_parser.add_argument("username")
@@ -283,12 +315,19 @@ def main() -> None:
     args = parser.parse_args()
     
     try:
+        is_admin = None
+        if hasattr(args, "admin") and args.admin is not None:
+            if isinstance(args.admin, bool):
+                is_admin = args.admin
+            else:
+                is_admin = args.admin.lower() == 'true'
+
         if args.command == "list":
             run_list()
         elif args.command == "create":
-            run_create(args.username, args.password, args.admin, args.sso_id)
+            run_create(args.username, args.password, is_admin or False, args.sso_id, args.id)
         elif args.command == "update-password":
-            run_update_password(args.username, args.password, args.admin, args.sso_id)
+            run_update_password(args.username, args.password, is_admin, args.sso_id, args.id)
         elif args.command == "delete":
             run_delete(args.username)
         elif args.command == "sync":

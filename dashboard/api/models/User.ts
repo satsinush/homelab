@@ -10,10 +10,10 @@ export interface UserProfile {
     groups: string[];
     roles: string[];
     email: string | null;
-    is_sso_user: boolean;
     has_local_password?: boolean;
     lastLogin?: string;
     createdAt?: string;
+    sso_id?: string;
 }
 
 interface DatabaseUserRow {
@@ -79,7 +79,6 @@ class User {
                 groups: ['admin'],
                 roles: ['homelab-admin'],
                 email: email,
-                is_sso_user: false,
                 lastLogin: new Date().toISOString()
             };
         } catch (error) {
@@ -94,8 +93,8 @@ class User {
             const passwordHash = await argon2.hash(password, { salt: Buffer.from(salt) });
             
             const insertStmt = this.db.prepare(`
-                INSERT INTO users (username, password_hash, salt, groups, roles, email, is_sso_user) 
-                VALUES (?, ?, ?, ?, ?, ?, 0)
+                INSERT INTO users (username, password_hash, salt, groups, roles, email) 
+                VALUES (?, ?, ?, ?, ?, ?)
             `);
             
             const result = insertStmt.run(
@@ -113,7 +112,6 @@ class User {
                 groups: ['user'],
                 roles: [],
                 email: email,
-                is_sso_user: false,
                 has_local_password: true
             };
         } catch (error) {
@@ -173,8 +171,8 @@ class User {
                 groups: JSON.parse(user.groups),
                 roles: JSON.parse(user.roles || '[]'),
                 email: user.email,
-                is_sso_user: !!user.is_sso_user,
                 has_local_password: !!user.password_hash,
+                sso_id: user.sso_id,
                 lastLogin: user.last_login || undefined
             };
         } catch (error) {
@@ -196,7 +194,7 @@ class User {
             const userRoles = ssoProfile.roles || [];
 
             // Check if SSO user already exists by sso_id
-            const ssoUserStmt = this.db.prepare('SELECT * FROM users WHERE sso_id = ? AND is_sso_user = 1');
+            const ssoUserStmt = this.db.prepare('SELECT * FROM users WHERE sso_id = ?');
             const user = ssoUserStmt.get(ssoId) as DatabaseUserRow | undefined;
 
             if (user) {
@@ -220,7 +218,7 @@ class User {
                     groups: userGroups,
                     roles: userRoles,
                     email: email,
-                    is_sso_user: true,
+                    sso_id: ssoId,
                     lastLogin: new Date().toISOString()
                 };
             } else {
@@ -243,7 +241,7 @@ class User {
                     
                     const updateStmt = this.db.prepare(`
                         UPDATE users 
-                        SET username = ?, email = ?, groups = ?, roles = ?, sso_id = ?, is_sso_user = 1, last_login = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+                        SET username = ?, email = ?, groups = ?, roles = ?, sso_id = ?, last_login = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
                         WHERE id = ?
                     `);
                     updateStmt.run(username, email, JSON.stringify(userGroups), JSON.stringify(userRoles), ssoId, existingUser.id);
@@ -254,14 +252,14 @@ class User {
                         groups: userGroups,
                         roles: userRoles,
                         email: email,
-                        is_sso_user: true,
+                        sso_id: ssoId,
                         lastLogin: new Date().toISOString()
                     };
                 } else {
                     // Create new SSO user
                     const insertStmt = this.db.prepare(`
-                        INSERT INTO users (username, email, groups, roles, is_sso_user, sso_id, last_login) 
-                        VALUES (?, ?, ?, ?, 1, ?, CURRENT_TIMESTAMP)
+                        INSERT INTO users (username, email, groups, roles, sso_id, last_login) 
+                        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     `);
                     const result = insertStmt.run(username, email, JSON.stringify(userGroups), JSON.stringify(userRoles), ssoId);
                     
@@ -271,7 +269,7 @@ class User {
                         groups: userGroups,
                         roles: userRoles,
                         email: email,
-                        is_sso_user: true,
+                        sso_id: ssoId,
                         lastLogin: new Date().toISOString()
                     };
                 }
@@ -325,7 +323,7 @@ class User {
                 groups: JSON.parse(user.groups),
                 roles: JSON.parse(user.roles || '[]'),
                 email: user.email,
-                is_sso_user: !!user.is_sso_user
+                sso_id: user.sso_id
             };
         } catch (error) {
             console.error('Profile update error:', error);
@@ -336,7 +334,7 @@ class User {
     // Get user by ID
     getUserById(userId: number): UserProfile | null {
         try {
-            const stmt = this.db.prepare('SELECT id, username, password_hash, groups, roles, email, is_sso_user FROM users WHERE id = ?');
+            const stmt = this.db.prepare('SELECT id, username, password_hash, groups, roles, email, sso_id FROM users WHERE id = ?');
             const user = stmt.get(userId) as DatabaseUserRow | undefined;
             
             if (!user) {
@@ -349,8 +347,8 @@ class User {
                 groups: JSON.parse(user.groups),
                 roles: JSON.parse(user.roles || '[]'),
                 email: user.email,
-                is_sso_user: !!user.is_sso_user,
-                has_local_password: !!user.password_hash
+                has_local_password: !!user.password_hash,
+                sso_id: user.sso_id
             };
         } catch (error) {
             console.error('Get user error:', error);
@@ -361,7 +359,7 @@ class User {
     // Get all users in the system
     getAllUsers(): UserProfile[] {
         try {
-            const stmt = this.db.prepare('SELECT id, username, password_hash, groups, roles, email, is_sso_user, last_login, created_at FROM users ORDER BY id ASC');
+            const stmt = this.db.prepare('SELECT id, username, password_hash, groups, roles, email, sso_id, last_login, created_at FROM users ORDER BY id ASC');
             const rows = stmt.all() as DatabaseUserRow[];
             return rows.map(user => ({
                 id: user.id,
@@ -369,8 +367,8 @@ class User {
                 groups: JSON.parse(user.groups),
                 roles: JSON.parse(user.roles || '[]'),
                 email: user.email,
-                is_sso_user: !!user.is_sso_user,
                 has_local_password: !!user.password_hash,
+                sso_id: user.sso_id,
                 lastLogin: user.last_login || undefined,
                 createdAt: user.created_at
             }));

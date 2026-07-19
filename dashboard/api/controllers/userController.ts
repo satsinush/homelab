@@ -79,7 +79,7 @@ class UserController {
                 groups: user.groups,
                 roles: user.roles,
                 email: user.email,
-                is_sso_user: user.is_sso_user
+                is_sso_user: !!user.sso_id
             };
             
             return sendSuccess(res, {
@@ -90,7 +90,7 @@ class UserController {
                     groups: user.groups,
                     roles: user.roles,
                     email: user.email,
-                    is_sso_user: user.is_sso_user
+                    is_sso_user: !!user.sso_id
                 }
             });
         } catch (error: unknown) {
@@ -238,7 +238,7 @@ class UserController {
                 groups: user.groups,
                 roles: user.roles,
                 email: user.email,
-                is_sso_user: user.is_sso_user
+                is_sso_user: !!user.sso_id
             };
             if (typeof tokens.id_token === 'string' && tokens.id_token) {
                 req.session.oidc_id_token = tokens.id_token;
@@ -374,8 +374,9 @@ class UserController {
                     groups: user.groups,
                     roles: user.roles,
                     email: user.email,
-                    is_sso_user: user.is_sso_user,
-                    has_local_password: user.has_local_password
+                    is_sso_user: !!user.sso_id,
+                    has_local_password: user.has_local_password,
+                    sso_id: user.sso_id
                 }
             });
         } catch (error: unknown) {
@@ -405,8 +406,9 @@ class UserController {
                     groups: user.groups,
                     roles: user.roles,
                     email: user.email,
-                    is_sso_user: user.is_sso_user,
-                    has_local_password: user.has_local_password
+                    is_sso_user: !!user.sso_id,
+                    has_local_password: user.has_local_password,
+                    sso_id: user.sso_id
                 }
             });
         } catch (error: unknown) {
@@ -456,7 +458,7 @@ class UserController {
             // If the local password was updated, sync to host API!
             if (validatedNewPassword) {
                 try {
-                    await this.hostApi.updateFileAccountPassword(updatedUser.username, validatedNewPassword);
+                    await this.hostApi.updateFileAccountPassword(updatedUser.username, validatedNewPassword, undefined, updatedUser.sso_id);
                 } catch (err) {
                     console.error(`Failed to sync password to host API for ${updatedUser.username}:`, err);
                 }
@@ -577,13 +579,14 @@ class UserController {
             const localUser = await this.userModel.createLocalUser(username, password, `${username}@${config.homelabHostname || 'homelab.home.arpa'}`);
             const isAdmin = localUser?.roles?.includes('homelab-admin') || false;
             
-            // Get sso_id if this username corresponds to an SSO user
-            const stmt = (this.userModel as any).db.prepare('SELECT sso_id FROM users WHERE LOWER(username) = LOWER(?)');
-            const row = stmt.get(username) as { sso_id?: string } | undefined;
+            // Get id and sso_id if this username corresponds to an SSO user
+            const stmt = (this.userModel as any).db.prepare('SELECT id, sso_id FROM users WHERE LOWER(username) = LOWER(?)');
+            const row = stmt.get(username) as { id: number; sso_id?: string } | undefined;
             const ssoId = row?.sso_id || undefined;
+            const userId = row?.id || undefined;
 
             // Call host API to write config and sync
-            await this.hostApi.createFileAccount(username, password, isAdmin, ssoId);
+            await this.hostApi.createFileAccount(username, password, isAdmin, ssoId, userId);
             return sendSuccess(res, { message: `User account "${username}" created` });
         } catch (error: unknown) {
             console.error('Create file account error:', error);
@@ -601,14 +604,15 @@ class UserController {
             // Update user password locally in database
             await this.userModel.updateLocalPassword(username, password);
             // Retrieve target user profile from DB to determine admin status and SSO link
-            const stmt = (this.userModel as any).db.prepare('SELECT roles, sso_id FROM users WHERE LOWER(username) = LOWER(?)');
-            const row = stmt.get(username) as { roles: string; sso_id?: string } | undefined;
+            const stmt = (this.userModel as any).db.prepare('SELECT id, roles, sso_id FROM users WHERE LOWER(username) = LOWER(?)');
+            const row = stmt.get(username) as { id: number; roles: string; sso_id?: string } | undefined;
             const userRoles = row ? (JSON.parse(row.roles || '[]') as string[]) : [];
             const isAdmin = userRoles.includes('homelab-admin');
             const ssoId = row?.sso_id || undefined;
+            const userId = row?.id || undefined;
 
             // Call host API to write config and sync
-            await this.hostApi.updateFileAccountPassword(username, password, isAdmin, ssoId);
+            await this.hostApi.updateFileAccountPassword(username, password, isAdmin, ssoId, userId);
             return sendSuccess(res, { message: `Local password updated for "${username}"` });
         } catch (error: unknown) {
             console.error('Update file account password error:', error);

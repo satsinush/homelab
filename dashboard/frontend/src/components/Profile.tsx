@@ -329,7 +329,7 @@ const ChangePasswordModal = ({ open, onClose }: ChangePasswordModalProps) => {
 
 const Profile = () => {
     const { user, refreshUser } = useAuth();
-    const isSSO = user?.is_sso_user;
+    const isSSO = !!user?.sso_id;
     const isAdmin = user?.roles?.includes('homelab-admin');
     const [usernameModalOpen, setUsernameModalOpen] = useState(false);
     const [passwordModalOpen, setPasswordModalOpen] = useState(false);

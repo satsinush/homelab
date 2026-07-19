@@ -44,7 +44,7 @@ interface UserListItem {
     email?: string;
     roles: string[];
     groups: string[];
-    is_sso_user: boolean;
+    sso_id?: string;
     has_local_password?: boolean;
 }
 
@@ -303,7 +303,7 @@ const Users = () => {
                                                             {u.email || 'No email registered'}
                                                         </Typography>
                                                         <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
-                                                            {u.is_sso_user && (
+                                                            {!!u.sso_id && (
                                                                 <Chip icon={<SSOIcon style={{ fontSize: 14 }} />} label="SSO" size="small" variant="outlined" sx={{ height: 20 }} />
                                                             )}
                                                             {u.has_local_password ? (

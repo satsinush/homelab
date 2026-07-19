@@ -62,7 +62,6 @@ class DatabaseModel {
                 groups TEXT NOT NULL DEFAULT '[]',
                 roles TEXT NOT NULL DEFAULT '[]',
                 email TEXT,
-                is_sso_user BOOLEAN DEFAULT 0,
                 sso_id TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
