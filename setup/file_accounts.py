@@ -90,7 +90,6 @@ def trigger_accounts_sync(recreate: bool = True) -> None:
     triggered_services = []
     
     for svc in services:
-        step(f"Running account sync hook for service: {svc.name}")
         try:
             needs_recreate = svc.sync_accounts(env, users)
             if needs_recreate:
