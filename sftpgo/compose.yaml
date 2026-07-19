@@ -36,16 +36,8 @@ services:
       - "traefik.http.routers.dav-web.service=dav-web"
       - "traefik.http.services.dav-web.loadbalancer.server.port=8081"
 
-      # ── Enforce trailing slash on /files (redirect to /files/) ────────────
-      - "traefik.http.routers.dav-slash.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && Path(`/files`)"
-      - "traefik.http.routers.dav-slash.entrypoints=websecure"
-      - "traefik.http.routers.dav-slash.tls=true"
-      - "traefik.http.routers.dav-slash.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
-      - "traefik.http.routers.dav-slash.priority=15"
-      - "traefik.http.routers.dav-slash.middlewares=dav-slash-redirect"
-      - "traefik.http.routers.dav-slash.service=dav"
-
-      # ── WebDAV: /files/ → WebDAV (8080) ────────────────────────────────────
+      # ── WebDAV: /files → WebDAV (8080) ────────────────────────────────────
+      # sftpgo.json sets webdavd.bindings[0].prefix=/files.
       - "traefik.http.routers.dav.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && PathPrefix(`/files`)"
       - "traefik.http.routers.dav.entrypoints=websecure"
       - "traefik.http.routers.dav.tls=true"
@@ -53,11 +45,6 @@ services:
       - "traefik.http.routers.dav.priority=10"
       - "traefik.http.routers.dav.service=dav"
       - "traefik.http.services.dav.loadbalancer.server.port=8080"
-
-      # ── Redirect middleware ───────────────────────────────────────────────
-      - "traefik.http.middlewares.dav-slash-redirect.redirectregex.regex=^https?://([^/]+)/files$"
-      - "traefik.http.middlewares.dav-slash-redirect.redirectregex.replacement=https://$${1}/files/"
-      - "traefik.http.middlewares.dav-slash-redirect.redirectregex.permanent=true"
 
     healthcheck:
       test: ["CMD", "sftpgo", "ping"]
