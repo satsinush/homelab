@@ -241,7 +241,8 @@ def run_delete(username_raw: str) -> None:
     users = read_accounts_json()
     filtered = [u for u in users if u["username"] != username]
     if len(filtered) == len(users):
-        raise ValueError(f"user '{username}' not found")
+        ok(f"User account '{username}' did not exist in accounts.json. Nothing to delete.")
+        return
         
     write_accounts_json(filtered)
     ok(f"Deleted user account: '{username}'")
