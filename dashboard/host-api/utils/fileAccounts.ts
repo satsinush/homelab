@@ -41,15 +41,12 @@ export async function listAccounts(): Promise<Array<{ username: string; isAdmin?
     }
 }
 
-export async function createAccount(usernameRaw: string, password: string, isAdmin?: boolean, ssoId?: string, id?: number): Promise<string> {
+export async function createAccount(usernameRaw: string, password: string, isAdmin?: boolean, id?: number): Promise<string> {
     // Shell escape arguments
     const username = usernameRaw.trim().replace(/[^a-zA-Z0-9._-]/g, '').toLowerCase();
     const cmdArgs = ['create', username, `"${password.replace(/"/g, '\\"')}"` ];
     if (isAdmin) {
-        cmdArgs.push('--admin');
-    }
-    if (ssoId) {
-        cmdArgs.push(`--sso-id "${ssoId.replace(/"/g, '\\"')}"`);
+        cmdArgs.push('--admin True');
     }
     if (id !== undefined) {
         cmdArgs.push(`--id ${id}`);
@@ -58,14 +55,11 @@ export async function createAccount(usernameRaw: string, password: string, isAdm
     return username;
 }
 
-export async function updateAccountPassword(usernameRaw: string, password: string, isAdmin?: boolean, ssoId?: string, id?: number): Promise<string> {
+export async function updateAccountPassword(usernameRaw: string, password: string, isAdmin?: boolean, id?: number): Promise<string> {
     const username = usernameRaw.trim().replace(/[^a-zA-Z0-9._-]/g, '').toLowerCase();
     const cmdArgs = ['update-password', username, `"${password.replace(/"/g, '\\"')}"` ];
     if (isAdmin !== undefined) {
         cmdArgs.push(`--admin ${isAdmin ? 'True' : 'False'}`);
-    }
-    if (ssoId) {
-        cmdArgs.push(`--sso-id "${ssoId.replace(/"/g, '\\"')}"`);
     }
     if (id !== undefined) {
         cmdArgs.push(`--id ${id}`);
@@ -80,7 +74,7 @@ export async function deleteAccount(usernameRaw: string): Promise<string> {
     return username;
 }
 
-export async function syncSsoUsername(ssoId: string, usernameRaw: string): Promise<void> {
+export async function syncUsername(userId: number, usernameRaw: string): Promise<void> {
     const username = usernameRaw.trim().replace(/[^a-zA-Z0-9._-]/g, '').toLowerCase();
-    await runPythonCli(['sync-sso-username', `"${ssoId.replace(/"/g, '\\"')}"`, username]);
+    await runPythonCli(['sync-username', `--id ${userId}`, username]);
 }

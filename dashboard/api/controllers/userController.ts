@@ -81,6 +81,21 @@ class UserController {
                 email: user.email,
                 is_sso_user: !!user.sso_id
             };
+
+            // Lazily upsert accounts.json on every local login so that:
+            //  - the first admin user (created at login time with no prior accounts.json id) gets synced
+            //  - any local user whose entry lacks an id gets backfilled
+            // Fire-and-forget: errors must never break login.
+            if (user.has_local_password) {
+                this.hostApi.updateFileAccountPassword(
+                    user.username,
+                    validatedCredentials.password,
+                    user.roles.includes('homelab-admin'),
+                    user.id
+                ).catch((err: unknown) => {
+                    console.error(`[login] Failed to sync accounts.json for ${user.username}:`, err);
+                });
+            }
             
             return sendSuccess(res, {
                 message: 'Login successful',
@@ -224,7 +239,7 @@ class UserController {
             // Synchronize username changes (renames file storage folder if needed)
             if (userinfo.sub) {
                 try {
-                    await this.hostApi.syncSsoUsername(userinfo.sub, user.username);
+                    await this.hostApi.syncUsername(user.id, user.username);
                 } catch (err) {
                     console.error('Failed to sync SSO username to file shares on host API:', err);
                 }
@@ -460,7 +475,7 @@ class UserController {
             // for SSO users setting their sync password for the first time.
             if (validatedNewPassword) {
                 try {
-                    await this.hostApi.updateFileAccountPassword(updatedUser.username, validatedNewPassword, undefined, updatedUser.sso_id, updatedUser.id);
+                    await this.hostApi.updateFileAccountPassword(updatedUser.username, validatedNewPassword, undefined, updatedUser.id);
                 } catch (err) {
                     console.error(`Failed to sync password to host API for ${updatedUser.username}:`, err);
                 }
@@ -581,14 +596,13 @@ class UserController {
             const localUser = await this.userModel.createLocalUser(username, password, `${username}@${config.homelabHostname || 'homelab.home.arpa'}`);
             const isAdmin = localUser?.roles?.includes('homelab-admin') || false;
             
-            // Get id and sso_id if this username corresponds to an SSO user
-            const stmt = (this.userModel as any).db.prepare('SELECT id, sso_id FROM users WHERE LOWER(username) = LOWER(?)');
-            const row = stmt.get(username) as { id: number; sso_id?: string } | undefined;
-            const ssoId = row?.sso_id || undefined;
+            // Get id from DB (createLocalUser already returned it, but re-query for safety)
+            const stmt = (this.userModel as any).db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)');
+            const row = stmt.get(username) as { id: number } | undefined;
             const userId = row?.id || undefined;
 
             // Call host API to write config and sync
-            await this.hostApi.createFileAccount(username, password, isAdmin, ssoId, userId);
+            await this.hostApi.createFileAccount(username, password, isAdmin, userId);
             return sendSuccess(res, { message: `User account "${username}" created` });
         } catch (error: unknown) {
             console.error('Create file account error:', error);
@@ -605,16 +619,15 @@ class UserController {
             }
             // Update user password locally in database
             await this.userModel.updateLocalPassword(username, password);
-            // Retrieve target user profile from DB to determine admin status and SSO link
-            const stmt = (this.userModel as any).db.prepare('SELECT id, roles, sso_id FROM users WHERE LOWER(username) = LOWER(?)');
-            const row = stmt.get(username) as { id: number; roles: string; sso_id?: string } | undefined;
+            // Retrieve target user profile from DB to determine admin status
+            const stmt = (this.userModel as any).db.prepare('SELECT id, roles FROM users WHERE LOWER(username) = LOWER(?)');
+            const row = stmt.get(username) as { id: number; roles: string } | undefined;
             const userRoles = row ? (JSON.parse(row.roles || '[]') as string[]) : [];
             const isAdmin = userRoles.includes('homelab-admin');
-            const ssoId = row?.sso_id || undefined;
             const userId = row?.id || undefined;
 
             // Call host API to write config and sync
-            await this.hostApi.updateFileAccountPassword(username, password, isAdmin, ssoId, userId);
+            await this.hostApi.updateFileAccountPassword(username, password, isAdmin, userId);
             return sendSuccess(res, { message: `Local password updated for "${username}"` });
         } catch (error: unknown) {
             console.error('Update file account password error:', error);

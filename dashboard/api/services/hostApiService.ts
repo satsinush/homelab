@@ -90,18 +90,18 @@ class HostApiService {
         return this.makeRequest('/file-accounts');
     }
 
-    async createFileAccount(username: string, password: string, isAdmin?: boolean, ssoId?: string, id?: number): Promise<HostApiResponse> {
+    async createFileAccount(username: string, password: string, isAdmin?: boolean, id?: number): Promise<HostApiResponse> {
         return this.makeRequest('/file-accounts', {
             method: 'POST',
-            body: JSON.stringify({ username, password, isAdmin, ssoId, id }),
+            body: JSON.stringify({ username, password, isAdmin, id }),
             timeout: 120000 // recreates samba + sftpgo containers
         });
     }
 
-    async updateFileAccountPassword(username: string, password: string, isAdmin?: boolean, ssoId?: string, id?: number): Promise<HostApiResponse> {
+    async updateFileAccountPassword(username: string, password: string, isAdmin?: boolean, id?: number): Promise<HostApiResponse> {
         return this.makeRequest(`/file-accounts/${encodeURIComponent(username)}/password`, {
             method: 'PUT',
-            body: JSON.stringify({ password, isAdmin, ssoId, id }),
+            body: JSON.stringify({ password, isAdmin, id }),
             timeout: 120000
         });
     }
@@ -113,10 +113,10 @@ class HostApiService {
         });
     }
 
-    async syncSsoUsername(ssoId: string, username: string): Promise<HostApiResponse> {
+    async syncUsername(userId: number, username: string): Promise<HostApiResponse> {
         return this.makeRequest('/file-accounts/sync-username', {
             method: 'POST',
-            body: JSON.stringify({ ssoId, username }),
+            body: JSON.stringify({ id: userId, username }),
             timeout: 120000
         });
     }
