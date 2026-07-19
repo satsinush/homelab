@@ -5,7 +5,7 @@ services:
     container_name: samba
     restart: unless-stopped
     env_file:
-      - ${PROJECT_ROOT}/volumes/accounts/accounts.env
+      - ${PROJECT_ROOT}/samba/volumes/config/accounts.env
     environment:
       MODEL: ${HOMELAB_HOSTNAME:-homelab}
       AVAHI_DISABLE: "true"

@@ -52,7 +52,7 @@ def sync_samba_accounts(env: dict, users: list[dict]) -> None:
     for user_obj in sorted(users, key=lambda u: u["username"]):
         compat_lines.append(f"ACCOUNT_{user_obj['username']}={user_obj['password']}")
     
-    compat_path = "./volumes/accounts/accounts.env"
+    compat_path = "./samba/volumes/config/accounts.env"
     with open(compat_path, "w", encoding="utf-8") as f:
         f.write("\n".join(compat_lines) + "\n")
     os.chmod(compat_path, 0o600)
@@ -64,7 +64,7 @@ class SambaService(Service):
         VolumeDir("./samba/volumes/data", mode=0o755),
         VolumeDir("./samba/volumes/data/private", mode=0o700),
         VolumeDir("./samba/volumes/data/lock", mode=0o755),
-        VolumeDir("./volumes/accounts", mode=0o700),
+        VolumeDir("./samba/volumes/config", mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:
