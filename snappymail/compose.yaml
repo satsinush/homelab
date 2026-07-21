@@ -16,7 +16,7 @@ services:
       - "traefik.http.routers.snappymail.tls=true"
       - "traefik.http.routers.snappymail.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
       - "traefik.http.routers.snappymail.service=snappymail"
-      - "traefik.http.services.snappymail.loadbalancer.server.port=80"
+      - "traefik.http.services.snappymail.loadbalancer.server.port=8888"
 
 networks:
   homelab-net:
