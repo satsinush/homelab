@@ -8,6 +8,11 @@ import os
 
 from setup.utils import run_cmd
 
+# UID/GID of www-data inside php:8.2-fpm-alpine (djmaze/snappymail:latest)
+_SNAPPYMAIL_UID = 82
+_SNAPPYMAIL_GID = 82
+
+
 class SnappyMailService(Service):
     name = "snappymail"
     volume_dirs = [
@@ -29,21 +34,8 @@ class SnappyMailService(Service):
             "smtp_port": 587,
             "smtp_secure": "none",
             "smtp_auth": True,
-            "use_short_login": False
+            "use_short_login": False,
         }
-
-        # Check existing owner UID/GID of _data_ if it exists (typically www-data)
-        target_uid = os.getuid()
-        target_gid = os.getgid()
-        data_dir = "./snappymail/volumes/data/_data_"
-        if os.path.exists(data_dir):
-            st = os.stat(data_dir)
-            # If owned by host user, restore ownership to www-data (UID 82 or 33) if previously broken
-            if st.st_uid == os.getuid():
-                run_cmd(f"sudo chown -R 82:82 {data_dir} 2>/dev/null || sudo chown -R 33:33 {data_dir} 2>/dev/null || true", check=False)
-                if os.path.exists(data_dir):
-                    st = os.stat(data_dir)
-            target_uid, target_gid = st.st_uid, st.st_gid
 
         domains_dir = "./snappymail/volumes/data/_data_/_default_/domains"
         try:
@@ -63,9 +55,8 @@ class SnappyMailService(Service):
             run_cmd(f"sudo cp {tmp_path} {dest_path}", check=False)
             os.unlink(tmp_path)
 
-        # Restore www-data container ownership on created domain config directory/file
-        if os.path.exists(domains_dir):
-            run_cmd(f"sudo chown -R {target_uid}:{target_gid} {domains_dir}", check=False)
+        # Ensure container user (www-data UID 82:82) owns all data volume files
+        run_cmd(f"sudo chown -R {_SNAPPYMAIL_UID}:{_SNAPPYMAIL_GID} ./snappymail/volumes/data", check=False)
 
         ok(f"Wrote SnappyMail domain config for {hostname}")
         ok("SnappyMail directories and volumes ready")
