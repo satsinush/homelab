@@ -43,19 +43,14 @@ class SnappyMailService(Service):
             domain_config = {
                 "disabled": False,
                 "name": domain_name,
-                "imap": {
-                    "host": "maddy",
-                    "port": 143,
-                    "secure": "none",
-                    "timeout": 30,
-                },
-                "smtp": {
-                    "host": "maddy",
-                    "port": 587,
-                    "secure": "none",
-                    "auth": True,
-                    "timeout": 30,
-                },
+                "imapHost": "maddy",
+                "imapPort": 143,
+                "imapSecure": 0,
+                "smtpHost": "maddy",
+                "smtpPort": 587,
+                "smtpSecure": 0,
+                "smtpAuth": True,
+                "useShortLogin": False,
             }
             dest_path = f"{domains_dir}/{domain_name}.json"
             try:
