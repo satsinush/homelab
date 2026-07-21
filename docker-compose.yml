@@ -18,3 +18,4 @@ include:
   - ./ollama/compose.yaml
   - ./headscale/compose.yaml
   - ./snappymail/compose.yaml
+  - ./maddy/compose.yaml
