@@ -33,6 +33,14 @@ class SnappyMailService(Service):
         import json
 
         domain_config = {
+            "imapHost": "maddy",
+            "imapPort": 143,
+            "imapSecure": "none",
+            "smtpHost": "maddy",
+            "smtpPort": 587,
+            "smtpSecure": "none",
+            "smtpAuth": True,
+            "useShortLogin": False,
             "imap_host": "maddy",
             "imap_port": 143,
             "imap_secure": "none",
