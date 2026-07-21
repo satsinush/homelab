@@ -33,22 +33,19 @@ class SnappyMailService(Service):
         import json
 
         domain_config = {
-            "imapHost": "maddy",
-            "imapPort": 143,
-            "imapSecure": "none",
-            "smtpHost": "maddy",
-            "smtpPort": 587,
-            "smtpSecure": "none",
-            "smtpAuth": True,
-            "useShortLogin": False,
-            "imap_host": "maddy",
-            "imap_port": 143,
-            "imap_secure": "none",
-            "smtp_host": "maddy",
-            "smtp_port": 587,
-            "smtp_secure": "none",
-            "smtp_auth": True,
-            "use_short_login": False,
+            "imap": {
+                "host": "maddy",
+                "port": 143,
+                "secure": "none",
+                "timeout": 30,
+            },
+            "smtp": {
+                "host": "maddy",
+                "port": 587,
+                "secure": "none",
+                "auth": True,
+                "timeout": 30,
+            },
         }
 
         domains_dir = "./snappymail/volumes/data/_data_/_default_/domains"
