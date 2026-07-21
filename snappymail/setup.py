@@ -23,8 +23,14 @@ class SnappyMailService(Service):
         super().setup(env)
         section("Preparing SnappyMail Webmail...", emoji="✉️")
 
+        target_domains = set()
+        for key in ("HOMELAB_HOSTNAME", "DNS_DOMAIN"):
+            val = env.get(key) or os.environ.get(key)
+            if val:
+                target_domains.add(val.strip().lower())
+        target_domains.add("localhost")
+
         import json
-        hostname = env.get("HOMELAB_HOSTNAME") or os.environ.get("HOMELAB_HOSTNAME") or "localhost"
 
         domain_config = {
             "imap_host": "maddy",
@@ -43,22 +49,23 @@ class SnappyMailService(Service):
         except PermissionError:
             run_cmd(f"sudo mkdir -p {domains_dir}", check=False)
 
-        dest_path = f"{domains_dir}/{hostname}.json"
-        try:
-            with open(dest_path, "w", encoding="utf-8") as f:
-                json.dump(domain_config, f, indent=4)
-        except PermissionError:
-            import tempfile
-            with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as tmp:
-                json.dump(domain_config, tmp, indent=4)
-                tmp_path = tmp.name
-            run_cmd(f"sudo cp {tmp_path} {dest_path}", check=False)
-            os.unlink(tmp_path)
+        import tempfile
+        for domain_name in sorted(target_domains):
+            dest_path = f"{domains_dir}/{domain_name}.json"
+            try:
+                with open(dest_path, "w", encoding="utf-8") as f:
+                    json.dump(domain_config, f, indent=4)
+            except PermissionError:
+                with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as tmp:
+                    json.dump(domain_config, tmp, indent=4)
+                    tmp_path = tmp.name
+                run_cmd(f"sudo cp {tmp_path} {dest_path}", check=False)
+                os.unlink(tmp_path)
+            ok(f"Wrote SnappyMail domain config for {domain_name}")
 
         # Ensure container user (www-data UID 82:82) owns all data volume files
         run_cmd(f"sudo chown -R {_SNAPPYMAIL_UID}:{_SNAPPYMAIL_GID} ./snappymail/volumes/data", check=False)
 
-        ok(f"Wrote SnappyMail domain config for {hostname}")
         ok("SnappyMail directories and volumes ready")
 
 service = SnappyMailService()
