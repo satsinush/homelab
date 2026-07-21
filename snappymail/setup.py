@@ -6,6 +6,8 @@ from setup.ui import ok, section
 
 import os
 
+from setup.utils import run_cmd
+
 class SnappyMailService(Service):
     name = "snappymail"
     volume_dirs = [
@@ -31,11 +33,21 @@ class SnappyMailService(Service):
         }
         
         domains_dir = "./snappymail/volumes/data/_data_/_default_/domains"
-        os.makedirs(domains_dir, exist_ok=True)
+        try:
+            os.makedirs(domains_dir, exist_ok=True)
+        except PermissionError:
+            run_cmd(f"sudo mkdir -p {domains_dir}", check=False)
+            run_cmd(f"sudo chown -R {os.getuid()}:{os.getgid()} ./snappymail/volumes/data/_data_", check=False)
+            os.makedirs(domains_dir, exist_ok=True)
         
         dest_path = f"{domains_dir}/{hostname}.json"
-        with open(dest_path, "w", encoding="utf-8") as f:
-            json.dump(domain_config, f, indent=4)
+        try:
+            with open(dest_path, "w", encoding="utf-8") as f:
+                json.dump(domain_config, f, indent=4)
+        except PermissionError:
+            run_cmd(f"sudo chown -R {os.getuid()}:{os.getgid()} {domains_dir}", check=False)
+            with open(dest_path, "w", encoding="utf-8") as f:
+                json.dump(domain_config, f, indent=4)
             
         try:
             os.chmod(dest_path, 0o600)
