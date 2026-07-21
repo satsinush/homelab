@@ -238,6 +238,8 @@ async def health_handler(request):
     return web.Response(text="OK")
 
 
+import signal
+
 async def main():
     app = web.Application()
     # Register static paths before /{service} so they win the match.
@@ -255,14 +257,19 @@ async def main():
     await site.start()
     logger.info("HTTP alert gateway started on port 80...")
 
-    while True:
-        await asyncio.sleep(3600)
+    stop_event = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, stop_event.set)
+
+    await stop_event.wait()
+    logger.info("Shutting down HTTP alert gateway...")
 
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     try:
         loop.run_until_complete(main())
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         pass
 
