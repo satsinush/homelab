@@ -3,7 +3,6 @@ services:
     image: djmaze/snappymail:latest
     container_name: snappymail
     restart: unless-stopped
-    user: "${PUID}:${PGID}"
     environment:
       TZ: ${TZ}
     volumes:
