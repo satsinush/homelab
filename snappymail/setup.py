@@ -32,22 +32,6 @@ class SnappyMailService(Service):
 
         import json
 
-        domain_config = {
-            "imap": {
-                "host": "maddy",
-                "port": 143,
-                "secure": "none",
-                "timeout": 30,
-            },
-            "smtp": {
-                "host": "maddy",
-                "port": 587,
-                "secure": "none",
-                "auth": True,
-                "timeout": 30,
-            },
-        }
-
         domains_dir = "./snappymail/volumes/data/_data_/_default_/domains"
         try:
             os.makedirs(domains_dir, exist_ok=True)
@@ -56,6 +40,23 @@ class SnappyMailService(Service):
 
         import tempfile
         for domain_name in sorted(target_domains):
+            domain_config = {
+                "disabled": False,
+                "name": domain_name,
+                "imap": {
+                    "host": "maddy",
+                    "port": 143,
+                    "secure": "none",
+                    "timeout": 30,
+                },
+                "smtp": {
+                    "host": "maddy",
+                    "port": 587,
+                    "secure": "none",
+                    "auth": True,
+                    "timeout": 30,
+                },
+            }
             dest_path = f"{domains_dir}/{domain_name}.json"
             try:
                 with open(dest_path, "w", encoding="utf-8") as f:
