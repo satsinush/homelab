@@ -68,6 +68,33 @@ class SnappyMailService(Service):
                 os.unlink(tmp_path)
             ok(f"Wrote SnappyMail domain config for {domain_name}")
 
+        # Enable Contacts in SnappyMail application.ini
+        configs_dir = "./snappymail/volumes/data/_data_/_default_/configs"
+        try:
+            os.makedirs(configs_dir, exist_ok=True)
+        except PermissionError:
+            run_cmd(f"sudo mkdir -p {configs_dir}", check=False)
+
+        ini_path = f"{configs_dir}/application.ini"
+        import configparser
+        config = configparser.ConfigParser()
+        if os.path.exists(ini_path):
+            try:
+                config.read(ini_path)
+            except Exception:
+                pass
+        if "contacts" not in config:
+            config["contacts"] = {}
+        config["contacts"]["enable"] = "On"
+        config["contacts"]["allow_sync"] = "On"
+
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as tmp:
+            config.write(tmp)
+            tmp_path = tmp.name
+        run_cmd(f"sudo cp {tmp_path} {ini_path}", check=False)
+        os.unlink(tmp_path)
+        ok("Enabled contacts in SnappyMail application.ini")
+
         # Ensure container user (www-data UID 82:82) owns all data volume files
         run_cmd(f"sudo chown -R {_SNAPPYMAIL_UID}:{_SNAPPYMAIL_GID} ./snappymail/volumes/data", check=False)
 
