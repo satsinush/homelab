@@ -1,0 +1,17 @@
+services:
+  maddy:
+    build: ${PROJECT_ROOT}/maddy
+    container_name: maddy
+    restart: unless-stopped
+    environment:
+      - MADDY_HOSTNAME=mx.${HOMELAB_HOSTNAME}
+      - MADDY_DOMAIN=${HOMELAB_HOSTNAME}
+    volumes:
+      - ${PROJECT_ROOT}/maddy/volumes/data:/data
+    networks:
+      - homelab-net
+
+networks:
+  homelab-net:
+    external: true
+    name: homelab-net

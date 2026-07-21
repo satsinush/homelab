@@ -146,36 +146,39 @@ def _decorate_gatus_title(title: str) -> str:
     return f"{prefix}{title}"
 
 
-class AlertsSMTPHandler:
-    async def handle_DATA(self, server, session, envelope):
-        message = BytesParser(policy=default).parsebytes(envelope.content)
-        subject = message.get("subject", "No Subject")
-        body = message.get_body(preferencelist=("plain", "html"))
-        body_content = body.get_content() if body else str(message)
-
-        sender = envelope.mail_from or ""
-        recipients = ", ".join(envelope.rcpt_tos)
-        full_body = f"From: {sender}\nTo: {recipients}\nSubject: {subject}\n\n{body_content}"
-
-        # Vaultwarden SMTP → vaultwarden app; everything else → general.
-        tag = "vaultwarden" if "vaultwarden" in sender.lower() else "general"
-        title = (
-            "Vaultwarden Alert"
-            if tag == "vaultwarden"
-            else "Homelab Email Alert"
-        )
-
-        logger.info(
-            f"Routing SMTP message from {sender} to {recipients}: {subject} (tag={tag})"
-        )
-
-        click_url = _resolve_click_url(tag, {})
-        success = await _deliver(tag, title, full_body, click_url=click_url)
-        logger.info(f"SMTP notification status: {success}")
-        return "250 OK"
-
-
 async def handle_alert(request):
+    if request.content_type == "message/rfc822":
+        try:
+            raw_bytes = await request.read()
+            message = BytesParser(policy=default).parsebytes(raw_bytes)
+            subject = message.get("subject", "No Subject")
+            body = message.get_body(preferencelist=("plain", "html"))
+            body_content = body.get_content() if body else str(message)
+
+            sender = message.get("from", "")
+            recipients = message.get("to", "")
+            full_body = f"From: {sender}\nTo: {recipients}\nSubject: {subject}\n\n{body_content}"
+
+            # Vaultwarden SMTP → vaultwarden app; everything else → general.
+            tag = "vaultwarden" if "vaultwarden" in sender.lower() else "general"
+            title = (
+                "Vaultwarden Alert"
+                if tag == "vaultwarden"
+                else "Homelab Email Alert"
+            )
+
+            logger.info(
+                f"Routing SMTP webhook message from {sender} to {recipients}: {subject} (tag={tag})"
+            )
+
+            click_url = _resolve_click_url(tag, {})
+            success = await _deliver(tag, title, full_body, click_url=click_url)
+            logger.info(f"SMTP webhook notification status: {success}")
+            return web.Response(text="OK")
+        except Exception as e:
+            logger.exception("Failed to process rfc822 email payload")
+            return web.Response(text="Failed to process email", status=400)
+
     data = {}
     body_text = ""
     try:
@@ -236,11 +239,6 @@ async def health_handler(request):
 
 
 async def main():
-    handler = AlertsSMTPHandler()
-    controller = Controller(handler, hostname="0.0.0.0", port=8025)
-    controller.start()
-    logger.info("SMTP alert gateway started on port 8025...")
-
     app = web.Application()
     # Register static paths before /{service} so they win the match.
     app.router.add_get("/alive", alive_handler)
@@ -267,3 +265,4 @@ if __name__ == "__main__":
         loop.run_until_complete(main())
     except KeyboardInterrupt:
         pass
+

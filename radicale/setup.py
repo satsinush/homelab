@@ -13,18 +13,7 @@ _RADICALE_UID = 2999
 
 
 def compile_radicale_configs(env: dict, users: list[dict]) -> None:
-    # 1. Backfill primary admin user if not already in users list
     accounts = {u["username"]: u["password"] for u in users}
-    admin_user = env.get("HOMELAB_USERNAME") or os.environ.get("HOMELAB_USERNAME")
-    if admin_user:
-        admin_user = admin_user.lower()
-        if admin_user not in accounts:
-            pw_path = "./volumes/secrets/homelab_password"
-            if os.path.isfile(pw_path):
-                with open(pw_path, encoding="utf-8") as f:
-                    admin_pw = f.read().strip()
-                if admin_pw:
-                    accounts[admin_user] = admin_pw
 
     # 2. Generate plain htpasswd contents
     htpasswd_lines = []

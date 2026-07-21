@@ -17,8 +17,8 @@ services:
       - SIGNUPS_ALLOWED=false
       - DOMAIN=https://${VAULTWARDEN_SERVICE_NAME}.${HOMELAB_HOSTNAME}
       - SMTP_SSL_CA_CERT=/etc/ssl/certs/homelab-ca.crt
-      - SMTP_HOST=alerts
-      - SMTP_PORT=8025
+      - SMTP_HOST=maddy
+      - SMTP_PORT=25
       - SMTP_SECURITY=off
       - SMTP_FROM=vaultwarden@${HOMELAB_HOSTNAME}
       - SSO_ENABLED=true

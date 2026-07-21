@@ -20,6 +20,7 @@ def get_services() -> list[Service]:
     from rustdesk.setup import service as rustdesk
     from samba.setup import service as samba
     from sftpgo.setup import service as sftpgo
+    from maddy.setup import service as maddy
     from snappymail.setup import service as snappymail
     from traefik.setup import service as traefik
     from unbound.setup import service as unbound
@@ -45,5 +46,6 @@ def get_services() -> list[Service]:
         rustdesk,
         ddclient,
         ollama,
+        maddy,
         snappymail,
     ]
