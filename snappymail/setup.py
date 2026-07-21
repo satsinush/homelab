@@ -4,6 +4,8 @@ from __future__ import annotations
 from setup.service import Service, VolumeDir
 from setup.ui import ok, section
 
+import os
+
 class SnappyMailService(Service):
     name = "snappymail"
     volume_dirs = [
