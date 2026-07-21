@@ -50,6 +50,10 @@ class SnappyMailService(Service):
                 "smtpPort": 587,
                 "smtpSecure": 0,
                 "smtpAuth": True,
+                "sieveHost": "",
+                "sievePort": 4190,
+                "sieveSecure": 0,
+                "sieveAuth": False,
                 "useShortLogin": False,
             }
             dest_path = f"{domains_dir}/{domain_name}.json"
