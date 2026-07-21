@@ -481,6 +481,7 @@ def ensure_env_file() -> dict:
     os.environ["AUTHENTIK_SERVICE_NAME"] = "auth"
     os.environ["DAV_SERVICE_NAME"] = "dav"
     os.environ["HEADSCALE_SERVICE_NAME"] = "vpn"
+    os.environ["SNAPPYMAIL_SERVICE_NAME"] = "mail"
     os.environ["HEADSCALE_WEB_HOSTNAME"] = headscale_web_hostname
     os.environ["HEADSCALE_BASE_DOMAIN"] = f"ts.{dns_domain}"
     os.environ["LAN_SUBNET"] = lan_subnet
@@ -513,6 +514,7 @@ def ensure_bootstrap_and_locale(env: dict) -> dict:
     for key, default in (
         ("DAV_SERVICE_NAME", "dav"),
         ("HEADSCALE_SERVICE_NAME", "vpn"),
+        ("SNAPPYMAIL_SERVICE_NAME", "mail"),
         ("HEADSCALE_BASE_DOMAIN", f"ts.{env.get('DNS_DOMAIN') or 'home.arpa'}"),
         ("LAN_SUBNET", "10.10.10.0/24"),
         ("DOCKER_SUBNET", docker_subnet),

@@ -17,3 +17,4 @@ include:
   - ./ddclient/compose.yaml
   - ./ollama/compose.yaml
   - ./headscale/compose.yaml
+  - ./snappymail/compose.yaml
