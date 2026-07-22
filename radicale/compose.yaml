@@ -11,42 +11,25 @@ services:
     labels:
       - "traefik.enable=true"
 
-      # ── CalDAV: dav.domain/calendar → Radicale / ──────────────────────────
-      - "traefik.http.routers.radicale-cal.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && PathPrefix(`/calendar`)"
-      - "traefik.http.routers.radicale-cal.entrypoints=websecure"
-      - "traefik.http.routers.radicale-cal.tls=true"
-      - "traefik.http.routers.radicale-cal.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
-      - "traefik.http.routers.radicale-cal.priority=20"
-      - "traefik.http.routers.radicale-cal.middlewares=radicale-cal-strip,radicale-cal-name"
-      - "traefik.http.routers.radicale-cal.service=radicale"
-      - "traefik.http.middlewares.radicale-cal-strip.stripprefix.prefixes=/calendar"
-      - "traefik.http.middlewares.radicale-cal-name.headers.customrequestheaders.X-Script-Name=/calendar"
+      # ── Main router: cal.domain → Radicale (serves CalDAV + CardDAV directly at /) ──
+      - "traefik.http.routers.radicale.rule=Host(`${CAL_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.radicale.entrypoints=websecure"
+      - "traefik.http.routers.radicale.tls=true"
+      - "traefik.http.routers.radicale.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.routers.radicale.priority=10"
+      - "traefik.http.routers.radicale.service=radicale"
 
-      # ── CardDAV: dav.domain/contacts → Radicale / ─────────────────────────
-      - "traefik.http.routers.radicale-con.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && PathPrefix(`/contacts`)"
-      - "traefik.http.routers.radicale-con.entrypoints=websecure"
-      - "traefik.http.routers.radicale-con.tls=true"
-      - "traefik.http.routers.radicale-con.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
-      - "traefik.http.routers.radicale-con.priority=20"
-      - "traefik.http.routers.radicale-con.middlewares=radicale-con-strip,radicale-con-name"
-      - "traefik.http.routers.radicale-con.service=radicale"
-      - "traefik.http.middlewares.radicale-con-strip.stripprefix.prefixes=/contacts"
-      - "traefik.http.middlewares.radicale-con-name.headers.customrequestheaders.X-Script-Name=/contacts"
-
-      # ── .well-known auto-discovery redirects ───────────────────────────────
-      - "traefik.http.routers.radicale-wk.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && (PathPrefix(`/.well-known/caldav`) || PathPrefix(`/.well-known/carddav`))"
+      # ── .well-known auto-discovery → redirect to root ──────────────────────
+      - "traefik.http.routers.radicale-wk.rule=Host(`${CAL_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && (PathPrefix(`/.well-known/caldav`) || PathPrefix(`/.well-known/carddav`))"
       - "traefik.http.routers.radicale-wk.entrypoints=websecure"
       - "traefik.http.routers.radicale-wk.tls=true"
       - "traefik.http.routers.radicale-wk.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
       - "traefik.http.routers.radicale-wk.priority=30"
-      - "traefik.http.routers.radicale-wk.middlewares=radicale-wk-cal,radicale-wk-con"
+      - "traefik.http.routers.radicale-wk.middlewares=radicale-wk-redirect"
       - "traefik.http.routers.radicale-wk.service=radicale"
-      - "traefik.http.middlewares.radicale-wk-cal.redirectregex.regex=^https?://([^/]+)/.well-known/caldav(.*)"
-      - "traefik.http.middlewares.radicale-wk-cal.redirectregex.replacement=https://$${1}/calendar/$${2}"
-      - "traefik.http.middlewares.radicale-wk-cal.redirectregex.permanent=true"
-      - "traefik.http.middlewares.radicale-wk-con.redirectregex.regex=^https?://([^/]+)/.well-known/carddav(.*)"
-      - "traefik.http.middlewares.radicale-wk-con.redirectregex.replacement=https://$${1}/contacts/$${2}"
-      - "traefik.http.middlewares.radicale-wk-con.redirectregex.permanent=true"
+      - "traefik.http.middlewares.radicale-wk-redirect.redirectregex.regex=^https?://([^/]+)/.well-known/(caldav|carddav)(.*)"
+      - "traefik.http.middlewares.radicale-wk-redirect.redirectregex.replacement=https://$${1}/"
+      - "traefik.http.middlewares.radicale-wk-redirect.redirectregex.permanent=true"
 
       # ── Shared backend ─────────────────────────────────────────────────────
       - "traefik.http.services.radicale.loadbalancer.server.port=5232"

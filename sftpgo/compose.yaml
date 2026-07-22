@@ -28,7 +28,7 @@ services:
       - "traefik.enable=true"
 
       # ── Web client: /files/web & /files/static → HTTPD (8081) ─────────────
-      - "traefik.http.routers.dav-web.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && (PathPrefix(`/files/web`) || PathPrefix(`/files/static`))"
+      - "traefik.http.routers.dav-web.rule=Host(`${FILES_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && (PathPrefix(`/files/web`) || PathPrefix(`/files/static`))"
       - "traefik.http.routers.dav-web.entrypoints=websecure"
       - "traefik.http.routers.dav-web.tls=true"
       - "traefik.http.routers.dav-web.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
@@ -38,7 +38,7 @@ services:
 
       # ── WebDAV: /files → WebDAV (8080) ────────────────────────────────────
       # sftpgo.json sets webdavd.bindings[0].prefix=/files.
-      - "traefik.http.routers.dav.rule=Host(`${DAV_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && PathPrefix(`/files`)"
+      - "traefik.http.routers.dav.rule=Host(`${FILES_SERVICE_NAME}.${HOMELAB_HOSTNAME}`) && PathPrefix(`/files`)"
       - "traefik.http.routers.dav.entrypoints=websecure"
       - "traefik.http.routers.dav.tls=true"
       - "traefik.http.routers.dav.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"

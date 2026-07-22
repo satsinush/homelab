@@ -33,7 +33,8 @@ services:
       - GATUS_SERVICE_NAME=${GATUS_SERVICE_NAME}
       - GOTIFY_SERVICE_NAME=${GOTIFY_SERVICE_NAME}
       - AUTHENTIK_SERVICE_NAME=${AUTHENTIK_SERVICE_NAME}
-      - DAV_SERVICE_NAME=${DAV_SERVICE_NAME}
+      - FILES_SERVICE_NAME=${FILES_SERVICE_NAME}
+      - CAL_SERVICE_NAME=${CAL_SERVICE_NAME}
     labels:
       - "traefik.enable=true"
       # Canonical dashboard route

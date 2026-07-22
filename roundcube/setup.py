@@ -32,7 +32,6 @@ class RoundcubeService(Service):
         libcal_dir = f"{plugins_dir}/libcalendaring"
         libkolab_dir = f"{plugins_dir}/libkolab"
 
-        # Candidate DB paths
         db_paths = [
             "./roundcube/volumes/db/sqlite.db",
             "./roundcube/volumes/data/db/sqlite.db",
@@ -92,7 +91,6 @@ class RoundcubeService(Service):
         # 2. Install Calendar plugin dependencies (libkolab, libcalendaring & calendar)
         if not os.path.exists(f"{calendar_dir}/calendar.php") or not os.path.exists(f"{libcal_dir}/libcalendaring.php") or not os.path.exists(f"{libkolab_dir}/libkolab.php"):
             try:
-                # libkolab dependency
                 libkolab_url = "https://github.com/kolab-roundcube-plugins-mirror/libkolab/archive/refs/heads/master.tar.gz"
                 libkolab_tar = "/tmp/libkolab.tar.gz"
                 run_cmd(f"curl -fsSL '{libkolab_url}' -o {libkolab_tar}")
@@ -101,7 +99,6 @@ class RoundcubeService(Service):
                 run_cmd(f"tar -xzf {libkolab_tar} -C {libkolab_dir} --strip-components=1")
                 run_cmd(f"rm -f {libkolab_tar}")
 
-                # libcalendaring dependency
                 libcal_url = "https://github.com/JodliDev/libcalendaring/archive/refs/heads/master.tar.gz"
                 libcal_tar = "/tmp/libcal.tar.gz"
                 run_cmd(f"curl -fsSL '{libcal_url}' -o {libcal_tar}")
@@ -110,7 +107,6 @@ class RoundcubeService(Service):
                 run_cmd(f"tar -xzf {libcal_tar} -C {libcal_dir} --strip-components=1")
                 run_cmd(f"rm -f {libcal_tar}")
 
-                # calendar plugin
                 cal_url = "https://github.com/JodliDev/calendar/archive/refs/heads/master.tar.gz"
                 cal_tar = "/tmp/calendar.tar.gz"
                 run_cmd(f"curl -fsSL '{cal_url}' -o {cal_tar}")
@@ -123,20 +119,31 @@ class RoundcubeService(Service):
             except Exception as e:
                 warn(f"Failed to auto-download Calendar plugin dependencies: {e}")
 
-        # Configure Calendar driver to 'caldav' with user-scoped URL pattern
+        # Configure Calendar driver to 'caldav' using preinstalled sources (standard plugin pattern)
         cal_config_path = f"{calendar_dir}/config.inc.php"
         cal_config_content = """<?php
 $config['calendar_driver'] = 'caldav';
-$config['calendar_caldav_url'] = 'http://radicale:5232/%u/';
-$config['calendar_attachments'] = false;
+$config['calendar_caldav_debug'] = false;
 $config['calendar_default_view'] = 'agendaWeek';
 $config['calendar_timeslots'] = 2;
 $config['calendar_first_day'] = 1;
+$config['calendar_contact_birthdays'] = false;
+$config['calendar_attachments'] = false;
+
+// Auto-configure CalDAV source on user login (%u = user, %p = password)
+$config['calendar_caldav_preinstalled_sources'] = array(
+    array(
+        'name'        => 'Radicale CalDAV',
+        'caldav_url'  => 'http://radicale:5232/%u/',
+        'caldav_user' => '%u',
+        'caldav_pass' => '%p',
+    ),
+);
 """
         with open(cal_config_path, "w", encoding="utf-8") as f:
             f.write(cal_config_content)
 
-        # 3. Initialize CardDAV & Calendar database schemas for all DB locations
+        # 3. Initialize CardDAV & Calendar database schemas cleanly
         carddav_sql = f"{carddav_dir}/dbmigrations/0000-dbinit/sqlite.sql"
         sql_files = []
         if os.path.exists(calendar_dir):
@@ -151,7 +158,6 @@ $config['calendar_first_day'] = 1;
                 conn = sqlite3.connect(db_file)
                 cursor = conn.cursor()
 
-                # CardDAV DB init
                 if os.path.exists(carddav_sql):
                     try:
                         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='carddav_accounts';")
@@ -163,12 +169,10 @@ $config['calendar_first_day'] = 1;
                     except Exception as e:
                         warn(f"CardDAV SQLite DB migration note ({db_file}): {e}")
 
-                # Calendar DB init
                 for cal_sql in sql_files:
                     try:
                         with open(cal_sql, "r", encoding="utf-8") as f:
-                            sql_script = f.read()
-                        conn.executescript(sql_script)
+                            conn.executescript(f.read())
                         conn.commit()
                         ok(f"Applied Calendar SQL schema ({os.path.basename(cal_sql)}) to {db_file}")
                     except Exception:
