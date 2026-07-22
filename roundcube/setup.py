@@ -23,19 +23,22 @@ class RoundcubeService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        section("Preparing Roundcube Webmail & CardDAV plugin...", emoji="✉️")
+        section("Preparing Roundcube Webmail, CardDAV & Calendar plugins...", emoji="✉️")
 
         data_dir = "./roundcube/volumes/data"
         plugins_dir = f"{data_dir}/plugins"
         carddav_dir = f"{plugins_dir}/carddav"
+        calendar_dir = f"{plugins_dir}/calendar"
+        libcal_dir = f"{plugins_dir}/libcalendaring"
         db_file = f"{data_dir}/db/sqlite.db"
 
-        # Temporarily grant host user write permissions to setup plugin & DB schema
+        # Temporarily grant host user write permissions
         run_cmd(f"sudo chown -R {os.getuid()}:{os.getgid()} ./roundcube/volumes 2>/dev/null || true")
 
         os.makedirs(f"{data_dir}/db", exist_ok=True)
         os.makedirs(plugins_dir, exist_ok=True)
 
+        # 1. Install RCMCardDAV plugin
         if not os.path.exists(f"{carddav_dir}/carddav.php"):
             api_url = "https://api.github.com/repos/mstilkerich/rcmcarddav/releases/latest"
             headers = {"User-Agent": "Homelab-Setup"}
@@ -63,28 +66,74 @@ class RoundcubeService(Service):
             except Exception as e:
                 warn(f"Failed to auto-download RCMCardDAV plugin: {e}")
 
-        # Initialize CardDAV SQLite database schema
-        sql_file = f"{carddav_dir}/dbmigrations/0000-dbinit/sqlite.sql"
-        if os.path.exists(sql_file):
+        # 2. Install Calendar plugin (JodliDev/calendar & libcalendaring)
+        if not os.path.exists(f"{calendar_dir}/calendar.php"):
             try:
-                conn = sqlite3.connect(db_file)
-                cursor = conn.cursor()
+                # libcalendaring dependency
+                libcal_url = "https://github.com/JodliDev/libcalendaring/archive/refs/heads/master.tar.gz"
+                libcal_tar = "/tmp/libcal.tar.gz"
+                run_cmd(f"curl -fsSL '{libcal_url}' -o {libcal_tar}")
+                run_cmd(f"mkdir -p {libcal_dir}")
+                run_cmd(f"tar -xzf {libcal_tar} -C {libcal_dir} --strip-components=1")
+                run_cmd(f"rm -f {libcal_tar}")
+
+                # calendar plugin
+                cal_url = "https://github.com/JodliDev/calendar/archive/refs/heads/master.tar.gz"
+                cal_tar = "/tmp/calendar.tar.gz"
+                run_cmd(f"curl -fsSL '{cal_url}' -o {cal_tar}")
+                run_cmd(f"mkdir -p {calendar_dir}")
+                run_cmd(f"tar -xzf {cal_tar} -C {calendar_dir} --strip-components=1")
+                run_cmd(f"rm -f {cal_tar}")
+
+                if os.path.exists(f"{calendar_dir}/config.inc.php.dist"):
+                    run_cmd(f"cp {calendar_dir}/config.inc.php.dist {calendar_dir}/config.inc.php")
+
+                ok("Installed Calendar plugin & libcalendaring")
+            except Exception as e:
+                warn(f"Failed to auto-download Calendar plugin: {e}")
+
+        # 3. Initialize CardDAV & Calendar database schemas
+        conn = sqlite3.connect(db_path if 'db_path' in locals() else db_file)
+        cursor = conn.cursor()
+
+        # CardDAV DB init
+        carddav_sql = f"{carddav_dir}/dbmigrations/0000-dbinit/sqlite.sql"
+        if os.path.exists(carddav_sql):
+            try:
                 cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='carddav_accounts';")
                 if not cursor.fetchone():
-                    with open(sql_file, "r", encoding="utf-8") as f:
-                        schema = f.read()
-                    conn.executescript(schema)
+                    with open(carddav_sql, "r", encoding="utf-8") as f:
+                        conn.executescript(f.read())
                     conn.commit()
-                    ok(f"Initialized CardDAV SQLite database tables in {db_file}")
-                conn.close()
+                    ok("Initialized CardDAV SQLite database tables")
             except Exception as e:
                 warn(f"CardDAV SQLite DB migration note: {e}")
+
+        # Calendar DB init
+        cal_sql_candidates = (
+            f"{calendar_dir}/drivers/database/SQL/sqlite.initial.sql",
+            f"{calendar_dir}/drivers/database/SQL/sqlite.sql",
+        )
+        for cal_sql in cal_sql_candidates:
+            if os.path.exists(cal_sql):
+                try:
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='events';")
+                    if not cursor.fetchone():
+                        with open(cal_sql, "r", encoding="utf-8") as f:
+                            conn.executescript(f.read())
+                        conn.commit()
+                        ok("Initialized Calendar SQLite database tables")
+                    break
+                except Exception as e:
+                    warn(f"Calendar SQLite DB migration note: {e}")
+
+        conn.close()
 
         # Set final container ownership (www-data)
         for path in ("./roundcube/volumes/data", "./roundcube/volumes/db"):
             run_cmd(f"sudo chown -R {_WWW_DATA_UID}:{_WWW_DATA_UID} {path} 2>/dev/null || true")
 
-        ok("Roundcube volume directories & CardDAV plugin ready")
+        ok("Roundcube volume directories, CardDAV & Calendar plugins ready")
 
 
 service = RoundcubeService()
