@@ -38,6 +38,7 @@ hosts = 0.0.0.0:5232
 type = htpasswd
 htpasswd_filename = /config/users
 htpasswd_encryption = plain
+delay = 0
 
 [storage]
 type = multifilesystem

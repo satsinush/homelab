@@ -5,7 +5,10 @@ services:
     restart: unless-stopped
     environment:
       TZ: ${TZ}
+      SSL_CERT_FILE: /etc/ssl/certs/homelab-ca.crt
+      CURL_CA_BUNDLE: /etc/ssl/certs/homelab-ca.crt
     volumes:
+      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
       - ${PROJECT_ROOT}/snappymail/volumes/data:/var/lib/snappymail
     networks:
       - homelab-net
