@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import urllib.request
 
 from setup.service import Service, VolumeDir
@@ -26,11 +27,14 @@ class RoundcubeService(Service):
 
         plugins_dir = "./roundcube/volumes/data/plugins"
         carddav_dir = f"{plugins_dir}/carddav"
+        db_dir = "./roundcube/volumes/db"
+        db_path = f"{db_dir}/sqlite.db"
 
-        # Temporarily grant host user write permissions to extract plugins
+        # Temporarily grant host user write permissions to extract plugins and migrate DB
         run_cmd(f"sudo chown -R {os.getuid()}:{os.getgid()} ./roundcube/volumes 2>/dev/null || true")
 
         os.makedirs(plugins_dir, exist_ok=True)
+        os.makedirs(db_dir, exist_ok=True)
 
         if not os.path.exists(f"{carddav_dir}/carddav.php"):
             api_url = "https://api.github.com/repos/mstilkerich/rcmcarddav/releases/latest"
@@ -58,6 +62,32 @@ class RoundcubeService(Service):
                 ok(f"Installed RCMCardDAV plugin ({release_data.get('tag_name')})")
             except Exception as e:
                 warn(f"Failed to auto-download RCMCardDAV plugin: {e}")
+
+        # Initialize CardDAV database schema if needed
+        sql_file = None
+        for candidate in (
+            f"{carddav_dir}/dbmigrations/0000-dbinit/sqlite.sql",
+            f"{carddav_dir}/dbmigrations/0000-dbinit/sqlite3.sql",
+            f"{carddav_dir}/dbmigrations/0000-dbinit/0000-dbinit.sqlite.sql",
+        ):
+            if os.path.exists(candidate):
+                sql_file = candidate
+                break
+
+        if sql_file:
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='carddav_accounts';")
+                if not cursor.fetchone():
+                    with open(sql_file, "r", encoding="utf-8") as f:
+                        schema = f.read()
+                    conn.executescript(schema)
+                    conn.commit()
+                    ok("Initialized CardDAV SQLite database tables")
+                conn.close()
+            except Exception as e:
+                warn(f"CardDAV SQLite DB migration note: {e}")
 
         # Set final container ownership (www-data)
         for path in ("./roundcube/volumes/data", "./roundcube/volumes/db"):
