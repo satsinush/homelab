@@ -85,15 +85,23 @@ class RoundcubeService(Service):
                 run_cmd(f"tar -xzf {cal_tar} -C {calendar_dir} --strip-components=1")
                 run_cmd(f"rm -f {cal_tar}")
 
-                if os.path.exists(f"{calendar_dir}/config.inc.php.dist"):
-                    run_cmd(f"cp {calendar_dir}/config.inc.php.dist {calendar_dir}/config.inc.php")
-
                 ok("Installed Calendar plugin & libcalendaring")
             except Exception as e:
                 warn(f"Failed to auto-download Calendar plugin: {e}")
 
+        # Configure Calendar driver to 'database'
+        cal_config_path = f"{calendar_dir}/config.inc.php"
+        cal_config_content = """<?php
+$config['calendar_driver'] = 'database';
+$config['calendar_default_view'] = 'agendaWeek';
+$config['calendar_timeslots'] = 2;
+$config['calendar_first_day'] = 1;
+"""
+        with open(cal_config_path, "w", encoding="utf-8") as f:
+            f.write(cal_config_content)
+
         # 3. Initialize CardDAV & Calendar database schemas
-        conn = sqlite3.connect(db_path if 'db_path' in locals() else db_file)
+        conn = sqlite3.connect(db_file)
         cursor = conn.cursor()
 
         # CardDAV DB init
