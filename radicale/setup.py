@@ -40,6 +40,9 @@ htpasswd_filename = /config/users
 htpasswd_encryption = plain
 delay = 0
 
+[rights]
+type = owner_only
+
 [storage]
 type = multifilesystem
 filesystem_folder = /data/collections
@@ -65,7 +68,6 @@ class RadicaleService(Service):
         section("Syncing Radicale users and generating config...", emoji="📅")
 
         # Ensure the collections directory is owned by the Radicale container user
-        # so it can create its lock file and write calendar/contact data.
         collections_dir = "./radicale/volumes/collections"
         run_cmd(f"sudo chown -R {_RADICALE_UID}:{_RADICALE_UID} {collections_dir}")
 
