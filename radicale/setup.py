@@ -41,7 +41,7 @@ htpasswd_encryption = plain
 delay = 0
 
 [rights]
-type = owner_only
+type = authenticated
 
 [storage]
 type = multifilesystem
