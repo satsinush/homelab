@@ -30,12 +30,18 @@ class RoundcubeService(Service):
         carddav_dir = f"{plugins_dir}/carddav"
         calendar_dir = f"{plugins_dir}/calendar"
         libcal_dir = f"{plugins_dir}/libcalendaring"
-        db_file = f"{data_dir}/db/sqlite.db"
+
+        # Candidate DB paths (Roundcube Docker image uses /var/roundcube/db/sqlite.db -> ./roundcube/volumes/db/sqlite.db)
+        db_paths = [
+            "./roundcube/volumes/db/sqlite.db",
+            "./roundcube/volumes/data/db/sqlite.db",
+        ]
 
         # Temporarily grant host user write permissions
         run_cmd(f"sudo chown -R {os.getuid()}:{os.getgid()} ./roundcube/volumes 2>/dev/null || true")
 
-        os.makedirs(f"{data_dir}/db", exist_ok=True)
+        for db_p in db_paths:
+            os.makedirs(os.path.dirname(db_p), exist_ok=True)
         os.makedirs(plugins_dir, exist_ok=True)
 
         # 1. Install RCMCardDAV plugin
@@ -103,43 +109,47 @@ $config['calendar_first_day'] = 1;
         with open(cal_config_path, "w", encoding="utf-8") as f:
             f.write(cal_config_content)
 
-        # 3. Initialize CardDAV & Calendar database schemas
-        conn = sqlite3.connect(db_file)
-        cursor = conn.cursor()
-
-        # CardDAV DB init
+        # 3. Initialize CardDAV & Calendar database schemas for all DB locations
         carddav_sql = f"{carddav_dir}/dbmigrations/0000-dbinit/sqlite.sql"
-        if os.path.exists(carddav_sql):
-            try:
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='carddav_accounts';")
-                if not cursor.fetchone():
-                    with open(carddav_sql, "r", encoding="utf-8") as f:
-                        conn.executescript(f.read())
-                    conn.commit()
-                    ok("Initialized CardDAV SQLite database tables")
-            except Exception as e:
-                warn(f"CardDAV SQLite DB migration note: {e}")
-
-        # Calendar DB init — search for all sqlite sql files under calendar_dir
         sql_files = []
         if os.path.exists(calendar_dir):
             for root, _, files in os.walk(calendar_dir):
                 for file in files:
                     if file.endswith(".sql") and "sqlite" in file.lower():
                         sql_files.append(os.path.join(root, file))
+        sql_files = sorted(sql_files)
 
-        for cal_sql in sorted(sql_files):
+        for db_file in db_paths:
             try:
-                with open(cal_sql, "r", encoding="utf-8") as f:
-                    sql_script = f.read()
-                conn.executescript(sql_script)
-                conn.commit()
-                ok(f"Applied Calendar SQL schema ({os.path.basename(cal_sql)})")
-            except Exception as e:
-                # Ignore duplicate table warnings on re-runs
-                pass
+                conn = sqlite3.connect(db_file)
+                cursor = conn.cursor()
 
-        conn.close()
+                # CardDAV DB init
+                if os.path.exists(carddav_sql):
+                    try:
+                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='carddav_accounts';")
+                        if not cursor.fetchone():
+                            with open(carddav_sql, "r", encoding="utf-8") as f:
+                                conn.executescript(f.read())
+                            conn.commit()
+                            ok(f"Initialized CardDAV SQLite database tables in {db_file}")
+                    except Exception as e:
+                        warn(f"CardDAV SQLite DB migration note ({db_file}): {e}")
+
+                # Calendar DB init
+                for cal_sql in sql_files:
+                    try:
+                        with open(cal_sql, "r", encoding="utf-8") as f:
+                            sql_script = f.read()
+                        conn.executescript(sql_script)
+                        conn.commit()
+                        ok(f"Applied Calendar SQL schema ({os.path.basename(cal_sql)}) to {db_file}")
+                    except Exception:
+                        pass
+
+                conn.close()
+            except Exception as e:
+                warn(f"DB init note for {db_file}: {e}")
 
         # Set final container ownership (www-data)
         for path in ("./roundcube/volumes/data", "./roundcube/volumes/db"):
