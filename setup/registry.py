@@ -21,7 +21,7 @@ def get_services() -> list[Service]:
     from samba.setup import service as samba
     from sftpgo.setup import service as sftpgo
     from maddy.setup import service as maddy
-    from sogo.setup import service as sogo
+    from roundcube.setup import service as roundcube
     from traefik.setup import service as traefik
     from unbound.setup import service as unbound
     from vaultwarden.setup import service as vaultwarden
@@ -47,5 +47,5 @@ def get_services() -> list[Service]:
         ddclient,
         ollama,
         maddy,
-        sogo,
+        roundcube,
     ]

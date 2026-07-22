@@ -17,5 +17,5 @@ include:
   - ./ddclient/compose.yaml
   - ./ollama/compose.yaml
   - ./headscale/compose.yaml
-  - ./sogo/compose.yaml
+  - ./roundcube/compose.yaml
   - ./maddy/compose.yaml
