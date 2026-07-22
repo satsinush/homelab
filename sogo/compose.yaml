@@ -18,7 +18,7 @@ services:
       retries: 5
 
   sogo:
-    image: mailcow/sogo:1.127
+    image: servisys/sogo:latest
     container_name: sogo
     restart: unless-stopped
     depends_on:
