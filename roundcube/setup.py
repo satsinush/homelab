@@ -1,15 +1,16 @@
 """Roundcube Webmail service — official multi-arch webmail for Maddy IMAP/SMTP."""
 from __future__ import annotations
 
+import json
 import os
+import urllib.request
 
 from setup.service import Service, VolumeDir
-from setup.ui import ok, section
+from setup.ui import ok, section, warn
 from setup.utils import run_cmd
 
 # UID/GID of www-data inside roundcube/roundcubemail (Apache/Debian base)
 _WWW_DATA_UID = 33
-_CARDDAV_VERSION = "v5.4.0"
 
 
 class RoundcubeService(Service):
@@ -29,13 +30,31 @@ class RoundcubeService(Service):
         os.makedirs(plugins_dir, exist_ok=True)
 
         if not os.path.exists(f"{carddav_dir}/carddav.php"):
-            tar_url = f"https://github.com/mstilkerich/rcmcarddav/releases/download/{_CARDDAV_VERSION}/carddav-{_CARDDAV_VERSION}.tar.gz"
-            tar_path = "/tmp/carddav.tar.gz"
-            run_cmd(f"curl -fsSL '{tar_url}' -o {tar_path}")
-            run_cmd(f"mkdir -p {carddav_dir}")
-            run_cmd(f"tar -xzf {tar_path} -C {carddav_dir} --strip-components=1")
-            run_cmd(f"rm -f {tar_path}")
-            ok(f"Installed RCMCardDAV plugin {_CARDDAV_VERSION}")
+            api_url = "https://api.github.com/repos/mstilkerich/rcmcarddav/releases/latest"
+            headers = {"User-Agent": "Homelab-Setup"}
+            req = urllib.request.Request(api_url, headers=headers)
+            try:
+                with urllib.request.urlopen(req) as resp:
+                    release_data = json.loads(resp.read().decode())
+                
+                tar_url = None
+                for asset in release_data.get("assets", []):
+                    if asset["name"].endswith(".tar.gz"):
+                        tar_url = asset["browser_download_url"]
+                        break
+                
+                if not tar_url:
+                    tag = release_data.get("tag_name", "v5.3.0")
+                    tar_url = f"https://github.com/mstilkerich/rcmcarddav/releases/download/{tag}/carddav-{tag}.tar.gz"
+
+                tar_path = "/tmp/carddav.tar.gz"
+                run_cmd(f"curl -fsSL '{tar_url}' -o {tar_path}")
+                run_cmd(f"mkdir -p {carddav_dir}")
+                run_cmd(f"tar -xzf {tar_path} -C {carddav_dir} --strip-components=1")
+                run_cmd(f"rm -f {tar_path}")
+                ok(f"Installed RCMCardDAV plugin ({release_data.get('tag_name')})")
+            except Exception as e:
+                warn(f"Failed to auto-download RCMCardDAV plugin: {e}")
 
         for path in ("./roundcube/volumes/data", "./roundcube/volumes/db"):
             run_cmd(f"sudo chown -R {_WWW_DATA_UID}:{_WWW_DATA_UID} {path} 2>/dev/null || true")
