@@ -30,6 +30,7 @@ class RoundcubeService(Service):
         carddav_dir = f"{plugins_dir}/carddav"
         calendar_dir = f"{plugins_dir}/calendar"
         libcal_dir = f"{plugins_dir}/libcalendaring"
+        libkolab_dir = f"{plugins_dir}/libkolab"
 
         # Candidate DB paths (Roundcube Docker image uses /var/roundcube/db/sqlite.db -> ./roundcube/volumes/db/sqlite.db)
         db_paths = [
@@ -72,9 +73,18 @@ class RoundcubeService(Service):
             except Exception as e:
                 warn(f"Failed to auto-download RCMCardDAV plugin: {e}")
 
-        # 2. Install Calendar plugin (JodliDev/calendar & libcalendaring)
-        if not os.path.exists(f"{calendar_dir}/calendar.php") or not os.path.exists(f"{libcal_dir}/libcalendaring.php"):
+        # 2. Install Calendar plugin dependencies (libkolab, libcalendaring & calendar)
+        if not os.path.exists(f"{calendar_dir}/calendar.php") or not os.path.exists(f"{libcal_dir}/libcalendaring.php") or not os.path.exists(f"{libkolab_dir}/libkolab.php"):
             try:
+                # libkolab dependency
+                libkolab_url = "https://github.com/kolab-roundcube-plugins-mirror/libkolab/archive/refs/heads/master.tar.gz"
+                libkolab_tar = "/tmp/libkolab.tar.gz"
+                run_cmd(f"curl -fsSL '{libkolab_url}' -o {libkolab_tar}")
+                run_cmd(f"rm -rf {libkolab_dir}")
+                run_cmd(f"mkdir -p {libkolab_dir}")
+                run_cmd(f"tar -xzf {libkolab_tar} -C {libkolab_dir} --strip-components=1")
+                run_cmd(f"rm -f {libkolab_tar}")
+
                 # libcalendaring dependency
                 libcal_url = "https://github.com/JodliDev/libcalendaring/archive/refs/heads/master.tar.gz"
                 libcal_tar = "/tmp/libcal.tar.gz"
@@ -93,9 +103,9 @@ class RoundcubeService(Service):
                 run_cmd(f"tar -xzf {cal_tar} -C {calendar_dir} --strip-components=1")
                 run_cmd(f"rm -f {cal_tar}")
 
-                ok("Installed Calendar plugin & libcalendaring")
+                ok("Installed Calendar plugin, libkolab & libcalendaring")
             except Exception as e:
-                warn(f"Failed to auto-download Calendar plugin: {e}")
+                warn(f"Failed to auto-download Calendar plugin dependencies: {e}")
 
         # Always write Calendar config file
         cal_config_path = f"{calendar_dir}/config.inc.php"
