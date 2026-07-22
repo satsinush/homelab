@@ -8,8 +8,10 @@ services:
       ROUNDCUBEMAIL_DEFAULT_PORT: 143
       ROUNDCUBEMAIL_SMTP_SERVER: "maddy"
       ROUNDCUBEMAIL_SMTP_PORT: 587
+      ROUNDCUBEMAIL_USERNAME_DOMAIN: "${HOMELAB_HOSTNAME}"
     volumes:
       - ${PROJECT_ROOT}/roundcube/volumes/data:/var/www/html
+      - ${PROJECT_ROOT}/roundcube/volumes/db:/var/roundcube/db
     networks:
       - homelab-net
     labels:
