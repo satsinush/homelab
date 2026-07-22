@@ -123,11 +123,11 @@ class RoundcubeService(Service):
             except Exception as e:
                 warn(f"Failed to auto-download Calendar plugin dependencies: {e}")
 
-        # Configure Calendar driver to 'caldav'
+        # Configure Calendar driver to 'caldav' with user-scoped URL pattern
         cal_config_path = f"{calendar_dir}/config.inc.php"
         cal_config_content = """<?php
 $config['calendar_driver'] = 'caldav';
-$config['calendar_caldav_url'] = 'http://radicale:5232/calendar';
+$config['calendar_caldav_url'] = 'http://radicale:5232/%u/';
 $config['calendar_attachments'] = false;
 $config['calendar_default_view'] = 'agendaWeek';
 $config['calendar_timeslots'] = 2;
