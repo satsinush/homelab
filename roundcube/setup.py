@@ -67,12 +67,13 @@ class RoundcubeService(Service):
                 warn(f"Failed to auto-download RCMCardDAV plugin: {e}")
 
         # 2. Install Calendar plugin (JodliDev/calendar & libcalendaring)
-        if not os.path.exists(f"{calendar_dir}/calendar.php"):
+        if not os.path.exists(f"{calendar_dir}/calendar.php") or not os.path.exists(f"{libcal_dir}/libcalendaring.php"):
             try:
                 # libcalendaring dependency
                 libcal_url = "https://github.com/JodliDev/libcalendaring/archive/refs/heads/master.tar.gz"
                 libcal_tar = "/tmp/libcal.tar.gz"
                 run_cmd(f"curl -fsSL '{libcal_url}' -o {libcal_tar}")
+                run_cmd(f"rm -rf {libcal_dir}")
                 run_cmd(f"mkdir -p {libcal_dir}")
                 run_cmd(f"tar -xzf {libcal_tar} -C {libcal_dir} --strip-components=1")
                 run_cmd(f"rm -f {libcal_tar}")
@@ -81,6 +82,7 @@ class RoundcubeService(Service):
                 cal_url = "https://github.com/JodliDev/calendar/archive/refs/heads/master.tar.gz"
                 cal_tar = "/tmp/calendar.tar.gz"
                 run_cmd(f"curl -fsSL '{cal_url}' -o {cal_tar}")
+                run_cmd(f"rm -rf {calendar_dir}")
                 run_cmd(f"mkdir -p {calendar_dir}")
                 run_cmd(f"tar -xzf {cal_tar} -C {calendar_dir} --strip-components=1")
                 run_cmd(f"rm -f {cal_tar}")
@@ -89,7 +91,7 @@ class RoundcubeService(Service):
             except Exception as e:
                 warn(f"Failed to auto-download Calendar plugin: {e}")
 
-        # Configure Calendar driver to 'database' and disable Kolab attachment handler
+        # Always write Calendar config file
         cal_config_path = f"{calendar_dir}/config.inc.php"
         cal_config_content = """<?php
 $config['calendar_driver'] = 'database';
@@ -118,22 +120,24 @@ $config['calendar_first_day'] = 1;
             except Exception as e:
                 warn(f"CardDAV SQLite DB migration note: {e}")
 
-        # Calendar DB init (create calendars & events tables)
-        for cal_sql in (
-            f"{calendar_dir}/drivers/database/SQL/sqlite.initial.sql",
-            f"{calendar_dir}/drivers/database/SQL/sqlite.sql",
-        ):
-            if os.path.exists(cal_sql):
-                try:
-                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='calendars';")
-                    if not cursor.fetchone():
-                        with open(cal_sql, "r", encoding="utf-8") as f:
-                            conn.executescript(f.read())
-                        conn.commit()
-                        ok("Initialized Calendar SQLite database tables")
-                    break
-                except Exception as e:
-                    warn(f"Calendar SQLite DB migration note: {e}")
+        # Calendar DB init — search for all sqlite sql files under calendar_dir
+        sql_files = []
+        if os.path.exists(calendar_dir):
+            for root, _, files in os.walk(calendar_dir):
+                for file in files:
+                    if file.endswith(".sql") and "sqlite" in file.lower():
+                        sql_files.append(os.path.join(root, file))
+
+        for cal_sql in sorted(sql_files):
+            try:
+                with open(cal_sql, "r", encoding="utf-8") as f:
+                    sql_script = f.read()
+                conn.executescript(sql_script)
+                conn.commit()
+                ok(f"Applied Calendar SQL schema ({os.path.basename(cal_sql)})")
+            except Exception as e:
+                # Ignore duplicate table warnings on re-runs
+                pass
 
         conn.close()
 
