@@ -27,6 +27,9 @@ class RoundcubeService(Service):
         plugins_dir = "./roundcube/volumes/data/plugins"
         carddav_dir = f"{plugins_dir}/carddav"
 
+        # Temporarily grant host user write permissions to extract plugins
+        run_cmd(f"sudo chown -R {os.getuid()}:{os.getgid()} ./roundcube/volumes 2>/dev/null || true")
+
         os.makedirs(plugins_dir, exist_ok=True)
 
         if not os.path.exists(f"{carddav_dir}/carddav.php"):
@@ -36,13 +39,13 @@ class RoundcubeService(Service):
             try:
                 with urllib.request.urlopen(req) as resp:
                     release_data = json.loads(resp.read().decode())
-                
+
                 tar_url = None
                 for asset in release_data.get("assets", []):
                     if asset["name"].endswith(".tar.gz"):
                         tar_url = asset["browser_download_url"]
                         break
-                
+
                 if not tar_url:
                     tag = release_data.get("tag_name", "v5.3.0")
                     tar_url = f"https://github.com/mstilkerich/rcmcarddav/releases/download/{tag}/carddav-{tag}.tar.gz"
@@ -56,6 +59,7 @@ class RoundcubeService(Service):
             except Exception as e:
                 warn(f"Failed to auto-download RCMCardDAV plugin: {e}")
 
+        # Set final container ownership (www-data)
         for path in ("./roundcube/volumes/data", "./roundcube/volumes/db"):
             run_cmd(f"sudo chown -R {_WWW_DATA_UID}:{_WWW_DATA_UID} {path} 2>/dev/null || true")
 
