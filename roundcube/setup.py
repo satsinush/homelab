@@ -32,7 +32,7 @@ class RoundcubeService(Service):
         libcal_dir = f"{plugins_dir}/libcalendaring"
         libkolab_dir = f"{plugins_dir}/libkolab"
 
-        # Candidate DB paths (Roundcube Docker image uses /var/roundcube/db/sqlite.db -> ./roundcube/volumes/db/sqlite.db)
+        # Candidate DB paths
         db_paths = [
             "./roundcube/volumes/db/sqlite.db",
             "./roundcube/volumes/data/db/sqlite.db",
@@ -44,6 +44,22 @@ class RoundcubeService(Service):
         for db_p in db_paths:
             os.makedirs(os.path.dirname(db_p), exist_ok=True)
         os.makedirs(plugins_dir, exist_ok=True)
+
+        # Ensure composer.json includes sabre/dav dependency for CalDAV driver
+        composer_json_path = f"{data_dir}/composer.json"
+        if os.path.exists(composer_json_path):
+            try:
+                with open(composer_json_path, "r", encoding="utf-8") as f:
+                    cdata = json.load(f)
+                reqs = cdata.get("require", {})
+                if "sabre/dav" not in reqs:
+                    reqs["sabre/dav"] = "^4.4"
+                    cdata["require"] = reqs
+                    with open(composer_json_path, "w", encoding="utf-8") as f:
+                        json.dump(cdata, f, indent=4)
+                    ok("Added sabre/dav to Roundcube composer.json")
+            except Exception as e:
+                warn(f"composer.json update note: {e}")
 
         # 1. Install RCMCardDAV plugin
         if not os.path.exists(f"{carddav_dir}/carddav.php"):
@@ -107,10 +123,11 @@ class RoundcubeService(Service):
             except Exception as e:
                 warn(f"Failed to auto-download Calendar plugin dependencies: {e}")
 
-        # Always write Calendar config file
+        # Configure Calendar driver to 'caldav'
         cal_config_path = f"{calendar_dir}/config.inc.php"
         cal_config_content = """<?php
-$config['calendar_driver'] = 'database';
+$config['calendar_driver'] = 'caldav';
+$config['calendar_caldav_url'] = 'http://radicale:5232/calendar';
 $config['calendar_attachments'] = false;
 $config['calendar_default_view'] = 'agendaWeek';
 $config['calendar_timeslots'] = 2;
