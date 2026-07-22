@@ -34,7 +34,7 @@ def compile_radicale_configs(env: dict, users: list[dict]) -> None:
 [allow_authenticated]
 user: .+
 collection: .+
-permission: rw
+permissions: RWrw
 """
     rights_path = "./radicale/volumes/config/rights"
     run_cmd(f"sudo chown {os.getuid()}:{os.getgid()} {rights_path} 2>/dev/null || true")
