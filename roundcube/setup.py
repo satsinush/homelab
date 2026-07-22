@@ -89,10 +89,11 @@ class RoundcubeService(Service):
             except Exception as e:
                 warn(f"Failed to auto-download Calendar plugin: {e}")
 
-        # Configure Calendar driver to 'database'
+        # Configure Calendar driver to 'database' and disable Kolab attachment handler
         cal_config_path = f"{calendar_dir}/config.inc.php"
         cal_config_content = """<?php
 $config['calendar_driver'] = 'database';
+$config['calendar_attachments'] = false;
 $config['calendar_default_view'] = 'agendaWeek';
 $config['calendar_timeslots'] = 2;
 $config['calendar_first_day'] = 1;
@@ -117,15 +118,14 @@ $config['calendar_first_day'] = 1;
             except Exception as e:
                 warn(f"CardDAV SQLite DB migration note: {e}")
 
-        # Calendar DB init
-        cal_sql_candidates = (
+        # Calendar DB init (create calendars & events tables)
+        for cal_sql in (
             f"{calendar_dir}/drivers/database/SQL/sqlite.initial.sql",
             f"{calendar_dir}/drivers/database/SQL/sqlite.sql",
-        )
-        for cal_sql in cal_sql_candidates:
+        ):
             if os.path.exists(cal_sql):
                 try:
-                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='events';")
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='calendars';")
                     if not cursor.fetchone():
                         with open(cal_sql, "r", encoding="utf-8") as f:
                             conn.executescript(f.read())
