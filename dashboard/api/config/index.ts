@@ -32,8 +32,8 @@ const dockhandServiceName = process.env.DOCKHAND_SERVICE_NAME || 'dockhand';
 const vaultwardenServiceName = process.env.VAULTWARDEN_SERVICE_NAME || 'vaultwarden';
 const gatusServiceName = process.env.GATUS_SERVICE_NAME || 'gatus';
 const gotifyServiceName = process.env.GOTIFY_SERVICE_NAME || 'gotify';
-const davServiceName = process.env.DAV_SERVICE_NAME || 'dav';
-const calServiceName = process.env.CAL_SERVICE_NAME || 'cal';
+const filesServiceName = process.env.NEXTCLOUD_SERVICE_NAME || 'cloud';
+const calServiceName = process.env.NEXTCLOUD_SERVICE_NAME || 'cloud';
 
 const DASHBOARD_WEB_HOSTNAME = `${dashboardServiceName}.${homelabHostname}`;
 const AUTHENTIK_WEB_HOSTNAME = `${authentikServiceName}.${homelabHostname}`;
@@ -42,7 +42,7 @@ const DOCKHAND_WEB_HOSTNAME = `${dockhandServiceName}.${homelabHostname}`;
 const VAULTWARDEN_WEB_HOSTNAME = `${vaultwardenServiceName}.${homelabHostname}`;
 const GATUS_WEB_HOSTNAME = `${gatusServiceName}.${homelabHostname}`;
 const GOTIFY_WEB_HOSTNAME = `${gotifyServiceName}.${homelabHostname}`;
-const DAV_WEB_HOSTNAME = `${davServiceName}.${homelabHostname}`;
+const DAV_WEB_HOSTNAME = `${filesServiceName}.${homelabHostname}`;
 const CAL_WEB_HOSTNAME = `${calServiceName}.${homelabHostname}`;
 
 export interface DefaultSettings {
@@ -143,7 +143,12 @@ const config = {
         url: `http://ollama:11434`
     },
     hostApi: {
-        url: `http://host.docker.internal:5001`
+        // Docker Desktop/WSL: host.docker.internal often is not this host-api.
+        // Prefer HOST_API_URL (set by setup to the machine primary IP).
+        url: (process.env.HOST_API_URL || 'http://host.docker.internal:5001').replace(
+            /\/$/,
+            ''
+        )
     },
     alerts: {
         url: 'http://alerts'

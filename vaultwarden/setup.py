@@ -22,6 +22,7 @@ class VaultwardenService(Service):
         os.makedirs("./volumes/secrets", exist_ok=True)
         gen_secret("vaultwarden_oidc_secret", 64)
         gen_secret("vaultwarden_admin_token_plain", 48)
+        gen_secret("stalwart_smtp_vaultwarden_password", 32)
 
         plain_token_path = "./volumes/secrets/vaultwarden_admin_token_plain"
         with open(plain_token_path, "r", encoding="utf-8") as f:

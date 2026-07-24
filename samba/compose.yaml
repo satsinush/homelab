@@ -5,21 +5,19 @@ services:
     container_name: samba
     restart: unless-stopped
     env_file:
-      - ${PROJECT_ROOT}/samba/volumes/config/accounts.env
+      - ${PROJECT_ROOT}/samba/volumes/config/samba.env
     environment:
       MODEL: ${HOMELAB_HOSTNAME:-homelab}
       AVAHI_DISABLE: "true"
       WSDD2_DISABLE: "true"
-      # entrypoint.sh creates the "homelab" unix user with this uid/gid; shares
-      # force it so files match host/SFTPGo ownership regardless of SMB account.
       PUID: ${PUID:-1000}
       PGID: ${PGID:-1000}
+      HOMELAB_DEFAULT_QUOTA_GB: ${HOMELAB_DEFAULT_QUOTA_GB:-50}
       SAMBA_CONF_WORKGROUP: WORKGROUP
       SAMBA_CONF_SERVER_STRING: Homelab NAS
       SAMBA_CONF_LOG_LEVEL: "1"
-      # WebDAV (and host) changes won't break SMB3 dir leases — Windows keeps
-      # ghost folders/files until reconnect. Disable leases for dual-protocol use.
       SAMBA_CONF_SMB3_DIRECTORY_LEASES: "no"
+      SAMBA_CONF_DFREE_COMMAND: /dfree.sh
       # Private per-user home: \\server\username → storage/users/<username>
       SAMBA_VOLUME_CONFIG_homes: >-
         [homes];
@@ -33,7 +31,9 @@ services:
         force group=homelab;
         create mask=0700;
         directory mask=0700;
-        hide unreadable=yes
+        hide unreadable=yes;
+        root preexec=/bin/mkdir -p /shares/users/%U;
+        dfree command=/dfree.sh
       # Shared by all Samba users: \\server\shared → storage/shared
       SAMBA_VOLUME_CONFIG_shared: >-
         [shared];
@@ -52,11 +52,10 @@ services:
       - ${PROJECT_ROOT}/storage:/shares
       - ${PROJECT_ROOT}/samba/volumes/data:/var/lib/samba
       - ${PROJECT_ROOT}/samba/entrypoint.sh:/entrypoint-homelab.sh:ro
+      - ${PROJECT_ROOT}/samba/dfree.sh:/dfree.sh:ro
     entrypoint: ["/bin/sh", "/entrypoint-homelab.sh"]
     command: ["runsvdir", "-P", "/container/config/runit"]
     ports:
-      # Pi / bare metal: 445. On Docker Desktop (Windows), 445 is usually taken —
-      # set SAMBA_HOST_PORT=4445 in .env or override ports (see example.docker-compose.override.yml).
       - "${SAMBA_HOST_PORT:-445}:445"
     networks:
       - homelab-net

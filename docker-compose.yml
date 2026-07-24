@@ -4,18 +4,17 @@ include:
   - ./unbound/compose.yaml
   - ./pihole/compose.yaml
   - ./authentik/compose.yaml
+  - ./stalwart/compose.yaml
+  - ./samba/compose.yaml
+  - ./nextcloud/compose.yaml
+  - ./immich/compose.yaml
   - ./gatus/compose.yaml
   - ./dashboard/compose.yaml
   - ./dockhand/compose.yaml
   - ./alerts/compose.yaml
   - ./vaultwarden/compose.yaml
   - ./gotify/compose.yaml
-  - ./samba/compose.yaml
-  - ./sftpgo/compose.yaml
-  - ./radicale/compose.yaml
   - ./rustdesk/compose.yaml
   - ./ddclient/compose.yaml
   - ./ollama/compose.yaml
   - ./headscale/compose.yaml
-  - ./roundcube/compose.yaml
-  - ./maddy/compose.yaml

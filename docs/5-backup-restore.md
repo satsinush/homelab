@@ -76,7 +76,7 @@ Flow: `restic restore` → `Service.setup()` (permissions) → `docker compose u
 | --- | --- |
 | Authentik | `pg_dump` → `*/volumes/db-dumps/`; live `*/volumes/db/` excluded from Restic |
 | Vaultwarden, Dashboard, Gotify | SQLite online `.backup` into the service bind mount |
-| Samba / WebDAV data | `storage/users/` (private) + `storage/shared/` (included as `storage/` target) |
+| Samba data | `storage/users/` (private) + `storage/shared/` (included as `storage/` target) |
 | ddclient | Config at `ddclient/volumes/ddclient.conf` (included via `*/volumes/`) |
 
 `.backup_exclude` skips `ollama/volumes/ollama/` (large models) until S3 capacity grows.

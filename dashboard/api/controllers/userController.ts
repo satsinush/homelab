@@ -7,13 +7,6 @@ import HostApiService from '../services/hostApiService';
 
 import { getErrorMessage } from '../utils/errors';
 
-/** Host API wraps validation failures as "Host API error: 400 - <msg>" — unwrap for the UI. */
-function friendlyHostApiError(error: unknown): string {
-    const raw = getErrorMessage(error);
-    const match = raw.match(/Host API error: \d+ - (.+)$/);
-    return match ? match[1] : raw;
-}
-
 function friendlySsoErrorMessage(error: unknown): string {
     const raw = getErrorMessage(error).toLowerCase();
     if (
@@ -81,21 +74,6 @@ class UserController {
                 email: user.email,
                 is_sso_user: !!user.sso_id
             };
-
-            // Lazily upsert accounts.json on every local login so that:
-            //  - the first admin user (created at login time with no prior accounts.json id) gets synced
-            //  - any local user whose entry lacks an id gets backfilled
-            // Fire-and-forget: errors must never break login.
-            if (user.has_local_password) {
-                this.hostApi.updateFileAccountPassword(
-                    user.username,
-                    validatedCredentials.password,
-                    user.roles.includes('homelab-admin'),
-                    user.id
-                ).catch((err: unknown) => {
-                    console.error(`[login] Failed to sync accounts.json for ${user.username}:`, err);
-                });
-            }
             
             return sendSuccess(res, {
                 message: 'Login successful',
@@ -235,15 +213,6 @@ class UserController {
             // Create or update user based on SSO profile
             const user = await this.userModel.createOrUpdateSSOUser(userinfo);
             console.log('User authenticated:', user.username);
-
-            // Synchronize username changes (renames file storage folder if needed)
-            if (userinfo.sub) {
-                try {
-                    await this.hostApi.syncUsername(user.id, user.username);
-                } catch (err) {
-                    console.error('Failed to sync SSO username to file shares on host API:', err);
-                }
-            }
 
             // Store user info + id_token (for RP-initiated logout) in session
             req.session.userId = user.id;
@@ -470,17 +439,6 @@ class UserController {
             
             const updatedUser = await this.userModel.updateProfile(userId, validatedUsername, currentPassword, validatedNewPassword);
             
-            // If the local password was updated, sync to host API!
-            // Pass updatedUser.id so the CLI can auto-create the accounts.json entry
-            // for SSO users setting their sync password for the first time.
-            if (validatedNewPassword) {
-                try {
-                    await this.hostApi.updateFileAccountPassword(updatedUser.username, validatedNewPassword, undefined, updatedUser.id);
-                } catch (err) {
-                    console.error(`Failed to sync password to host API for ${updatedUser.username}:`, err);
-                }
-            }
-            
             // Update session with new user data
             if (req.session.user) {
                 req.session.user.username = updatedUser.username;
@@ -568,88 +526,6 @@ class UserController {
         } catch (error: unknown) {
             console.error('Delete user error:', error);
             return sendError(res, 500, 'Failed to delete user', getErrorMessage(error));
-        }
-    }
-
-    // ─── File-access (Samba SMB / SFTPGo WebDAV) accounts — proxied to the host API ───
-
-    async getFileAccounts(req: Request, res: Response) {
-        try {
-            const users = this.userModel.getAllUsers();
-            const accounts = users
-                .filter(u => u.has_local_password)
-                .map(u => ({ username: u.username }));
-            return sendSuccess(res, { accounts });
-        } catch (error: unknown) {
-            console.error('Get file accounts error:', error);
-            return sendError(res, 500, 'Failed to retrieve file-access accounts', getErrorMessage(error));
-        }
-    }
-
-    async createFileAccount(req: Request, res: Response) {
-        try {
-            const { username, password } = req.body || {};
-            if (!username || !password) {
-                return sendError(res, 400, 'Username and password are required');
-            }
-            // Create user locally in database
-            const localUser = await this.userModel.createLocalUser(username, password, `${username}@${config.homelabHostname || 'homelab.home.arpa'}`);
-            const isAdmin = localUser?.roles?.includes('homelab-admin') || false;
-            
-            // Get id from DB (createLocalUser already returned it, but re-query for safety)
-            const stmt = (this.userModel as any).db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)');
-            const row = stmt.get(username) as { id: number } | undefined;
-            const userId = row?.id || undefined;
-
-            // Call host API to write config and sync
-            await this.hostApi.createFileAccount(username, password, isAdmin, userId);
-            return sendSuccess(res, { message: `User account "${username}" created` });
-        } catch (error: unknown) {
-            console.error('Create file account error:', error);
-            return sendError(res, 400, friendlyHostApiError(error));
-        }
-    }
-
-    async updateFileAccountPassword(req: Request, res: Response) {
-        try {
-            const username = req.params.username as string;
-            const { password } = req.body || {};
-            if (!password) {
-                return sendError(res, 400, 'Password is required');
-            }
-            // Update user password locally in database
-            await this.userModel.updateLocalPassword(username, password);
-            // Retrieve target user profile from DB to determine admin status
-            const stmt = (this.userModel as any).db.prepare('SELECT id, roles FROM users WHERE LOWER(username) = LOWER(?)');
-            const row = stmt.get(username) as { id: number; roles: string } | undefined;
-            const userRoles = row ? (JSON.parse(row.roles || '[]') as string[]) : [];
-            const isAdmin = userRoles.includes('homelab-admin');
-            const userId = row?.id || undefined;
-
-            // Call host API to write config and sync
-            await this.hostApi.updateFileAccountPassword(username, password, isAdmin, userId);
-            return sendSuccess(res, { message: `Local password updated for "${username}"` });
-        } catch (error: unknown) {
-            console.error('Update file account password error:', error);
-            return sendError(res, 400, friendlyHostApiError(error));
-        }
-    }
-
-    async deleteFileAccount(req: Request, res: Response) {
-        try {
-            const username = req.params.username as string;
-            // Get user by username
-            const stmt = (this.userModel as any).db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)');
-            const user = stmt.get(username) as { id: number } | undefined;
-            if (user) {
-                this.userModel.deleteUser(user.id);
-            }
-            // Call host API to write env and sync
-            await this.hostApi.deleteFileAccount(username);
-            return sendSuccess(res, { message: `User "${username}" deleted` });
-        } catch (error: unknown) {
-            console.error('Delete file account error:', error);
-            return sendError(res, 400, friendlyHostApiError(error));
         }
     }
 }

@@ -85,7 +85,7 @@ def parse_args() -> argparse.Namespace:
         "command",
         nargs="?",
         default="setup",
-        choices=["setup", "backup", "restore", "reset", "restart", "sync-accounts"],
+        choices=["setup", "backup", "restore", "reset", "restart"],
         help="Mode to run (default: setup)",
     )
     parser.add_argument(
@@ -111,7 +111,7 @@ def do_reset() -> None:
         "========================",
         "",
         "⚠️  WARNING: This will permanently destroy your entire homelab state:",
-        "   - Stop and remove all Docker containers",
+        "   - Stop and remove all Docker containers (including orphans)",
         "   - Run each service's reset() (typically ./{service}/volumes)",
         "   - Delete shared state (.env, volumes/ secrets & certificates)",
         "",
@@ -129,7 +129,10 @@ def do_reset() -> None:
             sys.exit(0)
 
         section("Resetting homelab stack...", emoji="🔥")
-        subprocess.run("docker compose down -v", shell=True, check=False)
+        subprocess.run(
+            ["docker", "compose", "down", "-v", "--remove-orphans"],
+            check=False,
+        )
 
         env: dict = {}
         if os.path.exists(".env"):
@@ -249,7 +252,13 @@ def ensure_systemd_services() -> None:
     run_cmd("sudo systemctl daemon-reload")
 
     step("Enabling docker…")
-    run_cmd("sudo systemctl enable --now docker.socket docker.service")
+    # Docker Desktop / WSL often has no docker.socket unit; docker may already be available.
+    if run_cmd("sudo systemctl enable --now docker.socket docker.service", check=False) is None:
+        info("Skipped enabling docker.socket/docker.service (common on WSL / Docker Desktop)")
+    elif shutil.which("docker"):
+        ok("Docker service enabled")
+    else:
+        warn("docker.socket/docker.service enabled but `docker` not found on PATH")
 
     for unit in (
         "homelab-host-api.service",
@@ -401,7 +410,25 @@ def ensure_env_file() -> dict:
                 else "That doesn't look like a valid hostname. Please try again."
             ),
         )
-        headscale_web_hostname = f"vpn.{hostname}"
+        print("\n   By default, VPN uses vpn.<homelab-hostname>.")
+        print("   For remote access you can use a free DDNS (or other public) hostname for Headscale:")
+        if prompt_yes_no(
+            "   Configure a public hostname for VPN? (Y/n): ",
+            default=True,
+        ):
+            headscale_web_hostname = prompt_nonempty(
+                "              VPN Public Hostname: ",
+                validate=lambda h: (
+                    None
+                    if re.match(
+                        r"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$",
+                        h,
+                    )
+                    else "That doesn't look like a valid hostname. Please try again."
+                ),
+            )
+        else:
+            headscale_web_hostname = f"vpn.{hostname}"
 
     dns_domain = hostname.split(".", 1)[1] if "." in hostname else hostname
 
@@ -479,16 +506,21 @@ def ensure_env_file() -> dict:
     os.environ["GATUS_SERVICE_NAME"] = "status"
     os.environ["GOTIFY_SERVICE_NAME"] = "notify"
     os.environ["AUTHENTIK_SERVICE_NAME"] = "auth"
-    os.environ["FILES_SERVICE_NAME"] = "files"
-    os.environ["CAL_SERVICE_NAME"] = "cal"
+    os.environ["NEXTCLOUD_SERVICE_NAME"] = "cloud"
+    os.environ["COLLABORA_SERVICE_NAME"] = "office"
+    os.environ["IMMICH_SERVICE_NAME"] = "photos"
+    os.environ["MAIL_SERVICE_NAME"] = "mail"
     os.environ["HEADSCALE_SERVICE_NAME"] = "vpn"
-    os.environ["ROUNDCUBE_SERVICE_NAME"] = "mail"
+    os.environ["HOMELAB_DEFAULT_QUOTA_GB"] = os.environ.get("HOMELAB_DEFAULT_QUOTA_GB") or "50"
     os.environ["HEADSCALE_WEB_HOSTNAME"] = headscale_web_hostname
     os.environ["HEADSCALE_BASE_DOMAIN"] = f"ts.{dns_domain}"
     os.environ["LAN_SUBNET"] = lan_subnet
     os.environ["DOCKER_SUBNET"] = docker_subnet
     os.environ["TRAEFIK_IP_ADDRESS"] = _traefik_ip_for_subnet(docker_subnet)
     os.environ["HEADSCALE_IPV4_PREFIX"] = headscale_prefix
+    from setup.utils import detect_host_api_url
+
+    os.environ["HOST_API_URL"] = detect_host_api_url()
 
     content = substitute_env_vars(content)
     with open(".env", "w", encoding="utf-8") as f:
@@ -511,17 +543,22 @@ def ensure_bootstrap_and_locale(env: dict) -> dict:
     os.makedirs("./volumes/secrets", exist_ok=True)
     os.chmod("./volumes/secrets", 0o700)
 
+    from setup.utils import detect_host_api_url
+
     docker_subnet = env.get("DOCKER_SUBNET") or "10.10.30.0/24"
     for key, default in (
-        ("FILES_SERVICE_NAME", "files"),
-        ("CAL_SERVICE_NAME", "cal"),
+        ("NEXTCLOUD_SERVICE_NAME", "cloud"),
+        ("COLLABORA_SERVICE_NAME", "office"),
+        ("IMMICH_SERVICE_NAME", "photos"),
+        ("MAIL_SERVICE_NAME", "mail"),
         ("HEADSCALE_SERVICE_NAME", "vpn"),
-        ("ROUNDCUBE_SERVICE_NAME", "mail"),
         ("HEADSCALE_BASE_DOMAIN", f"ts.{env.get('DNS_DOMAIN') or 'home.arpa'}"),
         ("LAN_SUBNET", "10.10.10.0/24"),
         ("DOCKER_SUBNET", docker_subnet),
         ("TRAEFIK_IP_ADDRESS", _traefik_ip_for_subnet(docker_subnet)),
         ("HEADSCALE_IPV4_PREFIX", "100.64.0.0/24"),
+        ("HOST_API_URL", detect_host_api_url()),
+        ("HOMELAB_DEFAULT_QUOTA_GB", "50"),
     ):
         if not env.get(key):
             append_env(env, key, default)
@@ -743,9 +780,12 @@ def run_setup() -> None:
     run_cmd("docker compose build", capture=False)
 
     section("Starting Docker containers...", emoji="🐳")
+    from setup.utils import ensure_secrets_container_access
+
     compose_up()
 
-    wait_for_containers()
+    # authentik-ldap needs the Outpost token written in authentik postsetup.
+    wait_for_containers(exclude={"authentik-ldap"})
     ok("Docker containers started")
 
     section("Running per-service postsetup()...", emoji="⚙️")
@@ -754,7 +794,7 @@ def run_setup() -> None:
     # Postsetup may rewrite secrets (e.g. notification tokens); refresh ACLs.
     ensure_secrets_container_access()
 
-    wait_for_containers(timeout=120)
+    wait_for_containers(timeout=180)
     ok("Postsetup containers healthy")
 
     banner("", "🎉 Homelab Setup Complete!", "==========================")
@@ -841,10 +881,10 @@ def run_restore(snapshot: str = "latest") -> None:
     section("Running per-service restore() hooks...", emoji="♻️")
     run_all_restore(services, env)
 
-    wait_for_containers()
+    wait_for_containers(exclude={"authentik-ldap"})
     section("Running per-service postsetup()...", emoji="⚙️")
     run_all_postsetup(services, env)
-    wait_for_containers(timeout=120)
+    wait_for_containers(timeout=180)
 
     ok("Restore complete.")
 
@@ -864,7 +904,7 @@ def run_restart() -> None:
     os.environ.setdefault("PROJECT_ROOT", os.getcwd())
 
     section("Stopping and removing all containers...", emoji="🐳")
-    subprocess.run(["docker", "compose", "down"], check=True)
+    subprocess.run(["docker", "compose", "down", "--remove-orphans"], check=True)
 
     section("Starting all containers...", emoji="🐳")
     compose_up()
@@ -886,9 +926,6 @@ def main() -> None:
         do_reset()
     elif args.command == "restart":
         run_restart()
-    elif args.command == "sync-accounts":
-        from setup.file_accounts import trigger_accounts_sync
-        trigger_accounts_sync(recreate=True)
     else:
         print(f"Unknown command: {args.command}")
         sys.exit(1)

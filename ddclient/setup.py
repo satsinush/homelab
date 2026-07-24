@@ -15,6 +15,10 @@ class DdclientService(Service):
     name = "ddclient"
     volume_dirs = [VolumeDir("./ddclient/volumes", mode=0o700)]
 
+    def reset_paths(self) -> list[str]:
+        # volumes/ only holds user-edited ddclient.conf — keep it across reset.
+        return []
+
     def setup(self, env: dict) -> None:
         super().setup(env)
         section("Preparing ddclient config...", emoji="🌐")

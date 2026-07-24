@@ -58,49 +58,50 @@ const Files = () => {
     const [tabVal, setTabVal] = useState(0);
     const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
-    const davHost = config.hostnames.dav || 'dav.homelab.local';
+    const filesHost = config.hostnames.dav || 'cloud.homelab.local';
+    const calHost = config.hostnames.cal || filesHost;
     const homelabHost = config.homelabHostname || window.location.hostname.replace('dashboard.', '') || 'homelab.local';
     const username = user?.username || 'username';
 
-    const webBrowserUrl = `https://${davHost}/files/web/client`;
-    const calendarPortalUrl = `https://${davHost}/calendar/.web`;
+    const webBrowserUrl = `https://${filesHost}/`;
+    const calendarPortalUrl = `https://${calHost}/apps/calendar/`;
 
     // Protocol schemes and path strings per OS
     const formats = {
         windows: {
             smbPrivate: `\\\\${homelabHost}\\${username}`,
             smbShared: `\\\\${homelabHost}\\shared`,
-            webdav: `https://${davHost}/files/`,
-            caldav: `https://${davHost}/calendar/`,
-            carddav: `https://${davHost}/contacts/`
+            webdav: `https://${filesHost}/`,
+            caldav: `https://${calHost}/`,
+            carddav: `https://${calHost}/`
         },
         macos: {
             smbPrivate: `smb://${homelabHost}/${username}`,
             smbShared: `smb://${homelabHost}/shared`,
-            webdav: `https://${davHost}/files/`,
-            caldav: `https://${davHost}/calendar/`,
-            carddav: `https://${davHost}/contacts/`
+            webdav: `https://${filesHost}/`,
+            caldav: `https://${calHost}/`,
+            carddav: `https://${calHost}/`
         },
         linux: {
             smbPrivate: `smb://${homelabHost}/${username}`,
             smbShared: `smb://${homelabHost}/shared`,
-            webdav: `https://${davHost}/files/`,
-            caldav: `https://${davHost}/calendar/`,
-            carddav: `https://${davHost}/contacts/`
+            webdav: `https://${filesHost}/`,
+            caldav: `https://${calHost}/`,
+            carddav: `https://${calHost}/`
         },
         ios: {
             smbPrivate: `smb://${homelabHost}/${username}`,
             smbShared: `smb://${homelabHost}/shared`,
-            webdav: `https://${davHost}/files/`,
-            caldav: `https://${davHost}/calendar/`,
-            carddav: `https://${davHost}/contacts/`
+            webdav: `https://${filesHost}/`,
+            caldav: `https://${calHost}/`,
+            carddav: `https://${calHost}/`
         },
         android: {
             smbPrivate: `smb://${homelabHost}/${username}`,
             smbShared: `smb://${homelabHost}/shared`,
-            webdav: `https://${davHost}/files/`,
-            caldav: `https://${davHost}/calendar/`,
-            carddav: `https://${davHost}/contacts/`
+            webdav: `https://${filesHost}/`,
+            caldav: `https://${calHost}/`,
+            carddav: `https://${calHost}/`
         }
     };
 
@@ -122,7 +123,8 @@ const Files = () => {
             <PageHeader title="Sync & Files" icon={<FilesIcon />} />
 
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                Configure network file shares (Samba), WebDAV file sync, and calendar/contacts sync (CalDAV &amp; CardDAV).
+                SMB for bulk LAN transfers; Nextcloud for everyday files, WebDAV, calendar, and contacts.
+                Sign in with your Authentik password (mail/IMAP too).
             </Typography>
 
             {/* Quick Web Access Links */}
@@ -138,7 +140,7 @@ const Files = () => {
                     rel="noopener"
                     sx={{ flex: 1, textDecoration: 'none', py: 1.5 }}
                 >
-                    Open File Browser
+                    Open Nextcloud
                 </Button>
                 <Button
                     variant="outlined"
@@ -151,7 +153,7 @@ const Files = () => {
                     rel="noopener"
                     sx={{ flex: 1, textDecoration: 'none', py: 1.5 }}
                 >
-                    Open Calendar Portal
+                    Open Nextcloud Calendar
                 </Button>
             </Stack>
 

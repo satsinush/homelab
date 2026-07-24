@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import time
 from collections.abc import Callable
+from pathlib import Path
 
 from setup.ui import info, ok, step, warn
 
@@ -130,11 +131,11 @@ def compose_up(
     force_recreate: bool = False,
     check: bool = True,
 ) -> str | None:
-    """`docker compose [--profile …] up -d [--force-recreate] [services…]`."""
+    """`docker compose [--profile …] up -d [--force-recreate] [--remove-orphans] [services…]`."""
     parts = ["docker", "compose"]
     for profile in profiles:
         parts.extend(["--profile", profile])
-    parts.extend(["up", "-d"])
+    parts.extend(["up", "-d", "--remove-orphans"])
     if force_recreate:
         parts.append("--force-recreate")
     parts.extend(services)
@@ -177,6 +178,29 @@ def wait_for_container_healthy(name: str, timeout: float = 120) -> bool:
     return wait_for(_healthy, timeout=timeout, interval=2)
 
 
+def detect_host_api_url(port: int = 5001) -> str:
+    """URL containers use to reach host-api on this machine.
+
+    On Docker Desktop + WSL2, ``host.docker.internal`` often reaches the Windows
+    Docker VM (or another host), not the WSL distro where host-api listens.
+    Prefer this machine's primary non-loopback IP so dashboard ↔ host-api stays
+    on the same host. Override with HOST_API_URL when needed.
+    """
+    override = (os.environ.get("HOST_API_URL") or "").strip().rstrip("/")
+    if override:
+        return override
+    try:
+        out = subprocess.check_output(
+            ["hostname", "-I"], text=True, timeout=5
+        ).strip()
+        for ip in out.split():
+            if ip and not ip.startswith("127.") and ":" not in ip:
+                return f"http://{ip}:{port}"
+    except (subprocess.SubprocessError, OSError, FileNotFoundError):
+        pass
+    return f"http://host.docker.internal:{port}"
+
+
 def gen_secret(name, length_bytes):
     """Generate a secret file in ./volumes/secrets/ if it doesn't already exist.
 
@@ -205,6 +229,7 @@ def gen_secret(name, length_bytes):
 # Container UIDs that must read Compose file-secrets (bind-mounted with host mode).
 _SECRET_READER_UIDS = (
     1000,  # Authentik server (worker uses user: root for docker.sock)
+    2000,  # Stalwart
 )
 
 

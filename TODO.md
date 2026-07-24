@@ -3,7 +3,7 @@
  * [ ] update DAV urls to use /files, /calendar, /contacts?
 
 ## ✨ Features
- * [ ] Setup Immich
+ * [x] Setup Immich
  * [ ] Setup jellyfin
  * [ ] add gitea server?
  * [ ] use proper MCP servers for AI chat page

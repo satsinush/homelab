@@ -1,5 +1,5 @@
 # Provision the homelab host (Arch Linux). App-level bootstrap (Authentik
-# blueprints, Gotify apps, SFTPGo users, Headscale OIDC, secrets) stays in
+# blueprints, Gotify apps, Headscale OIDC, secrets) stays in
 # `python3 setup.py setup`.
 - name: Provision homelab host
   hosts: homelab

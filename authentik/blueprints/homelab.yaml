@@ -59,6 +59,18 @@ entries:
     attrs:
       name: headscale-user
 
+  - model: authentik_rbac.role
+    identifiers:
+      name: nextcloud-user
+    attrs:
+      name: nextcloud-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: immich-user
+    attrs:
+      name: immich-user
+
   # =================================================================
   # Groups
   # =================================================================
@@ -83,6 +95,8 @@ entries:
         - !Find [authentik_rbac.role, [name, dashboard-wordgames-user]]
         - !Find [authentik_rbac.role, [name, vaultwarden-user]]
         - !Find [authentik_rbac.role, [name, headscale-user]]
+        - !Find [authentik_rbac.role, [name, nextcloud-user]]
+        - !Find [authentik_rbac.role, [name, immich-user]]
 
   # =================================================================
   # Admin User
@@ -100,6 +114,19 @@ entries:
       password: !File /run/secrets/homelab_password
       groups:
         - !Find [authentik_core.group, [name, homelab-admins]]
+
+  # LDAP bind service account (Samba search / Stalwart directory)
+  - model: authentik_core.user
+    id: ldap-service
+    identifiers:
+      username: ldapservice
+    attrs:
+      username: ldapservice
+      name: LDAP Service Account
+      email: ldapservice@goauthentik.io
+      path: users
+      type: service_account
+      password: !File /run/secrets/ldap_service_password
 
   # =================================================================
   # Password Policies
@@ -131,7 +158,75 @@ entries:
     attrs:
       order: 0
 
-  # =================================================================
+  # Sync Authentik passwords into Samba NTLM passdb (host-api).
+  # Primary path is password_changed signal (authentik/custom/homelab_smb_sync).
+  # This flow policy is a backup for enrollment/password-change prompt_data.
+  - model: authentik_policies_expression.expressionpolicy
+    id: smb-password-sync
+    identifiers:
+      name: smb-password-sync
+    attrs:
+      name: smb-password-sync
+      execution_logging: true
+      expression: |
+        import os
+        import requests
+
+        prompt = context.get("prompt_data") or {}
+        password = prompt.get("password")
+        if not password:
+            return True
+
+        username = None
+        pending = context.get("pending_user")
+        if pending is not None:
+            username = getattr(pending, "username", None)
+        if not username:
+            user = getattr(request, "user", None)
+            if user is not None and getattr(user, "username", None) not in (None, "", "AnonymousUser"):
+                username = user.username
+        if not username:
+            username = prompt.get("username")
+        if not username or username in ("ldapservice", "akadmin"):
+            return True
+
+        host = (os.environ.get("HOST_API_URL") or "http://host.docker.internal:5001").rstrip("/")
+        try:
+            with open("/run/secrets/host_api_token", encoding="utf-8") as f:
+                token = f.read().strip()
+        except OSError:
+            return True
+        if not token:
+            return True
+
+        try:
+            requests.post(
+                f"{host}/smb/set-password",
+                json={"username": username, "password": password},
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=15,
+            )
+        except Exception:
+            # Never block Authentik auth on SMB sync failures.
+            pass
+        return True
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_flows.flow, [slug, default-password-change]]
+      policy: !KeyOf smb-password-sync
+    attrs:
+      order: 100
+      timeout: 30
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_flows.flow, [slug, default-source-enrollment]]
+      policy: !KeyOf smb-password-sync
+    attrs:
+      order: 100
+      timeout: 30
+
   # =================================================================
   # Custom Scope Mappings
   # =================================================================
@@ -273,6 +368,112 @@ entries:
       provider: !KeyOf homelab_dashboard
       meta_launch_url: !Format ["https://%s.%s", !Env DASHBOARD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
       icon: homelab-icon.svg
+
+  # Nextcloud OIDC
+  - model: authentik_providers_oauth2.oauth2provider
+    id: nextcloud
+    identifiers:
+      name: nextcloud
+    attrs:
+      name: nextcloud
+      client_id: nextcloud
+      client_secret: !File /run/secrets/nextcloud_oidc_secret
+      client_type: confidential
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      grant_types:
+        - authorization_code
+        - refresh_token
+      redirect_uris:
+        - url: !Format ["https://%s.%s/apps/user_oidc/code", !Env NEXTCLOUD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+        - url: !Format ["https://%s.%s/apps/openidconnect/redirect", !Env NEXTCLOUD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+        - url: !Format ["https://%s.%s/index.php/apps/user_oidc/code", !Env NEXTCLOUD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !KeyOf scope-email
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !KeyOf scope-groups
+
+  - model: authentik_core.application
+    identifiers:
+      slug: nextcloud
+    attrs:
+      name: Nextcloud
+      slug: nextcloud
+      provider: !KeyOf nextcloud
+      meta_launch_url: !Format ["https://%s.%s", !Env NEXTCLOUD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      icon: icons/nextcloud_logo.png
+
+  # Immich OIDC
+  - model: authentik_providers_oauth2.oauth2provider
+    id: immich
+    identifiers:
+      name: immich
+    attrs:
+      name: immich
+      client_id: immich
+      client_secret: !File /run/secrets/immich_oidc_secret
+      client_type: confidential
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      grant_types:
+        - authorization_code
+        - refresh_token
+      redirect_uris:
+        - url: !Format ["https://%s.%s/auth/login", !Env IMMICH_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+        - url: !Format ["https://%s.%s/user-settings", !Env IMMICH_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !KeyOf scope-email
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !KeyOf scope-groups
+
+  - model: authentik_core.application
+    identifiers:
+      slug: immich
+    attrs:
+      name: Immich
+      slug: immich
+      provider: !KeyOf immich
+      meta_launch_url: !Format ["https://%s.%s", !Env IMMICH_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+
+  # LDAP Application must exist before the provider: LDAPProvider.full_clean()
+  # requires backchannel_application (blank=False), which made KeyOf fail when
+  # the provider was created first.
+  - model: authentik_core.application
+    id: ldap-app
+    identifiers:
+      slug: ldap
+    attrs:
+      name: LDAP
+      slug: ldap
+      meta_hide: true
+
+  # LDAP Provider (cached bind + cached search).
+  # Outpost uses authorization_flow as the LDAP bind flow.
+  - model: authentik_providers_ldap.ldapprovider
+    id: ldap-provider
+    identifiers:
+      name: LDAP
+    attrs:
+      name: LDAP
+      backchannel_application: !KeyOf ldap-app
+      authentication_flow: !Find [authentik_flows.flow, [slug, default-authentication-flow]]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-authentication-flow]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      bind_mode: cached
+      search_mode: cached
+      base_dn: dc=ldap,dc=goauthentik,dc=io
+      uid_start_number: 2000
+      gid_start_number: 4000
+      mfa_support: false
 
   # =================================================================
   # Proxy Providers for Traefik Forward-Auth
@@ -425,6 +626,34 @@ entries:
     attrs:
       order: 1
 
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, nextcloud]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
+    attrs:
+      order: 0
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, nextcloud]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 1
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, immich]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
+    attrs:
+      order: 0
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, immich]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 1
+
   # =================================================================
   # Outpost Association
   # =================================================================
@@ -437,6 +666,16 @@ entries:
       providers:
         - !Find [authentik_providers_proxy.proxyprovider, [name, pihole-proxy]]
         - !Find [authentik_providers_proxy.proxyprovider, [name, dockhand-proxy]]
+
+  - model: authentik_outposts.outpost
+    id: ldap-outpost
+    identifiers:
+      name: "LDAP Outpost"
+    attrs:
+      name: "LDAP Outpost"
+      type: ldap
+      providers:
+        - !KeyOf ldap-provider
 
   # Brand styling to match dark dashboard theme
   - model: authentik_brands.brand

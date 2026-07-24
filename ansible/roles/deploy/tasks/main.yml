@@ -1,5 +1,5 @@
 # Get the repo in place and the stack running. App bootstrap (secrets,
-# .env generation, Authentik/Gotify/SFTPGo provisioning, systemd units)
+# .env generation, Authentik/Gotify provisioning, systemd units)
 # stays in `python3 setup.py setup`, which is interactive on first run.
 - name: Clone homelab repo (only when homelab_repo_url is set)
   ansible.builtin.git:

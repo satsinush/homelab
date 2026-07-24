@@ -424,7 +424,7 @@ const Profile = () => {
                                 <Typography variant="body1" sx={{ fontWeight: 500 }}>••••••••</Typography>
                                 {isSSO && (
                                     <Typography variant="caption" color="text.secondary">
-                                        Used for Samba (file shares), SFTPGo (WebDAV), and CalDAV/CardDAV sync.
+                                        Used for Samba (LAN file shares). Web files/calendar/contacts use Authentik SSO via Nextcloud.
                                     </Typography>
                                 )}
                             </Box>

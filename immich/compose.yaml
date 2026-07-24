@@ -1,0 +1,103 @@
+services:
+  immich-server:
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-v1.135.3}
+    container_name: immich-server
+    restart: unless-stopped
+    environment:
+      DB_HOSTNAME: immich-postgres
+      DB_USERNAME: immich
+      DB_DATABASE_NAME: immich
+      DB_PASSWORD: ${IMMICH_DB_PASSWORD}
+      REDIS_HOSTNAME: immich-redis
+      IMMICH_MACHINE_LEARNING_URL: http://immich-machine-learning:3003
+      TZ: ${TZ}
+      # OIDC (Authentik) — enable in Immich admin UI; secret is also for blueprint
+      OAUTH_ENABLED: "true"
+      OAUTH_ISSUER_URL: https://${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}/application/o/immich/
+      OAUTH_CLIENT_ID: immich
+      OAUTH_CLIENT_SECRET: ${IMMICH_OIDC_SECRET:-}
+      OAUTH_SCOPE: openid email profile
+      OAUTH_AUTO_REGISTER: "true"
+      OAUTH_BUTTON_TEXT: Authentik
+    extra_hosts:
+      - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
+    volumes:
+      - ${PROJECT_ROOT}/immich/volumes/upload:/usr/src/app/upload
+      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - homelab-net
+    depends_on:
+      immich-redis:
+        condition: service_healthy
+      immich-postgres:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.immich.rule=Host(`${IMMICH_SERVICE_NAME:-photos}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.immich.entrypoints=websecure"
+      - "traefik.http.routers.immich.tls=true"
+      - "traefik.http.routers.immich.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.services.immich.loadbalancer.server.port=2283"
+
+  immich-machine-learning:
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-v1.135.3}
+    container_name: immich-machine-learning
+    restart: unless-stopped
+    volumes:
+      - ${PROJECT_ROOT}/immich/volumes/model-cache:/cache
+    networks:
+      - homelab-net
+
+  immich-redis:
+    image: redis:6.2-alpine
+    container_name: immich-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks:
+      - homelab-net
+
+  immich-postgres:
+    image: tensorchord/pgvecto-rs:pg14-v0.2.0
+    container_name: immich-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: immich
+      POSTGRES_DB: immich
+      POSTGRES_PASSWORD_FILE: /run/secrets/immich_db_password
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    command: >-
+      postgres
+      -c shared_preload_libraries=vectors.so
+      -c 'search_path="$$user", public, vectors'
+      -c logging_collector=on
+      -c max_wal_size=2GB
+      -c shared_buffers=512MB
+      -c wal_compression=on
+    volumes:
+      - ${PROJECT_ROOT}/immich/volumes/db:/var/lib/postgresql/data
+    secrets:
+      - immich_db_password
+    networks:
+      - homelab-net
+    healthcheck:
+      test: >-
+        pg_isready --dbname="$${POSTGRES_DB}" --username="$${POSTGRES_USER}" ||
+        exit 1
+      interval: 5m
+      timeout: 5s
+      retries: 5
+      start_period: 5m
+
+secrets:
+  immich_db_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/immich_db_password
+
+networks:
+  homelab-net:
+    external: true
+    name: homelab-net

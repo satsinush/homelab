@@ -1,0 +1,13 @@
+# Dev deps for authentik/custom (homelab_smb_sync, etc.).
+# Versions match ghcr.io/goauthentik/server:2026.5.3.
+#
+#   python3 -m venv .venv && . .venv/bin/activate
+#   pip install -r authentik/requirements.txt
+#
+# There is no PyPI package for server-side authentik.* (Django apps).
+# IDE import resolution uses the .pyi stubs under authentik/core/ because
+# this service directory shadows the real package name.
+
+Django==5.2.15
+requests==2.33.1
+structlog==25.5.0

@@ -62,10 +62,13 @@ services:
       GATUS_SERVICE_NAME: ${GATUS_SERVICE_NAME}
       GOTIFY_SERVICE_NAME: ${GOTIFY_SERVICE_NAME}
       AUTHENTIK_SERVICE_NAME: ${AUTHENTIK_SERVICE_NAME}
-      FILES_SERVICE_NAME: ${FILES_SERVICE_NAME}
-      CAL_SERVICE_NAME: ${CAL_SERVICE_NAME}
       HEADSCALE_SERVICE_NAME: ${HEADSCALE_SERVICE_NAME}
       HEADSCALE_WEB_HOSTNAME: ${HEADSCALE_WEB_HOSTNAME}
+      NEXTCLOUD_SERVICE_NAME: ${NEXTCLOUD_SERVICE_NAME:-cloud}
+      IMMICH_SERVICE_NAME: ${IMMICH_SERVICE_NAME:-photos}
+      COLLABORA_SERVICE_NAME: ${COLLABORA_SERVICE_NAME:-office}
+      MAIL_SERVICE_NAME: ${MAIL_SERVICE_NAME:-mail}
+      HOST_API_URL: ${HOST_API_URL:-http://host.docker.internal:5001}
       AUTHENTIK_EMAIL__HOST: alerts
       AUTHENTIK_EMAIL__PORT: 8025
       AUTHENTIK_EMAIL__USE_TLS: "false"
@@ -73,10 +76,10 @@ services:
       AUTHENTIK_EMAIL__FROM: authentik@${HOMELAB_HOSTNAME}
     volumes:
       - ${PROJECT_ROOT}/authentik/volumes/media:/media
-      - ${PROJECT_ROOT}/dashboard/frontend/public/homelab-icon.svg:/media/public/homelab-icon.svg:ro
-      - ${PROJECT_ROOT}/dashboard/frontend/src/assets:/media/public/icons:ro
       - ${PROJECT_ROOT}/authentik/volumes/templates:/templates
       - ${PROJECT_ROOT}/authentik/blueprints:/blueprints/custom:ro
+      - ${PROJECT_ROOT}/authentik/custom/user_settings.py:/data/user_settings.py
+      - ${PROJECT_ROOT}/authentik/custom/homelab_smb_sync:/data/homelab_smb_sync
     secrets:
       - authentik_pg_pass
       - authentik_secret_key
@@ -85,6 +88,10 @@ services:
       - vaultwarden_oidc_secret
       - dashboard_oidc_secret
       - headscale_oidc_secret
+      - nextcloud_oidc_secret
+      - immich_oidc_secret
+      - ldap_service_password
+      - host_api_token
     networks:
       - homelab-net
     labels:
@@ -133,10 +140,13 @@ services:
       GATUS_SERVICE_NAME: ${GATUS_SERVICE_NAME}
       GOTIFY_SERVICE_NAME: ${GOTIFY_SERVICE_NAME}
       AUTHENTIK_SERVICE_NAME: ${AUTHENTIK_SERVICE_NAME}
-      FILES_SERVICE_NAME: ${FILES_SERVICE_NAME}
-      CAL_SERVICE_NAME: ${CAL_SERVICE_NAME}
       HEADSCALE_SERVICE_NAME: ${HEADSCALE_SERVICE_NAME}
       HEADSCALE_WEB_HOSTNAME: ${HEADSCALE_WEB_HOSTNAME}
+      NEXTCLOUD_SERVICE_NAME: ${NEXTCLOUD_SERVICE_NAME:-cloud}
+      IMMICH_SERVICE_NAME: ${IMMICH_SERVICE_NAME:-photos}
+      COLLABORA_SERVICE_NAME: ${COLLABORA_SERVICE_NAME:-office}
+      MAIL_SERVICE_NAME: ${MAIL_SERVICE_NAME:-mail}
+      HOST_API_URL: ${HOST_API_URL:-http://host.docker.internal:5001}
       AUTHENTIK_EMAIL__HOST: alerts
       AUTHENTIK_EMAIL__PORT: 8025
       AUTHENTIK_EMAIL__USE_TLS: "false"
@@ -146,11 +156,11 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${PROJECT_ROOT}/authentik/volumes/media:/media
-      - ${PROJECT_ROOT}/dashboard/frontend/public/homelab-icon.svg:/media/public/homelab-icon.svg:ro
-      - ${PROJECT_ROOT}/dashboard/frontend/src/assets:/media/public/icons:ro
       - ${PROJECT_ROOT}/authentik/volumes/certs:/certs
       - ${PROJECT_ROOT}/authentik/volumes/templates:/templates
       - ${PROJECT_ROOT}/authentik/blueprints:/blueprints/custom:ro
+      - ${PROJECT_ROOT}/authentik/custom/user_settings.py:/data/user_settings.py
+      - ${PROJECT_ROOT}/authentik/custom/homelab_smb_sync:/data/homelab_smb_sync
     secrets:
       - authentik_pg_pass
       - authentik_secret_key
@@ -159,6 +169,10 @@ services:
       - vaultwarden_oidc_secret
       - dashboard_oidc_secret
       - headscale_oidc_secret
+      - nextcloud_oidc_secret
+      - immich_oidc_secret
+      - ldap_service_password
+      - host_api_token
     networks:
       - homelab-net
     depends_on:
@@ -166,6 +180,28 @@ services:
         condition: service_healthy
       authentik-redis:
         condition: service_healthy
+
+  authentik-ldap:
+    image: ghcr.io/goauthentik/ldap:${AUTHENTIK_TAG:-2026.5.3}
+    container_name: authentik-ldap
+    restart: unless-stopped
+    # Token must be the Outpost token string (not a path).
+    entrypoint:
+      - /bin/sh
+      - -c
+      - export AUTHENTIK_TOKEN="$$(cat /run/secrets/ldap_outpost_token)" && exec /ldap
+    environment:
+      AUTHENTIK_HOST: http://authentik-server:9000
+      AUTHENTIK_INSECURE: "true"
+    secrets:
+      - ldap_outpost_token
+    networks:
+      - homelab-net
+    expose:
+      - "3389"
+      - "6636"
+    depends_on:
+      - authentik-server
 
 secrets:
   authentik_pg_pass:
@@ -182,6 +218,16 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/dashboard_oidc_secret
   headscale_oidc_secret:
     file: ${PROJECT_ROOT}/volumes/secrets/headscale_oidc_secret
+  nextcloud_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_oidc_secret
+  immich_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/immich_oidc_secret
+  ldap_service_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/ldap_service_password
+  ldap_outpost_token:
+    file: ${PROJECT_ROOT}/volumes/secrets/ldap_outpost_token
+  host_api_token:
+    file: ${PROJECT_ROOT}/volumes/secrets/host_api_token
 
 networks:
   homelab-net:

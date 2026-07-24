@@ -1,23 +1,21 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
 import crypto from 'crypto';
 import os from 'os';
 import fs from 'fs';
 import path from 'path';
 import dgram from 'dgram';
+import { promisify } from 'util';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 
 import { getErrorMessage } from './utils/errors';
-import {
-    createAccount,
-    deleteAccount,
-    listAccounts,
-    updateAccountPassword,
-    syncUsername,
-    REPO_ROOT
-} from './utils/fileAccounts';
+
+const execFileAsync = promisify(execFile);
+
+/** Homelab repo root (host-api is started from PROJECT_ROOT). */
+const REPO_ROOT = process.env.PROJECT_ROOT || path.resolve(__dirname, '..', '..', '..');
 
 const app = express();
 
@@ -197,7 +195,7 @@ app.get('/health', (req: Request, res: Response) => {
         timestamp: new Date().toISOString(),
         platform: os.platform(),
         hostname: os.hostname(),
-        services: ['network-scan', 'wake-on-lan', 'package-management', 'file-accounts']
+        services: ['network-scan', 'wake-on-lan', 'package-management', 'smb']
     });
 });
 
@@ -714,30 +712,13 @@ app.get('/system/metrics', async (req: Request, res: Response) => {
     }
 });
 
-// File-access (Samba/WebDAV) account management
-/**
- * @openapi
- * /file-accounts:
- *   get:
- *     summary: List Samba/WebDAV file-access accounts (no passwords)
- *     responses:
- *       200:
- *         description: Accounts list
- */
-app.get('/file-accounts', async (req: Request, res: Response) => {
-    try {
-        const accounts = await listAccounts();
-        res.json({ success: true, data: { accounts }, timestamp: new Date().toISOString() });
-    } catch (err: unknown) {
-        res.status(500).json({ success: false, error: getErrorMessage(err) });
-    }
-});
 
+// Samba NTLM password sync (Authentik cannot supply NTLM hashes over LDAP)
 /**
  * @openapi
- * /file-accounts:
+ * /smb/set-password:
  *   post:
- *     summary: Create a file-access account and recreate samba/sftpgo
+ *     summary: Create or update a Samba user password (NTLM passdb)
  *     requestBody:
  *       required: true
  *       content:
@@ -752,103 +733,41 @@ app.get('/file-accounts', async (req: Request, res: Response) => {
  *                 type: string
  *     responses:
  *       200:
- *         description: Account created
+ *         description: Password set
  *       400:
- *         description: Validation error or duplicate account
+ *         description: Validation error
  */
-app.post('/file-accounts', async (req: Request, res: Response) => {
-    const { username, password, isAdmin, id } = req.body || {};
-    if (!username || !password) {
-        return res.status(400).json({ success: false, error: 'username and password are required' });
+app.post('/smb/set-password', async (req: Request, res: Response) => {
+    const username = String((req.body || {}).username || '').trim();
+    const password = String((req.body || {}).password || '');
+    if (!/^[a-zA-Z0-9._-]{1,32}$/.test(username)) {
+        return res.status(400).json({ success: false, error: 'invalid username' });
     }
+    if (!password || password.length < 8 || password.length > 128) {
+        return res.status(400).json({ success: false, error: 'password must be 8-128 characters' });
+    }
+    // Escape for single-quoted sh -c / printf %s
+    const shSingle = (s: string) => s.replace(/'/g, `'\"'\"'`);
+    const script = [
+        'set -eu',
+        `U='${shSingle(username)}'`,
+        `P='${shSingle(password)}'`,
+        'if ! id "$U" >/dev/null 2>&1; then',
+        '  adduser -D -H -G homelab -s /bin/false "$U" 2>/dev/null \\',
+        '    || adduser -D -H -s /bin/false "$U"',
+        'fi',
+        'printf "%s\\n%s\\n" "$P" "$P" | smbpasswd -a -s "$U"',
+        'smbpasswd -e "$U" || true',
+    ].join('\n');
     try {
-        const parsedId = id !== undefined ? Number(id) : undefined;
-        const created = await createAccount(username, password, isAdmin === true || isAdmin === 'true', parsedId);
-        res.json({ success: true, data: { username: created }, timestamp: new Date().toISOString() });
+        await execFileAsync('docker', ['exec', '-i', 'samba', '/bin/sh', '-c', script], {
+            timeout: 30000,
+            maxBuffer: 1024 * 1024,
+        });
+        res.json({ success: true, data: { username }, timestamp: new Date().toISOString() });
     } catch (err: unknown) {
-        res.status(400).json({ success: false, error: getErrorMessage(err) });
-    }
-});
-
-/**
- * @openapi
- * /file-accounts/{username}/password:
- *   put:
- *     summary: Reset a file-access account password and recreate samba/sftpgo
- *     parameters:
- *       - in: path
- *         name: username
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [password]
- *             properties:
- *               password:
- *                 type: string
- *     responses:
- *       200:
- *         description: Password updated
- *       400:
- *         description: Validation error or unknown account
- *       500:
- *         description: Server error
- */
-app.put('/file-accounts/:username/password', async (req: Request, res: Response) => {
-    const { password, isAdmin, id } = req.body || {};
-    if (!password) {
-        return res.status(400).json({ success: false, error: 'password is required' });
-    }
-    try {
-        const parsedId = id !== undefined ? Number(id) : undefined;
-        const updated = await updateAccountPassword(String(req.params.username), password, isAdmin === true || isAdmin === 'true', parsedId);
-        res.json({ success: true, data: { username: updated }, timestamp: new Date().toISOString() });
-    } catch (err: unknown) {
-        res.status(400).json({ success: false, error: getErrorMessage(err) });
-    }
-});
-
-/**
- * @openapi
- * /file-accounts/{username}:
- *   delete:
- *     summary: Delete a file-access account (files in storage/users are kept) and recreate samba/sftpgo
- *     parameters:
- *       - in: path
- *         name: username
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Account deleted
- *       400:
- *         description: Unknown account
- */
-app.delete('/file-accounts/:username', async (req: Request, res: Response) => {
-    try {
-        const deleted = await deleteAccount(String(req.params.username));
-        res.json({ success: true, data: { username: deleted }, timestamp: new Date().toISOString() });
-    } catch (err: unknown) {
-        res.status(400).json({ success: false, error: getErrorMessage(err) });
-    }
-});
-
-app.post('/file-accounts/sync-username', async (req: Request, res: Response) => {
-    const { id, username } = req.body || {};
-    if (!id || !username) {
-        return res.status(400).json({ success: false, error: 'id and username are required' });
-    }
-    try {
-        await syncUsername(Number(id), username);
-        res.json({ success: true, data: { message: 'Username sync applied successfully' }, timestamp: new Date().toISOString() });
-    } catch (err: unknown) {
-        res.status(400).json({ success: false, error: getErrorMessage(err) });
+        console.error('smb/set-password failed:', err);
+        res.status(500).json({ success: false, error: getErrorMessage(err) });
     }
 });
 

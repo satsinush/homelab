@@ -13,26 +13,29 @@ def get_services() -> list[Service]:
     from gatus.setup import service as gatus
     from gotify.setup import service as gotify
     from headscale.setup import service as headscale
+    from immich.setup import service as immich
+    from nextcloud.setup import service as nextcloud
     from ollama.setup import service as ollama
     from pihole.setup import service as pihole
     from restic.setup import service as restic
-    from radicale.setup import service as radicale
     from rustdesk.setup import service as rustdesk
     from samba.setup import service as samba
-    from sftpgo.setup import service as sftpgo
-    from maddy.setup import service as maddy
-    from roundcube.setup import service as roundcube
+    from stalwart.setup import service as stalwart
     from traefik.setup import service as traefik
     from unbound.setup import service as unbound
     from vaultwarden.setup import service as vaultwarden
 
-    # Order: infra / backup creds → auth → vpn → monitoring → apps
+    # Order: infra → auth/ldap → mail → files/photos → vpn → monitoring → apps
     return [
         traefik,
         restic,
         unbound,
         pihole,
         authentik,
+        stalwart,
+        samba,
+        nextcloud,
+        immich,
         headscale,
         gatus,
         dashboard,
@@ -40,12 +43,7 @@ def get_services() -> list[Service]:
         gotify,
         alerts,
         vaultwarden,
-        samba,
-        sftpgo,
-        radicale,
         rustdesk,
         ddclient,
         ollama,
-        maddy,
-        roundcube,
     ]

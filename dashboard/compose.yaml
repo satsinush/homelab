@@ -33,8 +33,10 @@ services:
       - GATUS_SERVICE_NAME=${GATUS_SERVICE_NAME}
       - GOTIFY_SERVICE_NAME=${GOTIFY_SERVICE_NAME}
       - AUTHENTIK_SERVICE_NAME=${AUTHENTIK_SERVICE_NAME}
-      - FILES_SERVICE_NAME=${FILES_SERVICE_NAME}
-      - CAL_SERVICE_NAME=${CAL_SERVICE_NAME}
+      - NEXTCLOUD_SERVICE_NAME=${NEXTCLOUD_SERVICE_NAME:-cloud}
+      - IMMICH_SERVICE_NAME=${IMMICH_SERVICE_NAME:-photos}
+      - MAIL_SERVICE_NAME=${MAIL_SERVICE_NAME:-mail}
+      - HOST_API_URL=${HOST_API_URL:-http://host.docker.internal:5001}
     labels:
       - "traefik.enable=true"
       # Canonical dashboard route

@@ -51,9 +51,11 @@ services:
     profiles: ["headscale-router"]
     restart: unless-stopped
     network_mode: host
+    # Auth key written by headscale/setup.py postsetup (avoids Docker Desktop
+    # secret bind-mount races that produce "invalid pre auth key").
+    env_file:
+      - ${PROJECT_ROOT}/headscale/volumes/config/router.env
     environment:
-      # containerboot supports file:/path for Docker secrets
-      TS_AUTHKEY: file:/run/secrets/headscale_router_authkey
       TS_AUTH_ONCE: "true"
       TS_STATE_DIR: /var/lib/tailscale
       TS_USERSPACE: "false"
@@ -72,8 +74,6 @@ services:
     volumes:
       - ${PROJECT_ROOT}/headscale/volumes/router:/var/lib/tailscale
       - ${PROJECT_ROOT}/headscale/volumes/config/ca-bundle.crt:/etc/ssl/certs/ca-certificates.crt:ro
-    secrets:
-      - headscale_router_authkey
     devices:
       - /dev/net/tun:/dev/net/tun
     cap_add:
@@ -99,8 +99,6 @@ services:
 secrets:
   headscale_oidc_secret:
     file: ${PROJECT_ROOT}/volumes/secrets/headscale_oidc_secret
-  headscale_router_authkey:
-    file: ${PROJECT_ROOT}/volumes/secrets/headscale_router_authkey
 
 networks:
   homelab-net:

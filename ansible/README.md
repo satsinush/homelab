@@ -4,7 +4,7 @@ Automates docs [1-prerequisites](../docs/1-prerequisites.md) and [2-host-config]
 packages, firewalld zones/policies, SSH hardening, Docker, VPN host prep (for Headscale/Tailscale), host DNS, and `docker compose up`.
 
 **Division of labor:** Ansible owns the *host*; [`setup.py`](../setup.py) still owns the *apps*
-(`.env` generation, secrets, Authentik blueprints, Headscale OIDC, Gotify apps, SFTPGo users, systemd units, backups).
+(`.env` generation, secrets, Authentik blueprints, Headscale OIDC, Gotify apps, systemd units, backups).
 Run Ansible first, then `python3 setup.py setup` once on the host.
 
 ## Setup (from your workstation)

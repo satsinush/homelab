@@ -85,42 +85,6 @@ class HostApiService {
         return this.makeRequest('/packages/sync-time');
     }
 
-    // File-access (Samba/WebDAV) account management
-    async getFileAccounts(): Promise<HostApiResponse> {
-        return this.makeRequest('/file-accounts');
-    }
-
-    async createFileAccount(username: string, password: string, isAdmin?: boolean, id?: number): Promise<HostApiResponse> {
-        return this.makeRequest('/file-accounts', {
-            method: 'POST',
-            body: JSON.stringify({ username, password, isAdmin, id }),
-            timeout: 120000 // recreates samba + sftpgo containers
-        });
-    }
-
-    async updateFileAccountPassword(username: string, password: string, isAdmin?: boolean, id?: number): Promise<HostApiResponse> {
-        return this.makeRequest(`/file-accounts/${encodeURIComponent(username)}/password`, {
-            method: 'PUT',
-            body: JSON.stringify({ password, isAdmin, id }),
-            timeout: 120000
-        });
-    }
-
-    async deleteFileAccount(username: string): Promise<HostApiResponse> {
-        return this.makeRequest(`/file-accounts/${encodeURIComponent(username)}`, {
-            method: 'DELETE',
-            timeout: 120000
-        });
-    }
-
-    async syncUsername(userId: number, username: string): Promise<HostApiResponse> {
-        return this.makeRequest('/file-accounts/sync-username', {
-            method: 'POST',
-            body: JSON.stringify({ id: userId, username }),
-            timeout: 120000
-        });
-    }
-
     // Health check
     async healthCheck(): Promise<HostApiResponse> {
         return this.makeRequest('/health');

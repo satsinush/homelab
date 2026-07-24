@@ -1,0 +1,38 @@
+services:
+  stalwart:
+    image: stalwartlabs/stalwart:latest
+    container_name: stalwart
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/entrypoint-homelab.sh"]
+    command: ["--config", "/etc/stalwart/config.json"]
+    volumes:
+      - ${PROJECT_ROOT}/stalwart/volumes/config:/etc/stalwart
+      - ${PROJECT_ROOT}/stalwart/volumes/data:/var/lib/stalwart
+      - ${PROJECT_ROOT}/stalwart/entrypoint.sh:/entrypoint-homelab.sh:ro
+    expose:
+      - "143"
+      - "587"
+      - "8080"
+    networks:
+      - homelab-net
+    environment:
+      # Traefik terminates HTTPS for the optional administration interface.
+      STALWART_PUBLIC_URL: https://${MAIL_SERVICE_NAME:-mail}.${HOMELAB_HOSTNAME}
+    secrets:
+      - stalwart_admin_password
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.stalwart.rule=Host(`${MAIL_SERVICE_NAME:-mail}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.stalwart.entrypoints=websecure"
+      - "traefik.http.routers.stalwart.tls=true"
+      - "traefik.http.routers.stalwart.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.services.stalwart.loadbalancer.server.port=8080"
+
+secrets:
+  stalwart_admin_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/stalwart_admin_password
+
+networks:
+  homelab-net:
+    external: true
+    name: homelab-net

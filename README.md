@@ -41,7 +41,10 @@ This project bundles several open-source services, managed via `docker-compose`,
   * **🚫 Pi-hole & Unbound**: Network-wide ad-blocking and recursive DNS.
   * **🌐 ddclient**: Dynamic DNS client to keep your domain pointed to your IP.
   * **🖥️ RustDesk**: Self-hosted remote desktop (ID + relay).
-  * **📁 Samba + WebDAV**: LAN SMB and HTTPS WebDAV (SFTPGo) share local passwords in `volumes/file-accounts/accounts.env` on `./storage/users/` + `./storage/shared/`.
+  * **📁 Samba + Nextcloud**: LAN SMB (bulk) and Nextcloud (files/WebDAV/calendar/contacts) via Authentik. Quotas via `HOMELAB_DEFAULT_QUOTA_GB`.
+  * **✉️ Stalwart**: Mail server with Authentik LDAP for humans; authenticated SMTP for Vaultwarden.
+  * **📷 Immich**: Photos with Authentik OIDC.
+  * **📝 Collabora**: Office editing for Nextcloud (TLS at Traefik).
   * **🛰️ Headscale**: Self-hosted Tailscale control plane with Authentik OIDC sign-in; subnet router exposes the LAN to remote clients.
   * **🔐 Vaultwarden**: Self-hosted password manager.
 
@@ -71,7 +74,9 @@ graph TD
                 Authentik[🔑 Authentik SSO]
                 Vaultwarden[🔐 Vaultwarden]
                 Samba[📁 Samba SMB]
-                WebDAV[📂 SFTPGo WebDAV]
+                Nextcloud[☁️ Nextcloud]
+                Immich[📷 Immich]
+                Stalwart[✉️ Stalwart]
                 Dockhand[📦 Dockhand]
                 Dashboard[🏠 Homelab Dashboard]
                 Ollama[🤖 Ollama AI]
@@ -99,7 +104,9 @@ graph TD
     %% Proxy/Auth flows
     Traefik --> Authentik
     Traefik --> Vaultwarden
-    Traefik --> WebDAV
+    Traefik --> Nextcloud
+    Traefik --> Immich
+    Traefik --> Stalwart
     Traefik --> Dockhand
     Traefik --> Dashboard
     Traefik --> Gatus

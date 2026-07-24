@@ -169,6 +169,46 @@ def write_host_file(path: str, content: str, mode: int = 0o644) -> None:
         )
 
 
+def write_volume_file(
+    path: str,
+    content: str,
+    *,
+    mode: int = 0o644,
+    uid: int,
+    gid: int,
+    dir_mode: int = 0o700,
+) -> None:
+    """Write a file into a container-owned volume (e.g. uid 2000 ``0700`` trees).
+
+    Prefer Docker so setup never needs to ``chmod`` the bind mount open for the host user.
+    """
+    parent = os.path.dirname(path) or "."
+    ensure_volume_dir(VolumeDir(parent, uid=uid, gid=gid, mode=dir_mode))
+    abs_parent = os.path.abspath(parent)
+    name = os.path.basename(path)
+    mode_oct = oct(mode)[2:]
+    result = subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-i",
+            "-v",
+            f"{abs_parent}:/out",
+            "alpine:3.20",
+            "sh",
+            "-c",
+            f"cat > /out/{name} && chown {uid}:{gid} /out/{name} && chmod {mode_oct} /out/{name}",
+        ],
+        input=content.encode("utf-8"),
+        check=False,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        err = (result.stderr or result.stdout or b"").decode("utf-8", errors="replace")[:300]
+        raise PermissionError(f"Cannot write {path} as {uid}:{gid}: {err}")
+
+
 def container_running(name: str) -> bool:
     from setup.utils import run_cmd
 
@@ -487,13 +527,6 @@ class Service(ABC):
     def postreset(self, env: dict) -> None:
         """Hook executed after all service directories are reset and before completion. Default: no-op."""
         return None
-
-    def sync_accounts(self, env: dict, users: list[dict]) -> bool:
-        """Hook called when users list inside accounts.json changes.
-        
-        Returns True if configurations were modified and the container should be recreated.
-        """
-        return False
 
 
 def run_all_setup(services: Iterable[Service], env: dict) -> None:

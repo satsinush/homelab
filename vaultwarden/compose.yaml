@@ -17,9 +17,12 @@ services:
       - SIGNUPS_ALLOWED=false
       - DOMAIN=https://${VAULTWARDEN_SERVICE_NAME}.${HOMELAB_HOSTNAME}
       - SMTP_SSL_CA_CERT=/etc/ssl/certs/homelab-ca.crt
-      - SMTP_HOST=maddy
-      - SMTP_PORT=25
-      - SMTP_SECURITY=off
+      # Authenticated submission to Stalwart (no open relay on 25)
+      - SMTP_HOST=stalwart
+      - SMTP_PORT=587
+      - SMTP_SECURITY=starttls
+      - SMTP_USERNAME=vaultwarden@${HOMELAB_HOSTNAME}
+      - SMTP_PASSWORD_FILE=/run/secrets/stalwart_smtp_vaultwarden_password
       - SMTP_FROM=vaultwarden@${HOMELAB_HOSTNAME}
       - SSO_ENABLED=true
       - SSO_CLIENT_ID=vaultwarden
@@ -31,6 +34,7 @@ services:
     secrets:
       - vaultwarden_oidc_secret
       - vaultwarden_admin_token
+      - stalwart_smtp_vaultwarden_password
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.vaultwarden.rule=Host(`${VAULTWARDEN_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
@@ -52,6 +56,8 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_oidc_secret
   vaultwarden_admin_token:
     file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_admin_token
+  stalwart_smtp_vaultwarden_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/stalwart_smtp_vaultwarden_password
 
 networks:
   homelab-net:

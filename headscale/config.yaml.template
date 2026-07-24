@@ -71,7 +71,9 @@ unix_socket: /var/run/headscale/headscale.sock
 unix_socket_permission: "0770"
 
 oidc:
-  only_start_if_oidc_is_available: true
+  # false: avoid first-boot deadlock — Authentik blueprints create the Headscale
+  # OIDC app *after* authentik is healthy, but setup waits for headscale healthy.
+  only_start_if_oidc_is_available: false
   issuer: https://${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}/application/o/headscale/
   client_id: headscale
   client_secret_path: /run/secrets/headscale_oidc_secret

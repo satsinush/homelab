@@ -63,25 +63,30 @@ Cert file: [`./volumes/certificates/homelab-ca.crt`](../volumes/certificates/)
 - [ ] If asked for an SSO identifier, any string is fine
 - [ ] Docs: [Vaultwarden](https://github.com/dani-garcia/vaultwarden/blob/main/README.md)
 
-### Storage (Samba + WebDAV)
+### Storage (Samba + Nextcloud)
 
 Shared files live under [`./storage/`](../storage/) (gitignored; included in Restic):
 
 | Path | Purpose |
 | --- | --- |
-| `storage/users/<username>/` | Private home (Samba `\\…\<username>`, WebDAV `/`) |
-| `storage/shared/` | Shared by everyone (Samba `\\…\shared`, WebDAV `/shared` virtual folder) |
+| `storage/users/<username>/` | Private home (Samba `\\…\<username>`) |
+| `storage/shared/` | Shared by everyone (Samba `\\…\shared`) |
+| Nextcloud data | Everyday files / WebDAV / CalDAV / CardDAV |
 
-| Access | URL / path | Password |
+| Access | URL / path | Auth |
 | --- | --- | --- |
-| **SMB (LAN)** | `\\<HOMELAB_IP>\<username>` or `\\<IP>\shared` | Shared file password (`volumes/file-accounts/accounts.env`) |
-| **WebDAV** | `https://dav.<your-hostname>/` | **Same** file password (SFTPGo loads from that accounts file) |
+| **SMB (LAN)** | `\\<HOMELAB_IP>\<username>` or `\\<IP>\shared` | Authentik password (NTLM synced on any password set) |
+| **Nextcloud** | `https://cloud.<hostname>` | Authentik OIDC |
+| **Mail** | Stalwart IMAP/SMTP | Authentik LDAP (humans) + local SMTP service users |
+| **Photos** | `https://photos.<hostname>` | Authentik OIDC |
+| **Office** | `https://office.<hostname>` | Via Nextcloud (Collabora) |
 
-- [ ] Firewall for SMB (`445/tcp` on local + vpn zones) is applied by the [Ansible playbook](../ansible/README.md) — verify with `sudo firewall-cmd --zone=local --list-services`. On Docker Desktop/WSL, Samba is published as `4445` (Windows already owns `445`); **Windows Explorer cannot open `\\host:4445\…`** — use WebDAV from Windows, or SMB clients that allow a custom port. Pi uses real `445`.
-- [ ] Confirm file-access user(s) exist (`volumes/file-accounts/accounts.env`) and dirs under `storage/users/` + `storage/shared/`
-- [ ] New person checklist: Authentik account (SSO) → file-access user in `accounts.env` (SMB + WebDAV)
-- [ ] **Obsidian / WebDAV Sync:** server `https://dav.<your-hostname>/`, **file-access** credentials (not Authentik); vault under private home; shared files at `/shared`
-- [ ] Docs: [Samba](https://www.samba.org/) · [SFTPGo](https://docs.sftpgo.com/)
+- [ ] Confirm Authentik users exist and LDAP outpost is healthy (`authentik-ldap`)
+- [ ] Copy LDAP Outpost token into `volumes/secrets/ldap_outpost_token` if auto-extract failed
+- [ ] Confirm Stalwart postsetup created LDAP directory + `vaultwarden@` / `noreply@` (or re-run setup)
+- [ ] Confirm `storage/users/` + `storage/shared/` exist
+- [ ] Firewall for SMB (`445/tcp`) as needed; Docker Desktop/WSL may use `SAMBA_HOST_PORT=4445`
+- [ ] Docs: [Nextcloud](https://docs.nextcloud.com/) · [Stalwart](https://stalw.art/docs/) · [Immich](https://immich.app/docs)
 
 ### Gotify / Alerts
 
@@ -122,16 +127,11 @@ Client **Network** → **ID/Relay server** (and key). There is **no** API/consol
 
 ### CalDAV & CardDAV (Calendar/Contacts)
 
-Sync contacts and calendars using **Radicale** over HTTPS. Accounts and credentials are unified with Samba/WebDAV via the Dashboard.
+Use **Nextcloud** (same Authentik SSO as the web UI).
 
-- [ ] Confirm you have set a local password for your account in the dashboard.
-- [ ] Connect your client (e.g., iOS, macOS, Thunderbird) to `https://dav.<your-hostname>/radicale/` using your username and local sync password.
-- [ ] Client Account Setup:
-  - **iOS / macOS**: Add account type **CalDAV** or **CardDAV** -> select **Manual** -> enter Server Address `dav.<your-hostname>`, username, and password. (Apple devices will automatically discover calendars/contacts via Traefik redirects).
-  - **Android**: Install the open-source **DAVx⁵** sync adapter. Add account -> select **Login with URL and user name** -> Base URL `https://dav.<your-hostname>/radicale/`, username, and password. DAVx⁵ will auto-sync contacts/calendars directly into Android's native system apps.
-  - **Windows (Thunderbird)**: Open Calendar -> New Calendar -> **On the Network** -> Username, and Location `https://dav.<your-hostname>/radicale/<username>/`.
-  - **Windows (Outlook)**: Outlook requires a third-party plugin such as the open-source **Outlook CalDAV Synchronizer** to sync calendars and contacts.
-- [ ] Docs: [Radicale](https://radicale.org/)
+- [ ] Open `https://cloud.<your-hostname>` and confirm Calendar / Contacts apps are enabled
+- [ ] Clients: CalDAV/CardDAV base URLs from Nextcloud → Settings → Calendar/Contacts (or DAVx⁵ Nextcloud login)
+- [ ] Docs: [Nextcloud Calendar](https://docs.nextcloud.com/server/latest/user_manual/en/groupware/calendar.html)
 
 ### ddclient
 
@@ -149,7 +149,7 @@ Sync contacts and calendars using **Radicale** over HTTPS. Accounts and credenti
 - [ ] Confirm Restic secrets exist under `volumes/secrets/restic_*` (configured during setup if you enabled cloud backup)
 - [ ] Confirm the backup timer is active: `systemctl status homelab-backup.timer` (installed by setup)
 - [ ] Optional dry run: `python3 setup.py backup`
-- [ ] Confirm `storage/` is included in snapshots (homes / Samba / WebDAV data)
+- [ ] Confirm `storage/` is included in snapshots (homes / Samba / Nextcloud bulk paths as configured)
 - [ ] Details: [5. Backup and Restore](./5-backup-restore.md)
 
 ---

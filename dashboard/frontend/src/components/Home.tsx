@@ -52,8 +52,7 @@ import GatusLogo from '../assets/gatus_logo.png';
 import GotifyLogo from '../assets/gotify_logo.png';
 import AuthIcon from '../assets/authentik_logo.png';
 import DockhandLogo from '../assets/dockhand_logo.png';
-import RadicaleLogo from '../assets/radicale_logo.png';
-import SFTPGoLogo from '../assets/sftpgo_logo.png';
+import NextcloudLogo from '../assets/nextcloud_logo.png';
 
 interface QuickLink {
     title: string;
@@ -183,18 +182,18 @@ const Home = () => {
             logoAlt: 'Authentik'
         },
         {
-            title: 'SFTPGo Web client',
-            description: 'Self-hosted file manager and WebDAV storage server',
-            url: `https://${hostnames.dav || ''}/files/web/client`,
-            logo: SFTPGoLogo,
-            logoAlt: 'SFTPGo'
+            title: 'Nextcloud',
+            description: 'Files, WebDAV, calendar, contacts, and office docs',
+            url: `https://${hostnames.dav || ''}`,
+            logo: NextcloudLogo,
+            logoAlt: 'Nextcloud'
         },
         {
-            title: 'Radicale',
-            description: 'Simple CalDAV and CardDAV calendar/contact server',
-            url: `https://${hostnames.dav || ''}/calendar/.web`,
-            logo: RadicaleLogo,
-            logoAlt: 'Radicale'
+            title: 'Immich',
+            description: 'Self-hosted photo and video library',
+            url: `https://photos.${config.homelabHostname || ''}`,
+            logo: AuthIcon,
+            logoAlt: 'Immich'
         }
     ].filter(service => !service.role || hasPermission(service.role));
 

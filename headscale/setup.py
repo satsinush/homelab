@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 
 from setup.service import Service, VolumeDir, restore_sqlite_snapshot, sqlite_snapshot
 from setup.ui import info, ok, section, step, warn
@@ -18,6 +19,7 @@ from setup.utils import (
 
 ROUTER_USER = "subnet-router"
 AUTHKEY_SECRET = "headscale_router_authkey"
+ROUTER_ENV_PATH = "./headscale/volumes/config/router.env"
 CONFIG_TEMPLATE = "./headscale/config.yaml.template"
 CONFIG_PATH = "./headscale/volumes/config/config.yaml"
 CA_BUNDLE_PATH = "./headscale/volumes/config/ca-bundle.crt"
@@ -112,18 +114,24 @@ def _ensure_router_user() -> str:
     return _router_user_id()
 
 
-def _ensure_router_authkey(user_id: str) -> str:
-    """Return a reusable preauth key for the subnet router; create if needed."""
+def _ensure_router_authkey(user_id: str, *, rotate: bool = False) -> str:
+    """Return a reusable preauth key for the subnet router; create if needed.
+
+    Always parse `preauthkeys create -o json` so we never write CLI noise/ANSI
+    into the secret file (that yields Headscale's "invalid pre auth key").
+    """
+    import json
+
     secret_path = f"./volumes/secrets/{AUTHKEY_SECRET}"
-    if os.path.isfile(secret_path):
+    if not rotate and os.path.isfile(secret_path):
         with open(secret_path, encoding="utf-8") as f:
             existing = f.read().strip()
-        if existing and existing != "placeholder":
+        if existing.startswith("hskey-auth-"):
             return existing
 
     # 90-day reusable key; rotate by deleting the secret and re-running setup.
     # headscale 0.29 expects the numeric user id, not the name.
-    key = _hs(
+    raw = _hs(
         "preauthkeys",
         "create",
         "--user",
@@ -131,16 +139,49 @@ def _ensure_router_authkey(user_id: str) -> str:
         "--reusable",
         "--expiration",
         "2160h",
-    ).strip()
-    if not key:
-        raise RuntimeError("headscale preauthkeys create returned empty key")
+        "-o",
+        "json",
+    )
+    try:
+        payload = json.loads(raw or "{}")
+        key = str(payload.get("key") or "").strip()
+    except ValueError as exc:
+        raise RuntimeError(f"headscale preauthkeys create returned non-JSON: {raw!r}") from exc
+    if not key.startswith("hskey-auth-"):
+        raise RuntimeError(f"headscale preauthkeys create returned unexpected key shape")
 
     os.makedirs("./volumes/secrets", exist_ok=True)
     with open(secret_path, "w", encoding="utf-8") as f:
         f.write(key)
+        f.write("\n")
+        f.flush()
+        os.fsync(f.fileno())
     os.chmod(secret_path, 0o600)
+
+    # Env file consumed by headscale-router compose (more reliable than secret mounts).
+    os.makedirs(os.path.dirname(ROUTER_ENV_PATH), exist_ok=True)
+    with open(ROUTER_ENV_PATH, "w", encoding="utf-8") as f:
+        f.write(f"TS_AUTHKEY={key}\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.chmod(ROUTER_ENV_PATH, 0o600)
     ok(f"Wrote subnet-router auth key → volumes/secrets/{AUTHKEY_SECRET}")
     return key
+
+
+def _reset_router_state() -> None:
+    """Clear local Tailscale state so a failed placeholder login cannot stick.
+
+    The router runs as root (network_mode: host), so state files are root-owned.
+    """
+    router_dir = "./headscale/volumes/router"
+    run_cmd(f"sudo rm -rf {shlex.quote(router_dir)}", check=False)
+    os.makedirs(router_dir, mode=0o700, exist_ok=True)
+    run_cmd(
+        f"sudo chown {os.getuid()}:{os.getgid()} {shlex.quote(router_dir)}",
+        check=False,
+    )
+    ok("Cleared headscale-router local Tailscale state")
 
 
 def _router_node_id() -> str:
@@ -168,9 +209,9 @@ def _approve_lan_routes(lan_subnet: str) -> None:
     """Enable advertised LAN and exit node routes on the subnet-router node."""
     if not lan_subnet:
         return
-    # Wait briefly for the router to register and advertise.
+    # Wait for the router to register and advertise (auth + DERP can take a bit).
     node_id = ""
-    if wait_for(lambda: bool(_router_node_id()), timeout=60, interval=2):
+    if wait_for(lambda: bool(_router_node_id()), timeout=120, interval=3):
         node_id = _router_node_id()
 
     if not node_id:
@@ -215,6 +256,14 @@ class HeadscaleService(Service):
                 f.write("placeholder")
             os.chmod(authkey_path, 0o600)
 
+        # Placeholder env file so `compose --profile headscale-router config` works
+        # before postsetup writes the real TS_AUTHKEY.
+        if not os.path.isfile(ROUTER_ENV_PATH):
+            os.makedirs(os.path.dirname(ROUTER_ENV_PATH), exist_ok=True)
+            with open(ROUTER_ENV_PATH, "w", encoding="utf-8") as f:
+                f.write("TS_AUTHKEY=placeholder\n")
+            os.chmod(ROUTER_ENV_PATH, 0o600)
+
         # Persist LAN_SUBNET into .env if missing (used by compose + config).
         if not env.get("LAN_SUBNET"):
             append_env(env, "LAN_SUBNET", os.environ.get("LAN_SUBNET", "10.10.10.0/24"))
@@ -249,10 +298,20 @@ class HeadscaleService(Service):
             user_id = _ensure_router_user()
             if not user_id:
                 raise RuntimeError(f"user `{ROUTER_USER}` not found after create")
-            _ensure_router_authkey(user_id)
+            # Always mint a fresh key on postsetup — a leftover placeholder or
+            # corrupt secret is the usual cause of "invalid pre auth key".
+            _ensure_router_authkey(user_id, rotate=True)
         except Exception as exc:
             warn(f"Failed to provision router auth key: {exc}")
             return
+
+        # Stop any prior attempt (placeholder key / failed login) and wipe state
+        # so TS_AUTH_ONCE cannot skip re-auth with a logged-out node.
+        run_cmd(
+            "docker compose --profile headscale-router stop headscale-router",
+            check=False,
+        )
+        _reset_router_state()
 
         compose_up(
             "headscale-router",
@@ -260,20 +319,29 @@ class HeadscaleService(Service):
             force_recreate=True,
             check=False,
         )
-        # TS_AUTH_ONCE skips `tailscale up` after first login, so compose-env
-        # flag changes won't reapply — set prefs explicitly once the daemon is up.
-        wait_for(
+        # Wait until the daemon is running *and* Headscale sees the node.
+        if not wait_for(
             lambda: '"BackendState": "Running"'
-            in (run_cmd(
-                "docker exec headscale-router tailscale status --json",
-                check=False,
-            ) or ""),
-            timeout=60,
-            interval=2,
-        )
+            in (
+                run_cmd(
+                    "docker exec headscale-router tailscale --socket=/tmp/tailscaled.sock status --json",
+                    check=False,
+                )
+                or ""
+            ),
+            timeout=90,
+            interval=3,
+        ):
+            logs = run_cmd("docker logs headscale-router --tail 30", check=False) or ""
+            warn("headscale-router did not reach Running state")
+            if logs:
+                info(logs[-1500:])
+            return
+
         docker_exec(
             "headscale-router",
             "tailscale",
+            "--socket=/tmp/tailscaled.sock",
             "set",
             "--netfilter-mode=off",
             "--snat-subnet-routes=false",
