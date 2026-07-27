@@ -4,6 +4,40 @@ metadata:
   labels:
     blueprints.goauthentik.io/instantiate: "true"
 entries:
+  # Fresh installs discover/apply blueprints concurrently. Ensure default flows
+  # and OAuth/proxy scope mappings exist before !Find references below.
+  # See: https://docs.goauthentik.io/customize/blueprints/v1/meta/
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: authentik Bootstrap
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Authentication flow
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Provider authorization flow (explicit consent)
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Provider invalidation flow
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: System - OAuth2 Provider - Scopes
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: System - Proxy Provider - Scopes
+      required: true
+
   # =================================================================
   # Predefined Roles
   # =================================================================
@@ -665,14 +699,19 @@ entries:
     attrs:
       name: "LDAP Outpost"
       type: ldap
+      # OutpostSerializer requires config on create (Authentik 2024+).
+      config:
+        authentik_host: http://authentik-server:9000
+        authentik_host_insecure: true
       providers:
         - !KeyOf ldap-provider
 
   # Brand styling to match dark dashboard theme
   - model: authentik_brands.brand
     identifiers:
-      default: true
+      domain: authentik-default
     attrs:
+      domain: authentik-default
       branding_title: "Homelab"
       default: true
       branding_logo: "homelab-icon.svg"

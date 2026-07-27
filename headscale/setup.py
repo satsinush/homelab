@@ -323,6 +323,10 @@ class HeadscaleService(Service):
             force_recreate=True,
             check=False,
         )
+        info(
+            "Waiting for headscale-router Tailscale backend Running "
+            "(auth + register with Headscale)…"
+        )
         # Wait until the daemon is running *and* Headscale sees the node.
         if not wait_for(
             lambda: '"BackendState": "Running"'

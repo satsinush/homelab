@@ -35,7 +35,10 @@ services:
       - "traefik.http.services.pihole.loadbalancer.server.port=80"
     depends_on:
       unbound:
-        condition: service_healthy
+        # Started is enough for compose up; setup.py waits for healthy afterward.
+        # Requiring unbound healthy here aborts the whole stack if first-boot DNS
+        # priming is slow (common on Docker Desktop/WSL).
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost/admin"]
       interval: 1m

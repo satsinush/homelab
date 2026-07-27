@@ -18,6 +18,7 @@ from setup.utils import gen_secret, run_cmd
 _ICON_SRC = Path("./dashboard/frontend/public/homelab-icon.svg")
 _ICONS_SRC = Path("./dashboard/frontend/src/assets")
 _MEDIA_PUBLIC = Path("./authentik/volumes/media/public")
+_ENSURE_BP = Path("./authentik/scripts/ensure_homelab_blueprint.py")
 _HEAL_LDAP = Path("./authentik/scripts/sync_ldap_outpost_token.py")
 
 
@@ -41,6 +42,127 @@ def sync_authentik_branding_assets() -> None:
         warn(f"Missing icons directory: {_ICONS_SRC}")
 
 
+def _ak_shell_script(script: Path) -> str:
+    """Run a Python snippet inside authentik-worker via `ak shell`; return stdout+stderr."""
+    res = subprocess.run(
+        ["docker", "exec", "-i", "authentik-worker", "ak", "shell"],
+        input=script.read_text(encoding="utf-8"),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    return "\n".join(
+        line
+        for line in ((res.stdout or "") + "\n" + (res.stderr or "")).splitlines()
+        if line.strip() and not line.lstrip().startswith("{")
+    )
+
+
+def _blueprint_status() -> str:
+    """Return status token from ensure_homelab_blueprint.py (or empty on failure)."""
+    if not _ENSURE_BP.is_file():
+        return ""
+    out = _ak_shell_script(_ENSURE_BP)
+    for token in ("blueprint-ok", "blueprint-missing"):
+        if token in out:
+            return token
+    for line in out.splitlines():
+        if line.startswith("blueprint-error:"):
+            return line.strip()
+    return ""
+
+
+def _apply_homelab_blueprint() -> bool:
+    """Apply Homelab Bootstrap once via Authentik CLI. Return True on exit 0."""
+    info("Applying Homelab Bootstrap blueprint…")
+    res = subprocess.run(
+        [
+            "docker",
+            "exec",
+            "authentik-worker",
+            "ak",
+            "apply_blueprint",
+            "/blueprints/custom/homelab.yaml",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    combined = (res.stdout or "") + "\n" + (res.stderr or "")
+    if res.returncode == 0:
+        return True
+    # Surface the real serializer/KeyOf error, not the noisy JSON boot logs.
+    for line in combined.splitlines():
+        low = line.lower()
+        if any(
+            k in low
+            for k in (
+                "serializer errors",
+                "entry invalid",
+                "keyof:",
+                "blueprint invalid",
+                "required",
+            )
+        ):
+            warn(line.strip()[:300])
+    return False
+
+
+def _ensure_homelab_blueprint(*, timeout_s: float = 90) -> bool:
+    """Wait for discovery, then apply once if needed (no blind N-attempt loop)."""
+    import time
+
+    running = run_cmd(
+        "docker inspect -f '{{.State.Running}}' authentik-worker",
+        check=False,
+    )
+    if (running or "").strip() != "true":
+        warn("authentik-worker not running — cannot ensure Homelab blueprint")
+        return False
+
+    if not _ENSURE_BP.is_file():
+        warn(f"Missing {_ENSURE_BP}")
+        return False
+
+    deadline = time.monotonic() + timeout_s
+    status = ""
+    while time.monotonic() < deadline:
+        status = _blueprint_status()
+        if status == "blueprint-ok":
+            ok("Homelab Bootstrap blueprint is applied")
+            return True
+        if status == "blueprint-missing":
+            info("Waiting for Authentik to discover Homelab Bootstrap…")
+            time.sleep(3)
+            continue
+        if status.startswith("blueprint-error:"):
+            break
+        # Worker still booting / shell not ready yet.
+        time.sleep(3)
+
+    if status == "blueprint-ok":
+        ok("Homelab Bootstrap blueprint is applied")
+        return True
+
+    if status == "blueprint-missing":
+        warn("Homelab Bootstrap was never discovered by Authentik")
+        return False
+
+    # Discovered but not successful (typical fresh-install race) — apply once.
+    if not _apply_homelab_blueprint():
+        warn("Homelab Bootstrap apply failed")
+        return False
+
+    # ak apply_blueprint exit 0 means entries applied; instance status may lag.
+    status = _blueprint_status()
+    if status == "blueprint-ok":
+        ok("Homelab Bootstrap blueprint is applied")
+        return True
+
+    ok("Homelab Bootstrap blueprint applied (CLI)")
+    return True
+
+
 def _sync_ldap_outpost_token() -> None:
     """Pull LDAP Outpost token into volumes/secrets (host-side; not expressible in YAML).
 
@@ -50,18 +172,7 @@ def _sync_ldap_outpost_token() -> None:
     if not _HEAL_LDAP.is_file():
         warn(f"Missing {_HEAL_LDAP}")
         return
-    res = subprocess.run(
-        ["docker", "exec", "-i", "authentik-worker", "ak", "shell"],
-        input=_HEAL_LDAP.read_text(encoding="utf-8"),
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    out = "\n".join(
-        line
-        for line in ((res.stdout or "") + "\n" + (res.stderr or "")).splitlines()
-        if line.strip() and not line.lstrip().startswith("{")
-    )
+    out = _ak_shell_script(_HEAL_LDAP)
     token = ""
     for line in out.splitlines():
         if line.startswith("ldap-token:"):
@@ -121,10 +232,13 @@ class AuthentikService(Service):
         """Host-only follow-up after Authentik has applied its blueprints."""
         section("Syncing Authentik LDAP outpost token...", emoji="🔑")
         info(
-            "Homelab Bootstrap blueprint is applied by Authentik itself; "
-            "postsetup only syncs the LDAP outpost token for authentik-ldap."
+            "Waiting for Homelab Bootstrap blueprint (defaults must finish first), "
+            "then syncing the LDAP outpost token for authentik-ldap."
         )
         try:
+            if not _ensure_homelab_blueprint():
+                warn("Skipping LDAP outpost token sync — Homelab blueprint not ready")
+                return
             _sync_ldap_outpost_token()
         except Exception as exc:
             warn(f"LDAP outpost token sync failed: {exc}")

@@ -128,12 +128,9 @@ def do_reset() -> None:
     )
 
     try:
-        from setup.utils import prompt_yes_no
-
-        if not prompt_yes_no(
-            "\nAre you absolutely sure you want to reset your homelab? (y/N): ",
-            default=False,
-        ):
+        print("\nType RESET to permanently destroy this homelab state.")
+        confirmation = input("Confirmation: ").strip()
+        if confirmation != "RESET":
             error("Reset aborted.")
             sys.exit(0)
 
