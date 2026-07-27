@@ -52,7 +52,7 @@ const Users = () => {
         try {
             setLoading(true);
             const data = await tryApiCall<{ users: UserListItem[] }>('/users');
-            setUsers(data.users || []);
+            setUsers(data.data.users || []);
         } catch (e: unknown) {
             showError(getErrorMessage(e));
         } finally {

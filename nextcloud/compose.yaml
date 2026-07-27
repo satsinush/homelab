@@ -49,8 +49,8 @@ services:
       POSTGRES_USER: nextcloud
       POSTGRES_PASSWORD_FILE: /run/secrets/nextcloud_db_password
       REDIS_HOST: nextcloud-redis
-      NEXTCLOUD_ADMIN_USER: ${HOMELAB_USERNAME}
-      NEXTCLOUD_ADMIN_PASSWORD_FILE: /run/secrets/homelab_password
+      NEXTCLOUD_ADMIN_USER: admin
+      NEXTCLOUD_ADMIN_PASSWORD_FILE: /run/secrets/nextcloud_admin_password
       NEXTCLOUD_TRUSTED_DOMAINS: ${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}
       TRUSTED_PROXIES: ${TRAEFIK_IP_ADDRESS}
       OVERWRITEHOST: ${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}
@@ -69,7 +69,7 @@ services:
       - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
     secrets:
       - nextcloud_db_password
-      - homelab_password
+      - nextcloud_admin_password
     networks:
       - homelab-net
     labels:
@@ -106,10 +106,14 @@ services:
       extra_params: >-
         --o:ssl.enable=false
         --o:ssl.termination=true
+        --o:ssl.ssl_verification=false
         --o:net.frame_ancestors=https://${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}
       username: admin
       password: ${COLLABORA_ADMIN_PASSWORD:-collabora}
       DONT_GEN_SSL_CERT: "true"
+    extra_hosts:
+      # WOPI callbacks to Nextcloud go via Traefik HTTPS.
+      - "${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
     networks:
       - homelab-net
     labels:
@@ -135,8 +139,8 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_db_password
   nextcloud_oidc_secret:
     file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_oidc_secret
-  homelab_password:
-    file: ${PROJECT_ROOT}/volumes/secrets/homelab_password
+  nextcloud_admin_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_admin_password
 
 networks:
   homelab-net:

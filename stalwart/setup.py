@@ -87,21 +87,42 @@ def _ensure_domain(jmap, domain_name: str) -> str:
     raise RuntimeError(f"Domain create unexpected response: {name} {data}")
 
 
-def _ensure_ldap_directory(jmap, ldap_pass: str) -> None:
+def _ensure_ldap_directory(jmap, ldap_pass: str) -> str | None:
+    """Ensure Authentik LDAP directory exists; return its id."""
     resp = jmap([["x:Directory/query", {"filter": {}}, "c1"]])
     _, data = _method_result(resp)
     ids = list((data or {}).get("ids") or [])
-    existing_ldap = False
     if ids:
         get_resp = jmap([["x:Directory/get", {"ids": ids}, "c1"]])
         _, get_data = _method_result(get_resp)
         for obj in (get_data or {}).get("list") or []:
             if obj.get("@type") == "Ldap" and "Authentik" in (obj.get("description") or ""):
-                existing_ldap = True
-                break
-    if existing_ldap:
-        return
-    # Avoid attr* list fields on create — live schema rejects array literals for set types.
+                jmap(
+                    [
+                        [
+                            "x:Directory/set",
+                            {
+                                "update": {
+                                    obj["id"]: {
+                                        "filterLogin": (
+                                            "(&(objectClass=user)(ou:dn:=users)(|(mail=?)(cn=?)))"
+                                        ),
+                                        "filterMailbox": (
+                                            "(&(objectClass=user)(ou:dn:=users)(|(mail=?)(cn=?)))"
+                                        ),
+                                        "groupClass": "group",
+                                        "bindSecret": {
+                                            "@type": "Value",
+                                            "secret": ldap_pass,
+                                        },
+                                    }
+                                }
+                            },
+                            "c1",
+                        ]
+                    ]
+                )
+                return obj["id"]
     create = {
         "@type": "Ldap",
         "description": "Authentik LDAP",
@@ -110,7 +131,8 @@ def _ensure_ldap_directory(jmap, ldap_pass: str) -> None:
         "bindDn": "cn=ldapservice,ou=users,dc=ldap,dc=goauthentik,dc=io",
         "bindSecret": {"@type": "Value", "secret": ldap_pass},
         "bindAuthentication": True,
-        "filterLogin": "(&(objectClass=user)(|(mail=?)(cn=?)))",
+        "filterLogin": "(&(objectClass=user)(ou:dn:=users)(|(mail=?)(cn=?)))",
+        "filterMailbox": "(&(objectClass=user)(ou:dn:=users)(|(mail=?)(cn=?)))",
         "groupClass": "group",
     }
     resp = jmap([["x:Directory/set", {"create": {"ldap1": create}}, "c1"]])
@@ -119,6 +141,30 @@ def _ensure_ldap_directory(jmap, ldap_pass: str) -> None:
         raise RuntimeError(f"LDAP directory create failed: {(data or {}).get('notCreated')}")
     if name == "error":
         raise RuntimeError(f"LDAP directory create error: {data}")
+    created = (data or {}).get("created") or {}
+    return (created.get("ldap1") or {}).get("id")
+
+
+def _ensure_auth_directory(jmap, directory_id: str) -> None:
+    """Point Authentication.directoryId at the Authentik LDAP directory."""
+    if not directory_id:
+        return
+    resp = jmap(
+        [
+            [
+                "x:Authentication/set",
+                {"update": {"singleton": {"directoryId": directory_id}}},
+                "c1",
+            ]
+        ]
+    )
+    name, data = _method_result(resp)
+    if (data or {}).get("notUpdated"):
+        warn(f"Could not set Authentication.directoryId: {(data or {}).get('notUpdated')}")
+    elif name == "error":
+        warn(f"Authentication.directoryId error: {data}")
+    else:
+        ok(f"Stalwart auth directory → LDAP ({directory_id})")
 
 
 def _ensure_smtp_user(jmap, domain_id: str, local_part: str, password: str) -> None:
@@ -199,7 +245,9 @@ def configure_stalwart(env: dict) -> None:
             time.sleep(5)
 
     domain_id = _ensure_domain(jmap, domain_name)
-    _ensure_ldap_directory(jmap, ldap_pass)
+    ldap_id = _ensure_ldap_directory(jmap, ldap_pass)
+    if ldap_id:
+        _ensure_auth_directory(jmap, ldap_id)
     if vw_pass:
         _ensure_smtp_user(jmap, domain_id, "vaultwarden", vw_pass)
     if nr_pass:

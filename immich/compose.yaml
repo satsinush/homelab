@@ -19,6 +19,8 @@ services:
       OAUTH_SCOPE: openid email profile
       OAUTH_AUTO_REGISTER: "true"
       OAUTH_BUTTON_TEXT: Authentik
+      # Trust homelab CA for Authentik OIDC discovery over HTTPS.
+      NODE_EXTRA_CA_CERTS: /etc/ssl/certs/homelab-ca.crt
     extra_hosts:
       - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
     volumes:

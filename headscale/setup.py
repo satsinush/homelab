@@ -286,6 +286,10 @@ class HeadscaleService(Service):
         ok(f"Wrote {CA_BUNDLE_PATH}")
         info("Clients: Tailscale app → custom control URL")
         step(f"https://{env.get('HEADSCALE_WEB_HOSTNAME', 'vpn.homelab.local')}")
+        info(
+            "HEADSCALE_WEB_HOSTNAME must resolve to this host "
+            "(public A/AAAA in production; LAN DNS is OK for lab/dev)"
+        )
         info("Sign-in uses Authentik (same users/groups as SSO)")
 
     def postsetup(self, env: dict) -> None:

@@ -1,6 +1,8 @@
 version: 1
 metadata:
-  name: "Homelab Bootstrap"
+  name: Homelab Bootstrap
+  labels:
+    blueprints.goauthentik.io/instantiate: "true"
 entries:
   # =================================================================
   # Predefined Roles
@@ -71,6 +73,14 @@ entries:
     attrs:
       name: immich-user
 
+  # LDAP bind account needs object permission via a Role (assign_perm is role-only).
+  # Permission itself is granted in authentik postsetup (guardian RoleObjectPermission).
+  - model: authentik_rbac.role
+    identifiers:
+      name: ldap-search
+    attrs:
+      name: ldap-search
+
   # =================================================================
   # Groups
   # =================================================================
@@ -127,6 +137,8 @@ entries:
       path: users
       type: service_account
       password: !File /run/secrets/ldap_service_password
+      roles:
+        - !Find [authentik_rbac.role, [name, ldap-search]]
 
   # =================================================================
   # Password Policies
@@ -144,19 +156,8 @@ entries:
       length_min: 12
       error_message: "Password must be at least 12 characters long."
 
-  - model: authentik_policies.policybinding
-    identifiers:
-      target: !Find [authentik_flows.flow, [slug, default-password-change]]
-      policy: !Find [authentik_policies_password.passwordpolicy, [name, "12-char-min-policy"]]
-    attrs:
-      order: 0
-
-  - model: authentik_policies.policybinding
-    identifiers:
-      target: !Find [authentik_flows.flow, [slug, default-source-enrollment]]
-      policy: !Find [authentik_policies_password.passwordpolicy, [name, "12-char-min-policy"]]
-    attrs:
-      order: 0
+  # Policy bindings for 12-char-min are applied once; re-declaring them trips
+  # PolicyBinding unique(policy, target, order) on every blueprint apply.
 
   # Sync Authentik passwords into Samba NTLM passdb (host-api).
   # Primary path is password_changed signal (authentik/custom/homelab_smb_sync).
@@ -211,21 +212,9 @@ entries:
             pass
         return True
 
-  - model: authentik_policies.policybinding
-    identifiers:
-      target: !Find [authentik_flows.flow, [slug, default-password-change]]
-      policy: !KeyOf smb-password-sync
-    attrs:
-      order: 100
-      timeout: 30
-
-  - model: authentik_policies.policybinding
-    identifiers:
-      target: !Find [authentik_flows.flow, [slug, default-source-enrollment]]
-      policy: !KeyOf smb-password-sync
-    attrs:
-      order: 100
-      timeout: 30
+  # SMB policy bindings are created once; re-declaring them trips
+  # PolicyBinding unique(policy, target, order) on every blueprint apply.
+  # Heal via Authentik Admin or a one-shot script if missing.
 
   # =================================================================
   # Custom Scope Mappings
@@ -428,6 +417,8 @@ entries:
         - url: !Format ["https://%s.%s/auth/login", !Env IMMICH_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
           matching_mode: strict
         - url: !Format ["https://%s.%s/user-settings", !Env IMMICH_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+        - url: !Format ["https://%s.%s/api/oauth/mobile-redirect", !Env IMMICH_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
           matching_mode: strict
       property_mappings:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]

@@ -7,18 +7,24 @@ services:
     volumes:
       - ${PROJECT_ROOT}/unbound/unbound.conf:/etc/unbound/custom.conf.d/unbound.conf:ro
       - ${PROJECT_ROOT}/unbound/cachedb.conf:/etc/unbound/custom.conf.d/cachedb.conf:ro
-      - ${PROJECT_ROOT}/unbound/root.hints:/etc/unbound/root.hints:ro
+      # Do not bind-mount root.hints: the image ships hints at /var/unbound/root.hints.
+      # Mounting a missing host path makes Docker create an empty directory and can
+      # break cold-start recursion under compose depends_on.
     networks:
       - homelab-net
     depends_on:
       unbound-redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "drill", "icann.org", "@127.0.0.1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+      # Root NS lookup: proves the daemon answers without requiring a full recursive
+      # walk to an external name (icann.org) while UDP/DNSSEC is still priming.
+      test: ["CMD", "drill", ".", "NS", "@127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      # Full-stack `compose up` on Docker Desktop/WSL often delays first outbound
+      # UDP; keep start_period long so transient fails don't mark unhealthy.
+      start_period: 60s
 
   unbound-redis:
     image: redis:7-alpine

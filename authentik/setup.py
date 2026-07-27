@@ -1,4 +1,4 @@
-"""Authentik service — volumes, Postgres dump/restore."""
+"""Authentik service — volumes, secrets, LDAP outpost token sync."""
 from __future__ import annotations
 
 import shutil
@@ -18,14 +18,11 @@ from setup.utils import gen_secret, run_cmd
 _ICON_SRC = Path("./dashboard/frontend/public/homelab-icon.svg")
 _ICONS_SRC = Path("./dashboard/frontend/src/assets")
 _MEDIA_PUBLIC = Path("./authentik/volumes/media/public")
+_HEAL_LDAP = Path("./authentik/scripts/sync_ldap_outpost_token.py")
 
 
 def sync_authentik_branding_assets() -> None:
-    """Copy branding icons into the media volume (no nested Docker file mounts).
-
-    Nested bind-mounts under ``/media`` break on Docker Desktop/WSL: Docker
-    creates a 0-byte host placeholder, then fails with ``file exists`` on restart.
-    """
+    """Copy branding icons into the media volume (no nested Docker file mounts)."""
     dest_public = _MEDIA_PUBLIC
     dest_public.mkdir(parents=True, exist_ok=True)
     dest_icons = dest_public / "icons"
@@ -44,19 +41,48 @@ def sync_authentik_branding_assets() -> None:
         warn(f"Missing icons directory: {_ICONS_SRC}")
 
 
-def _ak_shell(script: str) -> str:
-    """Run a Python snippet in ``ak shell`` via stdin (supports real newlines)."""
+def _sync_ldap_outpost_token() -> None:
+    """Pull LDAP Outpost token into volumes/secrets (host-side; not expressible in YAML).
+
+    Apps/users/OIDC/LDAP provider come from blueprints/homelab.yaml on Authentik startup.
+    This only bridges the outpost token into Docker secrets + recreates authentik-ldap.
+    """
+    if not _HEAL_LDAP.is_file():
+        warn(f"Missing {_HEAL_LDAP}")
+        return
     res = subprocess.run(
         ["docker", "exec", "-i", "authentik-worker", "ak", "shell"],
-        input=script,
+        input=_HEAL_LDAP.read_text(encoding="utf-8"),
         text=True,
         capture_output=True,
         check=False,
     )
-    out = (res.stdout or "").strip()
-    if res.returncode != 0 and not out:
-        return (res.stderr or "").strip()
-    return out
+    out = "\n".join(
+        line
+        for line in ((res.stdout or "") + "\n" + (res.stderr or "")).splitlines()
+        if line.strip() and not line.lstrip().startswith("{")
+    )
+    token = ""
+    for line in out.splitlines():
+        if line.startswith("ldap-token:"):
+            token = line[len("ldap-token:") :].strip()
+            break
+    if "ldap-search-perm-ok" in out:
+        ok("LDAP search permission ensured for ldapservice")
+    if token and len(token) >= 20:
+        path = Path("./volumes/secrets/ldap_outpost_token")
+        path.write_text(token + "\n", encoding="utf-8")
+        path.chmod(0o600)
+        ok("Wrote LDAP outpost token from Authentik")
+        run_cmd(
+            "docker compose --env-file .env up -d --force-recreate authentik-ldap",
+            check=False,
+        )
+    else:
+        warn(
+            "Could not read LDAP Outpost token — open Authentik → Outposts, "
+            "copy token into volumes/secrets/ldap_outpost_token, recreate authentik-ldap"
+        )
 
 
 class AuthentikService(Service):
@@ -83,96 +109,25 @@ class AuthentikService(Service):
         gen_secret("ldap_outpost_token", 40)
         gen_secret("nextcloud_oidc_secret", 32)
         gen_secret("immich_oidc_secret", 32)
-        # SMB password sync from Authentik expression policy → host-api
         gen_secret("host_api_token", 32)
         sync_authentik_branding_assets()
         ok("Authentik volume directories ready")
+        info(
+            "OIDC/LDAP/apps: authentik/blueprints/homelab.yaml "
+            "(auto-applied from /blueprints/custom on worker start)"
+        )
 
     def postsetup(self, env: dict) -> None:
-        """Ensure LDAP app/provider/outpost exist, then sync the outpost token."""
+        """Host-only follow-up after Authentik has applied its blueprints."""
+        section("Syncing Authentik LDAP outpost token...", emoji="🔑")
         info(
-            "LDAP outpost: ensure Outpost 'LDAP Outpost' is healthy. "
-            "If authentik-ldap fails auth, copy its token from Authentik Admin → "
-            "Outposts → LDAP Outpost into volumes/secrets/ldap_outpost_token and "
-            "recreate authentik-ldap."
+            "Homelab Bootstrap blueprint is applied by Authentik itself; "
+            "postsetup only syncs the LDAP outpost token for authentik-ldap."
         )
-        # Blueprint can race; heal idempotently. Markers only — never log the token.
-        ensure_res = _ak_shell(
-            """
-from authentik.providers.ldap.api import LDAPProviderSerializer
-from authentik.providers.ldap.models import LDAPProvider
-from authentik.core.models import Application
-from authentik.outposts.models import Outpost, OutpostType
-from authentik.flows.models import Flow
-
-authn = Flow.objects.get(slug="default-authentication-flow")
-inval = Flow.objects.get(slug="default-provider-invalidation-flow")
-app, _ = Application.objects.get_or_create(slug="ldap", defaults={"name": "LDAP"})
-app.name = "LDAP"
-app.meta_hide = True
-app.save()
-
-p = LDAPProvider.objects.filter(name="LDAP").first()
-if not p:
-    s = LDAPProviderSerializer(
-        data={
-            "name": "LDAP",
-            "authentication_flow": str(authn.pk),
-            "authorization_flow": str(authn.pk),
-            "invalidation_flow": str(inval.pk),
-            "bind_mode": "cached",
-            "search_mode": "cached",
-            "base_dn": "dc=ldap,dc=goauthentik,dc=io",
-            "uid_start_number": 2000,
-            "gid_start_number": 4000,
-            "mfa_support": False,
-        }
-    )
-    assert s.is_valid(), s.errors
-    p = s.save()
-else:
-    p.authentication_flow = authn
-    p.authorization_flow = authn
-    p.invalidation_flow = inval
-    p.save()
-
-app.backchannel_providers.set([p])
-op, _ = Outpost.objects.get_or_create(
-    name="LDAP Outpost", defaults={"type": OutpostType.LDAP}
-)
-op.type = OutpostType.LDAP
-op.save()
-op.providers.set([p])
-print("ldap-ready")
-token = getattr(getattr(op, "token", None), "key", "") or ""
-print("ldap-token:" + token)
-"""
-        )
-        if "ldap-ready" in ensure_res:
-            ok("LDAP provider, application, and outpost ready")
-        else:
-            warn(
-                "Could not ensure LDAP objects via ak shell; "
-                "blueprint/manual setup may be needed"
-            )
-
-        token = ""
-        for line in ensure_res.splitlines():
-            line = line.strip()
-            if line.startswith("ldap-token:"):
-                token = line[len("ldap-token:") :].strip()
-                break
-        if token and len(token) >= 20:
-            path = Path("./volumes/secrets/ldap_outpost_token")
-            path.write_text(token + "\n", encoding="utf-8")
-            path.chmod(0o600)
-            ok("Wrote LDAP outpost token from Authentik")
-            run_cmd(
-                "docker compose --env-file .env up -d --force-recreate authentik-ldap",
-                check=False,
-            )
-        else:
-            warn("Could not auto-extract LDAP outpost token; set it manually if needed")
+        try:
+            _sync_ldap_outpost_token()
+        except Exception as exc:
+            warn(f"LDAP outpost token sync failed: {exc}")
 
     def backup(self, env: dict) -> None:
         dest = "./authentik/volumes/db-dumps/authentik-backup.sql"

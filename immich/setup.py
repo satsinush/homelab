@@ -1,9 +1,202 @@
-"""Immich service — persistent volumes and database/OIDC secrets."""
+"""Immich service — volumes, secrets, first admin + OIDC."""
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from setup.service import Service, VolumeDir
-from setup.ui import info, ok, section
-from setup.utils import gen_secret
+from setup.ui import info, ok, section, warn
+from setup.utils import append_env, gen_secret, run_cmd, wait_for
+
+
+def _api(method: str, path: str, token: str | None = None, body: dict | None = None) -> tuple[int, dict | list | None]:
+    """Call Immich HTTP API from inside the server container."""
+    hdr = "-H 'Accept: application/json' -H 'Content-Type: application/json'"
+    if token:
+        hdr += f" -H 'Authorization: Bearer {token}'"
+    if body is not None:
+        b64 = __import__("base64").b64encode(json.dumps(body).encode()).decode()
+        prep = (
+            f"echo {b64} | base64 -d > /tmp/immich-api-req.json && "
+            f"curl -sS -o /tmp/immich-api-body -w '%{{http_code}}' -X {method} {hdr} "
+            f"-d @/tmp/immich-api-req.json 'http://127.0.0.1:2283{path}'"
+        )
+    else:
+        prep = (
+            f"curl -sS -o /tmp/immich-api-body -w '%{{http_code}}' -X {method} {hdr} "
+            f"'http://127.0.0.1:2283{path}'"
+        )
+    out = run_cmd(f"docker exec immich-server sh -c {json.dumps(prep)}", check=False) or ""
+    out = out.strip()
+    if not out:
+        return 0, None
+    try:
+        status = int(out[-3:])
+    except ValueError:
+        return 0, None
+    raw = run_cmd(
+        "docker exec immich-server cat /tmp/immich-api-body 2>/dev/null",
+        check=False,
+    ) or ""
+    try:
+        return status, json.loads(raw) if raw.strip() else None
+    except json.JSONDecodeError:
+        return status, None
+
+
+def _immich_up() -> bool:
+    status, data = _api("GET", "/api/server/features")
+    return status == 200 and isinstance(data, dict)
+
+
+def _admin_exists() -> bool:
+    """True once first-time admin registration is no longer available."""
+    status, _ = _api("POST", "/api/auth/admin-sign-up", body={})
+    # 400 validation / 403 already initialized — both mean "not open" or bad body.
+    # Fresh install returns 400 with validation errors when body empty; use list-users.
+    out = run_cmd("docker exec immich-server immich-admin list-users", check=False) or ""
+    return "email:" in out or "'email'" in out or '"email"' in out
+
+
+def _login(email: str, password: str) -> str | None:
+    status, data = _api(
+        "POST",
+        "/api/auth/login",
+        body={"email": email, "password": password},
+    )
+    if status == 201 and isinstance(data, dict):
+        return data.get("accessToken")
+    return None
+
+
+def _ensure_admin(env: dict) -> str | None:
+    """Create/reclaim local break-glass admin (not HOMELAB_USERNAME)."""
+    hostname = (env.get("HOMELAB_HOSTNAME") or "homelab.local").strip().strip("'\"")
+    email = f"admin@{hostname}"
+    name = "admin"
+    pw_path = Path("./volumes/secrets/immich_admin_password")
+    if not pw_path.is_file():
+        warn("immich_admin_password missing; skip Immich admin")
+        return None
+    password = pw_path.read_text(encoding="utf-8").strip()
+
+    token = _login(email, password)
+    if token:
+        return token
+
+    if not _admin_exists():
+        status, data = _api(
+            "POST",
+            "/api/auth/admin-sign-up",
+            body={"email": email, "password": password, "name": name},
+        )
+        if status in (200, 201):
+            ok(f"Immich local admin registered ({email})")
+            return _login(email, password)
+        warn(f"Immich admin-sign-up failed ({status}): {data}")
+        return None
+
+    # Admin exists (e.g. prior HOMELAB_USERNAME bootstrap) — reset + rename to admin@.
+    info("Immich admin already exists; syncing to admin@ + immich_admin_password…")
+    import subprocess
+
+    reset = subprocess.run(
+        ["docker", "exec", "-i", "immich-server", "immich-admin", "reset-admin-password"],
+        input=password + "\n",
+        text=True,
+        capture_output=True,
+        timeout=60,
+        check=False,
+    )
+    reset_out = (reset.stdout or "") + (reset.stderr or "")
+    if "updated" not in reset_out.lower() and reset.returncode != 0:
+        warn("Could not reset Immich admin password; configure manually")
+        warn(reset_out[:400])
+        return None
+
+    users_out = run_cmd("docker exec immich-server immich-admin list-users", check=False) or ""
+    admin_email = None
+    for line in users_out.splitlines():
+        if "email:" in line.lower() or "'email'" in line or '"email"' in line:
+            part = line.split(":", 1)[-1].strip().rstrip(",").strip().strip("'\"")
+            if "@" in part:
+                admin_email = part
+                break
+    if not admin_email:
+        admin_email = email
+
+    token = _login(admin_email, password)
+    if not token:
+        warn(f"Login after password reset failed for {admin_email}")
+        return None
+
+    status, me = _api("GET", "/api/users/me", token=token)
+    if status != 200 or not isinstance(me, dict):
+        warn("Could not load Immich /users/me after reset")
+        return token
+
+    status, _ = _api(
+        "PUT",
+        "/api/users/me",
+        token=token,
+        body={"email": email, "name": name},
+    )
+    if status in (200, 201):
+        ok(f"Immich local admin synced ({email})")
+        return _login(email, password) or token
+
+    warn(f"Could not rename Immich admin to {email} ({status}); OIDC config may still work")
+    return token
+
+
+def _ensure_oauth(env: dict, token: str) -> None:
+    auth = env.get("AUTHENTIK_SERVICE_NAME", "auth")
+    host = env.get("HOMELAB_HOSTNAME", "homelab.local")
+    issuer = f"https://{auth}.{host}/application/o/immich/"
+    secret = Path("./volumes/secrets/immich_oidc_secret").read_text(encoding="utf-8").strip()
+
+    status, cfg = _api("GET", "/api/system-config", token=token)
+    if status != 200 or not isinstance(cfg, dict):
+        warn(f"Could not read Immich system-config ({status})")
+        # Fallback: toggle only
+        run_cmd("docker exec immich-server immich-admin enable-oauth-login", check=False)
+        return
+
+    oauth = dict(cfg.get("oauth") or {})
+    oauth["enabled"] = True
+    oauth["issuerUrl"] = issuer
+    oauth["clientId"] = "immich"
+    oauth["clientSecret"] = secret
+    oauth["scope"] = "openid email profile"
+    oauth["buttonText"] = "Authentik"
+    oauth["autoRegister"] = True
+    oauth["autoLaunch"] = False
+    if "signingAlgorithm" in oauth:
+        oauth["signingAlgorithm"] = oauth.get("signingAlgorithm") or "RS256"
+    # Private CA: Immich must skip TLS verify for Authentik discovery when set.
+    if "allowInsecureRequests" in oauth:
+        oauth["allowInsecureRequests"] = True
+
+    cfg["oauth"] = oauth
+    status, data = _api("PUT", "/api/system-config", token=token, body=cfg)
+    if status in (200, 201):
+        ok(f"Immich OIDC → {issuer}")
+        return
+    warn(f"system-config OAuth update failed ({status}): {data}")
+    run_cmd("docker exec immich-server immich-admin enable-oauth-login", check=False)
+    info("Enabled OAuth login flag; set issuer/client in Immich Admin → Settings if needed")
+
+
+def configure_immich(env: dict) -> None:
+    section("Configuring Immich admin + OIDC...", emoji="📷")
+    if not wait_for(_immich_up, timeout=180, interval=5):
+        warn("Immich not ready; skip admin/OIDC")
+        return
+    token = _ensure_admin(env)
+    if not token:
+        warn("No Immich admin token; skip OIDC wiring")
+        return
+    _ensure_oauth(env, token)
 
 
 class ImmichService(Service):
@@ -19,22 +212,24 @@ class ImmichService(Service):
         section("Preparing Immich secrets...", emoji="📷")
         gen_secret("immich_db_password", 32)
         gen_secret("immich_oidc_secret", 32)
-        from pathlib import Path
-
-        from setup.utils import append_env
-
+        gen_secret("immich_admin_password", 32)
         pw = Path("./volumes/secrets/immich_db_password").read_text(encoding="utf-8").strip()
         oidc = Path("./volumes/secrets/immich_oidc_secret").read_text(encoding="utf-8").strip()
         append_env(env, "IMMICH_DB_PASSWORD", pw)
         append_env(env, "IMMICH_OIDC_SECRET", oidc)
         if not env.get("IMMICH_SERVICE_NAME"):
             append_env(env, "IMMICH_SERVICE_NAME", "photos")
-        ok("Immich database and OIDC secrets ready")
+        ok("Immich database, admin, and OIDC secrets ready")
+
     def postsetup(self, env: dict) -> None:
-        info(
-            "Configure OpenID Connect in Immich's Administration settings using "
-            "the Authentik endpoints and immich_oidc_secret."
-        )
+        try:
+            configure_immich(env)
+        except Exception as exc:
+            warn(f"Immich auto-configure failed: {exc}")
+            info(
+                "Manual: register admin at /auth/register, then Admin → Settings → OAuth "
+                "using Authentik issuer and immich_oidc_secret."
+            )
 
 
 service = ImmichService()

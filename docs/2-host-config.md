@@ -54,7 +54,7 @@ sudo firewall-cmd --zone=vpn --list-all
 
 ### 3\. 🛰️ Headscale VPN (Tailscale control plane)
 
-Headscale is the self-hosted Tailscale **control server**, published at `https://vpn.<your-hostname>` (default `HEADSCALE_SERVICE_NAME=vpn`). Clients use the official Tailscale app and sign in via **Authentik OIDC**. A `headscale-router` container advertises your LAN subnet so remote devices can reach home services, and an **embedded DERP relay** replaces Tailscale's public relays entirely. The containers, config, and OIDC secrets are all handled by `python3 setup.py setup` — nothing to install on the host beyond what Ansible already did.
+Headscale is the self-hosted Tailscale **control server**, published at `https://<HEADSCALE_WEB_HOSTNAME>` (default `vpn.<your-hostname>`). That hostname must resolve to **this** machine for clients and for `headscale-router`. In production use a **publicly resolvable** name (public A/AAAA + port-forwards here); a LAN-only name is fine for lab/dev if DNS points at this host. Do not use a bare IP or a public name aimed at a different server. Clients use the official Tailscale app and sign in via **Authentik OIDC**. A `headscale-router` container advertises your LAN subnet so remote devices can reach home services, and an **embedded DERP relay** replaces Tailscale's public relays entirely. The containers, config, and OIDC secrets are all handled by `python3 setup.py setup` — nothing to install on the host beyond what Ansible already did.
 
 **After the stack is up:**
 

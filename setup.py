@@ -45,6 +45,15 @@ def _validate_headscale_prefix(value: str) -> str | None:
     return None
 
 
+def _validate_hostname(value: str) -> str | None:
+    if re.match(
+        r"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$",
+        value,
+    ):
+        return None
+    return "That doesn't look like a valid hostname. Please try again."
+
+
 def _traefik_ip_for_subnet(subnet: str) -> str:
     network = ipaddress.IPv4Network(subnet)
     return str(network.network_address + 100)
@@ -362,73 +371,36 @@ def ensure_env_file() -> dict:
     )
 
     print("")
-    headscale_web_hostname = ""
     if has_public:
         print("   Enter homelab hostname (public domain, e.g. homelab.your-domain.com):")
         hostname = prompt_nonempty(
             "              Homelab Hostname: ",
-            validate=lambda h: (
-                None
-                if re.match(
-                    r"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$",
-                    h,
-                )
-                else "That doesn't look like a valid hostname. Please try again."
-            ),
+            validate=_validate_hostname,
         )
-        print("\n   By default, VPN uses vpn.<homelab-hostname>.")
-        print("   If your DNS is configured to point your main subdomains to local IPs,")
-        print("   you can specify a separate public domain/hostname specifically for the VPN:")
-        if prompt_yes_no(
-            "   Configure a separate public domain for VPN? (Y/n): ",
-            default=True
-        ):
-            headscale_web_hostname = prompt_nonempty(
-                "              VPN Public Hostname: ",
-                validate=lambda h: (
-                    None
-                    if re.match(
-                        r"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$",
-                        h,
-                    )
-                    else "That doesn't look like a valid hostname. Please try again."
-                ),
-            )
-        else:
-            headscale_web_hostname = f"vpn.{hostname}"
     else:
         print("   Enter homelab hostname (private local domain, e.g. homelab.home.arpa):")
         hostname = prompt_nonempty(
             "              Homelab Hostname [homelab.home.arpa]: ",
             default="homelab.home.arpa",
-            validate=lambda h: (
-                None
-                if re.match(
-                    r"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$",
-                    h,
-                )
-                else "That doesn't look like a valid hostname. Please try again."
-            ),
+            validate=_validate_hostname,
         )
-        print("\n   By default, VPN uses vpn.<homelab-hostname>.")
-        print("   For remote access you can use a free DDNS (or other public) hostname for Headscale:")
-        if prompt_yes_no(
-            "   Configure a public hostname for VPN? (Y/n): ",
-            default=True,
-        ):
-            headscale_web_hostname = prompt_nonempty(
-                "              VPN Public Hostname: ",
-                validate=lambda h: (
-                    None
-                    if re.match(
-                        r"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$",
-                        h,
-                    )
-                    else "That doesn't look like a valid hostname. Please try again."
-                ),
-            )
-        else:
-            headscale_web_hostname = f"vpn.{hostname}"
+
+    print("\n   Headscale (VPN) needs a hostname clients and the subnet router use as")
+    print("   the control-server URL (HEADSCALE_WEB_HOSTNAME).")
+    print("   Production: publicly resolvable A/AAAA → this host's public IP, with")
+    print("   port-forwards here — not a LAN IP, and not a name aimed elsewhere.")
+    print("   LAN-only / lab: a private name that resolves to THIS machine is OK")
+    print("   (e.g. vpn.homelab.home.arpa). Default is vpn.<homelab-hostname>.")
+    if prompt_yes_no(
+        "   Configure a separate hostname for VPN? (Y/n): ",
+        default=True,
+    ):
+        headscale_web_hostname = prompt_nonempty(
+            "              VPN Hostname: ",
+            validate=_validate_hostname,
+        )
+    else:
+        headscale_web_hostname = f"vpn.{hostname}"
 
     dns_domain = hostname.split(".", 1)[1] if "." in hostname else hostname
 

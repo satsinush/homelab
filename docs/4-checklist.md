@@ -12,7 +12,7 @@ Finish these steps after [`setup.sh`](../setup.sh) succeeds. Check off each item
 
 ### Headscale (Tailscale VPN)
 
-- [ ] Public DNS: a **single** DNS-only (grey-cloud) `A` record `vpn.<your-hostname>` → public IP, updated by `ddclient` (no other `*.<your-hostname>` record is public)
+- [ ] Public DNS: a **single** DNS-only (grey-cloud) `A` record for `HEADSCALE_WEB_HOSTNAME` (usually `vpn.<your-hostname>`) → **this** host's public IP, updated by `ddclient` (no other `*.<your-hostname>` record is public)
 - [ ] Router port forwards to the server: `443/tcp → 8443/tcp`, `3478/udp → 3478/udp`, `41641/udp → 41641/udp` (and **no** others)
 - [ ] Confirm `https://vpn.<your-hostname>` loads (OIDC redirects to Authentik)
 - [ ] From the internet, confirm another service host (e.g. `dashboard.<your-hostname>` sent as a Host header to the public IP) returns `404`/refused — not the app
