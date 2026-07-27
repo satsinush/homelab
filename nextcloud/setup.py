@@ -93,10 +93,10 @@ def _ensure_richdocuments_app() -> bool:
     )
 
 
-def _ensure_groupware_apps() -> None:
-    section("Enabling Nextcloud Calendar & Contacts...", emoji="📅")
+def _ensure_groupware_apps(env: dict) -> None:
+    section("Enabling Nextcloud Calendar, Contacts & Mail...", emoji="📅")
     if not wait_for(_nextcloud_ready, timeout=120, interval=5):
-        warn("Nextcloud not ready; skip calendar/contacts")
+        warn("Nextcloud not ready; skip calendar/contacts/mail")
         return
     cal_ok = _ensure_app(
         "calendar",
@@ -108,6 +108,11 @@ def _ensure_groupware_apps() -> None:
         "https://github.com/nextcloud-releases/contacts/releases/download/"
         "v8.3.16/contacts-v8.3.16.tar.gz",
     )
+    mail_ok = _ensure_app(
+        "mail",
+        "https://github.com/nextcloud-releases/mail/releases/download/"
+        "v5.10.9/mail-v5.10.9.tar.gz",
+    )
     if cal_ok and contacts_ok:
         ok("Calendar and Contacts enabled")
     else:
@@ -115,6 +120,177 @@ def _ensure_groupware_apps() -> None:
             warn("Could not enable calendar")
         if not contacts_ok:
             warn("Could not enable contacts")
+    if mail_ok:
+        _configure_mail_for_stalwart(env)
+    else:
+        warn("Could not enable mail")
+
+
+def _mail_hostname(env: dict) -> str:
+    domain = (env.get("HOMELAB_HOSTNAME") or "homelab.home.arpa").strip()
+    svc = (env.get("MAIL_SERVICE_NAME") or "mail").strip()
+    return f"{svc}.{domain}"
+
+
+def _configure_mail_for_stalwart(env: dict) -> None:
+    """Point Nextcloud Mail at Stalwart via the canonical mail hostname.
+
+    Stalwart only listens on IMAPS 993 / SMTPS 465 in this stack (plain 143/587
+    are refused). TLS is the Homelab wildcard cert (SAN ``*.homelab.home.arpa``);
+    peer verify stays on — Nextcloud trusts the Homelab CA via ``_ensure_ca_trust``.
+
+    Do **not** use ``oc_mail_provisionings``: Authentik OIDC logins never give
+    Nextcloud a password, so provisioned mailboxes are created empty and show
+    "Connection failed" with no user-facing delete. Accounts are created via
+    ``mail:account:create`` instead (see ``_ensure_homelab_mail_account``).
+    """
+    domain = (env.get("HOMELAB_HOSTNAME") or "homelab.home.arpa").strip()
+    mail_host = _mail_hostname(env)
+    _ensure_ca_trust()
+    # Already set for OIDC discovery; required so Mail can reach ``mail.<domain>``.
+    _occ(
+        "config:system:set",
+        "allow_local_remote_servers",
+        "--type=boolean",
+        "--value=true",
+        check=False,
+    )
+    _occ(
+        "config:system:set",
+        "app.mail.verify-tls-peer",
+        "--type=boolean",
+        "--value=true",
+        check=False,
+    )
+    # Wipe any leftover provisioning (UI or older setup) so OIDC users are not
+    # given a second broken mailbox on every Mail page load. Drop provisioned
+    # accounts only; keep manually created ones (provisioning_id IS NULL).
+    run_cmd(
+        "docker exec -i nextcloud-db psql -U nextcloud -d nextcloud -v ON_ERROR_STOP=1 "
+        "-c \"DELETE FROM oc_mail_messages WHERE mailbox_id IN ("
+        "SELECT id FROM oc_mail_mailboxes WHERE account_id IN ("
+        "SELECT id FROM oc_mail_accounts WHERE provisioning_id IS NOT NULL));"
+        "DELETE FROM oc_mail_mailboxes WHERE account_id IN ("
+        "SELECT id FROM oc_mail_accounts WHERE provisioning_id IS NOT NULL);"
+        "DELETE FROM oc_mail_aliases WHERE account_id IN ("
+        "SELECT id FROM oc_mail_accounts WHERE provisioning_id IS NOT NULL);"
+        "DELETE FROM oc_mail_local_messages WHERE account_id IN ("
+        "SELECT id FROM oc_mail_accounts WHERE provisioning_id IS NOT NULL);"
+        "DELETE FROM oc_mail_accounts WHERE provisioning_id IS NOT NULL;"
+        "DELETE FROM oc_mail_provisionings;\"",
+        check=False,
+    )
+    ok(f"Nextcloud Mail ready for Stalwart ({mail_host}:993 / :465)")
+    info(
+        f"Mailbox login is your Authentik email ({domain}) and Authentik password. "
+        "To change the stored Mail password later: Mail → account menu (⋯) → "
+        "Account settings → Password."
+    )
+
+
+def _ensure_homelab_mail_account(env: dict) -> None:
+    """Create or refresh a Mail account for HOMELAB_USERNAME when that NC user exists."""
+    if not _app_enabled("mail"):
+        return
+    username = (env.get("HOMELAB_USERNAME") or "").strip()
+    domain = (env.get("HOMELAB_HOSTNAME") or "homelab.home.arpa").strip()
+    if not username:
+        return
+    email = f"{username}@{domain}"
+    pw_path = Path("./volumes/secrets/homelab_password")
+    if not pw_path.is_file():
+        return
+    password = pw_path.read_text(encoding="utf-8").strip()
+    if not password:
+        return
+
+    users_json = _occ("user:list", "--output=json", check=False) or ""
+    try:
+        users = json.loads(users_json)
+    except Exception:
+        users = {}
+    # OIDC may use a hashed uid with display name = username.
+    user_id = None
+    if username in users:
+        user_id = username
+    else:
+        for uid, display in (users or {}).items():
+            if str(display).strip().lower() == username.lower():
+                user_id = uid
+                break
+    if not user_id:
+        info(
+            f"No Nextcloud user for {username} yet; open Mail after first login "
+            "to add the account"
+        )
+        return
+
+    safe_uid = user_id.replace("'", "''")
+    safe_email = email.replace("'", "''")
+    account_id = (
+        run_cmd(
+            "docker exec -i nextcloud-db psql -U nextcloud -d nextcloud -tAc "
+            + json.dumps(
+                "SELECT id FROM oc_mail_accounts "
+                f"WHERE user_id = '{safe_uid}' AND email = '{safe_email}' "
+                "AND provisioning_id IS NULL "
+                "ORDER BY id LIMIT 1;"
+            ),
+            check=False,
+        )
+        or ""
+    ).strip()
+
+    mail_host = _mail_hostname(env)
+    if account_id.isdigit():
+        out = (
+            _occ(
+                "mail:account:update",
+                account_id,
+                f"--imap-host={mail_host}",
+                "--imap-port=993",
+                "--imap-ssl-mode=ssl",
+                f"--imap-user={email}",
+                f"--imap-password={password}",
+                f"--smtp-host={mail_host}",
+                "--smtp-port=465",
+                "--smtp-ssl-mode=ssl",
+                f"--smtp-user={email}",
+                f"--smtp-password={password}",
+                check=False,
+            )
+            or ""
+        )
+        if "updated" in out.lower() or "error" not in out.lower():
+            ok(f"Nextcloud Mail account refreshed for {email} → {mail_host}")
+        else:
+            warn(f"mail:account:update: {out[:400]}")
+        return
+
+    out = (
+        _occ(
+            "mail:account:create",
+            user_id,
+            username,
+            email,
+            mail_host,
+            "993",
+            "ssl",
+            email,
+            password,
+            mail_host,
+            "465",
+            "ssl",
+            email,
+            password,
+            check=False,
+        )
+        or ""
+    )
+    if "error" in out.lower() and "already" not in out.lower():
+        warn(f"mail:account:create: {out[:400]}")
+    else:
+        ok(f"Nextcloud Mail account ready for {email}")
 
 
 def _ensure_oidc(env: dict) -> None:
@@ -330,9 +506,10 @@ class NextcloudService(Service):
         except Exception as exc:
             warn(f"OIDC auto-configure failed: {exc}")
         try:
-            _ensure_groupware_apps()
+            _ensure_groupware_apps(env)
+            _ensure_homelab_mail_account(env)
         except Exception as exc:
-            warn(f"Calendar/Contacts auto-enable failed: {exc}")
+            warn(f"Calendar/Contacts/Mail auto-enable failed: {exc}")
         try:
             _configure_richdocuments(env)
         except Exception as exc:

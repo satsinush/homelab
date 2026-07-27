@@ -10,11 +10,15 @@ services:
       - ${PROJECT_ROOT}/stalwart/volumes/data:/var/lib/stalwart
       - ${PROJECT_ROOT}/stalwart/entrypoint.sh:/entrypoint-homelab.sh:ro
     expose:
-      - "143"
-      - "587"
+      - "25"
+      - "465"
+      - "993"
       - "8080"
     networks:
-      - homelab-net
+      homelab-net:
+        # Canonical mail hostname resolves on the Docker network (no hairpin).
+        aliases:
+          - ${MAIL_SERVICE_NAME:-mail}.${HOMELAB_HOSTNAME}
     environment:
       # Traefik terminates HTTPS for the optional administration interface.
       STALWART_PUBLIC_URL: https://${MAIL_SERVICE_NAME:-mail}.${HOMELAB_HOSTNAME}

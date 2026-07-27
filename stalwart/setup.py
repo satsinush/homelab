@@ -216,52 +216,183 @@ def _restart_stalwart() -> None:
     info("Restarted Stalwart to apply LDAP + default domain")
 
 
-def _ensure_smtp_user(jmap, domain_id: str, local_part: str, password: str) -> None:
-    resp = jmap(
+def _ensure_tls_certificate(jmap, env: dict) -> None:
+    """Register the Homelab wildcard cert as Stalwart's default TLS certificate.
+
+    Covers mail.<HOMELAB_HOSTNAME> (SAN ``*.homelab.home.arpa``). Cert/key are
+    copied into the RocksDB config volume so uid 2000 can read them.
+    """
+    hostname = (env.get("HOMELAB_HOSTNAME") or "homelab.home.arpa").strip()
+    # Prefer hostname-specific cert; fall back to stable Traefik/homelab copies.
+    candidates = [
+        (f"./volumes/certificates/{hostname}.crt", f"./volumes/certificates/{hostname}.key"),
+        ("./volumes/certificates/homelab.crt", "./volumes/certificates/homelab.key"),
+    ]
+    cert_src: str | None = None
+    key_src: str | None = None
+    for c, k in candidates:
+        if Path(c).is_file() and Path(k).is_file():
+            cert_src, key_src = c, k
+            break
+    if not cert_src or not key_src:
+        warn("No Homelab TLS cert found under volumes/certificates; Stalwart keeps self-signed")
+        return
+
+    cert_pem = Path(cert_src).read_text(encoding="utf-8")
+    key_pem = Path(key_src).read_text(encoding="utf-8")
+    write_volume_file(
+        "./stalwart/volumes/config/certs/fullchain.pem",
+        cert_pem if cert_pem.endswith("\n") else cert_pem + "\n",
+        mode=0o644,
+        uid=_STALWART_UID,
+        gid=_STALWART_GID,
+    )
+    write_volume_file(
+        "./stalwart/volumes/config/certs/privkey.pem",
+        key_pem if key_pem.endswith("\n") else key_pem + "\n",
+        mode=0o600,
+        uid=_STALWART_UID,
+        gid=_STALWART_GID,
+    )
+
+    cert_path = "/etc/stalwart/certs/fullchain.pem"
+    key_path = "/etc/stalwart/certs/privkey.pem"
+    create = {
+        "certificate": {"@type": "File", "filePath": cert_path},
+        "privateKey": {"@type": "File", "filePath": key_path},
+    }
+
+    resp = jmap([["x:Certificate/query", {"filter": {}}, "c1"]])
+    _, data = _method_result(resp)
+    ids = list((data or {}).get("ids") or [])
+    cert_id = None
+    if ids:
+        get_resp = jmap([["x:Certificate/get", {"ids": ids}, "c1"]])
+        _, get_data = _method_result(get_resp)
+        for obj in (get_data or {}).get("list") or []:
+            sans = obj.get("subjectAlternativeNames") or {}
+            if f"*.{hostname}" in sans or hostname in sans:
+                # Refresh file pointers (idempotent).
+                jmap([["x:Certificate/set", {"update": {obj["id"]: create}}, "c1"]])
+                cert_id = obj["id"]
+                break
+    if not cert_id:
+        resp = jmap([["x:Certificate/set", {"create": {"c1": create}}, "c1"]])
+        name, cdata = _method_result(resp)
+        if (cdata or {}).get("notCreated"):
+            warn(f"Could not create Stalwart TLS certificate: {(cdata or {}).get('notCreated')}")
+            return
+        if name == "error":
+            warn(f"Stalwart TLS certificate error: {cdata}")
+            return
+        cert_id = ((cdata or {}).get("created") or {}).get("c1", {}).get("id")
+    if not cert_id:
+        warn("Stalwart TLS certificate id missing after create/update")
+        return
+
+    jmap(
         [
             [
-                "x:Account/query",
-                {"filter": {"name": local_part, "domainId": domain_id}},
+                "x:SystemSettings/set",
+                {"update": {"singleton": {"defaultCertificateId": cert_id}}},
                 "c1",
             ]
         ]
     )
-    _, query_data = _method_result(resp)
-    ids = [i for i in list((query_data or {}).get("ids") or []) if i]
-    # credentials is an objectList keyed by credential id (not a JSON array).
-    creds = {"0": {"@type": "Password", "secret": password}}
-    if ids:
-        account_id = ids[0]
-        resp = jmap(
-            [["x:Account/set", {"update": {account_id: {"credentials": creds}}}, "c1"]]
-        )
-        _, update_data = _method_result(resp)
-        if (update_data or {}).get("notUpdated"):
-            warn(
-                f"Could not update SMTP user {local_part}: "
-                f"{(update_data or {}).get('notUpdated')}"
-            )
-        return
+    jmap(
+        [
+            [
+                "x:Action/set",
+                {"create": {"a1": {"@type": "ReloadTlsCertificates"}}},
+                "c1",
+            ]
+        ]
+    )
+    ok(f"Stalwart TLS certificate → Homelab CA (default id {cert_id})")
 
-    create = {
-        "@type": "User",
-        "name": local_part,
-        "domainId": domain_id,
-        "credentials": creds,
-        "description": f"Homelab SMTP service account ({local_part})",
-    }
-    resp = jmap([["x:Account/set", {"create": {"u1": create}}, "c1"]])
-    name, create_data = _method_result(resp)
-    if (create_data or {}).get("notCreated"):
-        raise RuntimeError(
-            f"SMTP user {local_part} create failed: {(create_data or {}).get('notCreated')}"
+
+def _destroy_local_smtp_accounts(jmap, domain_id: str, local_parts: list[str]) -> None:
+    """Remove leftover local Stalwart users; auth comes from Authentik LDAP."""
+    for local_part in local_parts:
+        resp = jmap(
+            [
+                [
+                    "x:Account/query",
+                    {"filter": {"name": local_part, "domainId": domain_id}},
+                    "c1",
+                ]
+            ]
         )
-    if name == "error":
-        raise RuntimeError(f"SMTP user {local_part} error: {create_data}")
+        _, query_data = _method_result(resp)
+        ids = [i for i in list((query_data or {}).get("ids") or []) if i]
+        if not ids:
+            continue
+        resp = jmap([["x:Account/set", {"destroy": ids}, "c1"]])
+        _, data = _method_result(resp)
+        if (data or {}).get("destroyed"):
+            ok(f"Removed local Stalwart account {local_part} (use Authentik LDAP)")
+        elif (data or {}).get("notDestroyed"):
+            warn(f"Could not destroy local {local_part}: {(data or {}).get('notDestroyed')}")
+
+
+def _ensure_authentik_smtp_user(username: str, email: str, password: str) -> None:
+    """Create/update an Authentik service user so Stalwart LDAP SMTP auth works.
+
+    Blueprint declares these users; this refreshes passwords after secret rotation.
+    """
+    import subprocess
+
+    if not password:
+        return
+    script = (
+        "import os\n"
+        "from authentik.core.models import User, UserTypes\n"
+        "u, created = User.objects.get_or_create(\n"
+        "    username=os.environ['SMTP_USER'],\n"
+        "    defaults={\n"
+        "        'email': os.environ['SMTP_EMAIL'],\n"
+        "        'name': os.environ['SMTP_USER'],\n"
+        "        'type': UserTypes.SERVICE_ACCOUNT,\n"
+        "    },\n"
+        ")\n"
+        "u.email = os.environ['SMTP_EMAIL']\n"
+        "u.name = os.environ['SMTP_USER']\n"
+        "u.type = UserTypes.SERVICE_ACCOUNT\n"
+        "u.set_password(os.environ['SMTP_PASS'])\n"
+        "u.save()\n"
+        "print(('created' if created else 'updated'), u.username)\n"
+    )
+    res = subprocess.run(
+        [
+            "docker",
+            "exec",
+            "-e",
+            f"SMTP_USER={username}",
+            "-e",
+            f"SMTP_EMAIL={email}",
+            "-e",
+            f"SMTP_PASS={password}",
+            "-i",
+            "authentik-worker",
+            "ak",
+            "shell",
+        ],
+        input=script,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    out = (res.stdout or "") + (res.stderr or "")
+    if res.returncode != 0 or "Traceback" in out:
+        warn(f"Authentik SMTP user {username} failed: {out[-400:]}")
+    elif "created" in out or "updated" in out:
+        ok(f"Authentik SMTP user {username} ({email})")
+    else:
+        warn(f"Authentik SMTP user {username}: unexpected output")
 
 
 def configure_stalwart(env: dict) -> None:
-    """Idempotent: LDAP directory + vaultwarden@/noreply@ local SMTP users."""
+    """Idempotent: TLS cert, LDAP auth, Authentik SMTP service users."""
     admin_pass = _secret("stalwart_admin_password")
     ldap_pass = _secret("ldap_service_password")
     vw_pass = _secret("stalwart_smtp_vaultwarden_password")
@@ -298,13 +429,20 @@ def configure_stalwart(env: dict) -> None:
 
     domain_id = _ensure_domain(jmap, domain_name)
     _ensure_default_domain(jmap, domain_id, mail_hostname)
+    _ensure_tls_certificate(jmap, env)
     ldap_id = _ensure_ldap_directory(jmap, ldap_pass)
     if ldap_id:
         _ensure_auth_directory(jmap, ldap_id)
+
+    # Drop legacy local SMTP users; mailboxes materialize via LDAP on first auth.
+    _destroy_local_smtp_accounts(jmap, domain_id, ["vaultwarden", "noreply"])
     if vw_pass:
-        _ensure_smtp_user(jmap, domain_id, "vaultwarden", vw_pass)
+        _ensure_authentik_smtp_user(
+            "vaultwarden", f"vaultwarden@{domain_name}", vw_pass
+        )
     if nr_pass:
-        _ensure_smtp_user(jmap, domain_id, "noreply", nr_pass)
+        _ensure_authentik_smtp_user("noreply", f"noreply@{domain_name}", nr_pass)
+
     # Directory + SystemSettings changes are not always live until restart;
     # without this, LDAP auth can keep failing until a manual docker restart.
     _restart_stalwart()
@@ -318,7 +456,14 @@ def configure_stalwart(env: dict) -> None:
                 warn(f"Stalwart did not become ready after restart ({exc})")
                 return
             time.sleep(2)
-    ok("Stalwart LDAP directory and SMTP service users configured")
+    # Re-apply TLS after restart (ReloadTlsCertificates is enough if files unchanged).
+    try:
+        _ensure_tls_certificate(
+            lambda calls: _jmap("admin", admin_pass, calls), env
+        )
+    except Exception as exc:
+        warn(f"TLS re-apply after restart: {exc}")
+    ok("Stalwart LDAP directory and Authentik SMTP users configured")
 
 
 class StalwartService(Service):

@@ -71,19 +71,19 @@ Shared files live under [`./storage/`](../storage/) (gitignored; included in Res
 | --- | --- |
 | `storage/users/<username>/` | Private home (Samba `\\…\<username>`) |
 | `storage/shared/` | Shared by everyone (Samba `\\…\shared`) |
-| Nextcloud data | Everyday files / WebDAV / CalDAV / CardDAV |
+| Nextcloud data | Everyday files / WebDAV / CalDAV / CardDAV / Mail (via Stalwart) |
 
 | Access | URL / path | Auth |
 | --- | --- | --- |
 | **SMB (LAN)** | `\\<HOMELAB_IP>\<username>` or `\\<IP>\shared` | Authentik password (NTLM synced on any password set) |
 | **Nextcloud** | `https://cloud.<hostname>` | Authentik OIDC |
-| **Mail** | Stalwart IMAP/SMTP | Authentik LDAP (humans) + local SMTP service users |
+| **Mail** | `mail.<hostname>` IMAPS 993 / SMTPS 465 | Authentik LDAP (humans + `vaultwarden@` / `noreply@` service accounts) |
 | **Photos** | `https://photos.<hostname>` | Authentik OIDC |
 | **Office** | `https://office.<hostname>` | Via Nextcloud (Collabora) |
 
 - [ ] Confirm Authentik users exist and LDAP outpost is healthy (`authentik-ldap`)
 - [ ] Copy LDAP Outpost token into `volumes/secrets/ldap_outpost_token` if auto-extract failed
-- [ ] Confirm Stalwart postsetup created LDAP directory + `vaultwarden@` / `noreply@` (or re-run setup)
+- [ ] Confirm Stalwart postsetup wired LDAP + Homelab TLS on `mail.<hostname>`, and Authentik has `vaultwarden@` / `noreply@` (blueprint / re-run setup)
 - [ ] Confirm `storage/users/` + `storage/shared/` exist
 - [ ] Firewall for SMB (`445/tcp`) as needed; Docker Desktop/WSL may use `SAMBA_HOST_PORT=4445`
 - [ ] Docs: [Nextcloud](https://docs.nextcloud.com/) · [Stalwart](https://stalw.art/docs/) · [Immich](https://immich.app/docs)
@@ -132,6 +132,21 @@ Use **Nextcloud** (same Authentik SSO as the web UI).
 - [ ] Open `https://cloud.<your-hostname>` and confirm Calendar / Contacts apps are enabled
 - [ ] Clients: CalDAV/CardDAV base URLs from Nextcloud → Settings → Calendar/Contacts (or DAVx⁵ Nextcloud login)
 - [ ] Docs: [Nextcloud Calendar](https://docs.nextcloud.com/server/latest/user_manual/en/groupware/calendar.html)
+
+### Mail (Nextcloud Mail → Stalwart)
+
+Stalwart has no built-in webmail. Postsetup enables **Nextcloud Mail** against
+`mail.<hostname>` (IMAPS/SMTPS, Homelab CA verified) and creates your mailbox
+with `mail:account:create` (Authentik password). **Do not** use Admin →
+Groupware → Mail provisioning — OIDC logins cannot supply an IMAP password, so
+provisioned accounts fail and cannot be deleted in the UI.
+
+- [ ] Open `https://cloud.<your-hostname>/apps/mail/` (SSO)
+- [ ] Account host is `mail.<your-hostname>` (not the Docker service name)
+- [ ] Password for Mail is your **Authentik / homelab password**
+- [ ] To change the stored Mail password: Mail → **⋯** → **Account settings** → **Password**
+- [ ] Send a test message to yourself; confirm it appears in Inbox
+- [ ] Docs: [Nextcloud Mail](https://docs.nextcloud.com/server/latest/admin_manual/groupware/mail.html) · [Stalwart](https://stalw.art/docs/)
 
 ### ddclient
 

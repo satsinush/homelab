@@ -17,10 +17,10 @@ services:
       - SIGNUPS_ALLOWED=false
       - DOMAIN=https://${VAULTWARDEN_SERVICE_NAME}.${HOMELAB_HOSTNAME}
       - SMTP_SSL_CA_CERT=/etc/ssl/certs/homelab-ca.crt
-      # Authenticated submission to Stalwart (no open relay on 25)
-      - SMTP_HOST=stalwart
-      - SMTP_PORT=587
-      - SMTP_SECURITY=starttls
+      # Canonical mail hostname (Docker network alias → Stalwart, TLS verified)
+      - SMTP_HOST=${MAIL_SERVICE_NAME:-mail}.${HOMELAB_HOSTNAME}
+      - SMTP_PORT=465
+      - SMTP_SECURITY=force_tls
       - SMTP_USERNAME=vaultwarden@${HOMELAB_HOSTNAME}
       - SMTP_PASSWORD_FILE=/run/secrets/stalwart_smtp_vaultwarden_password
       - SMTP_FROM=vaultwarden@${HOMELAB_HOSTNAME}

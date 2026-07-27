@@ -174,6 +174,32 @@ entries:
       roles:
         - !Find [authentik_rbac.role, [name, ldap-search]]
 
+  # Stalwart SMTP submitters (Vaultwarden alerts + system noreply).
+  # Auth is via Authentik LDAP — do not create local Stalwart passwords.
+  - model: authentik_core.user
+    id: smtp-vaultwarden
+    identifiers:
+      username: vaultwarden
+    attrs:
+      username: vaultwarden
+      name: Vaultwarden SMTP
+      email: !Format ["vaultwarden@%s", !Env HOMELAB_HOSTNAME]
+      path: users
+      type: service_account
+      password: !File /run/secrets/stalwart_smtp_vaultwarden_password
+
+  - model: authentik_core.user
+    id: smtp-noreply
+    identifiers:
+      username: noreply
+    attrs:
+      username: noreply
+      name: Noreply SMTP
+      email: !Format ["noreply@%s", !Env HOMELAB_HOSTNAME]
+      path: users
+      type: service_account
+      password: !File /run/secrets/stalwart_smtp_noreply_password
+
   # =================================================================
   # Password Policies
   # =================================================================
@@ -271,12 +297,14 @@ entries:
 
   - model: authentik_providers_oauth2.scopemapping
     id: scope-email
+    # Match by name — scope_name "email" collides with Authentik's default
+    # OpenID email mapping (which hardcodes email_verified: False).
     identifiers:
-      scope_name: email
+      name: custom-scope-email
     attrs:
-      name: "custom-scope-email"
+      name: custom-scope-email
       scope_name: email
-      description: "SSO Email"
+      description: "SSO Email (email_verified=True for Vaultwarden/OIDC apps)"
       expression: |
         return {
             "email": request.user.email,
@@ -309,6 +337,7 @@ entries:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
         - !KeyOf scope-email
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, offline_access]]
         - !KeyOf scope-groups
 
   - model: authentik_core.application
