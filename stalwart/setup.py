@@ -104,13 +104,21 @@ def _ensure_ldap_directory(jmap, ldap_pass: str) -> str | None:
                             {
                                 "update": {
                                     obj["id"]: {
+                                        # objectClass=user already excludes Authentik
+                                        # virtual-groups. ou:dn:=users returns Operations
+                                        # error on Authentik's LDAP outpost.
                                         "filterLogin": (
-                                            "(&(objectClass=user)(ou:dn:=users)(|(mail=?)(cn=?)))"
+                                            "(&(objectClass=user)(|(mail=?)(cn=?)))"
                                         ),
                                         "filterMailbox": (
-                                            "(&(objectClass=user)(ou:dn:=users)(|(mail=?)(cn=?)))"
+                                            "(&(objectClass=user)(|(mail=?)(cn=?)))"
+                                        ),
+                                        "filterMemberOf": (
+                                            "(&(objectClass=group)(member=?))"
                                         ),
                                         "groupClass": "group",
+                                        # Authentik exposes pwdChangedTime (not pwdChangeTime).
+                                        "attrSecretChanged": {"pwdChangedTime": True},
                                         "bindSecret": {
                                             "@type": "Value",
                                             "secret": ldap_pass,
@@ -131,9 +139,11 @@ def _ensure_ldap_directory(jmap, ldap_pass: str) -> str | None:
         "bindDn": "cn=ldapservice,ou=users,dc=ldap,dc=goauthentik,dc=io",
         "bindSecret": {"@type": "Value", "secret": ldap_pass},
         "bindAuthentication": True,
-        "filterLogin": "(&(objectClass=user)(ou:dn:=users)(|(mail=?)(cn=?)))",
-        "filterMailbox": "(&(objectClass=user)(ou:dn:=users)(|(mail=?)(cn=?)))",
+        "filterLogin": "(&(objectClass=user)(|(mail=?)(cn=?)))",
+        "filterMailbox": "(&(objectClass=user)(|(mail=?)(cn=?)))",
+        "filterMemberOf": "(&(objectClass=group)(member=?))",
         "groupClass": "group",
+        "attrSecretChanged": {"pwdChangedTime": True},
     }
     resp = jmap([["x:Directory/set", {"create": {"ldap1": create}}, "c1"]])
     name, data = _method_result(resp)
@@ -165,6 +175,45 @@ def _ensure_auth_directory(jmap, directory_id: str) -> None:
         warn(f"Authentication.directoryId error: {data}")
     else:
         ok(f"Stalwart auth directory → LDAP ({directory_id})")
+
+
+def _ensure_default_domain(jmap, domain_id: str, mail_hostname: str) -> None:
+    """Point SystemSettings at the homelab domain (bare usernames append this).
+
+    Fresh installs leave defaultDomainId as a placeholder (p333333333333), so
+    ``andrew`` becomes ``andrew@localhost.local`` and LDAP login fails.
+    """
+    if not domain_id:
+        return
+    update: dict = {"defaultDomainId": domain_id}
+    if mail_hostname:
+        update["defaultHostname"] = mail_hostname
+    resp = jmap(
+        [["x:SystemSettings/set", {"update": {"singleton": update}}, "c1"]]
+    )
+    name, data = _method_result(resp)
+    if (data or {}).get("notUpdated"):
+        warn(f"Could not set default domain: {(data or {}).get('notUpdated')}")
+    elif name == "error":
+        warn(f"SystemSettings.defaultDomainId error: {data}")
+    else:
+        ok(f"Stalwart default domain → {domain_id} ({mail_hostname or 'hostname unset'})")
+
+
+def _restart_stalwart() -> None:
+    """Reload LDAP directory / system settings into the running process."""
+    import subprocess
+
+    res = subprocess.run(
+        ["docker", "restart", "stalwart"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if res.returncode != 0:
+        warn(f"Could not restart Stalwart after configure: {(res.stderr or res.stdout)[:300]}")
+        return
+    info("Restarted Stalwart to apply LDAP + default domain")
 
 
 def _ensure_smtp_user(jmap, domain_id: str, local_part: str, password: str) -> None:
@@ -244,7 +293,11 @@ def configure_stalwart(env: dict) -> None:
                 return
             time.sleep(5)
 
+    mail_svc = (env.get("MAIL_SERVICE_NAME") or "mail").strip()
+    mail_hostname = f"{mail_svc}.{domain_name}" if domain_name else ""
+
     domain_id = _ensure_domain(jmap, domain_name)
+    _ensure_default_domain(jmap, domain_id, mail_hostname)
     ldap_id = _ensure_ldap_directory(jmap, ldap_pass)
     if ldap_id:
         _ensure_auth_directory(jmap, ldap_id)
@@ -252,6 +305,19 @@ def configure_stalwart(env: dict) -> None:
         _ensure_smtp_user(jmap, domain_id, "vaultwarden", vw_pass)
     if nr_pass:
         _ensure_smtp_user(jmap, domain_id, "noreply", nr_pass)
+    # Directory + SystemSettings changes are not always live until restart;
+    # without this, LDAP auth can keep failing until a manual docker restart.
+    _restart_stalwart()
+    # Wait for API again so later postsetup steps (if any) see a healthy server.
+    for attempt in range(24):
+        try:
+            _jmap("admin", admin_pass, [["x:Domain/query", {"filter": {}}, "c1"]])
+            break
+        except Exception as exc:
+            if attempt == 23:
+                warn(f"Stalwart did not become ready after restart ({exc})")
+                return
+            time.sleep(2)
     ok("Stalwart LDAP directory and SMTP service users configured")
 
 
