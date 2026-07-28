@@ -14,8 +14,8 @@ import { getErrorMessage } from './utils/errors';
 
 const execFileAsync = promisify(execFile);
 
-/** Homelab repo root (host-api is started from PROJECT_ROOT). */
-const REPO_ROOT = process.env.PROJECT_ROOT || path.resolve(__dirname, '..', '..', '..');
+/** Homelab repo root (host-api lives at <repo>/dashboard/host-api). */
+const REPO_ROOT = process.env.PROJECT_ROOT || path.resolve(__dirname, '..', '..');
 
 const app = express();
 

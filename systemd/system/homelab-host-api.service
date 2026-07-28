@@ -9,6 +9,7 @@ After=network.target
 [Service]
 User=${PUID}
 Group=${PGID}
+Environment=PROJECT_ROOT=${PROJECT_ROOT}
 WorkingDirectory=${PROJECT_ROOT}/dashboard/host-api
 ExecStart=${PROJECT_ROOT}/dashboard/host-api/node_modules/.bin/tsx server.ts
 Restart=always

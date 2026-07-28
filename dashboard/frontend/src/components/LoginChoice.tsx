@@ -51,9 +51,11 @@ const LoginChoice = () => {
         window.location.href = '/api/users/sso-login';
     };
 
-    // Start OIDC immediately. Authentik finishes silently when a
-    // session already exists; otherwise the IdP login page is shown.
-    const shouldAutoSso = false;
+    // SSO-only: skip the choice screen and start OIDC immediately.
+    // If Authentik already has a session, callback finishes silently.
+    // Do not auto-redirect when sso_error is set (avoids a retry loop).
+    const shouldAutoSso =
+        !configLoading && disableLocalAuth && ssoEnabled && !ssoError && !ssoLoading;
 
     useEffect(() => {
         if (!shouldAutoSso) return;

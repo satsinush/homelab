@@ -317,15 +317,21 @@ def _ensure_oidc(env: dict) -> None:
     host = env.get("HOMELAB_HOSTNAME", "homelab.local")
     cloud = f"{env.get('NEXTCLOUD_SERVICE_NAME', 'cloud')}.{host}"
     discovery = f"https://{auth}.{host}/application/o/nextcloud/"
+    end_session = f"{discovery}end-session/"
+    post_logout = f"https://{cloud}/"
     secret = Path("./volumes/secrets/nextcloud_oidc_secret").read_text(encoding="utf-8").strip()
 
     # unique-uid=0 → use preferred_username / sub mapping from IdP (not a hashed uid).
+    # endsession + id_token_hint required for logout (/apps/user_oidc/sls) to work.
     out = _occ(
         "user_oidc:provider",
         "Authentik",
         "--clientid=nextcloud",
         f"--clientsecret={secret}",
         f"--discoveryuri={discovery}",
+        f"--endsessionendpointuri={end_session}",
+        f"--postlogouturi={post_logout}",
+        "--send-id-token-hint=1",
         "--scope=openid profile email",
         "--unique-uid=0",
         check=False,

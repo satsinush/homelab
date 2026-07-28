@@ -65,6 +65,8 @@ services:
       - ${PROJECT_ROOT}/nextcloud/volumes/html:/var/www/html
       - ${PROJECT_ROOT}/nextcloud/volumes/data:/var/www/data
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/usr/local/share/ca-certificates/homelab-ca.crt:ro
+      # Rebuild system trust on every start (CA mount alone is not enough).
+      - ${PROJECT_ROOT}/nextcloud/hooks/before-starting:/docker-entrypoint-hooks.d/before-starting:ro
     extra_hosts:
       - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
       # Mail ISPDB autoconfig (server-side fetch via Traefik + Homelab CA)

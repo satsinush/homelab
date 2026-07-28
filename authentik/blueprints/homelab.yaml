@@ -30,6 +30,11 @@ entries:
   - model: authentik_blueprints.metaapplyblueprint
     attrs:
       identifiers:
+        name: Default - Invalidation flow
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
         name: System - OAuth2 Provider - Scopes
       required: true
   - model: authentik_blueprints.metaapplyblueprint
@@ -37,6 +42,21 @@ entries:
       identifiers:
         name: System - Proxy Provider - Scopes
       required: true
+
+  # Capitalize product name in the login welcome heading.
+  - model: authentik_flows.flow
+    identifiers:
+      slug: default-authentication-flow
+    attrs:
+      title: "Welcome to Authentik!"
+      name: "Welcome to Authentik!"
+
+  - model: authentik_flows.flow
+    identifiers:
+      slug: default-source-authentication
+    attrs:
+      title: "Welcome to Authentik!"
+      name: "Welcome to Authentik!"
 
   # =================================================================
   # Predefined Roles
@@ -748,7 +768,9 @@ entries:
       providers:
         - !KeyOf ldap-provider
 
-  # Brand styling to match dark dashboard theme
+  # Brand styling to match dark dashboard theme.
+  # flow_invalidation must be set or the session-end page hides
+  # "Log out of Homelab" (only overview + log-back-in remain).
   - model: authentik_brands.brand
     identifiers:
       domain: authentik-default
@@ -756,6 +778,7 @@ entries:
       domain: authentik-default
       branding_title: "Homelab"
       default: true
+      flow_invalidation: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
       branding_logo: "homelab-icon.svg"
       branding_favicon: "homelab-icon.svg"
       branding_custom_css: |
