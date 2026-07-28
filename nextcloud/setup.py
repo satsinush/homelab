@@ -420,7 +420,9 @@ def _configure_richdocuments(env: dict) -> None:
         f"--value={public_wopi}",
         check=False,
     )
-    # Default 15s is tight when Collabora kit falls back to file-copy jails.
+    # Clear any leftover internal callback (must match Collabora aliasgroup).
+    _occ("config:app:delete", "richdocuments", "wopi_callback_url", check=False)
+    # Docker Desktop kit setup is slow; default 15s is too tight.
     _occ(
         "config:app:set",
         "richdocuments",
@@ -433,6 +435,43 @@ def _configure_richdocuments(env: dict) -> None:
     else:
         ok(f"Nextcloud Office → Collabora ({internal_wopi}, public {public_wopi})")
         info(f"Create/open .odt/.ods/.odp from https://{cloud}")
+
+
+def _configure_theming(env: dict) -> None:
+    """Apply Homelab brand (name, colors, logo) to Nextcloud Theming."""
+    section("Configuring Nextcloud theming...", emoji="🎨")
+    if not wait_for(_nextcloud_ready, timeout=120, interval=5):
+        warn("Nextcloud not ready; skip theming")
+        return
+
+    cloud = f"{env.get('NEXTCLOUD_SERVICE_NAME', 'cloud')}.{env.get('HOMELAB_HOSTNAME')}"
+    dash = (
+        f"{env.get('DASHBOARD_SERVICE_NAME', 'dashboard')}."
+        f"{env.get('HOMELAB_HOSTNAME')}"
+    )
+    _occ("theming:config", "name", "Homelab", check=False)
+    _occ("theming:config", "slogan", "Your personal cloud", check=False)
+    _occ("theming:config", "url", f"https://{dash}", check=False)
+    _occ("theming:config", "primary_color", "#60a5fa", check=False)
+    _occ("theming:config", "background_color", "#0f172a", check=False)
+    # Solid dark login background (no default scenic photo).
+    _occ("theming:config", "background", "backgroundColor", check=False)
+
+    logo_host = Path("./gotify/homelab-icon.png")
+    logo_svg = Path("./dashboard/frontend/public/homelab-icon.svg")
+    logo = logo_host if logo_host.is_file() else logo_svg
+    if logo.is_file():
+        dest = f"/tmp/homelab-theming{logo.suffix}"
+        if run_cmd(f"docker cp {logo} nextcloud:{dest}", check=False) is not None:
+            _occ("theming:config", "logo", dest, check=False)
+            _occ("theming:config", "favicon", dest, check=False)
+            _occ("theming:config", "logoheader", dest, check=False)
+            ok(f"Nextcloud theming → Homelab ({logo.name})")
+        else:
+            warn("Could not copy logo into Nextcloud for theming")
+    else:
+        warn("No Homelab logo found for Nextcloud theming")
+    info(f"Cloud UI: https://{cloud}")
 
 
 def _ensure_local_admin() -> None:
@@ -522,6 +561,10 @@ class NextcloudService(Service):
                 _ensure_local_admin()
         except Exception as exc:
             warn(f"Local admin sync failed: {exc}")
+        try:
+            _configure_theming(env)
+        except Exception as exc:
+            warn(f"Theming auto-configure failed: {exc}")
         try:
             _ensure_oidc(env)
         except Exception as exc:

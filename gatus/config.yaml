@@ -1,6 +1,59 @@
 web:
   port: 8080
 
+# Homelab brand (matches dashboard / Authentik). Logo URL uses compose env.
+ui:
+  title: "Homelab Status"
+  header: "Homelab"
+  logo: "https://${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}/homelab-icon.svg"
+  link: "https://${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}"
+  dark-mode: true
+  favicon:
+    default: "https://${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}/homelab-icon.svg"
+    size16x16: "https://${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}/homelab-icon.svg"
+    size32x32: "https://${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}/homelab-icon.svg"
+  custom-css: |
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root, html, body, #global, #app, .dashboard-container {
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    }
+
+    #global, body, html {
+      background-color: #0f172a !important;
+      color: #f1f5f9 !important;
+      background-image:
+        radial-gradient(circle at 10% 20%, rgba(96, 165, 250, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(52, 211, 153, 0.03) 0%, transparent 40%) !important;
+    }
+
+    .dashboard-container,
+    .endpoint, .endpoint-group,
+    .endpoint-content, .endpoint-group-content,
+    .announcement-container, .announcement-content {
+      background-color: #1e293b !important;
+      border-color: rgba(255, 255, 255, 0.05) !important;
+      color: #f1f5f9 !important;
+    }
+
+    .endpoint-header, .endpoint-group-header,
+    .announcement-header {
+      background-color: #1e293b !important;
+      color: #f1f5f9 !important;
+    }
+
+    a, .text-blue-500, .text-blue-400 {
+      color: #60a5fa !important;
+    }
+
+    .bg-success, .bg-green-500, .bg-emerald-500 {
+      background-color: #34d399 !important;
+    }
+
+    .bg-danger, .bg-red-500, .bg-rose-500 {
+      background-color: #f87171 !important;
+    }
+
 alerting:
   custom:
     url: "http://alerts/gatus"

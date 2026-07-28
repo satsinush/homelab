@@ -4,6 +4,9 @@ services:
     image: twinproduction/gatus:latest
     container_name: gatus
     restart: unless-stopped
+    environment:
+      HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
+      DASHBOARD_SERVICE_NAME: ${DASHBOARD_SERVICE_NAME:-dashboard}
     volumes:
       - ${PROJECT_ROOT}/gatus/config.yaml:/config/config.yaml:ro
     extra_hosts:
