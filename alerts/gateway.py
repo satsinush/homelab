@@ -20,7 +20,9 @@ CONFIG_PATH = "/config/urls.yaml"
 GOTIFY_URL = os.environ.get("GOTIFY_INTERNAL_URL", "http://gotify").rstrip("/")
 
 # Must match tags in alerts/urls.yaml (and alerts/setup.py GOTIFY_APPS).
-KNOWN_ALERT_TAGS = frozenset({"gatus", "dashboard", "vaultwarden", "dockhand", "general"})
+KNOWN_ALERT_TAGS = frozenset(
+    {"gatus", "dashboard", "vaultwarden", "dockhand", "mail", "general"}
+)
 
 # Per-tag default URL opened when a Gotify notification is tapped (Android).
 # Overridable per request via a `click_url` field in the alert payload.
@@ -29,8 +31,26 @@ DEFAULT_CLICK_URLS = {
     "dashboard": os.environ.get("DASHBOARD_CLICK_URL", ""),
     "vaultwarden": os.environ.get("VAULTWARDEN_CLICK_URL", ""),
     "dockhand": os.environ.get("DOCKHAND_CLICK_URL", ""),
+    "mail": os.environ.get("MAIL_CLICK_URL", ""),
     "general": os.environ.get("GENERAL_CLICK_URL", ""),
 }
+
+# Stalwart message ingestion events (new mail into a mailbox).
+_STALWART_INGEST_EVENTS = frozenset(
+    {
+        "message-ingest.ham",
+        "message-ingest.spam",
+    }
+)
+# Don't notify for service mailboxes (SMTP submitters / system).
+_STALWART_SKIP_LOCALPARTS = frozenset(
+    {
+        "vaultwarden",
+        "noreply",
+        "authentik",
+        "ldapservice",
+    }
+)
 
 def _alert_tag(service: str) -> str:
     tag = (service or "general").strip().lower()
@@ -146,6 +166,68 @@ def _decorate_gatus_title(title: str) -> str:
     return f"{prefix}{title}"
 
 
+async def handle_stalwart_webhook(request):
+    """Accept Stalwart WebHookEvents JSON and notify Gotify for new mail."""
+    try:
+        payload = await request.json()
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"Stalwart webhook: invalid JSON ({e})")
+        return web.Response(text="invalid json", status=400)
+
+    events = payload.get("events") if isinstance(payload, dict) else None
+    if not isinstance(events, list):
+        return web.Response(text="expected events[]", status=400)
+
+    delivered = 0
+    for ev in events:
+        if not isinstance(ev, dict):
+            continue
+        typ = str(ev.get("type") or "")
+        if typ not in _STALWART_INGEST_EVENTS:
+            continue
+        raw_data = ev.get("data")
+        data: dict = raw_data if isinstance(raw_data, dict) else {}
+        recipients = data.get("to") or data.get("recipients") or []
+        if isinstance(recipients, str):
+            recipients = [recipients]
+        if not isinstance(recipients, list):
+            recipients = []
+        recipients = [str(r).strip() for r in recipients if str(r).strip()]
+
+        # Skip if every recipient is a known service mailbox.
+        locals_ = {
+            (r.split("@", 1)[0].lower() if "@" in r else r.lower()) for r in recipients
+        }
+        if recipients and locals_ and locals_.issubset(_STALWART_SKIP_LOCALPARTS):
+            logger.info(f"Stalwart webhook: skip service mailbox mail → {recipients}")
+            continue
+
+        from_addr = str(data.get("from") or data.get("sender") or "unknown")
+        to_disp = ", ".join(recipients) if recipients else "mailbox"
+        spam = typ.endswith(".spam")
+        title = f"{'⚠ Spam' if spam else '✉ Mail'}: {to_disp}"
+        mid = data.get("messageId") or data.get("message_id") or ""
+        size = data.get("size")
+        lines = [f"From: {from_addr}", f"To: {to_disp}"]
+        if mid:
+            lines.append(f"Message-ID: {mid}")
+        if size is not None:
+            lines.append(f"Size: {size}")
+        message = "\n".join(lines)
+
+        click_url = _resolve_click_url("mail", {})
+        ok_send = await _deliver(
+            "mail", title, message, priority=4 if spam else 5, click_url=click_url
+        )
+        if ok_send:
+            delivered += 1
+        logger.info(
+            f"Stalwart {typ} → Gotify mail (to={to_disp}, from={from_addr}, ok={ok_send})"
+        )
+
+    return web.Response(text=f"OK ({delivered})")
+
+
 async def handle_alert(request):
     if request.content_type == "message/rfc822":
         try:
@@ -245,6 +327,8 @@ async def main():
     # Register static paths before /{service} so they win the match.
     app.router.add_get("/alive", alive_handler)
     app.router.add_get("/health", health_handler)
+    # Stalwart WebHookEvents → Gotify (must be before /{service}).
+    app.router.add_post("/stalwart", handle_stalwart_webhook)
     # Legacy /alerts/{service} alias; preferred is POST /gatus, /dashboard, …
     app.router.add_post("/alerts/{service}", handle_alert)
     app.router.add_post("/alerts", handle_alert)

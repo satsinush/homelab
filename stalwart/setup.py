@@ -335,6 +335,60 @@ def _destroy_local_smtp_accounts(jmap, domain_id: str, local_parts: list[str]) -
             warn(f"Could not destroy local {local_part}: {(data or {}).get('notDestroyed')}")
 
 
+def _ensure_mail_webhook(jmap) -> None:
+    """POST message-ingest.* events to the alerts gateway → Gotify Mail app."""
+    url = "http://alerts/stalwart"
+    # Stalwart JMAP expects EventType sets as {event: true}, not string arrays.
+    events = {
+        "message-ingest.ham": True,
+        "message-ingest.spam": True,
+    }
+    create = {
+        "url": url,
+        "events": events,
+        "eventsPolicy": "include",
+        "enable": True,
+        "lossy": True,
+        "allowInvalidCerts": False,
+        "httpAuth": {"@type": "Unauthenticated"},
+        "httpHeaders": {},
+        "signatureKey": {"@type": "None"},
+    }
+
+    resp = jmap([["x:WebHook/query", {"filter": {}}, "c1"]])
+    _, data = _method_result(resp)
+    ids = list((data or {}).get("ids") or [])
+    existing_id = None
+    if ids:
+        get_resp = jmap([["x:WebHook/get", {"ids": ids}, "c1"]])
+        _, get_data = _method_result(get_resp)
+        for obj in (get_data or {}).get("list") or []:
+            if (obj.get("url") or "").rstrip("/") == url:
+                existing_id = obj.get("id")
+                break
+    if existing_id:
+        resp = jmap([["x:WebHook/set", {"update": {existing_id: create}}, "c1"]])
+        name, udata = _method_result(resp)
+        if (udata or {}).get("notUpdated"):
+            warn(f"Could not update Stalwart mail webhook: {(udata or {}).get('notUpdated')}")
+            return
+        if name == "error":
+            warn(f"Stalwart mail webhook update error: {udata}")
+            return
+        ok(f"Stalwart mail webhook updated → {url}")
+        return
+
+    resp = jmap([["x:WebHook/set", {"create": {"w1": create}}, "c1"]])
+    name, cdata = _method_result(resp)
+    if (cdata or {}).get("notCreated"):
+        warn(f"Could not create Stalwart mail webhook: {(cdata or {}).get('notCreated')}")
+        return
+    if name == "error":
+        warn(f"Stalwart mail webhook create error: {cdata}")
+        return
+    ok(f"Stalwart mail webhook → Gotify via {url}")
+
+
 def _ensure_authentik_smtp_user(username: str, email: str, password: str) -> None:
     """Create/update an Authentik service user so Stalwart LDAP SMTP auth works.
 
@@ -443,6 +497,8 @@ def configure_stalwart(env: dict) -> None:
     if nr_pass:
         _ensure_authentik_smtp_user("noreply", f"noreply@{domain_name}", nr_pass)
 
+    _ensure_mail_webhook(jmap)
+
     # Directory + SystemSettings changes are not always live until restart;
     # without this, LDAP auth can keep failing until a manual docker restart.
     _restart_stalwart()
@@ -497,6 +553,7 @@ class StalwartService(Service):
         hostname = env.get("HOMELAB_HOSTNAME", "homelab.home.arpa")
         mail = env.get("MAIL_SERVICE_NAME", "mail")
         info(f"Stalwart admin UI: https://{mail}.{hostname}")
+        info(f"Mail autoconfig: https://autoconfig.{hostname}/mail/config-v1.1.xml")
         info("Recovery admin comes from volumes/secrets/stalwart_admin_password via entrypoint")
         info("Postsetup will configure Authentik LDAP + vaultwarden@/noreply@ SMTP users")
 

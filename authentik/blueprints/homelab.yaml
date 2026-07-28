@@ -497,6 +497,19 @@ entries:
       slug: immich
       provider: !KeyOf immich
       meta_launch_url: !Format ["https://%s.%s", !Env IMMICH_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      icon: icons/immich_logo.png
+
+  # Stalwart (bookmark — admin UI; IMAP/SMTP auth is Authentik LDAP)
+  - model: authentik_core.application
+    identifiers:
+      slug: stalwart-app
+    attrs:
+      name: Stalwart Mail
+      slug: stalwart-app
+      meta_launch_url: !Format ["https://%s.%s", !Env MAIL_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      open_in_new_tab: true
+      meta_description: Homelab mail server (IMAP/SMTP/JMAP)
+      icon: icons/stalwart_logo.png
 
   # LDAP Application must exist before the provider: LDAPProvider.full_clean()
   # requires backchannel_application (blank=False), which made KeyOf fail when

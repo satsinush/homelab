@@ -32,6 +32,8 @@ export interface ConfigResponse {
     authentikWebHostname?: string;
     davWebHostname?: string;
     calWebHostname?: string;
+    immichWebHostname?: string;
+    mailWebHostname?: string;
     homelabHostname?: string;
 }
 

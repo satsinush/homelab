@@ -105,6 +105,8 @@ app.get('/api/config', (req: Request, res: Response) => {
         authentikWebHostname: config.authentikWebHostname,
         davWebHostname: config.davWebHostname,
         calWebHostname: config.calWebHostname,
+        immichWebHostname: config.immichWebHostname,
+        mailWebHostname: config.mailWebHostname,
         homelabHostname: config.homelabHostname,
         disableLocalAuth: config.disableLocalAuth,
         ssoEnabled: config.ssoEnabled

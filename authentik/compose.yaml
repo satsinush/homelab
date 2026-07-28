@@ -38,7 +38,7 @@ services:
       - homelab-net
 
   authentik-server:
-    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.3}
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.6}
     container_name: authentik-server
     restart: unless-stopped
     command: server
@@ -118,7 +118,7 @@ services:
         condition: service_healthy
 
   authentik-worker:
-    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.3}
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.6}
     container_name: authentik-worker
     restart: unless-stopped
     command: worker
@@ -186,7 +186,7 @@ services:
         condition: service_healthy
 
   authentik-ldap:
-    image: ghcr.io/goauthentik/ldap:${AUTHENTIK_TAG:-2026.5.3}
+    image: ghcr.io/goauthentik/ldap:${AUTHENTIK_TAG:-2026.5.6}
     container_name: authentik-ldap
     restart: unless-stopped
     # Token must be the Outpost token string (not a path).

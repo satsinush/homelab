@@ -67,6 +67,9 @@ services:
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/usr/local/share/ca-certificates/homelab-ca.crt:ro
     extra_hosts:
       - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
+      # Mail ISPDB autoconfig (server-side fetch via Traefik + Homelab CA)
+      - "autoconfig.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
+      - "${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
     secrets:
       - nextcloud_db_password
       - nextcloud_admin_password

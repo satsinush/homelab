@@ -10,6 +10,8 @@ export interface Hostnames {
     authentik: string;
     dav: string;
     cal: string;
+    immich: string;
+    mail: string;
 }
 
 export interface AppConfig {

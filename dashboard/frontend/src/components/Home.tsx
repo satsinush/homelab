@@ -53,6 +53,8 @@ import GotifyLogo from '../assets/gotify_logo.png';
 import AuthIcon from '../assets/authentik_logo.png';
 import DockhandLogo from '../assets/dockhand_logo.png';
 import NextcloudLogo from '../assets/nextcloud_logo.png';
+import ImmichLogo from '../assets/immich_logo.png';
+import StalwartLogo from '../assets/stalwart_logo.png';
 
 interface QuickLink {
     title: string;
@@ -191,9 +193,16 @@ const Home = () => {
         {
             title: 'Immich',
             description: 'Self-hosted photo and video library',
-            url: `https://photos.${config.homelabHostname || ''}`,
-            logo: AuthIcon,
+            url: `https://${hostnames.immich || ''}`,
+            logo: ImmichLogo,
             logoAlt: 'Immich'
+        },
+        {
+            title: 'Stalwart Mail',
+            description: 'IMAP/SMTP mail server admin',
+            url: `https://${hostnames.mail || ''}`,
+            logo: StalwartLogo,
+            logoAlt: 'Stalwart'
         }
     ].filter(service => !service.role || hasPermission(service.role));
 

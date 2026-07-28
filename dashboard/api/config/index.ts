@@ -34,6 +34,8 @@ const gatusServiceName = process.env.GATUS_SERVICE_NAME || 'gatus';
 const gotifyServiceName = process.env.GOTIFY_SERVICE_NAME || 'gotify';
 const filesServiceName = process.env.NEXTCLOUD_SERVICE_NAME || 'cloud';
 const calServiceName = process.env.NEXTCLOUD_SERVICE_NAME || 'cloud';
+const immichServiceName = process.env.IMMICH_SERVICE_NAME || 'photos';
+const mailServiceName = process.env.MAIL_SERVICE_NAME || 'mail';
 
 const DASHBOARD_WEB_HOSTNAME = `${dashboardServiceName}.${homelabHostname}`;
 const AUTHENTIK_WEB_HOSTNAME = `${authentikServiceName}.${homelabHostname}`;
@@ -44,6 +46,8 @@ const GATUS_WEB_HOSTNAME = `${gatusServiceName}.${homelabHostname}`;
 const GOTIFY_WEB_HOSTNAME = `${gotifyServiceName}.${homelabHostname}`;
 const DAV_WEB_HOSTNAME = `${filesServiceName}.${homelabHostname}`;
 const CAL_WEB_HOSTNAME = `${calServiceName}.${homelabHostname}`;
+const IMMICH_WEB_HOSTNAME = `${immichServiceName}.${homelabHostname}`;
+const MAIL_WEB_HOSTNAME = `${mailServiceName}.${homelabHostname}`;
 
 export interface DefaultSettings {
     scanTimeout: number;
@@ -157,6 +161,8 @@ const config = {
     authentikWebHostname: AUTHENTIK_WEB_HOSTNAME,
     davWebHostname: DAV_WEB_HOSTNAME,
     calWebHostname: CAL_WEB_HOSTNAME,
+    immichWebHostname: IMMICH_WEB_HOSTNAME,
+    mailWebHostname: MAIL_WEB_HOSTNAME,
     homelabHostname: homelabHostname,
     secretsDir: SECRETS_DIR,
     rustdeskPubKeyPath:

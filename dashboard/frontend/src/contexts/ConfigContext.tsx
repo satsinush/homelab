@@ -21,7 +21,9 @@ export const ConfigProvider = ({ children }: ConfigProviderProps) => {
             gotify: '',
             authentik: '',
             dav: '',
-            cal: ''
+            cal: '',
+            immich: '',
+            mail: ''
         },
         homelabHostname: ''
     });
@@ -45,7 +47,9 @@ export const ConfigProvider = ({ children }: ConfigProviderProps) => {
                             gotify: d.gotifyWebHostname || '',
                             authentik: d.authentikWebHostname || '',
                             dav: d.davWebHostname || '',
-                            cal: d.calWebHostname || ''
+                            cal: d.calWebHostname || '',
+                            immich: d.immichWebHostname || '',
+                            mail: d.mailWebHostname || ''
                         },
                         homelabHostname: d.homelabHostname || ''
                     });

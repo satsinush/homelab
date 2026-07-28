@@ -43,6 +43,13 @@ GOTIFY_APPS: list[dict[str, str]] = [
         "icon": "/app/icons/dockhand.png",
     },
     {
+        "name": "Mail",
+        "description": "New email notifications (Stalwart → Nextcloud Mail)",
+        "tag": "mail",
+        "token_env": "GOTIFY_TOKEN_MAIL",
+        "icon": "/app/icons/stalwart.png",
+    },
+    {
         "name": "Homelab",
         "description": "General / SMTP fallback alerts",
         "tag": "general",

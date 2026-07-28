@@ -93,7 +93,7 @@ Shared files live under [`./storage/`](../storage/) (gitignored; included in Res
 - [ ] Open `https://gotify.<your-hostname>` and sign in as **`alerts`** (password: `volumes/secrets/gotify_alerts_password`) — share this login with anyone who should see push alerts
 - [ ] Install a Gotify client with the `alerts` account (not `admin`)
 - [ ] Confirm per-service apps appear: Gatus, Dashboard, Vaultwarden, Dockhand, Homelab (each with its own icon)
-- [ ] Confirm routed alerts arrive (Gatus → `http://alerts/gatus`, Dashboard packages → `http://alerts/dashboard`, Vaultwarden SMTP → Vaultwarden app)
+- [ ] Confirm routed alerts arrive (Gatus → `http://alerts/gatus`, Dashboard packages → `http://alerts/dashboard`, Vaultwarden SMTP → Vaultwarden app, new mail → Stalwart webhook → Mail app)
 - [ ] Keep `volumes/secrets/gotify_admin_password` for break-glass admin only
 - [ ] Docs: [Gotify](https://gotify.net/docs/)
 
@@ -143,6 +143,7 @@ provisioned accounts fail and cannot be deleted in the UI.
 
 - [ ] Open `https://cloud.<your-hostname>/apps/mail/` (SSO)
 - [ ] Account host is `mail.<your-hostname>` (not the Docker service name)
+- [ ] Autoconfig: `https://autoconfig.<hostname>/mail/config-v1.1.xml` (also `/.well-known/…` on the apex) — Mail “Add account” can detect IMAP/SMTP from your email domain
 - [ ] Password for Mail is your **Authentik / homelab password**
 - [ ] To change the stored Mail password: Mail → **⋯** → **Account settings** → **Password**
 - [ ] Send a test message to yourself; confirm it appears in Inbox
