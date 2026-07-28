@@ -23,7 +23,6 @@ import {
     PhoneIphone as IosIcon,
     Android as AndroidIcon,
     Launch as OpenIcon,
-    CalendarMonth as CalendarIcon,
     FolderShared as WebBrowserIcon
 } from '@mui/icons-material';
 import PageHeader from './PageHeader';
@@ -59,49 +58,30 @@ const Files = () => {
     const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
 
     const filesHost = config.hostnames.dav || 'cloud.homelab.local';
-    const calHost = config.hostnames.cal || filesHost;
     const homelabHost = config.homelabHostname || window.location.hostname.replace('dashboard.', '') || 'homelab.local';
     const username = user?.username || 'username';
-
     const webBrowserUrl = `https://${filesHost}/`;
-    const calendarPortalUrl = `https://${calHost}/apps/calendar/`;
 
-    // Protocol schemes and path strings per OS
     const formats = {
         windows: {
             smbPrivate: `\\\\${homelabHost}\\${username}`,
-            smbShared: `\\\\${homelabHost}\\shared`,
-            webdav: `https://${filesHost}/`,
-            caldav: `https://${calHost}/`,
-            carddav: `https://${calHost}/`
+            smbShared: `\\\\${homelabHost}\\shared`
         },
         macos: {
             smbPrivate: `smb://${homelabHost}/${username}`,
-            smbShared: `smb://${homelabHost}/shared`,
-            webdav: `https://${filesHost}/`,
-            caldav: `https://${calHost}/`,
-            carddav: `https://${calHost}/`
+            smbShared: `smb://${homelabHost}/shared`
         },
         linux: {
             smbPrivate: `smb://${homelabHost}/${username}`,
-            smbShared: `smb://${homelabHost}/shared`,
-            webdav: `https://${filesHost}/`,
-            caldav: `https://${calHost}/`,
-            carddav: `https://${calHost}/`
+            smbShared: `smb://${homelabHost}/shared`
         },
         ios: {
             smbPrivate: `smb://${homelabHost}/${username}`,
-            smbShared: `smb://${homelabHost}/shared`,
-            webdav: `https://${filesHost}/`,
-            caldav: `https://${calHost}/`,
-            carddav: `https://${calHost}/`
+            smbShared: `smb://${homelabHost}/shared`
         },
         android: {
             smbPrivate: `smb://${homelabHost}/${username}`,
-            smbShared: `smb://${homelabHost}/shared`,
-            webdav: `https://${filesHost}/`,
-            caldav: `https://${calHost}/`,
-            carddav: `https://${calHost}/`
+            smbShared: `smb://${homelabHost}/shared`
         }
     };
 
@@ -114,7 +94,7 @@ const Files = () => {
         setTimeout(() => setCopyFeedback(null), 2000);
     };
 
-    const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
         setTabVal(newValue);
     };
 
@@ -124,38 +104,22 @@ const Files = () => {
 
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
                 SMB for bulk LAN transfers; Nextcloud for everyday files, WebDAV, calendar, and contacts.
-                Sign in with your Authentik password (mail/IMAP too).
+                Sign in with Authentik (same password for mail/IMAP and Samba).
             </Typography>
 
-            {/* Quick Web Access Links */}
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 4 }}>
-                <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={<WebBrowserIcon />}
-                    endIcon={<OpenIcon />}
-                    component={Link}
-                    href={webBrowserUrl}
-                    target="_blank"
-                    rel="noopener"
-                    sx={{ flex: 1, textDecoration: 'none', py: 1.5 }}
-                >
-                    Open Nextcloud
-                </Button>
-                <Button
-                    variant="outlined"
-                    color="primary"
-                    startIcon={<CalendarIcon />}
-                    endIcon={<OpenIcon />}
-                    component={Link}
-                    href={calendarPortalUrl}
-                    target="_blank"
-                    rel="noopener"
-                    sx={{ flex: 1, textDecoration: 'none', py: 1.5 }}
-                >
-                    Open Nextcloud Calendar
-                </Button>
-            </Stack>
+            <Button
+                variant="contained"
+                color="primary"
+                startIcon={<WebBrowserIcon />}
+                endIcon={<OpenIcon />}
+                component={Link}
+                href={webBrowserUrl}
+                target="_blank"
+                rel="noopener"
+                sx={{ mb: 4, textDecoration: 'none', py: 1.5, px: 3 }}
+            >
+                Open Nextcloud
+            </Button>
 
             <Paper sx={{ mb: 4, border: '1px solid', borderColor: 'divider' }}>
                 <Tabs
@@ -176,13 +140,8 @@ const Files = () => {
 
                 <Box sx={{ p: { xs: 2, sm: 3 } }}>
                     <Stack spacing={3}>
-                        {/* File Sharing Section */}
                         <Box>
                             <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5 }}>
-                                File Sharing
-                            </Typography>
-                            
-                            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main', mb: 1 }}>
                                 SMB (Samba Network Shares)
                             </Typography>
                             {activeOS === 'windows' && (
@@ -202,49 +161,50 @@ const Files = () => {
                             )}
                             {activeOS === 'android' && (
                                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                    Connect using an app like <strong>Material Files</strong> by selecting <strong>SMB</strong> from the sidebar's Add Connection menu.
+                                    Connect using an app like <strong>Material Files</strong> by selecting <strong>SMB</strong> from the sidebar&apos;s Add Connection menu.
                                 </Typography>
                             )}
-                            <Stack spacing={2} sx={{ mb: 3 }}>
-                                <CopyRow caption="Private storage (maps directly to your /personal folder)" label="Private Folder URL" value={strings.smbPrivate} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_priv" />
-                                <CopyRow caption="Shared public storage (maps to /shared folder)" label="Shared Folder URL" value={strings.smbShared} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_shared" />
+                            {activeOS === 'linux' && (
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                                    Open these in your file manager (Connect to Server / smb://) or mount with <Box component="span" sx={{ fontFamily: 'monospace' }}>smbclient</Box>.
+                                </Typography>
+                            )}
+                            <Stack spacing={2}>
+                                <CopyRow caption="Private storage — Authentik username + password" label="Private Folder URL" value={strings.smbPrivate} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_priv" />
+                                <CopyRow caption="Shared public storage — Authentik username + password" label="Shared Folder URL" value={strings.smbShared} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_shared" />
                             </Stack>
-
-                            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main', mb: 1 }}>
-                                WebDAV
-                            </Typography>
-                            {activeOS === 'ios' || activeOS === 'android' ? (
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                    Copy this WebDAV address to connect mobile apps, PDF readers, or document sync plugins (like Obsidian Sync).
-                                </Typography>
-                            ) : (
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                    Connect using WebDAV clients like Cyberduck, WinSCP, or your OS file manager.
-                                </Typography>
-                            )}
-                            <CopyRow caption="Provide username and local sync password inside app configuration" label="WebDAV URL" value={strings.webdav} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="webdav" />
                         </Box>
 
                         <Divider />
 
-                        {/* Calendar / Contacts Section */}
                         <Box>
                             <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5 }}>
-                                Calendar / Contacts
+                                WebDAV, Calendar &amp; Contacts
                             </Typography>
-                            {activeOS === 'ios' && (
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                    Go to Settings → Calendar (or Contacts) → Accounts → Add Account → Other. Choose Add CalDAV/CardDAV Account, select "Manual", and enter the sync URLs.
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                                Client URLs come from Nextcloud (they include your account path). Open Nextcloud with the button above, then:
+                            </Typography>
+                            <Stack component="ul" spacing={1} sx={{ m: 0, pl: 2.5, color: 'text.secondary' }}>
+                                <Typography component="li" variant="body2">
+                                    <strong>WebDAV</strong> — Settings (avatar menu) → scroll to <strong>WebDAV</strong> and copy the URL.
+                                    Use an app password from Settings → Security if the client cannot do SSO.
                                 </Typography>
-                            )}
-                            {activeOS === 'android' && (
-                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                    Install <strong>DAVx⁵</strong> from Google Play or F-Droid, log in using your sync credentials and one of the URLs.
+                                <Typography component="li" variant="body2">
+                                    <strong>CalDAV</strong> — Calendar app → settings (⋯) → <strong>Copy CalDAV address</strong> (or Calendar settings).
                                 </Typography>
-                            )}
-                            <Stack spacing={2}>
-                                <CopyRow label="CalDAV URL" value={strings.caldav} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="caldav" />
-                                <CopyRow label="CardDAV URL" value={strings.carddav} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="carddav" />
+                                <Typography component="li" variant="body2">
+                                    <strong>CardDAV</strong> — Contacts app → settings (⋯) → <strong>Copy CardDAV address</strong>.
+                                </Typography>
+                                {activeOS === 'android' && (
+                                    <Typography component="li" variant="body2">
+                                        On Android, <strong>DAVx⁵</strong> can log into Nextcloud with Authentik/SSO and discover calendars and contacts automatically.
+                                    </Typography>
+                                )}
+                                {activeOS === 'ios' && (
+                                    <Typography component="li" variant="body2">
+                                        On iOS, Settings → Calendar/Contacts → Accounts → Add Account → Other → CalDAV/CardDAV, then paste the URL from Nextcloud.
+                                    </Typography>
+                                )}
                             </Stack>
                         </Box>
                     </Stack>
@@ -252,9 +212,9 @@ const Files = () => {
             </Paper>
 
             <Alert severity="info" sx={{ border: '1px solid', borderColor: 'info.light' }}>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>Note on Sync URLs:</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>Tip</Typography>
                 <Typography variant="body2">
-                    In most modern calendar or contact apps (such as DAVx⁵ or iOS Native settings), you only need to enter <strong>one</strong> of the CalDAV or CardDAV URLs. The client will automatically detect your other resources (calendars, address books) published under your username.
+                    Most calendar/contact apps only need one of the CalDAV or CardDAV URLs from Nextcloud; they discover the rest under your account.
                 </Typography>
             </Alert>
         </Container>

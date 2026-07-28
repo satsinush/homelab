@@ -37,6 +37,8 @@ services:
       - IMMICH_SERVICE_NAME=${IMMICH_SERVICE_NAME:-photos}
       - MAIL_SERVICE_NAME=${MAIL_SERVICE_NAME:-mail}
       - HOST_API_URL=${HOST_API_URL:-http://host.docker.internal:5001}
+      # Dashboard is SSO-only; Authentik is the identity source (incl. Samba via hook).
+      - DISABLE_LOCAL_AUTH=${DISABLE_LOCAL_AUTH:-true}
     labels:
       - "traefik.enable=true"
       # Canonical dashboard route

@@ -423,6 +423,15 @@ class UserController {
             if (isSSO && username !== currentUsername) {
                 return sendError(res, 403, 'SSO users cannot change their username');
             }
+
+            // Passwords for SSO users live in Authentik (Samba syncs from there).
+            if (isSSO && newPassword) {
+                return sendError(
+                    res,
+                    403,
+                    'Change your password in Authentik. It syncs to Samba automatically.'
+                );
+            }
             
             // Validate input at controller level
             let validatedUsername, validatedNewPassword;

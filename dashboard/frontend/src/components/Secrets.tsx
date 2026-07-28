@@ -113,6 +113,10 @@ const Secrets = () => {
                     </Button>
                 }
             />
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Homelab secret values from <Box component="span" sx={{ fontFamily: 'monospace' }}>volumes/secrets</Box>.
+                Reveal or copy as needed — treat these as credentials.
+            </Typography>
 
             <Box sx={{ mb: 3 }}>
                 <TextField
@@ -202,12 +206,33 @@ const Secrets = () => {
                             maxHeight="min(70dvh, 550px)"
                             vertical
                         >
-                            <Table stickyHeader size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
+                            <Table
+                                stickyHeader
+                                size="small"
+                                sx={{
+                                    tableLayout: 'fixed',
+                                    width: '100%',
+                                    '& .MuiTableCell-head': {
+                                        bgcolor: 'background.paper',
+                                        color: 'text.secondary',
+                                        typography: 'overline',
+                                        letterSpacing: '0.08em',
+                                        fontWeight: 700,
+                                        lineHeight: 1.5,
+                                        borderBottom: 2,
+                                        borderColor: 'divider',
+                                        py: 1.25,
+                                        // Keep sticky head opaque over scrolling rows
+                                        backgroundImage: 'none',
+                                        zIndex: 3
+                                    }
+                                }}
+                            >
                                 <TableHead>
                                     <TableRow>
-                                        <TableCell sx={{ fontWeight: 600, width: '35%' }}>Secret Name</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, width: 'calc(65% - 104px)' }}>Value</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 600, width: 104, pr: 2 }}>Actions</TableCell>
+                                        <TableCell sx={{ width: '35%' }}>Secret name</TableCell>
+                                        <TableCell sx={{ width: 'calc(65% - 104px)' }}>Value</TableCell>
+                                        <TableCell align="right" sx={{ width: 104, pr: 2 }}>Actions</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>

@@ -301,7 +301,7 @@ const ChangePasswordModal = ({ open, onClose }: ChangePasswordModalProps) => {
     return (
         <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
             <form onSubmit={handleSubmit}>
-                <DialogTitle>{user?.has_local_password ? 'Change Password' : 'Set Local Password'}</DialogTitle>
+                <DialogTitle>{user?.has_local_password ? 'Change Password' : 'Set Password'}</DialogTitle>
                 <DialogContent>
                     <Stack spacing={3} sx={{ mt: 1 }}>
                         {error && <Alert severity="error">{error}</Alert>}
@@ -367,7 +367,8 @@ const Profile = () => {
                 {/* SSO Notice */}
                 {isSSO && (
                     <Alert severity="info" sx={{ mb: 3 }}>
-                        Your account is managed through Authentik SSO. Username and password changes must be made through your SSO provider.
+                        Your account is managed in Authentik. Change your username or password there
+                        (password updates also sync to Samba for LAN file shares).
                     </Alert>
                 )}
 
@@ -412,33 +413,28 @@ const Profile = () => {
                     </CardContent>
                 </Card>
 
-                {/* Security Section */}
-                <Card variant="outlined">
-                    <CardContent>
-                        <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Security</Typography>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Box>
-                                <Typography variant="body2" color="text.secondary">
-                                    {isSSO ? 'Local Sync Password' : 'Password'}
-                                </Typography>
-                                <Typography variant="body1" sx={{ fontWeight: 500 }}>••••••••</Typography>
-                                {isSSO && (
-                                    <Typography variant="caption" color="text.secondary">
-                                        Used for Samba (LAN file shares). Web files/calendar/contacts use Authentik SSO via Nextcloud.
-                                    </Typography>
-                                )}
+                {/* Local-only password (SSO users change password in Authentik). */}
+                {!isSSO && (
+                    <Card variant="outlined">
+                        <CardContent>
+                            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Security</Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Box>
+                                    <Typography variant="body2" color="text.secondary">Password</Typography>
+                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>••••••••</Typography>
+                                </Box>
+                                <Button
+                                    variant="outlined"
+                                    size="small"
+                                    startIcon={<LockIcon />}
+                                    onClick={() => setPasswordModalOpen(true)}
+                                >
+                                    {user?.has_local_password ? 'Change' : 'Set'}
+                                </Button>
                             </Box>
-                            <Button
-                                variant="outlined"
-                                size="small"
-                                startIcon={<LockIcon />}
-                                onClick={() => setPasswordModalOpen(true)}
-                            >
-                                {user?.has_local_password ? 'Change' : 'Set'}
-                            </Button>
-                        </Box>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                )}
             </Paper>
 
             {/* Modals */}
@@ -450,13 +446,15 @@ const Profile = () => {
                     onSuccess={refreshUser}
                 />
             )}
-            <ChangePasswordModal
-                open={passwordModalOpen}
-                onClose={() => {
-                    setPasswordModalOpen(false);
-                    refreshUser();
-                }}
-            />
+            {!isSSO && (
+                <ChangePasswordModal
+                    open={passwordModalOpen}
+                    onClose={() => {
+                        setPasswordModalOpen(false);
+                        refreshUser();
+                    }}
+                />
+            )}
         </Container>
     );
 };
