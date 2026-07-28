@@ -106,16 +106,24 @@ services:
     restart: unless-stopped
     environment:
       # Traefik terminates TLS; Collabora speaks HTTP on the Docker network.
+      # Force public hostname in /hosting/discovery so activate-config does not
+      # rewrite Nextcloud's public_wopi_url to https://collabora:9980.
+      server_name: ${COLLABORA_SERVICE_NAME:-office}.${HOMELAB_HOSTNAME}
       aliasgroup1: https://${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}:443
       domain: ${NEXTCLOUD_SERVICE_NAME:-cloud}\\.${HOMELAB_HOSTNAME}
+      # Docker Desktop/WSL often cannot bind-mount jails (coolmount EPERM).
+      # Disable mount_jail_tree so kit setup skips failed mount attempts.
       extra_params: >-
         --o:ssl.enable=false
         --o:ssl.termination=true
         --o:ssl.ssl_verification=false
+        --o:mount_jail_tree=false
         --o:net.frame_ancestors=https://${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}
       username: admin
       password: ${COLLABORA_ADMIN_PASSWORD:-collabora}
       DONT_GEN_SSL_CERT: "true"
+      LANG: C.UTF-8
+      LC_CTYPE: C.UTF-8
     extra_hosts:
       # WOPI callbacks to Nextcloud go via Traefik HTTPS.
       - "${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
@@ -138,6 +146,12 @@ services:
       start_period: 120s
     cap_add:
       - MKNOD
+      - SYS_ADMIN
+      - SYS_CHROOT
+      - CHOWN
+      - FOWNER
+    security_opt:
+      - seccomp:unconfined
 
 secrets:
   nextcloud_db_password:

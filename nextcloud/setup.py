@@ -414,6 +414,14 @@ def _configure_richdocuments(env: dict) -> None:
         f"--value={public_wopi}",
         check=False,
     )
+    # Default 15s is tight when Collabora kit falls back to file-copy jails.
+    _occ(
+        "config:app:set",
+        "richdocuments",
+        "timeout",
+        "--value=60",
+        check=False,
+    )
     if "error" in activate.lower() and "configured" not in activate.lower():
         warn(f"richdocuments:activate-config: {activate[:400]}")
     else:
