@@ -4,7 +4,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from setup.service import Service, VolumeDir
+from setup.service import (
+    Service,
+    VolumeDir,
+    latest_file,
+    pg_dump_to_file,
+    pg_restore_from_file,
+)
 from setup.ui import info, ok, section, warn
 from setup.utils import append_env, docker_exec, gen_secret, run_cmd, wait_for
 
@@ -479,6 +485,7 @@ class NextcloudService(Service):
         VolumeDir("./nextcloud/volumes/html", uid=33, gid=33, mode=0o755),
         VolumeDir("./nextcloud/volumes/data", uid=33, gid=33, mode=0o750),
         VolumeDir("./nextcloud/volumes/db", uid=70, gid=70, mode=0o700),
+        VolumeDir("./nextcloud/volumes/db-dumps", mode=0o700),
         VolumeDir("./nextcloud/volumes/redis", uid=999, gid=999, mode=0o700),
     ]
 
@@ -534,6 +541,28 @@ class NextcloudService(Service):
                 f"wopi_url=http://collabora:9980 public_wopi_url=https://{office}"
             )
             warn(f"Cloud: https://{cloud}")
+
+    def backup(self, env: dict) -> None:
+        # Live Postgres dir is restic-excluded; dump into db-dumps for upload.
+        dest = "./nextcloud/volumes/db-dumps/nextcloud-backup.sql"
+        pg_dump_to_file(
+            "nextcloud-db",
+            "nextcloud",
+            "nextcloud",
+            dest,
+            password_file="/run/secrets/nextcloud_db_password",
+        )
+
+    def restore(self, env: dict) -> None:
+        dump = latest_file("./nextcloud/volumes/db-dumps", ".sql")
+        if dump:
+            pg_restore_from_file(
+                "nextcloud-db",
+                "nextcloud",
+                "nextcloud",
+                dump,
+                password_file="/run/secrets/nextcloud_db_password",
+            )
 
 
 service = NextcloudService()

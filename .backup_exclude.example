@@ -1,9 +1,15 @@
 # Live Postgres data dirs (backed up via pg_dump into */volumes/db-dumps/)
 authentik/volumes/db/
+nextcloud/volumes/db/
+immich/volumes/db/
 
 # Redis caches (safe to lose)
 authentik/volumes/redis/
+nextcloud/volumes/redis/
 unbound/volumes/redis/
+
+# Regenerable ML models / caches
+immich/volumes/model-cache/
 
 # Exclude only Ollama models until upgrading S3 storage.
 ollama/volumes/ollama/

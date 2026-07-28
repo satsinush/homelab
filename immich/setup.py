@@ -4,7 +4,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from setup.service import Service, VolumeDir
+from setup.service import (
+    Service,
+    VolumeDir,
+    latest_file,
+    pg_dump_to_file,
+    pg_restore_from_file,
+)
 from setup.ui import info, ok, section, warn
 from setup.utils import append_env, gen_secret, run_cmd, wait_for
 
@@ -205,6 +211,7 @@ class ImmichService(Service):
         VolumeDir("./immich/volumes/upload", mode=0o755),
         VolumeDir("./immich/volumes/model-cache", mode=0o755),
         VolumeDir("./immich/volumes/db", uid=999, gid=999, mode=0o700),
+        VolumeDir("./immich/volumes/db-dumps", mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:
@@ -229,6 +236,28 @@ class ImmichService(Service):
             info(
                 "Manual: register admin at /auth/register, then Admin → Settings → OAuth "
                 "using Authentik issuer and immich_oidc_secret."
+            )
+
+    def backup(self, env: dict) -> None:
+        # Live Postgres dir is restic-excluded; dump into db-dumps for upload.
+        dest = "./immich/volumes/db-dumps/immich-backup.sql"
+        pg_dump_to_file(
+            "immich-postgres",
+            "immich",
+            "immich",
+            dest,
+            password_file="/run/secrets/immich_db_password",
+        )
+
+    def restore(self, env: dict) -> None:
+        dump = latest_file("./immich/volumes/db-dumps", ".sql")
+        if dump:
+            pg_restore_from_file(
+                "immich-postgres",
+                "immich",
+                "immich",
+                dump,
+                password_file="/run/secrets/immich_db_password",
             )
 
 

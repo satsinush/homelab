@@ -74,12 +74,12 @@ Flow: `restic restore` → `Service.setup()` (permissions) → `docker compose u
 
 | Service | Hook |
 | --- | --- |
-| Authentik | `pg_dump` → `*/volumes/db-dumps/`; live `*/volumes/db/` excluded from Restic |
+| Authentik, Nextcloud, Immich | `pg_dump` → `*/volumes/db-dumps/`; live `*/volumes/db/` excluded from Restic |
 | Vaultwarden, Dashboard, Gotify | SQLite online `.backup` into the service bind mount |
 | Samba data | `storage/users/` (private) + `storage/shared/` (included as `storage/` target) |
 | ddclient | Config at `ddclient/volumes/ddclient.conf` (included via `*/volumes/`) |
 
-`.backup_exclude` skips `ollama/volumes/ollama/` (large models) until S3 capacity grows.
+`.backup_exclude` skips `ollama/volumes/ollama/` and `immich/volumes/model-cache/` (regenerable) until/unless S3 capacity grows.
 
 Pi-hole, Dockhand, RustDesk id/relay, word-games data are still uploaded as ordinary files (no freeze hook).
 
