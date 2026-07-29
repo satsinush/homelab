@@ -1,13 +1,13 @@
 """Authentik service — volumes, secrets, LDAP outpost token sync."""
 from __future__ import annotations
 
-import shutil
 import subprocess
 from pathlib import Path
 
 from setup.service import (
     Service,
     VolumeDir,
+    copy_into_volume,
     latest_file,
     pg_dump_to_file,
     pg_restore_from_file,
@@ -18,26 +18,36 @@ from setup.utils import gen_secret, run_cmd
 _ICON_SRC = Path("./services/dashboard/frontend/public/homelab-icon.svg")
 _ICONS_SRC = Path("./services/dashboard/frontend/src/assets")
 _MEDIA_PUBLIC = Path("./services/authentik/volumes/media/public")
+_AUTHENTIK_UID = 1000
+_AUTHENTIK_GID = 1000
 _ENSURE_BP = Path("./services/authentik/scripts/ensure_homelab_blueprint.py")
 _HEAL_LDAP = Path("./services/authentik/scripts/sync_ldap_outpost_token.py")
 
 
 def sync_authentik_branding_assets() -> None:
-    """Copy branding icons into the media volume (no nested Docker file mounts)."""
+    """Copy branding icons into the media volume (Authentik UID 1000)."""
     dest_public = _MEDIA_PUBLIC
-    dest_public.mkdir(parents=True, exist_ok=True)
     dest_icons = dest_public / "icons"
-    dest_icons.mkdir(parents=True, exist_ok=True)
 
     if _ICON_SRC.is_file():
-        shutil.copy2(_ICON_SRC, dest_public / "homelab-icon.svg")
+        copy_into_volume(
+            str(_ICON_SRC),
+            str(dest_public / "homelab-icon.svg"),
+            uid=_AUTHENTIK_UID,
+            gid=_AUTHENTIK_GID,
+        )
     else:
         warn(f"Missing branding icon: {_ICON_SRC}")
 
     if _ICONS_SRC.is_dir():
         for src in _ICONS_SRC.iterdir():
             if src.is_file():
-                shutil.copy2(src, dest_icons / src.name)
+                copy_into_volume(
+                    str(src),
+                    str(dest_icons / src.name),
+                    uid=_AUTHENTIK_UID,
+                    gid=_AUTHENTIK_GID,
+                )
     else:
         warn(f"Missing icons directory: {_ICONS_SRC}")
 

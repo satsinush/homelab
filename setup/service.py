@@ -209,6 +209,58 @@ def write_volume_file(
         raise PermissionError(f"Cannot write {path} as {uid}:{gid}: {err}")
 
 
+def copy_into_volume(
+    src: str,
+    dest: str,
+    *,
+    uid: int,
+    gid: int,
+    mode: int = 0o644,
+    dir_mode: int = 0o755,
+) -> None:
+    """Copy a host file into a container-owned volume (Docker chown fallback)."""
+    parent = os.path.dirname(dest) or "."
+    ensure_volume_dir(VolumeDir(parent, uid=uid, gid=gid, mode=dir_mode))
+    try:
+        shutil.copy2(src, dest)
+        try:
+            os.chown(dest, uid, gid)
+            os.chmod(dest, mode)
+        except PermissionError:
+            pass
+        return
+    except PermissionError:
+        pass
+
+    abs_src = os.path.abspath(src)
+    abs_parent = os.path.abspath(parent)
+    src_name = os.path.basename(abs_src)
+    dest_name = os.path.basename(dest)
+    mode_oct = oct(mode)[2:]
+    result = subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{os.path.dirname(abs_src)}:/src:ro",
+            "-v",
+            f"{abs_parent}:/out",
+            "alpine:3.20",
+            "sh",
+            "-c",
+            f"cp /src/{src_name} /out/{dest_name} && "
+            f"chown {uid}:{gid} /out/{dest_name} && chmod {mode_oct} /out/{dest_name}",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        err = (result.stderr or result.stdout or "").strip()[:300]
+        raise PermissionError(f"Cannot copy {src} → {dest} as {uid}:{gid}: {err}")
+
+
 def container_running(name: str) -> bool:
     from setup.utils import run_cmd
 
