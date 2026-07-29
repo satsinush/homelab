@@ -21,7 +21,7 @@ Finish these after [`./setup.py`](../setup.py) succeeds. Check items off as you 
 
 - [ ] Public DNS: a **single** DNS-only (grey-cloud) `A` record for `HEADSCALE_WEB_HOSTNAME` (usually `vpn.<your-hostname>`) → **this** host's public IP, updated by `ddclient` (no other `*.<your-hostname>` record is public)
 - [ ] Router port forwards to the server: `443/tcp → 8443/tcp`, `3478/udp → 3478/udp`, `41641/udp → 41641/udp` (and **no** others)
-- [ ] Confirm `https://vpn.<your-hostname>` loads (OIDC redirects to Authentik)
+- [ ] Confirm `https://vpn.<your-hostname>` responds (Headscale; bare `/` does not redirect to Authentik — OIDC starts from the Tailscale app login/register URL)
 - [ ] From the internet, confirm another service host (e.g. `dashboard.<your-hostname>` as Host to the public IP) returns `404`/refused — not the app
 - [ ] On each client, install [Tailscale](https://tailscale.com/download) and set the **custom control server** to `https://vpn.<your-hostname>`
 - [ ] Sign in with Authentik (`homelab-users` / `homelab-admins`)

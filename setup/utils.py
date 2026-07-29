@@ -502,6 +502,31 @@ def substitute_env_vars(content):
     return expand_env_template(content)
 
 
+def write_ca_bundle(dest: str) -> None:
+    """Write system roots + optional Homelab CA for container TLS (OIDC, SMTP, etc.).
+
+    ``SSL_CERT_FILE`` replaces the process trust store. Pointing it at only
+    ``homelab-ca.crt`` breaks Let's Encrypt (and other public) certs — e.g.
+    Vaultwarden/Headscale OIDC discovery against Authentik in LE mode.
+    """
+    chunks: list[bytes] = []
+    for path in (
+        "/etc/ssl/certs/ca-certificates.crt",
+        "/etc/ssl/cert.pem",
+        "./volumes/certificates/homelab-ca.crt",
+    ):
+        if not os.path.isfile(path):
+            continue
+        with open(path, "rb") as f:
+            data = f.read().strip()
+        if data:
+            chunks.append(data)
+    os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
+    with open(dest, "wb") as f:
+        f.write(b"\n".join(chunks) + b"\n")
+    os.chmod(dest, 0o644)
+
+
 # Explicit TZ → ISO 3166-1 phone region (extend as needed).
 _PHONE_REGION_BY_TZ: dict[str, str] = {
     "America/New_York": "US",

@@ -1,4 +1,4 @@
-"""Vaultwarden service — admin token, SQLite snapshot/restore."""
+"""Vaultwarden service — admin token, CA bundle, SQLite snapshot/restore."""
 from __future__ import annotations
 
 import os
@@ -7,13 +7,16 @@ import shlex
 
 from setup.service import Service, VolumeDir, restore_sqlite_snapshot, sqlite_snapshot
 from setup.ui import warn
-from setup.utils import gen_secret, run_cmd
+from setup.utils import gen_secret, run_cmd, write_ca_bundle
+
+CA_BUNDLE_PATH = "./services/vaultwarden/volumes/config/ca-bundle.crt"
 
 
 class VaultwardenService(Service):
     name = "vaultwarden"
     volume_dirs = [
         VolumeDir("./services/vaultwarden/volumes/data", mode=0o700),
+        VolumeDir("./services/vaultwarden/volumes/config", mode=0o755),
     ]
 
     def setup(self, env: dict) -> None:
@@ -22,6 +25,7 @@ class VaultwardenService(Service):
         gen_secret("vaultwarden_oidc_secret", 64)
         gen_secret("vaultwarden_admin_token_plain", 48)
         gen_secret("stalwart_smtp_vaultwarden_password", 32)
+        write_ca_bundle(CA_BUNDLE_PATH)
 
         plain_token_path = "./volumes/secrets/vaultwarden_admin_token_plain"
         with open(plain_token_path, "r", encoding="utf-8") as f:

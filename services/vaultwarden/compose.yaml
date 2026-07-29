@@ -6,17 +6,19 @@ services:
     restart: unless-stopped
     volumes:
       - ${PROJECT_ROOT}/services/vaultwarden/volumes/data:/data
-      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+      # System roots + Homelab CA (written by vaultwarden/setup.py) so OIDC works
+      # when Authentik is served with Let's Encrypt *or* the private CA.
+      - ${PROJECT_ROOT}/services/vaultwarden/volumes/config/ca-bundle.crt:/etc/ssl/certs/ca-bundle.crt:ro
     extra_hosts:
       - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
     networks:
       - homelab-net
     environment:
-      - SSL_CERT_FILE=/etc/ssl/certs/homelab-ca.crt
+      - SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
       - WEBSOCKET_ENABLED=true
       - SIGNUPS_ALLOWED=false
       - DOMAIN=https://${VAULTWARDEN_SERVICE_NAME}.${HOMELAB_HOSTNAME}
-      - SMTP_SSL_CA_CERT=/etc/ssl/certs/homelab-ca.crt
+      - SMTP_SSL_CA_CERT=/etc/ssl/certs/ca-bundle.crt
       # Canonical mail hostname (Docker network alias → Stalwart, TLS verified)
       - SMTP_HOST=${MAIL_SERVICE_NAME:-mail}.${HOMELAB_HOSTNAME}
       - SMTP_PORT=465

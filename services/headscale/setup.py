@@ -15,6 +15,7 @@ from setup.utils import (
     substitute_env_vars,
     wait_for,
     wait_for_container_healthy,
+    write_ca_bundle,
 )
 
 ROUTER_USER = "subnet-router"
@@ -23,26 +24,6 @@ ROUTER_ENV_PATH = "./services/headscale/volumes/config/router.env"
 CONFIG_TEMPLATE = "./services/headscale/config.yaml.template"
 CONFIG_PATH = "./services/headscale/volumes/config/config.yaml"
 CA_BUNDLE_PATH = "./services/headscale/volumes/config/ca-bundle.crt"
-
-
-def _write_ca_bundle() -> None:
-    """System roots + optional homelab CA so OIDC works in public or private SSL mode."""
-    chunks: list[bytes] = []
-    for path in (
-        "/etc/ssl/certs/ca-certificates.crt",
-        "/etc/ssl/cert.pem",
-        "./volumes/certificates/homelab-ca.crt",
-    ):
-        if not os.path.isfile(path):
-            continue
-        with open(path, "rb") as f:
-            data = f.read().strip()
-        if data:
-            chunks.append(data)
-    os.makedirs(os.path.dirname(CA_BUNDLE_PATH), exist_ok=True)
-    with open(CA_BUNDLE_PATH, "wb") as f:
-        f.write(b"\n".join(chunks) + b"\n")
-    os.chmod(CA_BUNDLE_PATH, 0o644)
 
 
 def _write_config(env: dict) -> None:
@@ -65,11 +46,13 @@ def _write_config(env: dict) -> None:
 
     for key in (
         "HEADSCALE_SERVICE_NAME",
+        "HEADSCALE_WEB_HOSTNAME",
         "HOMELAB_HOSTNAME",
         "AUTHENTIK_SERVICE_NAME",
         "HOMELAB_IP_ADDRESS",
         "HEADSCALE_BASE_DOMAIN",
         "DOCKER_SUBNET",
+        "LAN_SUBNET",
         "HEADSCALE_IPV4_PREFIX",
     ):
         if env.get(key):
@@ -276,12 +259,44 @@ class HeadscaleService(Service):
             append_env(env, "HEADSCALE_WEB_HOSTNAME", f"vpn.{hostname}")
 
         _write_config(env)
-        _write_ca_bundle()
+        write_ca_bundle(CA_BUNDLE_PATH)
 
     def postsetup(self, env: dict) -> None:
         if not wait_for_container_healthy("headscale", timeout=120):
             warn("Headscale not healthy yet — skip router key provisioning")
             return
+
+        # Headscale only initializes OIDC at process start. With
+        # only_start_if_oidc_is_available: false it may have fallen back to CLI
+        # register while Authentik blueprints were still applying — restart once
+        # discovery works so Tailscale clients get OIDC.
+        auth = env.get("AUTHENTIK_SERVICE_NAME") or "auth"
+        host = env.get("HOMELAB_HOSTNAME") or ""
+        if host:
+            oidc_url = (
+                f"https://{auth}.{host}/application/o/headscale/"
+                ".well-known/openid-configuration"
+            )
+            if wait_for(
+                lambda: '"issuer"'
+                in (run_cmd(f"curl -sf {shlex.quote(oidc_url)}", check=False) or ""),
+                timeout=180,
+                interval=5,
+            ):
+                run_cmd("docker restart headscale", check=False)
+                if not wait_for_container_healthy("headscale", timeout=120):
+                    warn("Headscale unhealthy after OIDC reload — continue anyway")
+                elif "falling back to CLI" in (
+                    run_cmd("docker logs headscale --since 2m", check=False) or ""
+                ):
+                    warn(
+                        "Headscale still falling back to CLI auth after OIDC reload — "
+                        "check TLS to Authentik (ca-bundle) and Traefik certs"
+                    )
+                else:
+                    ok("Headscale OIDC reloaded")
+            else:
+                warn(f"Authentik Headscale OIDC not reachable yet ({oidc_url})")
 
         try:
             user_id = _ensure_router_user()
