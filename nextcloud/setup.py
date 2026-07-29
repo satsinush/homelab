@@ -637,6 +637,18 @@ def _disable_skeleton() -> None:
     ok("Nextcloud skeleton directory disabled (no example files for new users)")
 
 
+def _disable_photos_app() -> None:
+    """Immich owns photos; keep Nextcloud Photos out of the app launcher."""
+    if not _app_enabled("photos"):
+        info("Nextcloud Photos already disabled")
+        return
+    out = _occ("app:disable", "photos", check=False) or ""
+    if _app_enabled("photos"):
+        warn(f"Could not disable photos app: {out[:200]}")
+        return
+    ok("Nextcloud Photos disabled (use Immich)")
+
+
 class NextcloudService(Service):
     name = "nextcloud"
     volume_dirs = [
@@ -675,8 +687,9 @@ class NextcloudService(Service):
             if wait_for(_nextcloud_ready, timeout=120, interval=5):
                 _ensure_local_admin()
                 _disable_skeleton()
+                _disable_photos_app()
         except Exception as exc:
-            warn(f"Local admin / skeleton sync failed: {exc}")
+            warn(f"Local admin / skeleton / photos sync failed: {exc}")
         try:
             _configure_theming(env)
         except Exception as exc:
