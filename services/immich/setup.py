@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
 from pathlib import Path
 
 from setup.service import (
@@ -13,6 +15,37 @@ from setup.service import (
 )
 from setup.ui import ok, warn
 from setup.utils import append_env, authentik_group_usernames, gen_secret, run_cmd, wait_for
+
+# Bump when Immich requires a different DB image / incompatible data dir.
+_DB_ENGINE = "vectorchord-pg14"
+_DB_ENGINE_MARKER = Path("./services/immich/volumes/.db-engine")
+_DB_DIR = Path("./services/immich/volumes/db")
+
+
+def _ensure_db_engine() -> None:
+    """Reset Postgres data when upgrading off legacy pgvecto.rs (Immich v3)."""
+    previous = (
+        _DB_ENGINE_MARKER.read_text(encoding="utf-8").strip()
+        if _DB_ENGINE_MARKER.is_file()
+        else ""
+    )
+    has_data = _DB_DIR.is_dir() and any(_DB_DIR.iterdir())
+    if previous == _DB_ENGINE:
+        return
+    if has_data:
+        warn(
+            "Resetting Immich Postgres for VectorChord (Immich v3+) — "
+            "upload library volume is kept; re-run postsetup for admin/OIDC"
+        )
+        run_cmd("docker compose stop immich-server immich-machine-learning immich-postgres", check=False)
+        shutil.rmtree(_DB_DIR, ignore_errors=True)
+    _DB_DIR.mkdir(parents=True, exist_ok=True)
+    _DB_ENGINE_MARKER.parent.mkdir(parents=True, exist_ok=True)
+    _DB_ENGINE_MARKER.write_text(_DB_ENGINE + "\n", encoding="utf-8")
+    try:
+        os.chown(_DB_DIR, 999, 999)
+    except OSError:
+        pass
 
 
 def _api(method: str, path: str, token: str | None = None, body: dict | None = None) -> tuple[int, dict | list | None]:
@@ -290,6 +323,9 @@ class ImmichService(Service):
         append_env(env, "IMMICH_OIDC_SECRET", oidc)
         if not env.get("IMMICH_SERVICE_NAME"):
             append_env(env, "IMMICH_SERVICE_NAME", "photos")
+        if not env.get("IMMICH_VERSION"):
+            append_env(env, "IMMICH_VERSION", "v3")
+        _ensure_db_engine()
 
     def postsetup(self, env: dict) -> None:
         try:

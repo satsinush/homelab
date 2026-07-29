@@ -47,12 +47,13 @@ ENV_DEFAULTS: dict[str, str] = {
     "HOST_API_URL": "http://host.docker.internal:5001",
     "HOMELAB_USERNAME": "",
     "HOMELAB_EMAIL": "",
+    "IMMICH_VERSION": "v3",
     # Optional — kept if present; not required on fresh install
     "SAMBA_HOST_PORT": "445",
 }
 
 # Optional keys: never deleted during sync; only added when missing if set in env.
-OPTIONAL_ENV_KEYS = frozenset({"SAMBA_HOST_PORT"})
+OPTIONAL_ENV_KEYS = frozenset({"SAMBA_HOST_PORT", "IMMICH_VERSION"})
 
 _VAR_PATTERN = re.compile(
     r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}|\$([A-Za-z_][A-Za-z0-9_]*)"

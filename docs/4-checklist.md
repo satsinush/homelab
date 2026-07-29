@@ -108,7 +108,7 @@ Shared files live under [`./storage/`](../storage/) (gitignored; included in Res
 - [ ] **Mobile app:** Server URL = `https://photos.<your-hostname>` → sign in with Authentik / OAuth (install the Homelab CA on the phone if you use private TLS)
 - [ ] Admins (`homelab-admins` / Immich admin) get unlimited quota; others get `HOMELAB_DEFAULT_QUOTA_GB`
 - [ ] **Break-glass:** local admin email is `admin@<your-hostname>`, password `volumes/secrets/immich_admin_password` (created by setup)
-- [ ] Docs: [Immich](https://immich.app/docs) · [Mobile app](https://immich.app/docs/overview/mobile-app)
+- [ ] Docs: [Immich](https://immich.app/docs) · [Mobile app](https://immich.app/docs/overview/mobile-app) · [Upgrading](https://docs.immich.app/install/upgrading) (`IMMICH_VERSION`, currently `v3`)
 
 ### CalDAV / CardDAV / Tasks (Nextcloud)
 
