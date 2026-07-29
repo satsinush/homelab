@@ -405,66 +405,74 @@ def wait_for_containers(timeout=300, exclude: set[str] | frozenset[str] | None =
     """Wait for Docker Compose containers to be running and healthy.
 
     exclude: container Name or Service names to skip (rarely needed).
+    Ctrl+C skips the wait and returns False so setup can continue.
     """
     skip = {n.lower() for n in (exclude or ())}
     step("Waiting for containers to be healthy…")
     start_time = time.time()
     starting_or_unhealthy: list[str] = []
 
-    while time.time() - start_time < timeout:
-        stdout = run_cmd("docker compose ps --format json", check=False)
-        if not stdout:
+    try:
+        while time.time() - start_time < timeout:
+            stdout = run_cmd("docker compose ps --format json", check=False)
+            if not stdout:
+                time.sleep(2)
+                continue
+
+            containers = []
+            for line in stdout.strip().split("\n"):
+                line = line.strip()
+                if line:
+                    try:
+                        if line.startswith("[") and line.endswith("]"):
+                            containers.extend(json.loads(line))
+                        else:
+                            containers.append(json.loads(line))
+                    except Exception:
+                        pass
+
+            if not containers:
+                time.sleep(2)
+                continue
+
+            all_ok = True
+            starting_or_unhealthy = []
+
+            for c in containers:
+                name = c.get("Name", c.get("Service", "unknown"))
+                service = c.get("Service", "")
+                state = c.get("State", "").lower()
+                health = c.get("Health", "").lower()
+
+                if state in ["exited", "stopped"] and name == "setup":
+                    continue
+                if name.lower() in skip or service.lower() in skip:
+                    continue
+
+                if state != "running":
+                    all_ok = False
+                    starting_or_unhealthy.append(f"{name} ({state})")
+                    continue
+
+                if health and health not in ["healthy", "none"]:
+                    all_ok = False
+                    starting_or_unhealthy.append(f"{name} ({health})")
+
+            if all_ok:
+                _clear_status_line()
+                return True
+
+            elapsed = int(time.time() - start_time)
+            waiting = ", ".join(starting_or_unhealthy)
+            msg = f"   [{elapsed}s] waiting: {waiting}"
+            _print_status_line(msg)
             time.sleep(2)
-            continue
-
-        containers = []
-        for line in stdout.strip().split("\n"):
-            line = line.strip()
-            if line:
-                try:
-                    if line.startswith("[") and line.endswith("]"):
-                        containers.extend(json.loads(line))
-                    else:
-                        containers.append(json.loads(line))
-                except Exception:
-                    pass
-
-        if not containers:
-            time.sleep(2)
-            continue
-
-        all_ok = True
-        starting_or_unhealthy = []
-
-        for c in containers:
-            name = c.get("Name", c.get("Service", "unknown"))
-            service = c.get("Service", "")
-            state = c.get("State", "").lower()
-            health = c.get("Health", "").lower()
-
-            if state in ["exited", "stopped"] and name == "setup":
-                continue
-            if name.lower() in skip or service.lower() in skip:
-                continue
-
-            if state != "running":
-                all_ok = False
-                starting_or_unhealthy.append(f"{name} ({state})")
-                continue
-
-            if health and health not in ["healthy", "none"]:
-                all_ok = False
-                starting_or_unhealthy.append(f"{name} ({health})")
-
-        if all_ok:
-            _clear_status_line()
-            return True
-
-        elapsed = int(time.time() - start_time)
-        waiting = ", ".join(starting_or_unhealthy)
-        msg = f"   [{elapsed}s] waiting: {waiting}"
-        _print_status_line(msg)
-        time.sleep(2)
+    except KeyboardInterrupt:
+        _clear_status_line()
+        warn("Skipped container health wait (Ctrl+C); continuing")
+        if starting_or_unhealthy:
+            warn("Still not ready: " + ", ".join(starting_or_unhealthy))
+        return False
 
     _clear_status_line()
     warn("Timed out waiting for healthy containers; continuing anyway")
