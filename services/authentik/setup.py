@@ -12,7 +12,7 @@ from setup.service import (
     pg_dump_to_file,
     pg_restore_from_file,
 )
-from setup.ui import info, ok, section, warn
+from setup.ui import ok, warn
 from setup.utils import gen_secret, run_cmd
 
 _ICON_SRC = Path("./services/dashboard/frontend/public/homelab-icon.svg")
@@ -74,7 +74,6 @@ def _blueprint_status() -> str:
 
 def _apply_homelab_blueprint() -> bool:
     """Apply Homelab Bootstrap once via Authentik CLI. Return True on exit 0."""
-    info("Applying Homelab Bootstrap blueprint…")
     res = subprocess.run(
         [
             "docker",
@@ -129,10 +128,8 @@ def _ensure_homelab_blueprint(*, timeout_s: float = 90) -> bool:
     while time.monotonic() < deadline:
         status = _blueprint_status()
         if status == "blueprint-ok":
-            ok("Homelab Bootstrap blueprint is applied")
             return True
         if status == "blueprint-missing":
-            info("Waiting for Authentik to discover Homelab Bootstrap…")
             time.sleep(3)
             continue
         if status.startswith("blueprint-error:"):
@@ -141,7 +138,6 @@ def _ensure_homelab_blueprint(*, timeout_s: float = 90) -> bool:
         time.sleep(3)
 
     if status == "blueprint-ok":
-        ok("Homelab Bootstrap blueprint is applied")
         return True
 
     if status == "blueprint-missing":
@@ -153,13 +149,6 @@ def _ensure_homelab_blueprint(*, timeout_s: float = 90) -> bool:
         warn("Homelab Bootstrap apply failed")
         return False
 
-    # ak apply_blueprint exit 0 means entries applied; instance status may lag.
-    status = _blueprint_status()
-    if status == "blueprint-ok":
-        ok("Homelab Bootstrap blueprint is applied")
-        return True
-
-    ok("Homelab Bootstrap blueprint applied (CLI)")
     return True
 
 
@@ -178,13 +167,10 @@ def _sync_ldap_outpost_token() -> None:
         if line.startswith("ldap-token:"):
             token = line[len("ldap-token:") :].strip()
             break
-    if "ldap-search-perm-ok" in out:
-        ok("LDAP search permission ensured for ldapservice")
     if token and len(token) >= 20:
         path = Path("./volumes/secrets/ldap_outpost_token")
         path.write_text(token + "\n", encoding="utf-8")
         path.chmod(0o600)
-        ok("Wrote LDAP outpost token from Authentik")
         run_cmd(
             "docker compose --env-file .env up -d --force-recreate authentik-ldap",
             check=False,
@@ -211,7 +197,6 @@ class AuthentikService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        section("Preparing Authentik volumes and secrets...", emoji="🔑")
         gen_secret("authentik_secret_key", 50)
         gen_secret("authentik_pg_pass", 32)
         gen_secret("authentik_akadmin_password", 32)
@@ -222,23 +207,14 @@ class AuthentikService(Service):
         gen_secret("immich_oidc_secret", 32)
         gen_secret("host_api_token", 32)
         sync_authentik_branding_assets()
-        ok("Authentik volume directories ready")
-        info(
-            "OIDC/LDAP/apps: authentik/blueprints/homelab.yaml "
-            "(auto-applied from /blueprints/custom on worker start)"
-        )
 
     def postsetup(self, env: dict) -> None:
         """Host-only follow-up after Authentik has applied its blueprints."""
-        section("Syncing Authentik LDAP outpost token...", emoji="🔑")
-        info(
-            "Waiting for Homelab Bootstrap blueprint (defaults must finish first), "
-            "then syncing the LDAP outpost token for authentik-ldap."
-        )
         try:
             if not _ensure_homelab_blueprint():
                 warn("Skipping LDAP outpost token sync — Homelab blueprint not ready")
                 return
+            ok("Homelab Bootstrap blueprint applied")
             _sync_ldap_outpost_token()
         except Exception as exc:
             warn(f"LDAP outpost token sync failed: {exc}")

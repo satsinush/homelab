@@ -11,7 +11,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from setup.ui import info, ok, step, warn
+from setup.ui import step, warn
 
 
 def prompt_nonempty(
@@ -248,7 +248,6 @@ def gen_secret(name, length_bytes):
         val = secrets.token_hex(length_bytes)
         with open(path, "w", encoding="utf-8") as f:
             f.write(val)
-        step(f"Generated {name}")
     try:
         os.chmod(path, 0o600)
     except OSError:
@@ -290,13 +289,10 @@ def ensure_secrets_container_access() -> None:
         except OSError as e:
             warn(f"Could not normalize {path}: {e}")
 
-    if stripped_n:
-        ok(f"Stripped trailing newlines from {stripped_n} secret file(s)")
-
     if not shutil.which("setfacl"):
-        warn("setfacl not found — install the 'acl' package so non-root")
-        print("      containers (Authentik UID 1000) can read 0600 secrets.")
-        print("      Until then, Authentik may fail with Permission denied on /run/secrets.")
+        warn(
+            "setfacl not found (install acl). Non-root containers may fail to read secrets."
+        )
         return
 
     # Default ACL on the directory so newly generated secrets inherit reader access.
@@ -321,11 +317,6 @@ def ensure_secrets_container_access() -> None:
             check=False,
             capture_output=True,
         )
-
-    ok(
-        "Secrets remain mode 0600; ACL read granted for UID(s) "
-        + ", ".join(str(u) for u in _SECRET_READER_UIDS)
-    )
 
 
 def load_env(path=".env"):
@@ -416,10 +407,9 @@ def wait_for_containers(timeout=300, exclude: set[str] | frozenset[str] | None =
     exclude: container Name or Service names to skip (rarely needed).
     """
     skip = {n.lower() for n in (exclude or ())}
-    step("Waiting for all containers to be running and healthy...")
-    if skip:
-        step(f"(excluding until postsetup: {', '.join(sorted(skip))})")
+    step("Waiting for containers to be healthy…")
     start_time = time.time()
+    starting_or_unhealthy: list[str] = []
 
     while time.time() - start_time < timeout:
         stdout = run_cmd("docker compose ps --format json", check=False)
@@ -467,18 +457,19 @@ def wait_for_containers(timeout=300, exclude: set[str] | frozenset[str] | None =
                 starting_or_unhealthy.append(f"{name} ({health})")
 
         if all_ok:
-            # Finish/clear the in-place status line (ANSI clear is flaky in some WSL TTYs).
             _clear_status_line()
-            step("All containers are running and healthy! 🎉")
             return True
 
         elapsed = int(time.time() - start_time)
-        msg = f"   [{elapsed}s] Still waiting for: {', '.join(starting_or_unhealthy[:4])}..."
+        waiting = ", ".join(starting_or_unhealthy)
+        msg = f"   [{elapsed}s] waiting: {waiting}"
         _print_status_line(msg)
         time.sleep(2)
 
     _clear_status_line()
-    warn("Timeout reached. Proceeding with configuration anyway...")
+    warn("Timed out waiting for healthy containers; continuing anyway")
+    if starting_or_unhealthy:
+        warn("Still not ready: " + ", ".join(starting_or_unhealthy))
     return False
 
 

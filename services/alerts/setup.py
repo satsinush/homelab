@@ -6,7 +6,7 @@ import os
 from typing import Any
 
 from setup.service import Service, VolumeDir, write_host_file
-from setup.ui import error, info, ok, section, step, warn
+from setup.ui import error, ok, warn
 from setup.utils import container_curl, run_cmd, substitute_env_vars, wait_for
 
 # Must match gotify/setup.py
@@ -130,9 +130,7 @@ def _ensure_alerts_user(admin_auth: str, alerts_pwd: str) -> None:
             auth=admin_auth,
             data={"name": GOTIFY_ALERTS_USERNAME, "pass": alerts_pwd, "admin": False},
         )
-        if put_status in (200, 204):
-            ok(f"Gotify user `{GOTIFY_ALERTS_USERNAME}` password synced from secrets")
-        else:
+        if put_status not in (200, 204):
             warn(f"Could not update `{GOTIFY_ALERTS_USERNAME}` password (HTTP {put_status})")
         return
 
@@ -142,9 +140,7 @@ def _ensure_alerts_user(admin_auth: str, alerts_pwd: str) -> None:
         auth=admin_auth,
         data={"name": GOTIFY_ALERTS_USERNAME, "pass": alerts_pwd, "admin": False},
     )
-    if create_status == 200:
-        ok(f"Created Gotify user `{GOTIFY_ALERTS_USERNAME}` (non-admin)")
-    else:
+    if create_status != 200:
         warn(f"Failed to create `{GOTIFY_ALERTS_USERNAME}` (HTTP {create_status}): {created}")
 
 
@@ -183,7 +179,6 @@ def _ensure_app(
             return token_cache.get(name)
         app_id = created.get("id")
         token = created.get("token")
-        ok(f"Created Gotify app `{name}`")
 
     if token:
         token_cache[name] = token
@@ -218,18 +213,14 @@ class AlertsService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        section("Preparing alerts config directory...", emoji="🔔")
-        ok("Alerts volumes ready")
 
     def postsetup(self, env: dict) -> None:
-        section("Setting up Gotify alerts user, apps, and alert routing...", emoji="🔔")
         admin_pwd = os.environ.get("GOTIFY_ADMIN_PASSWORD") or ""
         alerts_pwd = os.environ.get("GOTIFY_ALERTS_PASSWORD") or ""
         if not admin_pwd or not alerts_pwd:
             error("Missing GOTIFY_ADMIN_PASSWORD or GOTIFY_ALERTS_PASSWORD secrets")
             return
 
-        step("Waiting for Gotify to initialize...")
         if not wait_for(
             lambda: container_curl("gotify", "GET", "http://localhost:80/version")[1]
             == 200,
@@ -274,13 +265,8 @@ class AlertsService(Service):
             template = f.read()
         urls_content = substitute_env_vars(template)
         write_host_file(f"{config_dir}/urls.yaml", urls_content, mode=0o644)
-        ok("Wrote alert URL config with per-service Gotify apps")
-        info(
-            f"Clients: sign in as `{GOTIFY_ALERTS_USERNAME}` "
-            "(password: volumes/secrets/gotify_alerts_password)"
-        )
         container_curl("alerts", "GET", "http://localhost:80/health")
-        ok("SMTP/HTTP notification gateway ready")
+        ok("Alerts notification gateway ready")
 
 
 service = AlertsService()

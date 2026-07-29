@@ -11,7 +11,7 @@ from setup.service import (
     pg_dump_to_file,
     pg_restore_from_file,
 )
-from setup.ui import info, ok, section, warn
+from setup.ui import ok, warn
 from setup.utils import append_env, authentik_group_usernames, gen_secret, run_cmd, wait_for
 
 
@@ -97,13 +97,11 @@ def _ensure_admin(env: dict) -> str | None:
             body={"email": email, "password": password, "name": name},
         )
         if status in (200, 201):
-            ok(f"Immich local admin registered ({email})")
             return _login(email, password)
         warn(f"Immich admin-sign-up failed ({status}): {data}")
         return None
 
     # Admin exists (e.g. prior HOMELAB_USERNAME bootstrap) — reset + rename to admin@.
-    info("Immich admin already exists; syncing to admin@ + immich_admin_password…")
     import subprocess
 
     reset = subprocess.run(
@@ -148,7 +146,6 @@ def _ensure_admin(env: dict) -> str | None:
         body={"email": email, "name": name},
     )
     if status in (200, 201):
-        ok(f"Immich local admin synced ({email})")
         return _login(email, password) or token
 
     warn(f"Could not rename Immich admin to {email} ({status}); OIDC config may still work")
@@ -194,15 +191,9 @@ def _ensure_oauth(env: dict, token: str) -> None:
 
     cfg["oauth"] = oauth
     status, data = _api("PUT", "/api/system-config", token=token, body=cfg)
-    if status in (200, 201):
-        ok(
-            f"Immich OIDC → {issuer} "
-            f"(OAuth claims: admins unlimited, others {quota_gb} GiB)"
-        )
-    else:
+    if status not in (200, 201):
         warn(f"system-config OAuth update failed ({status}): {data}")
         run_cmd("docker exec immich-server immich-admin enable-oauth-login", check=False)
-        info("Enabled OAuth login flag; set issuer/client in Immich Admin → Settings if needed")
         return
 
     # Backfill existing users (claims apply only at Immich account creation).
@@ -265,11 +256,9 @@ def _ensure_user_quotas(token: str, quota_gb: int, env: dict) -> None:
                 limited += 1
         else:
             warn(f"Immich quota update failed for {email or uid} ({st})")
-    ok(f"Immich quotas: {limited} × {quota_gb} GiB, {unlimited} admin(s) unlimited")
 
 
 def configure_immich(env: dict) -> None:
-    section("Configuring Immich admin + OIDC...", emoji="📷")
     if not wait_for(_immich_up, timeout=180, interval=5):
         warn("Immich not ready; skip admin/OIDC")
         return
@@ -278,6 +267,7 @@ def configure_immich(env: dict) -> None:
         warn("No Immich admin token; skip OIDC wiring")
         return
     _ensure_oauth(env, token)
+    ok("Immich configured")
 
 
 class ImmichService(Service):
@@ -291,7 +281,6 @@ class ImmichService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        section("Preparing Immich secrets...", emoji="📷")
         gen_secret("immich_db_password", 32)
         gen_secret("immich_oidc_secret", 32)
         gen_secret("immich_admin_password", 32)
@@ -301,17 +290,12 @@ class ImmichService(Service):
         append_env(env, "IMMICH_OIDC_SECRET", oidc)
         if not env.get("IMMICH_SERVICE_NAME"):
             append_env(env, "IMMICH_SERVICE_NAME", "photos")
-        ok("Immich database, admin, and OIDC secrets ready")
 
     def postsetup(self, env: dict) -> None:
         try:
             configure_immich(env)
         except Exception as exc:
             warn(f"Immich auto-configure failed: {exc}")
-            info(
-                "Manual: register admin at /auth/register, then Admin → Settings → OAuth "
-                "using Authentik issuer and immich_oidc_secret."
-            )
 
     def backup(self, env: dict) -> None:
         # Live Postgres dir is restic-excluded; dump into db-dumps for upload.

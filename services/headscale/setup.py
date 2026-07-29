@@ -5,7 +5,7 @@ import os
 import shlex
 
 from setup.service import Service, VolumeDir, restore_sqlite_snapshot, sqlite_snapshot
-from setup.ui import info, ok, section, step, warn
+from setup.ui import ok, warn
 from setup.utils import (
     append_env,
     compose_up,
@@ -110,7 +110,6 @@ def _ensure_router_user() -> str:
     if user_id:
         return user_id
     _hs("users", "create", ROUTER_USER, "--display-name", "Homelab Subnet Router")
-    ok(f"Created Headscale user `{ROUTER_USER}`")
     return _router_user_id()
 
 
@@ -165,7 +164,6 @@ def _ensure_router_authkey(user_id: str, *, rotate: bool = False) -> str:
         f.flush()
         os.fsync(f.fileno())
     os.chmod(ROUTER_ENV_PATH, 0o600)
-    ok(f"Wrote subnet-router auth key → volumes/secrets/{AUTHKEY_SECRET}")
     return key
 
 
@@ -181,7 +179,6 @@ def _reset_router_state() -> None:
         f"sudo chown {os.getuid()}:{os.getgid()} {shlex.quote(router_dir)}",
         check=False,
     )
-    ok("Cleared headscale-router local Tailscale state")
 
 
 def _router_node_id() -> str:
@@ -232,7 +229,6 @@ def _approve_lan_routes(lan_subnet: str) -> None:
         f"{lan_subnet},0.0.0.0/0,::/0",
         check=False,
     )
-    ok(f"Approved LAN route {lan_subnet} and exit node routes (0.0.0.0/0, ::/0) on node {node_id}")
 
 
 class HeadscaleService(Service):
@@ -245,7 +241,6 @@ class HeadscaleService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        section("Preparing Headscale (Tailscale control plane)...", emoji="🛰️")
         os.makedirs("./volumes/secrets", exist_ok=True)
         gen_secret("headscale_oidc_secret", 64)
 
@@ -282,18 +277,8 @@ class HeadscaleService(Service):
 
         _write_config(env)
         _write_ca_bundle()
-        ok(f"Wrote {CONFIG_PATH}")
-        ok(f"Wrote {CA_BUNDLE_PATH}")
-        info("Clients: Tailscale app → custom control URL")
-        step(f"https://{env.get('HEADSCALE_WEB_HOSTNAME', 'vpn.homelab.local')}")
-        info(
-            "HEADSCALE_WEB_HOSTNAME must resolve to this host "
-            "(public A/AAAA in production; LAN DNS is OK for lab/dev)"
-        )
-        info("Sign-in uses Authentik (same users/groups as SSO)")
 
     def postsetup(self, env: dict) -> None:
-        section("Headscale postsetup (subnet router)...", emoji="🛰️")
         if not wait_for_container_healthy("headscale", timeout=120):
             warn("Headscale not healthy yet — skip router key provisioning")
             return
@@ -323,10 +308,6 @@ class HeadscaleService(Service):
             force_recreate=True,
             check=False,
         )
-        info(
-            "Waiting for headscale-router Tailscale backend Running "
-            "(auth + register with Headscale)…"
-        )
         # Wait until the daemon is running *and* Headscale sees the node.
         if not wait_for(
             lambda: '"BackendState": "Running"'
@@ -343,7 +324,7 @@ class HeadscaleService(Service):
             logs = run_cmd("docker logs headscale-router --tail 30", check=False) or ""
             warn("headscale-router did not reach Running state")
             if logs:
-                info(logs[-1500:])
+                warn(logs[-800:].strip())
             return
 
         docker_exec(
@@ -356,6 +337,7 @@ class HeadscaleService(Service):
             check=False,
         )
         _approve_lan_routes(env.get("LAN_SUBNET") or os.environ.get("LAN_SUBNET", ""))
+        ok("Headscale subnet router provisioned")
 
     def backup(self, env: dict) -> None:
         sqlite_snapshot(

@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 from setup.service import Service, VolumeDir
-from setup.ui import info, ok, section, warn
+from setup.ui import ok, warn
 from setup.utils import gen_secret, run_cmd, wait_for
 
 _COOKIE = "/tmp/dockhand-setup.cookies"
@@ -77,32 +77,30 @@ def _ensure_auth_and_admin(env: dict) -> bool:
     email = f"dockhand-admin@{host}"
 
     st, settings = _api("GET", "/api/auth/settings")
-    if st != 200 or not isinstance(settings, dict):
+    if st == 200 and isinstance(settings, dict):
+        # First-boot path: auth still open — create admin, then lock down.
+        _api(
+            "POST",
+            "/api/users",
+            body={"username": username, "password": password, "email": email},
+        )
+
+        if not settings.get("authEnabled"):
+            st_e, data = _api("PUT", "/api/auth/settings", body={"authEnabled": True})
+            if st_e not in (200, 201):
+                warn(f"Could not enable Dockhand auth ({st_e}): {data}")
+                return False
+    elif st == 401:
+        # Auth already required — skip open bootstrap; login with break-glass admin.
+        pass
+    else:
         warn(f"Could not read Dockhand auth settings ({st})")
         return False
-
-    # Dockhand refuses authEnabled=true until at least one user exists.
-    st, created = _api(
-        "POST",
-        "/api/users",
-        body={"username": username, "password": password, "email": email},
-    )
-    if st in (200, 201):
-        ok(f"Dockhand local admin created ({username})")
-    else:
-        info(f"Dockhand admin create skipped ({st})")
-
-    if not settings.get("authEnabled"):
-        st, data = _api("PUT", "/api/auth/settings", body={"authEnabled": True})
-        if st not in (200, 201):
-            warn(f"Could not enable Dockhand auth ({st}): {data}")
-            return False
-        ok("Dockhand authentication enabled")
 
     if not _login(username, password):
         warn(
             "Could not log in as Dockhand local admin; "
-            "fix password or wipe dockhand/volumes/data and re-run setup"
+            "fix password or wipe services/dockhand/volumes/data and re-run setup"
         )
         return False
     return True
@@ -160,15 +158,13 @@ def _ensure_oidc(env: dict) -> None:
         if st not in (200, 201):
             st, data = _api("PUT", f"/api/auth/oidc/{pid}", body=desired, cookies=True)
         if st in (200, 201):
-            ok(f"Dockhand OIDC updated → {issuer}")
+            return
         else:
             warn(f"Dockhand OIDC update failed ({st}): {data}")
         return
 
     st, data = _api("POST", "/api/auth/oidc", body=desired, cookies=True)
-    if st in (200, 201):
-        ok(f"Dockhand OIDC → {issuer} (admins: homelab-admins)")
-    else:
+    if st not in (200, 201):
         warn(f"Dockhand OIDC create failed ({st}): {data}")
 
 
@@ -180,13 +176,11 @@ class DockhandService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        section("Preparing Dockhand secrets...", emoji="🔐")
         os.makedirs("./volumes/secrets", exist_ok=True)
         gen_secret("dockhand_oidc_secret", 64)
         gen_secret("dockhand_admin_password", 32)
 
     def postsetup(self, env: dict) -> None:
-        section("Configuring Dockhand OIDC (Authentik)...", emoji="🔑")
         if not wait_for(_dockhand_ready, timeout=120, interval=5):
             warn("Dockhand not ready; skip OIDC")
             return
@@ -194,12 +188,7 @@ class DockhandService(Service):
             return
         _ensure_oidc(env)
         run_cmd(f"docker exec dockhand rm -f {_COOKIE}", check=False)
-        host = (env.get("HOMELAB_HOSTNAME") or "homelab.local").strip().strip("'\"")
-        svc = env.get("DOCKHAND_SERVICE_NAME", "dockhand")
-        info(
-            f"SSO: https://{svc}.{host} (Authentik button). "
-            "Break-glass local admin: volumes/secrets/dockhand_admin_password"
-        )
+        ok("Dockhand configured")
 
 
 service = DockhandService()

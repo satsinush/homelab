@@ -6,7 +6,6 @@ from pathlib import Path
 
 from setup.service import Service, VolumeDir
 from setup.storage_layout import USERS_ROOT, ensure_storage_layout
-from setup.ui import info, ok, section
 from setup.utils import gen_secret
 
 
@@ -44,7 +43,6 @@ class SambaService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        section("Preparing Samba + shared storage...", emoji="📁")
         private = "./services/samba/volumes/data/private"
         os.makedirs(private, mode=0o700, exist_ok=True)
         try:
@@ -68,14 +66,6 @@ class SambaService(Service):
             pass
 
         _write_ldap_env(env)
-        ok("Samba storage and LDAP/bootstrap env ready")
-        info(
-            "SMB is limited to Authentik group homelab-admins (NTLM passdb). "
-            f"Passwords sync via host-api; bootstrap user ({admin}) "
-            "also seeded from HOMELAB_PASSWORD. No per-user SMB quota."
-        )
-        info(f"SMB private: \\\\<IP>\\<username>  → {USERS_ROOT}/<username>")
-        info("SMB shared:  \\\\<IP>\\shared      → ./storage/shared")
 
 
 service = SambaService()

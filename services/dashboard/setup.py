@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from setup.service import Service, VolumeDir, restore_sqlite_snapshot, sqlite_snapshot
-from setup.ui import ok, section
 from setup.utils import gen_secret
 
 
@@ -15,12 +14,10 @@ class DashboardService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        section("Preparing Homelab Dashboard secrets...", emoji="🏠")
         gen_secret("homelab_api_session_secret", 64)
         gen_secret("dashboard_oidc_secret", 64)
         # Shared bearer token: dashboard API → host API (systemd service on :5001)
         gen_secret("host_api_token", 32)
-        ok("Dashboard secrets ready")
 
     def backup(self, env: dict) -> None:
         sqlite_snapshot(

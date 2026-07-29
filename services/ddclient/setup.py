@@ -5,7 +5,7 @@ import os
 import shutil
 
 from setup.service import Service, VolumeDir
-from setup.ui import info, ok, section, warn
+from setup.ui import ok, warn
 
 _CONF = "./services/ddclient/volumes/ddclient.conf"
 _EXAMPLE = "./services/ddclient/example.ddclient.conf"
@@ -21,7 +21,6 @@ class DdclientService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        section("Preparing ddclient config...", emoji="🌐")
 
         if os.path.exists(_CONF):
             if os.path.isdir(_CONF):
@@ -29,8 +28,6 @@ class DdclientService(Service):
                     f"{_CONF} is a directory (Docker file-mount placeholder). "
                     "Remove it, then re-run setup to seed from the example."
                 )
-            else:
-                ok("ddclient.conf already present")
             return
 
         if not os.path.isfile(_EXAMPLE):
@@ -39,8 +36,7 @@ class DdclientService(Service):
 
         shutil.copyfile(_EXAMPLE, _CONF)
         os.chmod(_CONF, 0o600)
-        ok(f"Copied {_EXAMPLE} → {_CONF}")
-        info("Edit ddclient.conf with your DDNS provider details before relying on it")
+        ok(f"Seeded {_CONF} from example — edit before relying on DDNS")
 
 
 service = DdclientService()

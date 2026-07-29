@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 from setup.service import Service, VolumeDir, write_volume_file
-from setup.ui import info, ok, section, warn
+from setup.ui import ok, warn
 from setup.utils import append_env, gen_secret
 
 _STALWART_UID = 2000
@@ -173,8 +173,6 @@ def _ensure_auth_directory(jmap, directory_id: str) -> None:
         warn(f"Could not set Authentication.directoryId: {(data or {}).get('notUpdated')}")
     elif name == "error":
         warn(f"Authentication.directoryId error: {data}")
-    else:
-        ok(f"Stalwart auth directory → LDAP ({directory_id})")
 
 
 def _ensure_default_domain(jmap, domain_id: str, mail_hostname: str) -> None:
@@ -196,8 +194,6 @@ def _ensure_default_domain(jmap, domain_id: str, mail_hostname: str) -> None:
         warn(f"Could not set default domain: {(data or {}).get('notUpdated')}")
     elif name == "error":
         warn(f"SystemSettings.defaultDomainId error: {data}")
-    else:
-        ok(f"Stalwart default domain → {domain_id} ({mail_hostname or 'hostname unset'})")
 
 
 def _restart_stalwart() -> None:
@@ -213,7 +209,6 @@ def _restart_stalwart() -> None:
     if res.returncode != 0:
         warn(f"Could not restart Stalwart after configure: {(res.stderr or res.stdout)[:300]}")
         return
-    info("Restarted Stalwart to apply LDAP + default domain")
 
 
 def _ensure_tls_certificate(jmap, env: dict) -> None:
@@ -308,7 +303,6 @@ def _ensure_tls_certificate(jmap, env: dict) -> None:
             ]
         ]
     )
-    ok(f"Stalwart TLS certificate → Homelab CA (default id {cert_id})")
 
 
 def _destroy_local_smtp_accounts(jmap, domain_id: str, local_parts: list[str]) -> None:
@@ -329,9 +323,7 @@ def _destroy_local_smtp_accounts(jmap, domain_id: str, local_parts: list[str]) -
             continue
         resp = jmap([["x:Account/set", {"destroy": ids}, "c1"]])
         _, data = _method_result(resp)
-        if (data or {}).get("destroyed"):
-            ok(f"Removed local Stalwart account {local_part} (use Authentik LDAP)")
-        elif (data or {}).get("notDestroyed"):
+        if (data or {}).get("notDestroyed"):
             warn(f"Could not destroy local {local_part}: {(data or {}).get('notDestroyed')}")
 
 
@@ -374,8 +366,6 @@ def _ensure_mail_webhook(jmap) -> None:
             return
         if name == "error":
             warn(f"Stalwart mail webhook update error: {udata}")
-            return
-        ok(f"Stalwart mail webhook updated → {url}")
         return
 
     resp = jmap([["x:WebHook/set", {"create": {"w1": create}}, "c1"]])
@@ -385,8 +375,6 @@ def _ensure_mail_webhook(jmap) -> None:
         return
     if name == "error":
         warn(f"Stalwart mail webhook create error: {cdata}")
-        return
-    ok(f"Stalwart mail webhook → Gotify via {url}")
 
 
 def _ensure_authentik_smtp_user(username: str, email: str, password: str) -> None:
@@ -439,9 +427,7 @@ def _ensure_authentik_smtp_user(username: str, email: str, password: str) -> Non
     out = (res.stdout or "") + (res.stderr or "")
     if res.returncode != 0 or "Traceback" in out:
         warn(f"Authentik SMTP user {username} failed: {out[-400:]}")
-    elif "created" in out or "updated" in out:
-        ok(f"Authentik SMTP user {username} ({email})")
-    else:
+    elif "created" not in out and "updated" not in out:
         warn(f"Authentik SMTP user {username}: unexpected output")
 
 
@@ -471,8 +457,6 @@ def configure_stalwart(env: dict) -> None:
             break
         except Exception as exc:
             last_err = exc
-            if attempt in (0, 5, 11, 17):
-                info(f"Waiting for Stalwart JMAP API… ({exc})")
             if attempt == 23:
                 warn(f"Stalwart API not ready; configure manually if needed ({last_err})")
                 return
@@ -519,7 +503,7 @@ def configure_stalwart(env: dict) -> None:
         )
     except Exception as exc:
         warn(f"TLS re-apply after restart: {exc}")
-    ok("Stalwart LDAP directory and Authentik SMTP users configured")
+    ok("Stalwart configured")
 
 
 class StalwartService(Service):
@@ -531,7 +515,6 @@ class StalwartService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        section("Preparing Stalwart secrets and storage...", emoji="✉️")
         gen_secret("ldap_service_password", 32)
         gen_secret("stalwart_admin_password", 32)
         gen_secret("stalwart_smtp_vaultwarden_password", 32)
@@ -548,17 +531,8 @@ class StalwartService(Service):
             uid=_STALWART_UID,
             gid=_STALWART_GID,
         )
-        ok("Stalwart RocksDB bootstrap configuration written")
-
-        hostname = env.get("HOMELAB_HOSTNAME", "homelab.home.arpa")
-        mail = env.get("MAIL_SERVICE_NAME", "mail")
-        info(f"Stalwart admin UI: https://{mail}.{hostname}")
-        info(f"Mail autoconfig: https://autoconfig.{hostname}/mail/config-v1.1.xml")
-        info("Recovery admin comes from volumes/secrets/stalwart_admin_password via entrypoint")
-        info("Postsetup will configure Authentik LDAP + vaultwarden@/noreply@ SMTP users")
 
     def postsetup(self, env: dict) -> None:
-        section("Configuring Stalwart (LDAP + SMTP users)...", emoji="✉️")
         try:
             configure_stalwart(env)
         except Exception as exc:

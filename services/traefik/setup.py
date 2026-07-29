@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 
 from setup.service import Service, VolumeDir, write_host_file
-from setup.ui import ok, section, warn
+from setup.ui import warn
 
 
 class TraefikService(Service):
@@ -15,7 +15,6 @@ class TraefikService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        section("Preparing Traefik volumes...", emoji="🚦")
         acme_path = "./services/traefik/volumes/acme.json"
         if not os.path.exists(acme_path) or os.path.isdir(acme_path):
             if os.path.isdir(acme_path):
@@ -24,7 +23,6 @@ class TraefikService(Service):
 
                 shutil.rmtree(acme_path)
             write_host_file(acme_path, "{}", mode=0o600)
-            ok("Generated empty acme.json with secure permissions (0600)")
         else:
             try:
                 os.chmod(acme_path, 0o600)

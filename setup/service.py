@@ -8,7 +8,7 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import Iterable
 
-from setup.ui import info, ok, section, step, warn
+from setup.ui import info, ok, step, warn
 
 
 @dataclass(frozen=True)
@@ -476,12 +476,8 @@ class Service(ABC):
 
     def setup(self, env: dict) -> None:
         """Before containers are up. Default: ensure volume_dirs."""
-        if not self.volume_dirs:
-            return
-        section(f"Preparing {self.name} volume directories...", emoji="📁")
         for spec in self.volume_dirs:
             ensure_volume_dir(spec)
-        ok(f"{self.name} volumes ready")
 
     def postsetup(self, env: dict) -> None:
         """After the first health wait. Default: no-op.
@@ -515,14 +511,9 @@ class Service(ABC):
 
     def reset(self, env: dict) -> None:
         """Remove this service's local bind-mount / config state."""
-        section(f"Resetting {self.name}...", emoji="🧹")
-        removed_any = False
         for path in self.reset_paths():
             if remove_path(path):
                 ok(f"Removed {path}")
-                removed_any = True
-        if not removed_any:
-            info("Nothing to remove")
 
     def postreset(self, env: dict) -> None:
         """Hook executed after all service directories are reset and before completion. Default: no-op."""
@@ -541,13 +532,11 @@ def run_all_postsetup(services: Iterable[Service], env: dict) -> None:
 
 def run_all_backup(services: Iterable[Service], env: dict) -> None:
     for svc in services:
-        section(f"Backup hooks: {svc.name}", emoji="💾")
         svc.backup(env)
 
 
 def run_all_restore(services: Iterable[Service], env: dict) -> None:
     for svc in services:
-        section(f"Restore hooks: {svc.name}", emoji="♻️")
         svc.restore(env)
 
 

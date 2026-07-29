@@ -11,7 +11,7 @@ from setup.service import (
     pg_dump_to_file,
     pg_restore_from_file,
 )
-from setup.ui import info, ok, section, warn
+from setup.ui import warn
 from setup.utils import append_env, authentik_group_usernames, docker_exec, gen_secret, run_cmd, wait_for
 
 
@@ -52,7 +52,6 @@ def _ensure_ca_trust() -> None:
 
 def _install_app_from_github(app_id: str, url: str) -> bool:
     """App-store installs are flaky; drop a release tarball into custom_apps."""
-    info(f"Installing {app_id} from GitHub ({url.rsplit('/', 1)[-1]})…")
     script = (
         "set -eu; "
         "mkdir -p /var/www/html/custom_apps; "
@@ -74,7 +73,6 @@ def _install_app_from_github(app_id: str, url: str) -> bool:
 def _ensure_app(app_id: str, github_url: str) -> bool:
     if _app_enabled(app_id):
         return True
-    info(f"Installing {app_id}…")
     _occ("app:install", app_id, check=False)
     _occ("app:enable", app_id, check=False)
     if _app_enabled(app_id):
@@ -100,7 +98,6 @@ def _ensure_richdocuments_app() -> bool:
 
 
 def _ensure_groupware_apps(env: dict) -> None:
-    section("Enabling Nextcloud Calendar, Contacts, Tasks & Mail...", emoji="📅")
     if not wait_for(_nextcloud_ready, timeout=120, interval=5):
         warn("Nextcloud not ready; skip calendar/contacts/tasks/mail")
         return
@@ -125,9 +122,7 @@ def _ensure_groupware_apps(env: dict) -> None:
         "v5.10.9/mail-v5.10.9.tar.gz",
     )
     _disable_example_groupware_content()
-    if cal_ok and contacts_ok and tasks_ok:
-        ok("Calendar, Contacts, and Tasks enabled")
-    else:
+    if not (cal_ok and contacts_ok and tasks_ok):
         if not cal_ok:
             warn("Could not enable calendar")
         if not contacts_ok:
@@ -156,7 +151,6 @@ def _disable_example_groupware_content() -> None:
         if "error" in out.lower():
             warn(f"dav {key} disable failed: {out[:200]}")
             return
-    ok("Nextcloud example contact/event disabled for new users")
 
 
 def _mail_hostname(env: dict) -> str:
@@ -213,12 +207,6 @@ def _configure_mail_for_stalwart(env: dict) -> None:
         "DELETE FROM oc_mail_provisionings;\"",
         check=False,
     )
-    ok(f"Nextcloud Mail ready for Stalwart ({mail_host}:993 / :465)")
-    info(
-        f"Mailbox login is your Authentik email ({domain}) and Authentik password. "
-        "To change the stored Mail password later: Mail → account menu (⋯) → "
-        "Account settings → Password."
-    )
 
 
 def _ensure_homelab_mail_account(env: dict) -> None:
@@ -252,10 +240,6 @@ def _ensure_homelab_mail_account(env: dict) -> None:
                 user_id = uid
                 break
     if not user_id:
-        info(
-            f"No Nextcloud user for {username} yet; open Mail after first login "
-            "to add the account"
-        )
         return
 
     safe_uid = user_id.replace("'", "''")
@@ -294,9 +278,7 @@ def _ensure_homelab_mail_account(env: dict) -> None:
             )
             or ""
         )
-        if "updated" in out.lower() or "error" not in out.lower():
-            ok(f"Nextcloud Mail account refreshed for {email} → {mail_host}")
-        else:
+        if "updated" not in out.lower() and "error" in out.lower():
             warn(f"mail:account:update: {out[:400]}")
         return
 
@@ -322,13 +304,10 @@ def _ensure_homelab_mail_account(env: dict) -> None:
     )
     if "error" in out.lower() and "already" not in out.lower():
         warn(f"mail:account:create: {out[:400]}")
-    else:
-        ok(f"Nextcloud Mail account ready for {email}")
 
 
 def _ensure_oidc(env: dict) -> None:
     """Install user_oidc and point it at Authentik (auto-provision on first login)."""
-    section("Configuring Nextcloud OIDC (Authentik)...", emoji="🔑")
     if not wait_for(_nextcloud_ready, timeout=120, interval=5):
         warn("Nextcloud not ready; skip OIDC")
         return
@@ -383,23 +362,14 @@ def _ensure_oidc(env: dict) -> None:
     )
     if "error" in out.lower() and "already" not in out.lower():
         warn(f"user_oidc:provider: {out[:400]}")
-    else:
-        ok(f"Nextcloud OIDC → {discovery}")
-        info(
-            f"Normal login redirects to Authentik; break-glass admin "
-            f"(admin / nextcloud_admin_password): https://{cloud}/login?direct=1"
-        )
 
 
 def _configure_richdocuments(env: dict) -> None:
     """Install Nextcloud Office and point it at Collabora (idempotent)."""
-    cloud = f"{env.get('NEXTCLOUD_SERVICE_NAME', 'cloud')}.{env.get('HOMELAB_HOSTNAME')}"
     office = f"{env.get('COLLABORA_SERVICE_NAME', 'office')}.{env.get('HOMELAB_HOSTNAME')}"
     public_wopi = f"https://{office}"
     # Server-side discovery over the Docker network (no Traefik/TLS needed).
     internal_wopi = "http://collabora:9980"
-
-    section("Configuring Nextcloud Office (Collabora)...", emoji="📄")
 
     if not wait_for(_nextcloud_ready, timeout=180, interval=5):
         warn("Nextcloud not ready; skip Collabora wiring")
@@ -463,19 +433,14 @@ def _configure_richdocuments(env: dict) -> None:
     )
     if "error" in activate.lower() and "configured" not in activate.lower():
         warn(f"richdocuments:activate-config: {activate[:400]}")
-    else:
-        ok(f"Nextcloud Office → Collabora ({internal_wopi}, public {public_wopi})")
-        info(f"Create/open .odt/.ods/.odp from https://{cloud}")
 
 
 def _configure_theming(env: dict) -> None:
     """Apply Homelab brand (name, colors, logo) to Nextcloud Theming."""
-    section("Configuring Nextcloud theming...", emoji="🎨")
     if not wait_for(_nextcloud_ready, timeout=120, interval=5):
         warn("Nextcloud not ready; skip theming")
         return
 
-    cloud = f"{env.get('NEXTCLOUD_SERVICE_NAME', 'cloud')}.{env.get('HOMELAB_HOSTNAME')}"
     dash = (
         f"{env.get('DASHBOARD_SERVICE_NAME', 'dashboard')}."
         f"{env.get('HOMELAB_HOSTNAME')}"
@@ -497,12 +462,10 @@ def _configure_theming(env: dict) -> None:
             _occ("theming:config", "logo", dest, check=False)
             _occ("theming:config", "favicon", dest, check=False)
             _occ("theming:config", "logoheader", dest, check=False)
-            ok(f"Nextcloud theming → Homelab ({logo.name})")
         else:
             warn("Could not copy logo into Nextcloud for theming")
     else:
         warn("No Homelab logo found for Nextcloud theming")
-    info(f"Cloud UI: https://{cloud}")
 
 
 def _ensure_default_quota(env: dict) -> None:
@@ -519,7 +482,6 @@ def _ensure_default_quota(env: dict) -> None:
     if "error" in out.lower():
         warn(f"files default_quota failed: {out[:200]}")
         return
-    ok(f"Nextcloud default quota → {value}")
 
     listing = _occ("user:list", "--output=json", check=False) or "{}"
     try:
@@ -576,7 +538,6 @@ def _ensure_default_quota(env: dict) -> None:
         else:
             _occ("user:setting", uid, "files", "quota", value, check=False)
             limited += 1
-    info(f"Nextcloud quotas: {limited} × {value}, {unlimited} admin(s) unlimited")
 
 
 def _ensure_local_admin() -> None:
@@ -620,7 +581,6 @@ def _ensure_local_admin() -> None:
         timeout=60,
         check=False,
     )
-    ok("Nextcloud local admin user synced (admin / nextcloud_admin_password)")
 
 
 def _disable_skeleton() -> None:
@@ -633,20 +593,15 @@ def _disable_skeleton() -> None:
     ) or ""
     if "error" in out.lower():
         warn(f"skeletondirectory disable failed: {out[:200]}")
-        return
-    ok("Nextcloud skeleton directory disabled (no example files for new users)")
 
 
 def _disable_photos_app() -> None:
     """Immich owns photos; keep Nextcloud Photos out of the app launcher."""
     if not _app_enabled("photos"):
-        info("Nextcloud Photos already disabled")
         return
     out = _occ("app:disable", "photos", check=False) or ""
     if _app_enabled("photos"):
         warn(f"Could not disable photos app: {out[:200]}")
-        return
-    ok("Nextcloud Photos disabled (use Immich)")
 
 
 class NextcloudService(Service):
@@ -661,7 +616,6 @@ class NextcloudService(Service):
 
     def setup(self, env: dict) -> None:
         super().setup(env)
-        section("Preparing Nextcloud + Collabora secrets...", emoji="☁️")
         gen_secret("nextcloud_db_password", 32)
         gen_secret("nextcloud_oidc_secret", 32)
         gen_secret("nextcloud_admin_password", 32)
@@ -675,14 +629,8 @@ class NextcloudService(Service):
         # Collabora compose reads COLLABORA_ADMIN_PASSWORD from .env
         pw = Path("./volumes/secrets/collabora_admin_password").read_text(encoding="utf-8").strip()
         append_env(env, "COLLABORA_ADMIN_PASSWORD", pw)
-        ok("Nextcloud + Collabora secrets ready")
 
     def postsetup(self, env: dict) -> None:
-        cloud = f"{env.get('NEXTCLOUD_SERVICE_NAME', 'cloud')}.{env.get('HOMELAB_HOSTNAME')}"
-        info(
-            f"Break-glass local admin: user=admin, "
-            f"secret=volumes/secrets/nextcloud_admin_password → https://{cloud}/login?direct=1"
-        )
         try:
             if wait_for(_nextcloud_ready, timeout=120, interval=5):
                 _ensure_local_admin()
@@ -717,7 +665,6 @@ class NextcloudService(Service):
                 f"Manual: occ app:install richdocuments; "
                 f"wopi_url=http://collabora:9980 public_wopi_url=https://{office}"
             )
-            warn(f"Cloud: https://{cloud}")
 
     def backup(self, env: dict) -> None:
         # Live Postgres dir is restic-excluded; dump into db-dumps for upload.
