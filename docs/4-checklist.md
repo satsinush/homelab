@@ -105,10 +105,10 @@ Shared files live under [`./storage/`](../storage/) (gitignored; included in Res
 
 ### Dockhand
 
-- [ ] Open `https://dockhand.<your-hostname>` via SSO
+- [ ] Open `https://dockhand.<your-hostname>` → Authentik SSO (native OIDC; `homelab-admins` become Dockhand admins)
 - [ ] Confirm containers from the compose stack are visible
 - [ ] Optional: point Dockhand notifications at `http://alerts/dockhand`
-- [ ] Docs: [Dockhand](https://github.com/Finsys/dockhand)
+- [ ] Docs: [Dockhand](https://github.com/Finsys/dockhand) · [OIDC](https://finsys-dockhand.mintlify.app/auth/oidc)
 
 ### RustDesk
 

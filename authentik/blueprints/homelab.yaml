@@ -656,25 +656,38 @@ entries:
       meta_description: Service health status dashboard (unauthenticated)
       icon: icons/gatus_logo.png
 
-  # Dockhand Proxy
-  - model: authentik_providers_proxy.proxyprovider
-    id: dockhand-proxy
+  # Dockhand (native OIDC — not forward-auth)
+  - model: authentik_providers_oauth2.oauth2provider
+    id: dockhand
     identifiers:
-      name: dockhand-proxy
+      name: dockhand
     attrs:
-      name: dockhand-proxy
-      mode: forward_single
-      external_host: !Format ["https://%s.%s", !Env DOCKHAND_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      name: dockhand
+      client_id: dockhand
+      client_secret: !File /run/secrets/dockhand_oidc_secret
+      client_type: confidential
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      grant_types:
+        - authorization_code
+        - refresh_token
+      redirect_uris:
+        - url: !Format ["https://%s.%s/api/auth/oidc/callback", !Env DOCKHAND_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !KeyOf scope-email
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !KeyOf scope-groups
 
   - model: authentik_core.application
     identifiers:
-      slug: dockhand-app
+      slug: dockhand
     attrs:
       name: Dockhand
-      slug: dockhand-app
-      provider: !KeyOf dockhand-proxy
+      slug: dockhand
+      provider: !KeyOf dockhand
       icon: icons/dockhand_logo.png
 
   # Gotify (bookmark only — no SSO / forward-auth required)
@@ -702,10 +715,10 @@ entries:
     attrs:
       order: 0
 
-  # Dockhand
+  # Dockhand (admins only — docker.sock access)
   - model: authentik_policies.policybinding
     identifiers:
-      target: !Find [authentik_core.application, [slug, dockhand-app]]
+      target: !Find [authentik_core.application, [slug, dockhand]]
       group: !Find [authentik_core.group, [name, homelab-admins]]
     attrs:
       order: 0
@@ -809,7 +822,6 @@ entries:
         authentik_host: !Format ["https://%s.%s/", !Env AUTHENTIK_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
       providers:
         - !Find [authentik_providers_proxy.proxyprovider, [name, pihole-proxy]]
-        - !Find [authentik_providers_proxy.proxyprovider, [name, dockhand-proxy]]
 
   - model: authentik_outposts.outpost
     id: ldap-outpost

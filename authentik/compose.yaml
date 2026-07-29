@@ -91,6 +91,7 @@ services:
       - headscale_oidc_secret
       - nextcloud_oidc_secret
       - immich_oidc_secret
+      - dockhand_oidc_secret
       - ldap_service_password
       - stalwart_smtp_vaultwarden_password
       - stalwart_smtp_noreply_password
@@ -175,6 +176,7 @@ services:
       - headscale_oidc_secret
       - nextcloud_oidc_secret
       - immich_oidc_secret
+      - dockhand_oidc_secret
       - ldap_service_password
       - stalwart_smtp_vaultwarden_password
       - stalwart_smtp_noreply_password
@@ -228,6 +230,8 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_oidc_secret
   immich_oidc_secret:
     file: ${PROJECT_ROOT}/volumes/secrets/immich_oidc_secret
+  dockhand_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/dockhand_oidc_secret
   ldap_service_password:
     file: ${PROJECT_ROOT}/volumes/secrets/ldap_service_password
   stalwart_smtp_vaultwarden_password:
