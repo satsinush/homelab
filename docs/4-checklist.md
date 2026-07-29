@@ -76,9 +76,9 @@ Shared files live under [`./storage/`](../storage/) (gitignored; included in Res
 | Access | URL / path | Auth |
 | --- | --- | --- |
 | **SMB (LAN)** | `\\<HOMELAB_IP>\<username>` or `\\<IP>\shared` | Authentik **homelab-admins** only (NTLM synced on password set; no SMB quota) |
-| **Nextcloud** | `https://cloud.<hostname>` | Authentik OIDC — default hard quota `HOMELAB_DEFAULT_QUOTA_GB` (50 GiB); `homelab-admins` unlimited |
+| **Nextcloud** | `https://cloud.<hostname>` | Authentik OIDC — quota claim at login (`none` for `homelab-admins`, else `HOMELAB_DEFAULT_QUOTA_GB`) |
 | **Mail** | `mail.<hostname>` IMAPS 993 / SMTPS 465 | Authentik LDAP (humans + `vaultwarden@` / `noreply@` service accounts) |
-| **Photos** | `https://photos.<hostname>` | Authentik OIDC — same default quota; `homelab-admins` unlimited |
+| **Photos** | `https://photos.<hostname>` | Authentik OIDC — quota/role claims at account creation (same admin/default split) |
 | **Office** | `https://office.<hostname>` | Via Nextcloud (Collabora) |
 
 - [ ] Confirm Authentik users exist and LDAP outpost is healthy (`authentik-ldap`)

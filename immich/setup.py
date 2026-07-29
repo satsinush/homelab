@@ -177,12 +177,15 @@ def _ensure_oauth(env: dict, token: str) -> None:
     oauth["issuerUrl"] = issuer
     oauth["clientId"] = "immich"
     oauth["clientSecret"] = secret
-    oauth["scope"] = "openid email profile"
+    # Authentik "immich" scope → immich_quota / immich_role at user creation.
+    oauth["scope"] = "openid email profile immich"
     oauth["buttonText"] = "Authentik"
     oauth["autoRegister"] = True
     oauth["autoLaunch"] = False
-    # New OAuth users inherit this GiB quota (null = unlimited).
-    oauth["defaultStorageQuota"] = quota_gb
+    oauth["storageQuotaClaim"] = "immich_quota"
+    oauth["roleClaim"] = "immich_role"
+    # No claim → unlimited (admins omit immich_quota). Non-admins get claim GiB.
+    oauth["defaultStorageQuota"] = None
     if "signingAlgorithm" in oauth:
         oauth["signingAlgorithm"] = oauth.get("signingAlgorithm") or "RS256"
     # Private CA: Immich must skip TLS verify for Authentik discovery when set.
@@ -192,18 +195,22 @@ def _ensure_oauth(env: dict, token: str) -> None:
     cfg["oauth"] = oauth
     status, data = _api("PUT", "/api/system-config", token=token, body=cfg)
     if status in (200, 201):
-        ok(f"Immich OIDC → {issuer} (default quota {quota_gb} GiB)")
+        ok(
+            f"Immich OIDC → {issuer} "
+            f"(OAuth claims: admins unlimited, others {quota_gb} GiB)"
+        )
     else:
         warn(f"system-config OAuth update failed ({status}): {data}")
         run_cmd("docker exec immich-server immich-admin enable-oauth-login", check=False)
         info("Enabled OAuth login flag; set issuer/client in Immich Admin → Settings if needed")
         return
 
+    # Backfill existing users (claims apply only at Immich account creation).
     _ensure_user_quotas(token, quota_gb, env)
 
 
 def _ensure_user_quotas(token: str, quota_gb: int, env: dict) -> None:
-    """Backfill quotas: 50 GiB for users, unlimited for Immich/Authentik admins."""
+    """Backfill quotas: 50 GiB for users, unlimited for Immich/Authentik admins."""
     status, users = _api("GET", "/api/admin/users", token=token)
     if status != 200 or not isinstance(users, list):
         warn(f"Could not list Immich users for quota backfill ({status})")

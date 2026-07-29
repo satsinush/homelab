@@ -322,7 +322,7 @@ entries:
       scope_name: groups
       description: "SSO Groups and Roles"
       expression: |
-        groups = [g.name for g in request.user.ak_groups.all()]
+        groups = [g.name for g in request.user.groups.all()]
         roles = [r.name for r in request.user.all_roles()]
         return {
             "groups": groups,
@@ -338,12 +338,55 @@ entries:
     attrs:
       name: custom-scope-email
       scope_name: email
-      description: "SSO Email (email_verified=True for Vaultwarden/OIDC apps)"
+      description: "SSO Email"
       expression: |
         return {
             "email": request.user.email,
             "email_verified": True
         }
+
+  # Nextcloud: quota + groups (incl. NC "admin") applied at OIDC provision/login.
+  - model: authentik_providers_oauth2.scopemapping
+    id: scope-nextcloud
+    identifiers:
+      name: custom-scope-nextcloud
+    attrs:
+      name: custom-scope-nextcloud
+      scope_name: nextcloud
+      description: "Nextcloud quota + groups (homelab-admins → unlimited + admin group)"
+      expression: |
+        import os
+        is_admin = request.user.groups.filter(name="homelab-admins").exists()
+        groups = [g.name for g in request.user.groups.all()]
+        if is_admin and "admin" not in groups:
+            groups.append("admin")
+        quota_gb = int(os.environ.get("HOMELAB_DEFAULT_QUOTA_GB") or "50")
+        out = {"groups": groups}
+        # user_oidc only applies quota when the claim is present+non-empty.
+        # Omitting it leaves files.default_quota (50 GB). Send "none" for unlimited.
+        if is_admin:
+            out["quota"] = "none"
+        else:
+            out["quota"] = f"{quota_gb} GB"
+        return out
+
+  # Immich: role + quota claims applied only at user creation.
+  - model: authentik_providers_oauth2.scopemapping
+    id: scope-immich
+    identifiers:
+      name: custom-scope-immich
+    attrs:
+      name: custom-scope-immich
+      scope_name: immich
+      description: "Immich role + quota (homelab-admins → admin/unlimited)"
+      expression: |
+        import os
+        is_admin = request.user.groups.filter(name="homelab-admins").exists()
+        out = {"immich_role": "admin" if is_admin else "user"}
+        # Omit immich_quota for admins; Immich defaultStorageQuota=null → unlimited.
+        if not is_admin:
+            out["immich_quota"] = int(os.environ.get("HOMELAB_DEFAULT_QUOTA_GB") or "50")
+        return out
 
   # OIDC Providers & Applications
   # =================================================================
@@ -482,7 +525,7 @@ entries:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
         - !KeyOf scope-email
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
-        - !KeyOf scope-groups
+        - !KeyOf scope-nextcloud
 
   - model: authentik_core.application
     identifiers:
@@ -521,7 +564,7 @@ entries:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
         - !KeyOf scope-email
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
-        - !KeyOf scope-groups
+        - !KeyOf scope-immich
 
   - model: authentik_core.application
     identifiers:

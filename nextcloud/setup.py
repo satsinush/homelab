@@ -329,6 +329,7 @@ def _ensure_oidc(env: dict) -> None:
 
     # unique-uid=0 → use preferred_username / sub mapping from IdP (not a hashed uid).
     # endsession + id_token_hint required for logout (/apps/user_oidc/sls) to work.
+    # Authentik "nextcloud" scope sends quota (+ groups/admin) at provision/login.
     out = _occ(
         "user_oidc:provider",
         "Authentik",
@@ -338,8 +339,11 @@ def _ensure_oidc(env: dict) -> None:
         f"--endsessionendpointuri={end_session}",
         f"--postlogouturi={post_logout}",
         "--send-id-token-hint=1",
-        "--scope=openid profile email",
+        "--scope=openid profile email nextcloud",
         "--unique-uid=0",
+        "--mapping-quota=quota",
+        "--mapping-groups=groups",
+        "--group-provisioning=1",
         check=False,
     ) or ""
     # Make OIDC the default login; break-glass: https://cloud…/login?direct=1
@@ -513,13 +517,25 @@ def _ensure_default_quota(env: dict) -> None:
     homelab_user = (env.get("HOMELAB_USERNAME") or "").strip().lower()
     if homelab_user:
         ak_admins.add(homelab_user)
+    host = (env.get("HOMELAB_HOSTNAME") or "").strip().lower()
 
     for uid, display in users.items():
-        markers = {
-            str(uid).lower(),
-            str(display or "").lower(),
-        }
-        # Email local-part if present in display-like forms is uncommon; match username.
+        markers = {str(uid).lower(), str(display or "").lower()}
+        info_raw = _occ("user:info", uid, "--output=json", check=False) or ""
+        try:
+            uinfo = json.loads(info_raw)
+        except Exception:
+            uinfo = {}
+        if isinstance(uinfo, dict):
+            email = str(uinfo.get("email") or "").lower()
+            if email:
+                markers.add(email)
+                markers.add(email.split("@", 1)[0])
+            for g in uinfo.get("groups") or []:
+                if str(g).lower() == "admin":
+                    admin_uids.add(uid)
+        if host and homelab_user and f"{homelab_user}@{host}" in markers:
+            markers.add(homelab_user)
         if markers & ak_admins:
             _occ("group:adduser", "admin", uid, check=False)
             admin_uids.add(uid)
@@ -631,10 +647,9 @@ class NextcloudService(Service):
         try:
             if wait_for(_nextcloud_ready, timeout=120, interval=5):
                 _ensure_local_admin()
-                _ensure_default_quota(env)
                 _disable_skeleton()
         except Exception as exc:
-            warn(f"Local admin / quota / skeleton sync failed: {exc}")
+            warn(f"Local admin / skeleton sync failed: {exc}")
         try:
             _configure_theming(env)
         except Exception as exc:
@@ -643,6 +658,11 @@ class NextcloudService(Service):
             _ensure_oidc(env)
         except Exception as exc:
             warn(f"OIDC auto-configure failed: {exc}")
+        try:
+            # After OIDC so existing IdP users are present for admin matching.
+            _ensure_default_quota(env)
+        except Exception as exc:
+            warn(f"Quota sync failed: {exc}")
         try:
             _ensure_groupware_apps(env)
             _ensure_homelab_mail_account(env)

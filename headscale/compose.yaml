@@ -51,6 +51,10 @@ services:
     profiles: ["headscale-router"]
     restart: unless-stopped
     network_mode: host
+    # Host-network uses Docker Desktop's resolver (not Pi-hole), so pin the
+    # control-server name → LAN IP or login fails with NXDOMAIN on *.home.arpa.
+    extra_hosts:
+      - "${HEADSCALE_WEB_HOSTNAME}:${HOMELAB_IP_ADDRESS}"
     # Auth key written by headscale/setup.py postsetup (avoids Docker Desktop
     # secret bind-mount races that produce "invalid pre auth key").
     env_file:
