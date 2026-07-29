@@ -183,6 +183,11 @@ def _ensure_oauth(env: dict, token: str) -> None:
     oauth["roleClaim"] = "immich_role"
     # No claim → unlimited (admins omit immich_quota). Non-admins get claim GiB.
     oauth["defaultStorageQuota"] = None
+    # App uses app.immich:///oauth-callback; Authentik needs an https redirect.
+    # Immich /api/oauth/mobile-redirect forwards to the app scheme (already in
+    # the Authentik blueprint redirect_uris).
+    photos = env.get("IMMICH_SERVICE_NAME") or "photos"
+    oauth["mobileRedirectUri"] = f"https://{photos}.{host}/api/oauth/mobile-redirect"
     if "signingAlgorithm" in oauth:
         oauth["signingAlgorithm"] = oauth.get("signingAlgorithm") or "RS256"
     # Private CA: Immich must skip TLS verify for Authentik discovery when set.
