@@ -135,14 +135,10 @@ services:
       - "traefik.http.routers.collabora.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
       - "traefik.http.services.collabora.loadbalancer.server.port=9980"
       - "traefik.http.services.collabora.loadbalancer.server.scheme=http"
-    # HTTP probe: TLS is off inside the container (Traefik terminates TLS).
-    # Long start_period: first kit on Pi copies systemplate + fonts (~minutes).
+    # Hardened CODE images have no curl/wget, and 26.04.2.1 has no coolwsd --probe.
+    # Treat "running" as enough for compose; Nextcloud postsetup probes discovery over the net.
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:9980/hosting/discovery"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 300s
+      disable: true
     cap_add:
       - MKNOD
 

@@ -375,19 +375,18 @@ def _configure_richdocuments(env: dict) -> None:
         warn("Nextcloud not ready; skip Collabora wiring")
         return
 
+    # Probe discovery from Nextcloud (Collabora image has no curl / --probe).
     if not wait_for(
-        lambda: "healthy"
-        in (
+        lambda: bool(
             run_cmd(
-                'docker inspect -f "{{.State.Health.Status}}" collabora 2>/dev/null',
+                "docker exec nextcloud curl -sf http://collabora:9980/hosting/discovery",
                 check=False,
             )
-            or ""
         ),
-        timeout=180,
+        timeout=300,
         interval=5,
     ):
-        warn("Collabora not healthy; skip Collabora wiring")
+        warn("Collabora discovery not reachable; skip Collabora wiring")
         return
 
     _ensure_ca_trust()
