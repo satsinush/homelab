@@ -125,11 +125,11 @@ Client **Network** → **ID/Relay server** (and key). There is **no** API/consol
 - [ ] Confirm a remote works by ID/password
 - [ ] Docs: [RustDesk](https://rustdesk.com/docs/)
 
-### CalDAV & CardDAV (Calendar/Contacts)
+### CalDAV & CardDAV (Calendar/Contacts/Tasks)
 
 Use **Nextcloud** (same Authentik SSO as the web UI).
 
-- [ ] Open `https://cloud.<your-hostname>` and confirm Calendar / Contacts apps are enabled
+- [ ] Open `https://cloud.<your-hostname>` and confirm Calendar / Contacts / Tasks apps are enabled
 - [ ] Clients: CalDAV/CardDAV base URLs from Nextcloud → Settings → Calendar/Contacts (or DAVx⁵ Nextcloud login)
 - [ ] Docs: [Nextcloud Calendar](https://docs.nextcloud.com/server/latest/user_manual/en/groupware/calendar.html)
 

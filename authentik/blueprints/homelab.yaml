@@ -353,7 +353,7 @@ entries:
     attrs:
       name: custom-scope-nextcloud
       scope_name: nextcloud
-      description: "Nextcloud quota + groups (homelab-admins → unlimited + admin group)"
+      description: "Nextcloud quota + groups"
       expression: |
         import os
         is_admin = request.user.groups.filter(name="homelab-admins").exists()
@@ -378,7 +378,7 @@ entries:
     attrs:
       name: custom-scope-immich
       scope_name: immich
-      description: "Immich role + quota (homelab-admins → admin/unlimited)"
+      description: "Immich role + quota"
       expression: |
         import os
         is_admin = request.user.groups.filter(name="homelab-admins").exists()
@@ -585,7 +585,7 @@ entries:
       slug: stalwart-app
       meta_launch_url: !Format ["https://%s.%s", !Env MAIL_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
       open_in_new_tab: true
-      meta_description: Homelab mail server (IMAP/SMTP/JMAP)
+      meta_description: Homelab mail server
       icon: icons/stalwart_logo.png
 
   # LDAP Application must exist before the provider: LDAPProvider.full_clean()
@@ -653,7 +653,7 @@ entries:
       slug: gatus-app
       meta_launch_url: !Format ["https://%s.%s", !Env GATUS_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
       open_in_new_tab: true
-      meta_description: Service health status dashboard (unauthenticated)
+      meta_description: Service health status dashboard
       icon: icons/gatus_logo.png
 
   # Dockhand (native OIDC — not forward-auth)

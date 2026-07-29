@@ -100,9 +100,9 @@ def _ensure_richdocuments_app() -> bool:
 
 
 def _ensure_groupware_apps(env: dict) -> None:
-    section("Enabling Nextcloud Calendar, Contacts & Mail...", emoji="📅")
+    section("Enabling Nextcloud Calendar, Contacts, Tasks & Mail...", emoji="📅")
     if not wait_for(_nextcloud_ready, timeout=120, interval=5):
-        warn("Nextcloud not ready; skip calendar/contacts/mail")
+        warn("Nextcloud not ready; skip calendar/contacts/tasks/mail")
         return
     cal_ok = _ensure_app(
         "calendar",
@@ -114,22 +114,49 @@ def _ensure_groupware_apps(env: dict) -> None:
         "https://github.com/nextcloud-releases/contacts/releases/download/"
         "v8.3.16/contacts-v8.3.16.tar.gz",
     )
+    tasks_ok = _ensure_app(
+        "tasks",
+        "https://github.com/nextcloud/tasks/releases/download/"
+        "v0.18.1/tasks.tar.gz",
+    )
     mail_ok = _ensure_app(
         "mail",
         "https://github.com/nextcloud-releases/mail/releases/download/"
         "v5.10.9/mail-v5.10.9.tar.gz",
     )
-    if cal_ok and contacts_ok:
-        ok("Calendar and Contacts enabled")
+    _disable_example_groupware_content()
+    if cal_ok and contacts_ok and tasks_ok:
+        ok("Calendar, Contacts, and Tasks enabled")
     else:
         if not cal_ok:
             warn("Could not enable calendar")
         if not contacts_ok:
             warn("Could not enable contacts")
+        if not tasks_ok:
+            warn("Could not enable tasks")
     if mail_ok:
         _configure_mail_for_stalwart(env)
     else:
         warn("Could not enable mail")
+
+
+def _disable_example_groupware_content() -> None:
+    """Stop seeding example_contact.vcf / example_event.ics on first login."""
+    for key, value in (
+        ("enableDefaultContact", "no"),
+        ("create_example_event", "no"),
+    ):
+        out = _occ(
+            "config:app:set",
+            "dav",
+            key,
+            f"--value={value}",
+            check=False,
+        ) or ""
+        if "error" in out.lower():
+            warn(f"dav {key} disable failed: {out[:200]}")
+            return
+    ok("Nextcloud example contact/event disabled for new users")
 
 
 def _mail_hostname(env: dict) -> str:
@@ -667,7 +694,7 @@ class NextcloudService(Service):
             _ensure_groupware_apps(env)
             _ensure_homelab_mail_account(env)
         except Exception as exc:
-            warn(f"Calendar/Contacts/Mail auto-enable failed: {exc}")
+            warn(f"Calendar/Contacts/Tasks/Mail auto-enable failed: {exc}")
         try:
             _configure_richdocuments(env)
         except Exception as exc:
