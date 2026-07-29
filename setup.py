@@ -216,7 +216,7 @@ def ensure_systemd_services() -> None:
         warn(f"Missing {units_src}; skipping")
         return
 
-    # Prefer the setup-generated .env (same substitution model as .env.template).
+    # Prefer the setup-generated .env for PROJECT_ROOT / PUID / PGID.
     if os.path.isfile(".env"):
         load_env(".env")
     os.environ["PROJECT_ROOT"] = os.environ.get("PROJECT_ROOT") or project_root
@@ -299,30 +299,25 @@ def ensure_systemd_services() -> None:
 
 def ensure_env_file() -> dict:
     from setup.env_schema import (
+        ENV_DEFAULTS,
         SERVICE_URL_NAMES,
         sync_env_file,
         validate_service_name,
-        write_env_template,
+        write_env_file,
     )
     from setup.utils import (
         detect_homelab_locale,
+        detect_host_api_url,
         load_env,
         phone_region_from_tz,
         run_cmd,
-        substitute_env_vars,
     )
-
-    # Keep template aligned with schema (comment-free, ${VAR:-default}).
-    write_env_template(".env.template")
 
     if os.path.exists(".env"):
         env = sync_env_file(".env")
         return load_env(".env") if not env else env
 
     section("Environment", emoji="📝")
-    if not os.path.exists(".env.template"):
-        error(".env.template not found")
-        sys.exit(1)
 
     from setup.utils import prompt_nonempty, prompt_password, prompt_yes_no
 
@@ -402,9 +397,6 @@ def ensure_env_file() -> dict:
         f.write(password)
     os.chmod("./volumes/secrets/homelab_password", 0o600)
 
-    with open(".env.template", encoding="utf-8") as f:
-        content = f.read()
-
     if has_public:
         cf_token = prompt_nonempty(
             "Cloudflare DNS API token (Zone:Read, DNS:Edit): "
@@ -422,55 +414,59 @@ def ensure_env_file() -> dict:
             f.write(cf_token)
         os.chmod("./volumes/secrets/cf_dns_api_token", 0o600)
 
-        os.environ["TRAEFIK_CERT_RESOLVER"] = "letsencrypt"
-        os.environ["ACME_EMAIL"] = acme_email
+        cert_resolver = "letsencrypt"
+        acme = acme_email
     else:
-        os.environ["TRAEFIK_CERT_RESOLVER"] = ""
-        os.environ["ACME_EMAIL"] = f"{username}@{hostname}"
-
-    os.environ["HOMELAB_USERNAME"] = username
-    os.environ["HOMELAB_EMAIL"] = f"{username}@{hostname}"
-    os.environ["HOMELAB_IP_ADDRESS"] = ip_address
-    os.environ["PUID"] = puid
-    os.environ["PGID"] = pgid
-    os.environ["HOMELAB_HOSTNAME"] = hostname
-    os.environ["DNS_DOMAIN"] = dns_domain
-    os.environ["PROJECT_ROOT"] = os.getcwd()
-    os.environ["TZ"] = tz
+        cert_resolver = ""
+        acme = f"{username}@{hostname}"
 
     language, locale = detect_homelab_locale(tz, region=phone_region_from_tz(tz))
-    os.environ["HOMELAB_LANGUAGE"] = language
-    os.environ["HOMELAB_LOCALE"] = locale
 
-    for key, default, _label in SERVICE_URL_NAMES:
-        os.environ[key] = default
+    service_names = {key: default for key, default, _label in SERVICE_URL_NAMES}
     if prompt_yes_no("Customize service URL names? [y/N]: ", default=False):
         for key, default, label in SERVICE_URL_NAMES:
-            os.environ[key] = prompt_nonempty(
+            service_names[key] = prompt_nonempty(
                 f"{label} [{default}]: ",
                 default=default,
                 validate=validate_service_name,
             )
 
-    os.environ["HOMELAB_DEFAULT_QUOTA_GB"] = os.environ.get("HOMELAB_DEFAULT_QUOTA_GB") or "50"
-    os.environ["HEADSCALE_WEB_HOSTNAME"] = headscale_web_hostname
-    os.environ["HEADSCALE_BASE_DOMAIN"] = f"ts.{dns_domain}"
-    os.environ["LAN_SUBNET"] = lan_subnet
-    os.environ["DOCKER_SUBNET"] = docker_subnet
-    os.environ["TRAEFIK_IP_ADDRESS"] = _traefik_ip_for_subnet(docker_subnet)
-    os.environ["HEADSCALE_IPV4_PREFIX"] = headscale_prefix
-    from setup.utils import detect_host_api_url
+    values = dict(ENV_DEFAULTS)
+    values.update(service_names)
+    values.update(
+        {
+            "TZ": tz,
+            "HOMELAB_IP_ADDRESS": ip_address,
+            "PUID": puid,
+            "PGID": pgid,
+            "PROJECT_ROOT": os.getcwd(),
+            "HOMELAB_LANGUAGE": language,
+            "HOMELAB_LOCALE": locale,
+            "HOMELAB_HOSTNAME": hostname,
+            "DNS_DOMAIN": dns_domain,
+            "TRAEFIK_CERT_RESOLVER": cert_resolver,
+            "ACME_EMAIL": acme,
+            "HOMELAB_USERNAME": username,
+            "HOMELAB_EMAIL": f"{username}@{hostname}",
+            "HEADSCALE_WEB_HOSTNAME": headscale_web_hostname,
+            "HEADSCALE_BASE_DOMAIN": f"ts.{dns_domain}",
+            "LAN_SUBNET": lan_subnet,
+            "DOCKER_SUBNET": docker_subnet,
+            "TRAEFIK_IP_ADDRESS": _traefik_ip_for_subnet(docker_subnet),
+            "HEADSCALE_IPV4_PREFIX": headscale_prefix,
+            "HOST_API_URL": detect_host_api_url(),
+        }
+    )
 
-    os.environ["HOST_API_URL"] = detect_host_api_url()
-
-    content = substitute_env_vars(content)
-    with open(".env", "w", encoding="utf-8") as f:
-        f.write(content)
+    write_env_file(values, ".env")
+    for key, val in values.items():
+        os.environ[key] = val
 
     env = sync_env_file(".env")
     mode = "Let's Encrypt" if has_public else "private CA"
     ok(f".env created ({mode})")
     return env
+
 
 
 def ensure_bootstrap_and_locale(env: dict) -> dict:

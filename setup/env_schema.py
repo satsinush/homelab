@@ -76,19 +76,6 @@ def expand_env_template(content: str, environ: dict[str, str] | None = None) -> 
     return _VAR_PATTERN.sub(_repl, content)
 
 
-def render_env_template() -> str:
-    """Comment-free .env.template body with ``${KEY:-default}`` placeholders."""
-    lines: list[str] = []
-    for key, default in ENV_DEFAULTS.items():
-        # Quote so values with spaces stay safe after expansion.
-        lines.append(f"{key}='${{{key}:-{default}}}'")
-    return "\n".join(lines) + "\n"
-
-
-def write_env_template(path: str | Path = ".env.template") -> None:
-    Path(path).write_text(render_env_template(), encoding="utf-8")
-
-
 def _parse_env_file(path: str | Path) -> dict[str, str]:
     data: dict[str, str] = {}
     p = Path(path)

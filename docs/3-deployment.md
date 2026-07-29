@@ -8,8 +8,8 @@ Once the host is configured, follow these steps to deploy the services.
       * If you use Cloudflare DDNS, create an API token ([below](#cloudflare-account-api-tokens-new-dashboard)), then after setup edit [`./services/ddclient/volumes/ddclient.conf`](../services/ddclient/volumes/ddclient.conf) (seeded from [`./services/ddclient/example.ddclient.conf`](../services/ddclient/example.ddclient.conf)). That path is under `*/volumes/` so Restic backs it up.
       * [ddclient Docs 🔗](https://ddclient.net/)
 2.  **Environment Variables**
-      * The setup script uses `./.env.template` as a base to generate your final `.env` file. Carefully change any values you want to customize in the template **before** running the script.
-      * Values in `<angle_brackets>` will be replaced automatically by the setup script.
+      * Defaults and managed keys live in [`setup/env_schema.py`](../setup/env_schema.py). On first run, `setup.py` prompts for hostname, subnets, etc., and writes `.env`. Later runs sync missing keys into the existing `.env` without clobbering your values.
+      * Edit `.env` directly for day-to-day changes (or re-run setup after updating the schema defaults).
 
 ### 2\. ⚙️ Systemd host services
 
@@ -21,7 +21,7 @@ Once the host is configured, follow these steps to deploy the services.
 * `docker.socket` / `docker.service`
 * `systemd-timesyncd`
 
-Unit templates live in [`systemd/system/`](../systemd/system/) and use `${PROJECT_ROOT}`, `${PUID}`, `${PGID}` (from `.env`) plus `${PYTHON}` (detected at install). Setup expands them with the same `substitute_env_vars` helper used for `.env.template`, installs under `/etc/systemd/system/`, and adds your user to the `docker` group when needed (re-entering the group for the same setup run). You get a y/n prompt first so you can skip this on a non-server / dev machine. The host API unit runs `tsx server.ts` from `services/dashboard/host-api` after `npm install`.
+Unit templates live in [`systemd/system/`](../systemd/system/) and use `${PROJECT_ROOT}`, `${PUID}`, `${PGID}` (from `.env`) plus `${PYTHON}` (detected at install). Setup expands them with `substitute_env_vars`, installs under `/etc/systemd/system/`, and adds your user to the `docker` group when needed (re-entering the group for the same setup run). You get a y/n prompt first so you can skip this on a non-server / dev machine. The host API unit runs `tsx server.ts` from `services/dashboard/host-api` after `npm install`.
 
 If the clock is not synchronized, copy or adapt [`systemd/timesyncd.conf`](../systemd/timesyncd.conf) and run `sudo systemctl restart systemd-timesyncd`. See the [systemd wiki](https://wiki.archlinux.org/title/Systemd#Basic_systemctl_usage).
 

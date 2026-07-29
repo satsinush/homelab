@@ -158,7 +158,7 @@ This is the most critical security phase. You will configure SSH key access, set
 
 The final deployment involves configuring environment variables, setting up custom `systemd` services for automation, and launching the Docker stack.
 
-1.  **Configure Environment:** Defaults live in `.env.template` (`${VAR:-default}`); `setup.py` writes/syncs `.env`.
+1.  **Configure Environment:** Defaults live in `setup/env_schema.py`; `setup.py` creates/syncs `.env` from that schema (prompts on first run).
 2.  **Enable Systemd Services:** Copy and enable host API, backup, and sync services.
 3.  **Run Setup Script:** Execute the main script to build containers and generate credentials.
 
