@@ -187,6 +187,7 @@ def _ensure_oauth(env: dict, token: str) -> None:
     # Immich /api/oauth/mobile-redirect forwards to the app scheme (already in
     # the Authentik blueprint redirect_uris).
     photos = env.get("IMMICH_SERVICE_NAME") or "photos"
+    oauth["mobileOverrideEnabled"] = True
     oauth["mobileRedirectUri"] = f"https://{photos}.{host}/api/oauth/mobile-redirect"
     if "signingAlgorithm" in oauth:
         oauth["signingAlgorithm"] = oauth.get("signingAlgorithm") or "RS256"
