@@ -110,12 +110,14 @@ services:
       server_name: ${COLLABORA_SERVICE_NAME:-office}.${HOMELAB_HOSTNAME}
       aliasgroup1: https://${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}:443
       domain: ${NEXTCLOUD_SERVICE_NAME:-cloud}\\.${HOMELAB_HOSTNAME}
-      # Docker Desktop cannot jail bind-mount; skip failed coolmount attempts.
+      # No bind-mount jails in Docker (EPERM on coolmount); copy/link instead.
+      # One spare kit on Pi — first boot links ~5k files and is slow on ARM.
       extra_params: >-
         --o:ssl.enable=false
         --o:ssl.termination=true
         --o:ssl.ssl_verification=false
         --o:mount_jail_tree=false
+        --o:num_prespawn_children=1
         --o:net.frame_ancestors=https://${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}
       username: admin
       password: ${COLLABORA_ADMIN_PASSWORD:-collabora}
@@ -133,13 +135,14 @@ services:
       - "traefik.http.routers.collabora.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
       - "traefik.http.services.collabora.loadbalancer.server.port=9980"
       - "traefik.http.services.collabora.loadbalancer.server.scheme=http"
-    # Image default probes https://; TLS is terminated at Traefik (ssl.enable=false).
+    # HTTP probe: TLS is off inside the container (Traefik terminates TLS).
+    # Long start_period: first kit on Pi copies systemplate + fonts (~minutes).
     healthcheck:
-      test: ["CMD", "coolwsd", "--probe", "--disable-ssl"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9980/hosting/discovery"]
       interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 120s
+      retries: 10
+      start_period: 300s
     cap_add:
       - MKNOD
 
