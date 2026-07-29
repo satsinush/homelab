@@ -625,9 +625,6 @@ class NextcloudService(Service):
             append_env(env, "NEXTCLOUD_SERVICE_NAME", "cloud")
         if not env.get("COLLABORA_SERVICE_NAME"):
             append_env(env, "COLLABORA_SERVICE_NAME", "office")
-        # Collabora compose reads COLLABORA_ADMIN_PASSWORD from .env
-        pw = Path("./volumes/secrets/collabora_admin_password").read_text(encoding="utf-8").strip()
-        append_env(env, "COLLABORA_ADMIN_PASSWORD", pw)
 
     def postsetup(self, env: dict) -> None:
         try:

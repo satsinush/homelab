@@ -9,7 +9,7 @@ services:
       DB_HOSTNAME: immich-postgres
       DB_USERNAME: immich
       DB_DATABASE_NAME: immich
-      DB_PASSWORD: ${IMMICH_DB_PASSWORD}
+      DB_PASSWORD_FILE: /run/secrets/immich_db_password
       REDIS_HOSTNAME: immich-redis
       IMMICH_MACHINE_LEARNING_URL: http://immich-machine-learning:3003
       TZ: ${TZ}
@@ -22,6 +22,8 @@ services:
       - ${PROJECT_ROOT}/services/immich/volumes/upload:/data
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
       - /etc/localtime:/etc/localtime:ro
+    secrets:
+      - immich_db_password
     networks:
       - homelab-net
     depends_on:

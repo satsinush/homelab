@@ -290,10 +290,6 @@ class ImmichService(Service):
         gen_secret("immich_db_password", 32)
         gen_secret("immich_oidc_secret", 32)
         gen_secret("immich_admin_password", 32)
-        pw = Path("./volumes/secrets/immich_db_password").read_text(encoding="utf-8").strip()
-        oidc = Path("./volumes/secrets/immich_oidc_secret").read_text(encoding="utf-8").strip()
-        append_env(env, "IMMICH_DB_PASSWORD", pw)
-        append_env(env, "IMMICH_OIDC_SECRET", oidc)
         if not env.get("IMMICH_SERVICE_NAME"):
             append_env(env, "IMMICH_SERVICE_NAME", "photos")
         if not env.get("IMMICH_VERSION"):

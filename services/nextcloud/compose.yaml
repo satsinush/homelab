@@ -120,8 +120,15 @@ services:
         --o:num_prespawn_children=1
         --o:net.frame_ancestors=https://${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}
       username: admin
-      password: ${COLLABORA_ADMIN_PASSWORD:-collabora}
       DONT_GEN_SSL_CERT: "true"
+    secrets:
+      - collabora_admin_password
+    # CODE only takes password via env; load it from Docker secret at start.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        export password="$$(tr -d '\r\n' < /run/secrets/collabora_admin_password)"
+        exec /start-collabora-online.sh
     extra_hosts:
       # WOPI callbacks to Nextcloud go via Traefik HTTPS.
       - "${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
@@ -149,6 +156,8 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_oidc_secret
   nextcloud_admin_password:
     file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_admin_password
+  collabora_admin_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/collabora_admin_password
 
 networks:
   homelab-net:
