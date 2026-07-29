@@ -164,25 +164,47 @@ def _reset_router_state() -> None:
     )
 
 
-def _router_node_id() -> str:
-    """Numeric id of the subnet-router node ('' if not registered)."""
+def _list_router_nodes() -> list[dict]:
+    """Nodes belonging to the subnet-router user / homelab-router hostname."""
     import json
 
     raw = _hs("nodes", "list", "-o", "json", check=False) or "[]"
     try:
         nodes = json.loads(raw)
     except ValueError:
-        return ""
-    if not nodes:
-        return ""
-    for node in nodes:
+        return []
+    out: list[dict] = []
+    for node in nodes or []:
         names = " ".join(
             str(node.get(key) or "") for key in ("name", "given_name", "hostname")
         ).lower()
         user = str((node.get("user") or {}).get("name", ""))
         if "homelab-router" in names or user == ROUTER_USER:
-            return str(node.get("id", ""))
-    return ""
+            out.append(node)
+    return out
+
+
+def _router_node_id() -> str:
+    """Numeric id of the live subnet-router node ('' if not registered).
+
+    Prefer an online node; otherwise the highest id (newest registration).
+    Older offline homelab-router / -1 / -2 leftovers must not win approval.
+    """
+    nodes = _list_router_nodes()
+    if not nodes:
+        return ""
+    online = [n for n in nodes if n.get("online")]
+    pick = online[0] if online else max(nodes, key=lambda n: int(n.get("id") or 0))
+    return str(pick.get("id", "") or "")
+
+
+def _delete_router_nodes() -> None:
+    """Remove all subnet-router nodes so a reprovision does not leave duplicates."""
+    for node in _list_router_nodes():
+        nid = str(node.get("id", "") or "")
+        if not nid:
+            continue
+        _hs("nodes", "delete", "--identifier", nid, "--force", check=False)
 
 
 def _approve_lan_routes(lan_subnet: str) -> None:
@@ -203,6 +225,12 @@ def _approve_lan_routes(lan_subnet: str) -> None:
         )
         return
 
+    # Drop offline duplicates from earlier postsetup runs (homelab-router-N).
+    for node in _list_router_nodes():
+        nid = str(node.get("id", "") or "")
+        if nid and nid != node_id:
+            _hs("nodes", "delete", "--identifier", nid, "--force", check=False)
+
     _hs(
         "nodes",
         "approve-routes",
@@ -212,6 +240,8 @@ def _approve_lan_routes(lan_subnet: str) -> None:
         f"{lan_subnet},0.0.0.0/0,::/0",
         check=False,
     )
+    # Stable name in the Tailscale UI (avoids homelab-router-2 after renumbers).
+    _hs("nodes", "rename", "homelab-router", "--identifier", node_id, check=False)
 
 
 class HeadscaleService(Service):
@@ -310,11 +340,14 @@ class HeadscaleService(Service):
             return
 
         # Stop any prior attempt (placeholder key / failed login) and wipe state
-        # so TS_AUTH_ONCE cannot skip re-auth with a logged-out node.
+        # so TS_AUTH_ONCE cannot skip re-auth with a logged-out node. Delete
+        # existing router nodes first — each wipe+reauth otherwise creates
+        # homelab-router-N leftovers with exit routes stuck on the offline one.
         run_cmd(
             "docker compose --profile headscale-router stop headscale-router",
             check=False,
         )
+        _delete_router_nodes()
         _reset_router_state()
 
         compose_up(
