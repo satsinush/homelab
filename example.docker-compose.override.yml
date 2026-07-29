@@ -6,17 +6,17 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./dashboard/api:/app/api
+      - ./services/dashboard/api:/app/api
       - /app/api/node_modules
 
   dashboard-dev:
     container_name: dashboard-dev
-    build: ./dashboard/frontend
+    build: ./services/dashboard/frontend
     command: npm run dev
     ports:
       - "5173:5173"
     volumes:
-      - ./dashboard/frontend:/app
+      - ./services/dashboard/frontend:/app
       - /app/node_modules
     networks:
       - homelab-net

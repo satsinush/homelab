@@ -1,0 +1,75 @@
+# dashboard/compose.yaml
+services:
+  dashboard:
+    container_name: dashboard
+    restart: unless-stopped
+    build:
+      context: ${PROJECT_ROOT}
+      dockerfile: services/dashboard/api/Dockerfile
+    volumes:
+      - ${PROJECT_ROOT}/services/dashboard/volumes/api-data:/app/api/data
+      - ${PROJECT_ROOT}/services/dashboard/volumes/word-games-data:/app/word_games/data
+      - ${PROJECT_ROOT}/word_games/resources:/app/word_games/resources:ro
+      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+      - ${PROJECT_ROOT}/volumes/secrets:/app/secrets:ro
+    networks:
+      - homelab-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
+    environment:
+      - HOMELAB_HOSTNAME=${HOMELAB_HOSTNAME}
+      - HOMELAB_USERNAME=${HOMELAB_USERNAME}
+      - HOMELAB_EMAIL=${HOMELAB_EMAIL}
+      - SECRETS_DIR=/app/secrets
+      - HOMELAB_PASSWORD_FILE=/app/secrets/homelab_password
+      - HOMELAB_API_SESSION_SECRET_FILE=/app/secrets/homelab_api_session_secret
+      - DASHBOARD_OIDC_SECRET_FILE=/app/secrets/dashboard_oidc_secret
+      - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
+      - DASHBOARD_SERVICE_NAME=${DASHBOARD_SERVICE_NAME}
+      - PIHOLE_SERVICE_NAME=${PIHOLE_SERVICE_NAME}
+      - DOCKHAND_SERVICE_NAME=${DOCKHAND_SERVICE_NAME}
+      - VAULTWARDEN_SERVICE_NAME=${VAULTWARDEN_SERVICE_NAME}
+      - GATUS_SERVICE_NAME=${GATUS_SERVICE_NAME}
+      - GOTIFY_SERVICE_NAME=${GOTIFY_SERVICE_NAME}
+      - AUTHENTIK_SERVICE_NAME=${AUTHENTIK_SERVICE_NAME}
+      - NEXTCLOUD_SERVICE_NAME=${NEXTCLOUD_SERVICE_NAME:-cloud}
+      - IMMICH_SERVICE_NAME=${IMMICH_SERVICE_NAME:-photos}
+      - MAIL_SERVICE_NAME=${MAIL_SERVICE_NAME:-mail}
+      - HOST_API_URL=${HOST_API_URL:-http://host.docker.internal:5001}
+      # Dashboard is SSO-only; Authentik is the identity source (incl. Samba via hook).
+      - DISABLE_LOCAL_AUTH=${DISABLE_LOCAL_AUTH:-true}
+    labels:
+      - "traefik.enable=true"
+      # Canonical dashboard route
+      - "traefik.http.routers.dashboard.rule=Host(`${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.routers.dashboard.tls.domains[0].main=${HOMELAB_HOSTNAME}"
+      - "traefik.http.routers.dashboard.tls.domains[0].sans=*.${HOMELAB_HOSTNAME}"
+      - "traefik.http.services.dashboard.loadbalancer.server.port=5000"
+      - "traefik.http.routers.dashboard-redirect.rule=Host(`${HOMELAB_HOSTNAME}`) || HostRegexp(`{ip:[0-9.]+}`)"
+      - "traefik.http.routers.dashboard-redirect.entrypoints=websecure"
+      - "traefik.http.routers.dashboard-redirect.tls=true"
+      - "traefik.http.routers.dashboard-redirect.middlewares=dashboard-redirect-to-canonical@docker"
+      - "traefik.http.routers.dashboard-redirect.service=dashboard"
+      - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.regex=^https?://(?:${HOMELAB_HOSTNAME}|[0-9.]+)(.*)"
+      - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.replacement=https://${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}$${1}"
+      - "traefik.http.middlewares.dashboard-redirect-to-canonical.redirectregex.permanent=true"
+      # Catch-all for unknown subdomains: serve dashboard (404 UI) without changing the URL
+      - "traefik.http.routers.dashboard-catchall.rule=HostRegexp(`{subdomain:.+}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.dashboard-catchall.entrypoints=websecure"
+      - "traefik.http.routers.dashboard-catchall.tls=true"
+      - "traefik.http.routers.dashboard-catchall.priority=1"
+      - "traefik.http.routers.dashboard-catchall.service=dashboard"
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:5000" ]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+networks:
+  homelab-net:
+    external: true

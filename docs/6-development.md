@@ -23,7 +23,7 @@ To work on the Host API locally with hot-reloading, you can run it directly on y
 
 ```shell
 # Navigate to the host API directory
-cd ./dashboard/host-api/
+cd ./services/dashboard/host-api/
 
 # Install dependencies
 npm install

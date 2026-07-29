@@ -497,9 +497,10 @@ def _clear_status_line() -> None:
 
 
 def substitute_env_vars(content):
-    """Replace $VAR or ${VAR} expressions in content with values from os.environ."""
-    import os
-    return os.path.expandvars(content)
+    """Replace ``$VAR`` / ``${VAR}`` / ``${VAR:-default}`` using os.environ."""
+    from setup.env_schema import expand_env_template
+
+    return expand_env_template(content)
 
 
 # Explicit TZ → ISO 3166-1 phone region (extend as needed).

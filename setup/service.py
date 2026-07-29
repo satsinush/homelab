@@ -471,7 +471,7 @@ class Service(ABC):
 
     name: str = "service"
     volume_dirs: list[VolumeDir] = []
-    # Extra host paths to delete on reset (beyond ./{name}/volumes).
+    # Extra host paths to delete on reset (beyond ./services/{name}/volumes).
     reset_extra_paths: list[str] = []
 
     def setup(self, env: dict) -> None:
@@ -509,7 +509,7 @@ class Service(ABC):
 
     def reset_paths(self) -> list[str]:
         """Host paths owned by this service that reset() should remove."""
-        paths = [f"./{self.name}/volumes"]
+        paths = [f"./services/{self.name}/volumes"]
         paths.extend(self.reset_extra_paths)
         return paths
 

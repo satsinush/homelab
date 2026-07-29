@@ -1,0 +1,248 @@
+# authentik/compose.yaml
+services:
+  authentik-postgres:
+    image: docker.io/library/postgres:16-alpine
+    container_name: authentik-postgres
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 5s
+    volumes:
+      - ${PROJECT_ROOT}/services/authentik/volumes/db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/authentik_pg_pass
+      POSTGRES_USER: ${AUTHENTIK_PG_USER:-authentik}
+      POSTGRES_DB: ${AUTHENTIK_PG_DB:-authentik}
+    secrets:
+      - authentik_pg_pass
+    networks:
+      - homelab-net
+
+  authentik-redis:
+    image: docker.io/library/redis:7-alpine
+    container_name: authentik-redis
+    command: --save 60 1 --loglevel warning
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 3s
+    volumes:
+      - ${PROJECT_ROOT}/services/authentik/volumes/redis:/data
+    networks:
+      - homelab-net
+
+  authentik-server:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.6}
+    container_name: authentik-server
+    restart: unless-stopped
+    command: server
+    environment:
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: "file:///run/secrets/authentik_pg_pass"
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_PG_DB:-authentik}
+      AUTHENTIK_SECRET_KEY: "file:///run/secrets/authentik_secret_key"
+      AUTHENTIK_BOOTSTRAP_PASSWORD: "file:///run/secrets/authentik_akadmin_password"
+      AUTHENTIK_BOOTSTRAP_EMAIL: authentik@${HOMELAB_HOSTNAME}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+      HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
+      AUTHENTIK_WEB_HOSTNAME: ${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}
+      HOMELAB_USERNAME: ${HOMELAB_USERNAME}
+      DASHBOARD_SERVICE_NAME: ${DASHBOARD_SERVICE_NAME}
+      PIHOLE_SERVICE_NAME: ${PIHOLE_SERVICE_NAME}
+      DOCKHAND_SERVICE_NAME: ${DOCKHAND_SERVICE_NAME}
+      VAULTWARDEN_SERVICE_NAME: ${VAULTWARDEN_SERVICE_NAME}
+      GATUS_SERVICE_NAME: ${GATUS_SERVICE_NAME}
+      GOTIFY_SERVICE_NAME: ${GOTIFY_SERVICE_NAME}
+      AUTHENTIK_SERVICE_NAME: ${AUTHENTIK_SERVICE_NAME}
+      HEADSCALE_SERVICE_NAME: ${HEADSCALE_SERVICE_NAME}
+      HEADSCALE_WEB_HOSTNAME: ${HEADSCALE_WEB_HOSTNAME}
+      NEXTCLOUD_SERVICE_NAME: ${NEXTCLOUD_SERVICE_NAME:-cloud}
+      IMMICH_SERVICE_NAME: ${IMMICH_SERVICE_NAME:-photos}
+      COLLABORA_SERVICE_NAME: ${COLLABORA_SERVICE_NAME:-office}
+      MAIL_SERVICE_NAME: ${MAIL_SERVICE_NAME:-mail}
+      HOMELAB_DEFAULT_QUOTA_GB: ${HOMELAB_DEFAULT_QUOTA_GB:-50}
+      HOST_API_URL: ${HOST_API_URL:-http://host.docker.internal:5001}
+      AUTHENTIK_EMAIL__HOST: alerts
+      AUTHENTIK_EMAIL__PORT: 8025
+      AUTHENTIK_EMAIL__USE_TLS: "false"
+      AUTHENTIK_EMAIL__USE_SSL: "false"
+      AUTHENTIK_EMAIL__FROM: authentik@${HOMELAB_HOSTNAME}
+    volumes:
+      - ${PROJECT_ROOT}/services/authentik/volumes/media:/media
+      - ${PROJECT_ROOT}/services/authentik/volumes/templates:/templates
+      - ${PROJECT_ROOT}/services/authentik/blueprints:/blueprints/custom:ro
+      - ${PROJECT_ROOT}/services/authentik/custom/user_settings.py:/data/user_settings.py
+      - ${PROJECT_ROOT}/services/authentik/custom/homelab_smb_sync:/data/homelab_smb_sync
+    secrets:
+      - authentik_pg_pass
+      - authentik_secret_key
+      - authentik_akadmin_password
+      - homelab_password
+      - vaultwarden_oidc_secret
+      - dashboard_oidc_secret
+      - headscale_oidc_secret
+      - nextcloud_oidc_secret
+      - immich_oidc_secret
+      - dockhand_oidc_secret
+      - ldap_service_password
+      - stalwart_smtp_vaultwarden_password
+      - stalwart_smtp_noreply_password
+      - host_api_token
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authentik.rule=Host(`${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.authentik.entrypoints=websecure"
+      - "traefik.http.routers.authentik.tls=true"
+      - "traefik.http.routers.authentik.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.routers.authentik.tls.domains[0].main=${HOMELAB_HOSTNAME}"
+      - "traefik.http.routers.authentik.tls.domains[0].sans=*.${HOMELAB_HOSTNAME}"
+      - "traefik.http.services.authentik.loadbalancer.server.port=9000"
+      - "traefik.http.routers.authentik-outpost.rule=HostRegexp(`{subdomain:.+}.${HOMELAB_HOSTNAME}`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      - "traefik.http.routers.authentik-outpost.entrypoints=websecure"
+      - "traefik.http.routers.authentik-outpost.tls=true"
+      - "traefik.http.routers.authentik-outpost.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.routers.authentik-outpost.priority=100"
+      - "traefik.http.routers.authentik-outpost.service=authentik"
+    depends_on:
+      authentik-postgres:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
+
+  authentik-worker:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2026.5.6}
+    container_name: authentik-worker
+    restart: unless-stopped
+    command: worker
+    environment:
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: "file:///run/secrets/authentik_pg_pass"
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_PG_DB:-authentik}
+      AUTHENTIK_SECRET_KEY: "file:///run/secrets/authentik_secret_key"
+      AUTHENTIK_BOOTSTRAP_PASSWORD: "file:///run/secrets/authentik_akadmin_password"
+      AUTHENTIK_BOOTSTRAP_EMAIL: authentik@${HOMELAB_HOSTNAME}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+      HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
+      AUTHENTIK_WEB_HOSTNAME: ${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}
+      HOMELAB_USERNAME: ${HOMELAB_USERNAME}
+      DASHBOARD_SERVICE_NAME: ${DASHBOARD_SERVICE_NAME}
+      PIHOLE_SERVICE_NAME: ${PIHOLE_SERVICE_NAME}
+      DOCKHAND_SERVICE_NAME: ${DOCKHAND_SERVICE_NAME}
+      VAULTWARDEN_SERVICE_NAME: ${VAULTWARDEN_SERVICE_NAME}
+      GATUS_SERVICE_NAME: ${GATUS_SERVICE_NAME}
+      GOTIFY_SERVICE_NAME: ${GOTIFY_SERVICE_NAME}
+      AUTHENTIK_SERVICE_NAME: ${AUTHENTIK_SERVICE_NAME}
+      HEADSCALE_SERVICE_NAME: ${HEADSCALE_SERVICE_NAME}
+      HEADSCALE_WEB_HOSTNAME: ${HEADSCALE_WEB_HOSTNAME}
+      NEXTCLOUD_SERVICE_NAME: ${NEXTCLOUD_SERVICE_NAME:-cloud}
+      IMMICH_SERVICE_NAME: ${IMMICH_SERVICE_NAME:-photos}
+      COLLABORA_SERVICE_NAME: ${COLLABORA_SERVICE_NAME:-office}
+      MAIL_SERVICE_NAME: ${MAIL_SERVICE_NAME:-mail}
+      HOMELAB_DEFAULT_QUOTA_GB: ${HOMELAB_DEFAULT_QUOTA_GB:-50}
+      HOST_API_URL: ${HOST_API_URL:-http://host.docker.internal:5001}
+      AUTHENTIK_EMAIL__HOST: alerts
+      AUTHENTIK_EMAIL__PORT: 8025
+      AUTHENTIK_EMAIL__USE_TLS: "false"
+      AUTHENTIK_EMAIL__USE_SSL: "false"
+      AUTHENTIK_EMAIL__FROM: authentik@${HOMELAB_HOSTNAME}
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PROJECT_ROOT}/services/authentik/volumes/media:/media
+      - ${PROJECT_ROOT}/services/authentik/volumes/certs:/certs
+      - ${PROJECT_ROOT}/services/authentik/volumes/templates:/templates
+      - ${PROJECT_ROOT}/services/authentik/blueprints:/blueprints/custom:ro
+      - ${PROJECT_ROOT}/services/authentik/custom/user_settings.py:/data/user_settings.py
+      - ${PROJECT_ROOT}/services/authentik/custom/homelab_smb_sync:/data/homelab_smb_sync
+    secrets:
+      - authentik_pg_pass
+      - authentik_secret_key
+      - authentik_akadmin_password
+      - homelab_password
+      - vaultwarden_oidc_secret
+      - dashboard_oidc_secret
+      - headscale_oidc_secret
+      - nextcloud_oidc_secret
+      - immich_oidc_secret
+      - dockhand_oidc_secret
+      - ldap_service_password
+      - stalwart_smtp_vaultwarden_password
+      - stalwart_smtp_noreply_password
+      - host_api_token
+    networks:
+      - homelab-net
+    depends_on:
+      authentik-postgres:
+        condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
+
+  authentik-ldap:
+    image: ghcr.io/goauthentik/ldap:${AUTHENTIK_TAG:-2026.5.6}
+    container_name: authentik-ldap
+    restart: unless-stopped
+    # Token must be the Outpost token string (not a path).
+    entrypoint:
+      - /bin/sh
+      - -c
+      - export AUTHENTIK_TOKEN="$$(cat /run/secrets/ldap_outpost_token)" && exec /ldap
+    environment:
+      AUTHENTIK_HOST: http://authentik-server:9000
+      AUTHENTIK_INSECURE: "true"
+    secrets:
+      - ldap_outpost_token
+    networks:
+      - homelab-net
+    expose:
+      - "3389"
+      - "6636"
+    depends_on:
+      - authentik-server
+
+secrets:
+  authentik_pg_pass:
+    file: ${PROJECT_ROOT}/volumes/secrets/authentik_pg_pass
+  authentik_secret_key:
+    file: ${PROJECT_ROOT}/volumes/secrets/authentik_secret_key
+  authentik_akadmin_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/authentik_akadmin_password
+  homelab_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/homelab_password
+  vaultwarden_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/vaultwarden_oidc_secret
+  dashboard_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/dashboard_oidc_secret
+  headscale_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/headscale_oidc_secret
+  nextcloud_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_oidc_secret
+  immich_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/immich_oidc_secret
+  dockhand_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/dockhand_oidc_secret
+  ldap_service_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/ldap_service_password
+  stalwart_smtp_vaultwarden_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/stalwart_smtp_vaultwarden_password
+  stalwart_smtp_noreply_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/stalwart_smtp_noreply_password
+  ldap_outpost_token:
+    file: ${PROJECT_ROOT}/volumes/secrets/ldap_outpost_token
+  host_api_token:
+    file: ${PROJECT_ROOT}/volumes/secrets/host_api_token
+
+networks:
+  homelab-net:
+    external: true

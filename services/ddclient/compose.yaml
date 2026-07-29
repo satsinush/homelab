@@ -1,0 +1,24 @@
+# ddclient/compose.yaml
+services:
+  ddclient:
+    image: linuxserver/ddclient:latest
+    container_name: ddclient
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - PUID=${PUID}
+      - PGID=${PGID}
+    networks:
+      - homelab-net
+    volumes:
+      - ${PROJECT_ROOT}/services/ddclient/volumes/ddclient.conf:/config/ddclient.conf
+    healthcheck:
+      test: [ "CMD", "pgrep", "ddclient" ]
+      interval: 5m
+      timeout: 10s
+      retries: 2
+      start_period: 1m
+
+networks:
+  homelab-net:
+    external: true

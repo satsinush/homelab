@@ -100,7 +100,7 @@ Shared files live under [`./storage/`](../storage/) (gitignored; included in Res
 ### Gatus
 
 - [ ] Open `https://gatus.<your-hostname>` (no login — public read-only status page)
-- [ ] Alerts are already wired to the alerts gateway (`http://alerts/gatus`) in [`gatus/config.yaml`](../gatus/config.yaml) — adjust only if you change monitoring
+- [ ] Alerts are already wired to the alerts gateway (`http://alerts/gatus`) in [`gatus/config.yaml`](../services/gatus/config.yaml) — adjust only if you change monitoring
 - [ ] Docs: [Gatus](https://gatus.io/)
 
 ### Dockhand
@@ -151,7 +151,7 @@ provisioned accounts fail and cannot be deleted in the UI.
 
 ### ddclient
 
-- [ ] Edit [`ddclient/volumes/ddclient.conf`](../ddclient/volumes/ddclient.conf) with your DDNS provider details (seeded from the example on setup)
+- [ ] Edit [`ddclient/volumes/ddclient.conf`](../services/ddclient/volumes/ddclient.conf) with your DDNS provider details (seeded from the example on setup)
 - [ ] Recreate the container if you changed the file after first start: `docker compose up -d --force-recreate ddclient`
 - [ ] Docs: [ddclient](https://ddclient.net/)
 

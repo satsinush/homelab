@@ -1,0 +1,33 @@
+# dockhand/compose.yaml
+services:
+  dockhand:
+    image: fnsys/dockhand:latest
+    container_name: dockhand
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PROJECT_ROOT}/services/dockhand/volumes/data:/app/data
+      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+    extra_hosts:
+      - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
+    networks:
+      - homelab-net
+    environment:
+      - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/homelab-ca.crt
+      - HOSTNAME=${DOCKHAND_SERVICE_NAME}.${HOMELAB_HOSTNAME}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dockhand.rule=Host(`${DOCKHAND_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.dockhand.entrypoints=websecure"
+      - "traefik.http.routers.dockhand.tls=true"
+      - "traefik.http.services.dockhand.loadbalancer.server.port=3000"
+    healthcheck:
+      test: [ "CMD", "curl", "-fs", "http://localhost:3000/api/health" ]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+networks:
+  homelab-net:
+    external: true

@@ -5,7 +5,7 @@ Once the host is configured, follow these steps to deploy the services.
 ### 1\. 📝 Configure Environment
 
 1.  **Dynamic DNS**
-      * If you use Cloudflare DDNS, create an API token ([below](#cloudflare-account-api-tokens-new-dashboard)), then after setup edit [`./ddclient/volumes/ddclient.conf`](../ddclient/volumes/ddclient.conf) (seeded from [`./ddclient/example.ddclient.conf`](../ddclient/example.ddclient.conf)). That path is under `*/volumes/` so Restic backs it up.
+      * If you use Cloudflare DDNS, create an API token ([below](#cloudflare-account-api-tokens-new-dashboard)), then after setup edit [`./services/ddclient/volumes/ddclient.conf`](../services/ddclient/volumes/ddclient.conf) (seeded from [`./services/ddclient/example.ddclient.conf`](../services/ddclient/example.ddclient.conf)). That path is under `*/volumes/` so Restic backs it up.
       * [ddclient Docs 🔗](https://ddclient.net/)
 2.  **Environment Variables**
       * The setup script uses `./.env.template` as a base to generate your final `.env` file. Carefully change any values you want to customize in the template **before** running the script.
@@ -15,13 +15,13 @@ Once the host is configured, follow these steps to deploy the services.
 
 [`setup.py`](../setup.py) installs and enables these automatically:
 
-* `homelab-host-api.service` — dashboard Host API (`dashboard/host-api`, after `npm install`)
+* `homelab-host-api.service` — dashboard Host API (`services/dashboard/host-api`, after `npm install`)
 * `homelab-backup.timer` — daily Restic backup via `setup.py backup --auto`
 * `pacman-sync.timer` — daily `pacman -Sy` (Arch hosts only)
 * `docker.socket` / `docker.service`
 * `systemd-timesyncd`
 
-Unit templates live in [`systemd/system/`](../systemd/system/) and use `${PROJECT_ROOT}`, `${PUID}`, `${PGID}` (from `.env`) plus `${PYTHON}` (detected at install). Setup expands them with the same `substitute_env_vars` helper used for `.env.template`, installs under `/etc/systemd/system/`, and adds your user to the `docker` group when needed (re-entering the group for the same setup run). You get a y/n prompt first so you can skip this on a non-server / dev machine. The host API unit runs `tsx server.ts` from `dashboard/host-api` after `npm install`.
+Unit templates live in [`systemd/system/`](../systemd/system/) and use `${PROJECT_ROOT}`, `${PUID}`, `${PGID}` (from `.env`) plus `${PYTHON}` (detected at install). Setup expands them with the same `substitute_env_vars` helper used for `.env.template`, installs under `/etc/systemd/system/`, and adds your user to the `docker` group when needed (re-entering the group for the same setup run). You get a y/n prompt first so you can skip this on a non-server / dev machine. The host API unit runs `tsx server.ts` from `services/dashboard/host-api` after `npm install`.
 
 If the clock is not synchronized, copy or adapt [`systemd/timesyncd.conf`](../systemd/timesyncd.conf) and run `sudo systemctl restart systemd-timesyncd`. See the [systemd wiki](https://wiki.archlinux.org/title/Systemd#Basic_systemctl_usage).
 
@@ -93,7 +93,7 @@ Then recreate Traefik if it was already running: `docker compose up -d --force-r
 
 ##### ddclient
 
-After setup seeds [`ddclient/volumes/ddclient.conf`](../ddclient/volumes/ddclient.conf), use the Cloudflare block (see the example file) with:
+After setup seeds [`ddclient/volumes/ddclient.conf`](../services/ddclient/volumes/ddclient.conf), use the Cloudflare block (see the example file) with:
 
 ```text
 protocol=cloudflare

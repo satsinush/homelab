@@ -10,8 +10,8 @@ After=network.target
 User=${PUID}
 Group=${PGID}
 Environment=PROJECT_ROOT=${PROJECT_ROOT}
-WorkingDirectory=${PROJECT_ROOT}/dashboard/host-api
-ExecStart=${PROJECT_ROOT}/dashboard/host-api/node_modules/.bin/tsx server.ts
+WorkingDirectory=${PROJECT_ROOT}/services/dashboard/host-api
+ExecStart=${PROJECT_ROOT}/services/dashboard/host-api/node_modules/.bin/tsx server.ts
 Restart=always
 RestartSec=3
 SyslogIdentifier=homelab-api

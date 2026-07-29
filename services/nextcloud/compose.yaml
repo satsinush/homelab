@@ -1,0 +1,157 @@
+services:
+  nextcloud-db:
+    image: postgres:16-alpine
+    container_name: nextcloud-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD_FILE: /run/secrets/nextcloud_db_password
+    volumes:
+      - ${PROJECT_ROOT}/services/nextcloud/volumes/db:/var/lib/postgresql/data
+    secrets:
+      - nextcloud_db_password
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nextcloud -d nextcloud"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  nextcloud-redis:
+    image: redis:alpine
+    container_name: nextcloud-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - ${PROJECT_ROOT}/services/nextcloud/volumes/redis:/data
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  nextcloud:
+    image: nextcloud:stable
+    container_name: nextcloud
+    restart: unless-stopped
+    depends_on:
+      nextcloud-db:
+        condition: service_healthy
+      nextcloud-redis:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: nextcloud-db
+      POSTGRES_DB: nextcloud
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD_FILE: /run/secrets/nextcloud_db_password
+      REDIS_HOST: nextcloud-redis
+      NEXTCLOUD_ADMIN_USER: admin
+      NEXTCLOUD_ADMIN_PASSWORD_FILE: /run/secrets/nextcloud_admin_password
+      NEXTCLOUD_TRUSTED_DOMAINS: ${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}
+      TRUSTED_PROXIES: ${TRAEFIK_IP_ADDRESS}
+      OVERWRITEHOST: ${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}
+      OVERWRITEPROTOCOL: https
+      OVERWRITECLIURL: https://${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}
+      NEXTCLOUD_DATA_DIR: /var/www/data
+      PHP_MEMORY_LIMIT: 1G
+      PHP_UPLOAD_LIMIT: 16G
+      # Quota is applied in nextcloud/setup.py via occ (official image ignores this AIO env).
+      NEXTCLOUD_DEFAULT_QUOTA: ${HOMELAB_DEFAULT_QUOTA_GB:-50} GB
+    volumes:
+      - ${PROJECT_ROOT}/services/nextcloud/volumes/html:/var/www/html
+      - ${PROJECT_ROOT}/services/nextcloud/volumes/data:/var/www/data
+      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/usr/local/share/ca-certificates/homelab-ca.crt:ro
+      # Rebuild system trust on every start (CA mount alone is not enough).
+      - ${PROJECT_ROOT}/services/nextcloud/hooks/before-starting:/docker-entrypoint-hooks.d/before-starting:ro
+    extra_hosts:
+      - "${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
+      # Mail ISPDB autoconfig (server-side fetch via Traefik + Homelab CA)
+      - "autoconfig.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
+      - "${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
+    secrets:
+      - nextcloud_db_password
+      - nextcloud_admin_password
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nextcloud.rule=Host(`${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.nextcloud.entrypoints=websecure"
+      - "traefik.http.routers.nextcloud.tls=true"
+      - "traefik.http.routers.nextcloud.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
+
+  nextcloud-cron:
+    image: nextcloud:stable
+    container_name: nextcloud-cron
+    restart: unless-stopped
+    entrypoint: /cron.sh
+    depends_on:
+      nextcloud:
+        condition: service_started
+    volumes:
+      - ${PROJECT_ROOT}/services/nextcloud/volumes/html:/var/www/html
+      - ${PROJECT_ROOT}/services/nextcloud/volumes/data:/var/www/data
+    networks:
+      - homelab-net
+
+  # Collabora lives here to avoid a broken root-owned ./collabora/ remnant.
+  collabora:
+    image: collabora/code:latest
+    container_name: collabora
+    restart: unless-stopped
+    environment:
+      # Traefik terminates TLS; Collabora speaks HTTP on the Docker network.
+      # server_name keeps /hosting/discovery on the public office host (not collabora:9980).
+      server_name: ${COLLABORA_SERVICE_NAME:-office}.${HOMELAB_HOSTNAME}
+      aliasgroup1: https://${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}:443
+      domain: ${NEXTCLOUD_SERVICE_NAME:-cloud}\\.${HOMELAB_HOSTNAME}
+      # Docker Desktop cannot jail bind-mount; skip failed coolmount attempts.
+      extra_params: >-
+        --o:ssl.enable=false
+        --o:ssl.termination=true
+        --o:ssl.ssl_verification=false
+        --o:mount_jail_tree=false
+        --o:net.frame_ancestors=https://${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}
+      username: admin
+      password: ${COLLABORA_ADMIN_PASSWORD:-collabora}
+      DONT_GEN_SSL_CERT: "true"
+    extra_hosts:
+      # WOPI callbacks to Nextcloud go via Traefik HTTPS.
+      - "${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.collabora.rule=Host(`${COLLABORA_SERVICE_NAME:-office}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.collabora.entrypoints=websecure"
+      - "traefik.http.routers.collabora.tls=true"
+      - "traefik.http.routers.collabora.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.services.collabora.loadbalancer.server.port=9980"
+      - "traefik.http.services.collabora.loadbalancer.server.scheme=http"
+    # Image default probes https://; TLS is terminated at Traefik (ssl.enable=false).
+    healthcheck:
+      test: ["CMD", "coolwsd", "--probe", "--disable-ssl"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    cap_add:
+      - MKNOD
+
+secrets:
+  nextcloud_db_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_db_password
+  nextcloud_oidc_secret:
+    file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_oidc_secret
+  nextcloud_admin_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_admin_password
+
+networks:
+  homelab-net:
+    external: true
+    name: homelab-net

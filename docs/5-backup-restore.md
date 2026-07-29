@@ -1,12 +1,12 @@
 ## Backup and Restore (Restic + Service hooks)
 
-Homelab state lives in gitignored bind mounts (`volumes/`, `*/volumes/`, `storage/`) plus `.env`. Cloud backups use **Restic** to an S3-compatible bucket (Backblaze B2). Per-service logic is implemented on the `Service` base class (`setup` / `postsetup` / `backup` / `restore`) and driven by root [`setup.py`](../setup.py).
+Homelab state lives in gitignored bind mounts (`volumes/`, `services/*/volumes/`, `storage/`) plus `.env`. Cloud backups use **Restic** to an S3-compatible bucket (Backblaze B2). Per-service logic is implemented on the `Service` base class (`setup` / `postsetup` / `backup` / `restore`) and driven by root [`setup.py`](../setup.py).
 
 ### Architecture
 
 | Layer | Role |
 | --- | --- |
-| Git | Compose stacks, scripts, `*/setup.py` services |
+| Git | Compose stacks, scripts, `services/*/setup.py` |
 | Bind mounts | Secrets, certs, databases, app data under `volumes/`, `*/volumes/`, and NAS homes under `storage/` |
 | `Service.backup()` | Consistent dumps (Postgres `pg_dump`, SQLite `.backup`) before upload |
 | Restic → B2 | Encrypted offsite snapshots of `.env`, `volumes/`, `*/volumes/`, `storage/` |
@@ -18,7 +18,7 @@ Compose services use host bind mounts (not Docker named volumes). Directory owne
 
 1. Create a private B2 (or other S3) bucket and an application key with read/write access.
 2. Install [restic](https://restic.net/) on the host (`pacman -S restic`).
-3. Run `python3 setup.py setup` and answer **y** when prompted to configure cloud backup. [`restic/setup.py`](../restic/setup.py) will:
+3. Run `python3 setup.py setup` and answer **y** when prompted to configure cloud backup. [`restic/setup.py`](../services/restic/setup.py) will:
    - Ask for repository URL, encryption password, and S3 access key / secret
    - Write `volumes/secrets/restic_*` (mode `0600`)
    - Copy [`.backup_exclude.example`](../.backup_exclude.example) → `.backup_exclude` if needed
@@ -85,7 +85,7 @@ Pi-hole, Dockhand, RustDesk id/relay, word-games data are still uploaded as ordi
 
 ### Service lifecycle (developers)
 
-Each `*/setup.py` exports `service = SomeService()` subclassing [`setup.service.Service`](../setup/service.py):
+Each `services/*/setup.py` exports `service = SomeService()` subclassing [`setup.service.Service`](../setup/service.py):
 
 - `setup(env)` — before containers (volume mkdir/chown, secrets prep)
 - `postsetup(env)` — after containers healthy (OIDC, theming, …)

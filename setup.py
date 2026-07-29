@@ -121,7 +121,7 @@ def do_reset() -> None:
         "",
         "⚠️  WARNING: This will permanently destroy your entire homelab state:",
         "   - Stop and remove all Docker containers (including orphans)",
-        "   - Run each service's reset() (typically ./{service}/volumes)",
+        "   - Run each service's reset() (typically ./services/{service}/volumes)",
         "   - Delete shared state (.env, volumes/ secrets & certificates)",
         "",
         "🚨 THIS ACTION IS IRREVERSIBLE!",
@@ -248,7 +248,7 @@ def ensure_systemd_services() -> None:
         finally:
             os.unlink(tmp_path)
 
-    host_api = os.path.join(os.environ["PROJECT_ROOT"], "dashboard", "host-api")
+    host_api = os.path.join(os.environ["PROJECT_ROOT"], "services", "dashboard", "host-api")
     if not shutil.which("npm"):
         error("npm is required for the host API (install Node.js / npm)")
         sys.exit(1)
@@ -313,6 +313,12 @@ def ensure_systemd_services() -> None:
 
 
 def ensure_env_file() -> dict:
+    from setup.env_schema import (
+        SERVICE_URL_NAMES,
+        sync_env_file,
+        validate_service_name,
+        write_env_template,
+    )
     from setup.utils import (
         detect_homelab_locale,
         load_env,
@@ -321,9 +327,13 @@ def ensure_env_file() -> dict:
         substitute_env_vars,
     )
 
+    # Keep template aligned with schema (comment-free, ${VAR:-default}).
+    write_env_template(".env.template")
+
     if os.path.exists(".env"):
         ok("Environment configuration already exists")
-        return load_env(".env")
+        env = sync_env_file(".env")
+        return load_env(".env") if not env else env
 
     section("Generating environment configuration...", emoji="📝")
     if not os.path.exists(".env.template"):
@@ -468,18 +478,21 @@ def ensure_env_file() -> dict:
     os.environ["HOMELAB_LOCALE"] = locale
     step(f"Detected locale: {language} / {locale} (from host LANG or TZ={tz})")
 
-    os.environ["DASHBOARD_SERVICE_NAME"] = "dashboard"
-    os.environ["PIHOLE_SERVICE_NAME"] = "dns"
-    os.environ["DOCKHAND_SERVICE_NAME"] = "docker"
-    os.environ["VAULTWARDEN_SERVICE_NAME"] = "vault"
-    os.environ["GATUS_SERVICE_NAME"] = "status"
-    os.environ["GOTIFY_SERVICE_NAME"] = "notify"
-    os.environ["AUTHENTIK_SERVICE_NAME"] = "auth"
-    os.environ["NEXTCLOUD_SERVICE_NAME"] = "cloud"
-    os.environ["COLLABORA_SERVICE_NAME"] = "office"
-    os.environ["IMMICH_SERVICE_NAME"] = "photos"
-    os.environ["MAIL_SERVICE_NAME"] = "mail"
-    os.environ["HEADSCALE_SERVICE_NAME"] = "vpn"
+    # Service URL names (https://<name>.<hostname>) — defaults unless customized.
+    for key, default, _label in SERVICE_URL_NAMES:
+        os.environ[key] = default
+    print("\n   Service URL names control subdomains (e.g. cloud.homelab.home.arpa).")
+    if prompt_yes_no(
+        "   Customize service URL names? [y/N]: ",
+        default=False,
+    ):
+        for key, default, label in SERVICE_URL_NAMES:
+            os.environ[key] = prompt_nonempty(
+                f"              {label} [{default}]: ",
+                default=default,
+                validate=validate_service_name,
+            )
+
     os.environ["HOMELAB_DEFAULT_QUOTA_GB"] = os.environ.get("HOMELAB_DEFAULT_QUOTA_GB") or "50"
     os.environ["HEADSCALE_WEB_HOSTNAME"] = headscale_web_hostname
     os.environ["HEADSCALE_BASE_DOMAIN"] = f"ts.{dns_domain}"
@@ -495,7 +508,7 @@ def ensure_env_file() -> dict:
     with open(".env", "w", encoding="utf-8") as f:
         f.write(content)
 
-    env = load_env(".env")
+    env = sync_env_file(".env")
     if has_public:
         ok("Let's Encrypt (Cloudflare DNS-01) mode configured")
     else:
@@ -506,45 +519,36 @@ def ensure_env_file() -> dict:
 
 def ensure_bootstrap_and_locale(env: dict) -> dict:
     """Shared bootstrap only; per-service secrets are created in Service.setup()."""
-    from setup.utils import append_env, detect_homelab_locale, phone_region_from_tz
+    from setup.env_schema import sync_env_file
+    from setup.utils import detect_homelab_locale, detect_host_api_url, phone_region_from_tz
 
     step("Ensuring shared bootstrap secrets...")
     os.makedirs("./volumes/secrets", exist_ok=True)
     os.chmod("./volumes/secrets", 0o700)
 
-    from setup.utils import detect_host_api_url
-
     docker_subnet = env.get("DOCKER_SUBNET") or "10.10.30.0/24"
-    for key, default in (
-        ("NEXTCLOUD_SERVICE_NAME", "cloud"),
-        ("COLLABORA_SERVICE_NAME", "office"),
-        ("IMMICH_SERVICE_NAME", "photos"),
-        ("MAIL_SERVICE_NAME", "mail"),
-        ("HEADSCALE_SERVICE_NAME", "vpn"),
-        ("HEADSCALE_BASE_DOMAIN", f"ts.{env.get('DNS_DOMAIN') or 'home.arpa'}"),
-        ("LAN_SUBNET", "10.10.10.0/24"),
-        ("DOCKER_SUBNET", docker_subnet),
-        ("TRAEFIK_IP_ADDRESS", _traefik_ip_for_subnet(docker_subnet)),
-        ("HEADSCALE_IPV4_PREFIX", "100.64.0.0/24"),
-        ("HOST_API_URL", detect_host_api_url()),
-        ("HOMELAB_DEFAULT_QUOTA_GB", "50"),
-    ):
-        if not env.get(key):
-            append_env(env, key, default)
-
+    updates: dict[str, str] = {}
+    if not env.get("PROJECT_ROOT"):
+        updates["PROJECT_ROOT"] = os.getcwd()
+    if not env.get("HEADSCALE_BASE_DOMAIN"):
+        updates["HEADSCALE_BASE_DOMAIN"] = f"ts.{env.get('DNS_DOMAIN') or 'home.arpa'}"
+    if not env.get("TRAEFIK_IP_ADDRESS"):
+        updates["TRAEFIK_IP_ADDRESS"] = _traefik_ip_for_subnet(docker_subnet)
+    if not env.get("HOST_API_URL"):
+        updates["HOST_API_URL"] = detect_host_api_url()
     if not env.get("HOMELAB_LANGUAGE") or not env.get("HOMELAB_LOCALE"):
         tz = env.get("TZ") or os.environ.get("TZ") or "UTC"
         language, locale = detect_homelab_locale(tz, region=phone_region_from_tz(tz))
-        with open(".env", "a", encoding="utf-8") as f:
-            if not env.get("HOMELAB_LANGUAGE"):
-                f.write(f"\nHOMELAB_LANGUAGE='{language}'\n")
-                env["HOMELAB_LANGUAGE"] = language
-                os.environ["HOMELAB_LANGUAGE"] = language
-            if not env.get("HOMELAB_LOCALE"):
-                f.write(f"\nHOMELAB_LOCALE='{locale}'\n")
-                env["HOMELAB_LOCALE"] = locale
-                os.environ["HOMELAB_LOCALE"] = locale
-        step(f"Locale defaults: {env.get('HOMELAB_LANGUAGE')} / {env.get('HOMELAB_LOCALE')}")
+        if not env.get("HOMELAB_LANGUAGE"):
+            updates["HOMELAB_LANGUAGE"] = language
+        if not env.get("HOMELAB_LOCALE"):
+            updates["HOMELAB_LOCALE"] = locale
+        step(
+            f"Locale defaults: {updates.get('HOMELAB_LANGUAGE', env.get('HOMELAB_LANGUAGE'))} / "
+            f"{updates.get('HOMELAB_LOCALE', env.get('HOMELAB_LOCALE'))}"
+        )
+
+    env = sync_env_file(".env", updates=updates or None)
 
     if not os.path.exists("./volumes/secrets/homelab_password") or os.path.getsize(
         "./volumes/secrets/homelab_password"
@@ -703,13 +707,13 @@ IP.1 = 127.0.0.1
             )
 
     # Select Traefik defaultCertificate: private → Homelab wildcard; LE → localhost-only.
-    os.makedirs("./traefik/volumes", exist_ok=True)
+    os.makedirs("./services/traefik/volumes", exist_ok=True)
     tls_src = (
-        "./traefik/tls.letsencrypt.yml"
+        "./services/traefik/tls.letsencrypt.yml"
         if cert_resolver == "letsencrypt"
-        else "./traefik/tls.private.yml"
+        else "./services/traefik/tls.private.yml"
     )
-    tls_dst = "./traefik/volumes/tls.yml"
+    tls_dst = "./services/traefik/volumes/tls.yml"
     shutil.copy(tls_src, tls_dst)
     ok(f"Traefik TLS config: {tls_src} → {tls_dst}")
     ok("SSL certificates ready")
