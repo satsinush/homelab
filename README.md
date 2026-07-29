@@ -41,9 +41,9 @@ This project bundles several open-source services, managed via `docker-compose`,
   * **🚫 Pi-hole & Unbound**: Network-wide ad-blocking and recursive DNS.
   * **🌐 ddclient**: Dynamic DNS client to keep your domain pointed to your IP.
   * **🖥️ RustDesk**: Self-hosted remote desktop (ID + relay).
-  * **📁 Samba + Nextcloud**: LAN SMB (bulk) and Nextcloud (files/WebDAV/calendar/contacts) via Authentik. Quotas via `HOMELAB_DEFAULT_QUOTA_GB`.
+  * **📁 Samba + Nextcloud**: LAN SMB (homelab-admins only, no quota) and Nextcloud (files/WebDAV/calendar/contacts) via Authentik. Nextcloud/Immich quotas via `HOMELAB_DEFAULT_QUOTA_GB`.
   * **✉️ Stalwart**: Mail server with Authentik LDAP for humans; authenticated SMTP for Vaultwarden.
-  * **📷 Immich**: Photos with Authentik OIDC.
+  * **📷 Immich**: Photos with Authentik OIDC (same default quota as Nextcloud).
   * **📝 Collabora**: Office editing for Nextcloud (TLS at Traefik).
   * **🛰️ Headscale**: Self-hosted Tailscale control plane with Authentik OIDC sign-in; subnet router exposes the LAN to remote clients.
   * **🔐 Vaultwarden**: Self-hosted password manager.

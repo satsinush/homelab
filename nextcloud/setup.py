@@ -12,7 +12,7 @@ from setup.service import (
     pg_restore_from_file,
 )
 from setup.ui import info, ok, section, warn
-from setup.utils import append_env, docker_exec, gen_secret, run_cmd, wait_for
+from setup.utils import append_env, authentik_group_usernames, docker_exec, gen_secret, run_cmd, wait_for
 
 
 def _occ(*args: str, check: bool = True) -> str:
@@ -474,6 +474,68 @@ def _configure_theming(env: dict) -> None:
     info(f"Cloud UI: https://{cloud}")
 
 
+def _ensure_default_quota(env: dict) -> None:
+    """Hard default per-user quota; Authentik/Nextcloud admins stay unlimited."""
+    gb = str(env.get("HOMELAB_DEFAULT_QUOTA_GB") or "50").strip() or "50"
+    value = f"{gb} GB"
+    out = _occ(
+        "config:app:set",
+        "files",
+        "default_quota",
+        f"--value={value}",
+        check=False,
+    ) or ""
+    if "error" in out.lower():
+        warn(f"files default_quota failed: {out[:200]}")
+        return
+    ok(f"Nextcloud default quota → {value}")
+
+    listing = _occ("user:list", "--output=json", check=False) or "{}"
+    try:
+        users = json.loads(listing)
+    except Exception:
+        users = {}
+    if not isinstance(users, dict):
+        return
+
+    # uid → display name from occ user:list
+    admin_uids: set[str] = {"admin"}
+    groups_raw = _occ("group:list", "--output=json", check=False) or "{}"
+    try:
+        groups = json.loads(groups_raw)
+    except Exception:
+        groups = {}
+    if isinstance(groups, dict):
+        for uid in groups.get("admin") or []:
+            admin_uids.add(str(uid))
+
+    ak_admins = {n.lower() for n in authentik_group_usernames("homelab-admins")}
+    homelab_user = (env.get("HOMELAB_USERNAME") or "").strip().lower()
+    if homelab_user:
+        ak_admins.add(homelab_user)
+
+    for uid, display in users.items():
+        markers = {
+            str(uid).lower(),
+            str(display or "").lower(),
+        }
+        # Email local-part if present in display-like forms is uncommon; match username.
+        if markers & ak_admins:
+            _occ("group:adduser", "admin", uid, check=False)
+            admin_uids.add(uid)
+
+    limited = 0
+    unlimited = 0
+    for uid in users:
+        if uid in admin_uids:
+            _occ("user:setting", uid, "files", "quota", "none", check=False)
+            unlimited += 1
+        else:
+            _occ("user:setting", uid, "files", "quota", value, check=False)
+            limited += 1
+    info(f"Nextcloud quotas: {limited} × {value}, {unlimited} admin(s) unlimited")
+
+
 def _ensure_local_admin() -> None:
     """Ensure break-glass local user ``admin`` matches nextcloud_admin_password."""
     pw_path = Path("./volumes/secrets/nextcloud_admin_password")
@@ -518,6 +580,20 @@ def _ensure_local_admin() -> None:
     ok("Nextcloud local admin user synced (admin / nextcloud_admin_password)")
 
 
+def _disable_skeleton() -> None:
+    """Skip copying core/skeleton example files into new user homes."""
+    out = _occ(
+        "config:system:set",
+        "skeletondirectory",
+        "--value=",
+        check=False,
+    ) or ""
+    if "error" in out.lower():
+        warn(f"skeletondirectory disable failed: {out[:200]}")
+        return
+    ok("Nextcloud skeleton directory disabled (no example files for new users)")
+
+
 class NextcloudService(Service):
     name = "nextcloud"
     volume_dirs = [
@@ -549,18 +625,16 @@ class NextcloudService(Service):
     def postsetup(self, env: dict) -> None:
         cloud = f"{env.get('NEXTCLOUD_SERVICE_NAME', 'cloud')}.{env.get('HOMELAB_HOSTNAME')}"
         info(
-            f"Default quota: {env.get('HOMELAB_DEFAULT_QUOTA_GB', '50')} GB — "
-            "OIDC auto-provisions HOMELAB_USERNAME on first Authentik login."
-        )
-        info(
             f"Break-glass local admin: user=admin, "
             f"secret=volumes/secrets/nextcloud_admin_password → https://{cloud}/login?direct=1"
         )
         try:
             if wait_for(_nextcloud_ready, timeout=120, interval=5):
                 _ensure_local_admin()
+                _ensure_default_quota(env)
+                _disable_skeleton()
         except Exception as exc:
-            warn(f"Local admin sync failed: {exc}")
+            warn(f"Local admin / quota / skeleton sync failed: {exc}")
         try:
             _configure_theming(env)
         except Exception as exc:

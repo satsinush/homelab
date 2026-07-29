@@ -1,7 +1,8 @@
 """Sync Authentik password changes into Samba NTLM passdb via host-api.
 
-Hooks ``password_changed``, which Authentik emits from ``User.set_password``
-with the cleartext password — including Admin → Users → set password.
+Only ``homelab-admins`` get SMB accounts. Hooks ``password_changed``, which
+Authentik emits from ``User.set_password`` with the cleartext password —
+including Admin → Users → set password.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from authentik.core.signals import password_changed
 LOGGER = get_logger()
 
 _SKIP_USERNAMES = frozenset({"ldapservice", "akadmin", "AnonymousUser"})
+_SMB_ADMIN_GROUP = "homelab-admins"
 
 
 def _host_api_url() -> str:
@@ -32,9 +34,48 @@ def _host_api_token() -> str:
         return ""
 
 
+def _is_smb_admin(user: User) -> bool:
+    try:
+        # Prefer User.groups (ak_groups is deprecated in newer Authentik).
+        groups = getattr(user, "groups", None) or getattr(user, "ak_groups", None)
+        if groups is None:
+            return False
+        return groups.filter(name=_SMB_ADMIN_GROUP).exists()
+    except Exception:
+        return False
+
+
+def _post_smb(path: str, payload: dict, username: str) -> None:
+    token = _host_api_token()
+    if not token:
+        LOGGER.warning("smb sync skipped: host_api_token missing")
+        return
+    url = f"{_host_api_url()}{path}"
+    try:
+        resp = requests.post(
+            url,
+            json=payload,
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=15,
+        )
+        if resp.status_code >= 400:
+            LOGGER.warning(
+                "smb sync failed",
+                path=path,
+                username=username,
+                status=resp.status_code,
+                body=resp.text[:200],
+            )
+        else:
+            LOGGER.info("smb sync ok", path=path, username=username)
+    except Exception as exc:
+        # Never block Authentik password changes on SMB failures.
+        LOGGER.warning("smb sync error", path=path, username=username, error=str(exc))
+
+
 @receiver(password_changed)
 def sync_smb_password(sender, user: User, password: str | None = None, **_):
-    if not password or not user:
+    if not user:
         return
     username = (user.username or "").strip()
     if not username or username in _SKIP_USERNAMES:
@@ -45,28 +86,16 @@ def sync_smb_password(sender, user: User, password: str | None = None, **_):
     ):
         return
 
-    token = _host_api_token()
-    if not token:
-        LOGGER.warning("smb sync skipped: host_api_token missing")
+    if not _is_smb_admin(user):
+        # Drop any leftover Samba account for non-admins.
+        _post_smb("/smb/disable-user", {"username": username}, username)
         return
 
-    url = f"{_host_api_url()}/smb/set-password"
-    try:
-        resp = requests.post(
-            url,
-            json={"username": username, "password": password},
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=15,
-        )
-        if resp.status_code >= 400:
-            LOGGER.warning(
-                "smb sync failed",
-                username=username,
-                status=resp.status_code,
-                body=resp.text[:200],
-            )
-        else:
-            LOGGER.info("smb password synced", username=username)
-    except Exception as exc:
-        # Never block Authentik password changes on SMB failures.
-        LOGGER.warning("smb sync error", username=username, error=str(exc))
+    if not password:
+        return
+
+    _post_smb(
+        "/smb/set-password",
+        {"username": username, "password": password},
+        username,
+    )

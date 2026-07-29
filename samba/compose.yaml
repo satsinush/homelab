@@ -12,13 +12,12 @@ services:
       WSDD2_DISABLE: "true"
       PUID: ${PUID:-1000}
       PGID: ${PGID:-1000}
-      HOMELAB_DEFAULT_QUOTA_GB: ${HOMELAB_DEFAULT_QUOTA_GB:-50}
       SAMBA_CONF_WORKGROUP: WORKGROUP
       SAMBA_CONF_SERVER_STRING: Homelab NAS
       SAMBA_CONF_LOG_LEVEL: "1"
       SAMBA_CONF_SMB3_DIRECTORY_LEASES: "no"
-      SAMBA_CONF_DFREE_COMMAND: /dfree.sh
       # Private per-user home: \\server\username → storage/users/<username>
+      # Accounts only for Authentik homelab-admins (password sync gated).
       SAMBA_VOLUME_CONFIG_homes: >-
         [homes];
         path=/shares/users/%U;
@@ -32,9 +31,8 @@ services:
         create mask=0700;
         directory mask=0700;
         hide unreadable=yes;
-        root preexec=/bin/mkdir -p /shares/users/%U;
-        dfree command=/dfree.sh
-      # Shared by all Samba users: \\server\shared → storage/shared
+        root preexec=/bin/mkdir -p /shares/users/%U
+      # Shared by Samba users (admins): \\server\shared → storage/shared
       SAMBA_VOLUME_CONFIG_shared: >-
         [shared];
         path=/shares/shared;
@@ -52,7 +50,6 @@ services:
       - ${PROJECT_ROOT}/storage:/shares
       - ${PROJECT_ROOT}/samba/volumes/data:/var/lib/samba
       - ${PROJECT_ROOT}/samba/entrypoint.sh:/entrypoint-homelab.sh:ro
-      - ${PROJECT_ROOT}/samba/dfree.sh:/dfree.sh:ro
     entrypoint: ["/bin/sh", "/entrypoint-homelab.sh"]
     command: ["runsvdir", "-P", "/container/config/runit"]
     ports:

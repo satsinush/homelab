@@ -29,6 +29,8 @@ import PageHeader from './PageHeader';
 import { useConfig } from '../contexts/useConfig';
 import { useAuth } from '../contexts/useAuth';
 
+const SMB_ADMIN_ROLE = 'homelab-admin';
+
 interface CopyRowProps {
     label: string;
     value: string;
@@ -56,6 +58,7 @@ const Files = () => {
     const { config } = useConfig();
     const [tabVal, setTabVal] = useState(0);
     const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+    const isSmbAdmin = Boolean(user?.roles?.includes(SMB_ADMIN_ROLE));
 
     const filesHost = config.hostnames.dav || 'cloud.homelab.local';
     const homelabHost = config.homelabHostname || window.location.hostname.replace('dashboard.', '') || 'homelab.local';
@@ -103,8 +106,10 @@ const Files = () => {
             <PageHeader title="Sync & Files" icon={<FilesIcon />} />
 
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                SMB for bulk LAN transfers; Nextcloud for everyday files, WebDAV, calendar, and contacts.
-                Sign in with Authentik (same password for mail/IMAP and Samba).
+                Nextcloud for everyday files, WebDAV, calendar, and contacts (Authentik SSO).
+                {isSmbAdmin
+                    ? ' SMB is available to homelab admins for bulk LAN transfers (same Authentik password).'
+                    : ' SMB network shares are limited to homelab admins.'}
             </Typography>
 
             <Button
@@ -140,6 +145,7 @@ const Files = () => {
 
                 <Box sx={{ p: { xs: 2, sm: 3 } }}>
                     <Stack spacing={3}>
+                        {isSmbAdmin && (
                         <Box>
                             <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5 }}>
                                 SMB (Samba Network Shares)
@@ -174,8 +180,9 @@ const Files = () => {
                                 <CopyRow caption="Shared public storage — Authentik username + password" label="Shared Folder URL" value={strings.smbShared} onCopy={handleCopy} copyFeedback={copyFeedback} feedbackId="smb_shared" />
                             </Stack>
                         </Box>
+                        )}
 
-                        <Divider />
+                        {isSmbAdmin && <Divider />}
 
                         <Box>
                             <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5 }}>

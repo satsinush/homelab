@@ -125,6 +125,35 @@ def docker_exec(container: str, *args: str, check: bool = True) -> str:
     return run_cmd(f"docker exec {shlex.quote(container)} {quoted}", check=check) or ""
 
 
+def authentik_group_usernames(group: str = "homelab-admins") -> set[str]:
+    """Return Authentik usernames in ``group`` (empty if Authentik is unavailable)."""
+    import shlex
+
+    # Keep the expression tiny so ak shell logging noise is easy to strip.
+    expr = (
+        "from authentik.core.models import Group;"
+        f"g=Group.objects.filter(name={group!r}).first();"
+        "print(','.join(sorted(u.username for u in g.users.all())) if g else '')"
+    )
+    out = (
+        run_cmd(
+            "docker exec authentik-server ak shell -c " + shlex.quote(expr),
+            check=False,
+        )
+        or ""
+    )
+    names: set[str] = set()
+    for line in reversed(out.splitlines()):
+        line = line.strip()
+        if not line or line.startswith("{") or "Traceback" in line:
+            continue
+        # Prefer the first plausible CSV of usernames from the end of output.
+        if all(tok.replace(".", "").replace("_", "").replace("-", "").isalnum() for tok in line.split(",") if tok):
+            names = {t.strip() for t in line.split(",") if t.strip()}
+            break
+    return names
+
+
 def compose_up(
     *services: str,
     profiles: tuple[str, ...] | list[str] = (),

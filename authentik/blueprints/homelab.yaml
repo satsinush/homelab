@@ -242,6 +242,7 @@ entries:
   # Sync Authentik passwords into Samba NTLM passdb (host-api).
   # Primary path is password_changed signal (authentik/custom/homelab_smb_sync).
   # This flow policy is a backup for enrollment/password-change prompt_data.
+  # SMB is limited to Authentik group homelab-admins (non-admins are disabled).
   - model: authentik_policies_expression.expressionpolicy
     id: smb-password-sync
     identifiers:
@@ -255,20 +256,16 @@ entries:
 
         prompt = context.get("prompt_data") or {}
         password = prompt.get("password")
-        if not password:
-            return True
 
-        username = None
-        pending = context.get("pending_user")
-        if pending is not None:
-            username = getattr(pending, "username", None)
-        if not username:
+        user = context.get("pending_user")
+        if user is None:
             user = getattr(request, "user", None)
-            if user is not None and getattr(user, "username", None) not in (None, "", "AnonymousUser"):
-                username = user.username
+        username = None
+        if user is not None:
+            username = getattr(user, "username", None)
         if not username:
             username = prompt.get("username")
-        if not username or username in ("ldapservice", "akadmin"):
+        if not username or username in ("ldapservice", "akadmin", "AnonymousUser"):
             return True
 
         host = (os.environ.get("HOST_API_URL") or "http://host.docker.internal:5001").rstrip("/")
@@ -280,13 +277,30 @@ entries:
         if not token:
             return True
 
+        is_admin = False
         try:
-            requests.post(
-                f"{host}/smb/set-password",
-                json={"username": username, "password": password},
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=15,
-            )
+            if user is not None:
+                groups = getattr(user, "groups", None) or getattr(user, "ak_groups", None)
+                if groups is not None:
+                    is_admin = groups.filter(name="homelab-admins").exists()
+        except Exception:
+            is_admin = False
+
+        try:
+            if not is_admin:
+                requests.post(
+                    f"{host}/smb/disable-user",
+                    json={"username": username},
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=15,
+                )
+            elif password:
+                requests.post(
+                    f"{host}/smb/set-password",
+                    json={"username": username, "password": password},
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=15,
+                )
         except Exception:
             # Never block Authentik auth on SMB sync failures.
             pass

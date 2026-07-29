@@ -771,6 +771,53 @@ app.post('/smb/set-password', async (req: Request, res: Response) => {
     }
 });
 
+/**
+ * @openapi
+ * /smb/disable-user:
+ *   post:
+ *     summary: Disable a Samba NTLM account (non-admins lose SMB access)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username]
+ *             properties:
+ *               username:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: User disabled or did not exist
+ *       400:
+ *         description: Validation error
+ */
+app.post('/smb/disable-user', async (req: Request, res: Response) => {
+    const username = String((req.body || {}).username || '').trim();
+    if (!/^[a-zA-Z0-9._-]{1,32}$/.test(username)) {
+        return res.status(400).json({ success: false, error: 'invalid username' });
+    }
+    const shSingle = (s: string) => s.replace(/'/g, `'\"'\"'`);
+    const script = [
+        'set -eu',
+        `U='${shSingle(username)}'`,
+        // Disable if present; ignore missing accounts.
+        'if pdbedit -L 2>/dev/null | cut -d: -f1 | grep -Fx "$U" >/dev/null; then',
+        '  smbpasswd -d "$U" || true',
+        'fi',
+    ].join('\n');
+    try {
+        await execFileAsync('docker', ['exec', '-i', 'samba', '/bin/sh', '-c', script], {
+            timeout: 30000,
+            maxBuffer: 1024 * 1024,
+        });
+        res.json({ success: true, data: { username, disabled: true }, timestamp: new Date().toISOString() });
+    } catch (err: unknown) {
+        console.error('smb/disable-user failed:', err);
+        res.status(500).json({ success: false, error: getErrorMessage(err) });
+    }
+});
+
 app.listen(5001, '0.0.0.0', () => {
     console.log(`Homelab Host API Server running on http://0.0.0.0:5001`);
     console.log(`Simplified host API - System monitoring, Network scanning, Wake-on-LAN, and Package management`);

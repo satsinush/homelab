@@ -12,7 +12,7 @@ from setup.service import (
     pg_restore_from_file,
 )
 from setup.ui import info, ok, section, warn
-from setup.utils import append_env, gen_secret, run_cmd, wait_for
+from setup.utils import append_env, authentik_group_usernames, gen_secret, run_cmd, wait_for
 
 
 def _api(method: str, path: str, token: str | None = None, body: dict | None = None) -> tuple[int, dict | list | None]:
@@ -160,6 +160,10 @@ def _ensure_oauth(env: dict, token: str) -> None:
     host = env.get("HOMELAB_HOSTNAME", "homelab.local")
     issuer = f"https://{auth}.{host}/application/o/immich/"
     secret = Path("./volumes/secrets/immich_oidc_secret").read_text(encoding="utf-8").strip()
+    try:
+        quota_gb = int(str(env.get("HOMELAB_DEFAULT_QUOTA_GB") or "50").strip() or "50")
+    except ValueError:
+        quota_gb = 50
 
     status, cfg = _api("GET", "/api/system-config", token=token)
     if status != 200 or not isinstance(cfg, dict):
@@ -177,6 +181,8 @@ def _ensure_oauth(env: dict, token: str) -> None:
     oauth["buttonText"] = "Authentik"
     oauth["autoRegister"] = True
     oauth["autoLaunch"] = False
+    # New OAuth users inherit this GiB quota (null = unlimited).
+    oauth["defaultStorageQuota"] = quota_gb
     if "signingAlgorithm" in oauth:
         oauth["signingAlgorithm"] = oauth.get("signingAlgorithm") or "RS256"
     # Private CA: Immich must skip TLS verify for Authentik discovery when set.
@@ -186,11 +192,73 @@ def _ensure_oauth(env: dict, token: str) -> None:
     cfg["oauth"] = oauth
     status, data = _api("PUT", "/api/system-config", token=token, body=cfg)
     if status in (200, 201):
-        ok(f"Immich OIDC → {issuer}")
+        ok(f"Immich OIDC → {issuer} (default quota {quota_gb} GiB)")
+    else:
+        warn(f"system-config OAuth update failed ({status}): {data}")
+        run_cmd("docker exec immich-server immich-admin enable-oauth-login", check=False)
+        info("Enabled OAuth login flag; set issuer/client in Immich Admin → Settings if needed")
         return
-    warn(f"system-config OAuth update failed ({status}): {data}")
-    run_cmd("docker exec immich-server immich-admin enable-oauth-login", check=False)
-    info("Enabled OAuth login flag; set issuer/client in Immich Admin → Settings if needed")
+
+    _ensure_user_quotas(token, quota_gb, env)
+
+
+def _ensure_user_quotas(token: str, quota_gb: int, env: dict) -> None:
+    """Backfill quotas: 50 GiB for users, unlimited for Immich/Authentik admins."""
+    status, users = _api("GET", "/api/admin/users", token=token)
+    if status != 200 or not isinstance(users, list):
+        warn(f"Could not list Immich users for quota backfill ({status})")
+        return
+    quota_bytes = quota_gb * 1024 * 1024 * 1024
+    ak_admins = {n.lower() for n in authentik_group_usernames("homelab-admins")}
+    homelab_user = (env.get("HOMELAB_USERNAME") or "").strip().lower()
+    if homelab_user:
+        ak_admins.add(homelab_user)
+    host = (env.get("HOMELAB_HOSTNAME") or "").strip().lower()
+
+    limited = 0
+    unlimited = 0
+    for user in users:
+        if not isinstance(user, dict):
+            continue
+        uid = user.get("id")
+        if not uid:
+            continue
+        email = (user.get("email") or "").lower()
+        name = (user.get("name") or "").lower()
+        local = email.split("@", 1)[0] if "@" in email else ""
+        is_admin = bool(user.get("isAdmin")) or name in ak_admins or local in ak_admins
+        if host and email == f"{homelab_user}@{host}":
+            is_admin = True
+
+        if is_admin:
+            body: dict = {"quotaSizeInBytes": None}
+            # Keep Authentik homelab-admins aligned as Immich admins (except when
+            # already the break-glass admin@ account).
+            if not user.get("isAdmin") and (name in ak_admins or local in ak_admins):
+                body["isAdmin"] = True
+            desired_quota = None
+        else:
+            body = {"quotaSizeInBytes": quota_bytes}
+            desired_quota = quota_bytes
+
+        if user.get("quotaSizeInBytes") == desired_quota and (
+            not body.get("isAdmin") or user.get("isAdmin")
+        ):
+            if is_admin:
+                unlimited += 1
+            else:
+                limited += 1
+            continue
+
+        st, _ = _api("PUT", f"/api/admin/users/{uid}", token=token, body=body)
+        if st in (200, 201):
+            if is_admin:
+                unlimited += 1
+            else:
+                limited += 1
+        else:
+            warn(f"Immich quota update failed for {email or uid} ({st})")
+    ok(f"Immich quotas: {limited} × {quota_gb} GiB, {unlimited} admin(s) unlimited")
 
 
 def configure_immich(env: dict) -> None:

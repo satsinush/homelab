@@ -59,7 +59,7 @@ services:
       NEXTCLOUD_DATA_DIR: /var/www/data
       PHP_MEMORY_LIMIT: 1G
       PHP_UPLOAD_LIMIT: 16G
-      # Default per-user quota (GiB → bytes string Nextcloud accepts, e.g. "50 GB")
+      # Quota is applied in nextcloud/setup.py via occ (official image ignores this AIO env).
       NEXTCLOUD_DEFAULT_QUOTA: ${HOMELAB_DEFAULT_QUOTA_GB:-50} GB
     volumes:
       - ${PROJECT_ROOT}/nextcloud/volumes/html:/var/www/html
