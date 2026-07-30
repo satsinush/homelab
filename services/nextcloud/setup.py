@@ -333,7 +333,8 @@ def _ensure_oidc(env: dict) -> None:
     post_logout = f"https://{cloud}/"
     secret = Path("./volumes/secrets/nextcloud_oidc_secret").read_text(encoding="utf-8").strip()
 
-    # unique-uid=0 → use preferred_username / sub mapping from IdP (not a hashed uid).
+    # unique-uid=0 → use IdP claim as NC uid (not a provider-hashed id).
+    # mapping-uid=preferred_username → Authentik username (stable for SMB paths too).
     # endsession + id_token_hint required for logout (/apps/user_oidc/sls) to work.
     # Authentik "nextcloud" scope sends quota (+ groups/admin) at provision/login.
     out = _occ(
@@ -347,6 +348,9 @@ def _ensure_oidc(env: dict) -> None:
         "--send-id-token-hint=1",
         "--scope=openid profile email nextcloud",
         "--unique-uid=0",
+        "--mapping-uid=preferred_username",
+        "--mapping-email=email",
+        "--mapping-display-name=name",
         "--mapping-quota=quota",
         "--mapping-groups=groups",
         "--group-provisioning=1",
