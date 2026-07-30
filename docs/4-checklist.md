@@ -96,6 +96,7 @@ Shared files live under [`./storage/`](../storage/) (gitignored; included in Res
 ### Nextcloud (files + Office)
 
 - [ ] Sign in at `https://cloud.<your-hostname>` via Authentik (first login creates the user as Authentik **username**, e.g. `aneedham` — not a UUID)
+- [ ] Confirm Files shows **Shared** for **admins only** (SMB → Samba `shared`; Nextcloud group `admin` / Authentik `homelab-admins`)
 - [ ] Confirm Files, Calendar, Contacts, Tasks, Mail, and Office (Collabora) work in the browser
 - [ ] Create/open a `.odt` / `.ods` / `.odp` to verify Collabora (`https://office.<your-hostname>` is WOPI only — use Nextcloud as the UI)
 - [ ] **Break-glass local admin** (if SSO is broken): `https://cloud.<your-hostname>/login?direct=1` → user `admin`, password `volumes/secrets/nextcloud_admin_password`

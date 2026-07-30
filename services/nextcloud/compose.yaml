@@ -35,7 +35,8 @@ services:
       retries: 5
 
   nextcloud:
-    image: nextcloud:stable
+    build: ${PROJECT_ROOT}/services/nextcloud
+    image: homelab-nextcloud:stable
     container_name: nextcloud
     restart: unless-stopped
     depends_on:
@@ -86,7 +87,8 @@ services:
       - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
 
   nextcloud-cron:
-    image: nextcloud:stable
+    build: ${PROJECT_ROOT}/services/nextcloud
+    image: homelab-nextcloud:stable
     container_name: nextcloud-cron
     restart: unless-stopped
     entrypoint: /cron.sh

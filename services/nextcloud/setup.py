@@ -11,7 +11,7 @@ from setup.service import (
     pg_dump_to_file,
     pg_restore_from_file,
 )
-from setup.ui import warn
+from setup.ui import ok, warn
 from setup.utils import append_env, authentik_group_usernames, docker_exec, gen_secret, run_cmd, wait_for
 
 
@@ -95,6 +95,97 @@ def _ensure_richdocuments_app() -> bool:
         "https://github.com/nextcloud-releases/richdocuments/releases/download/"
         "v10.1.3/richdocuments-v10.1.3.tar.gz",
     )
+
+
+def _smb_mount_id(mount_point: str) -> str:
+    """Return files_external mount id for ``mount_point``, or ''."""
+    out = _occ("files_external:list", "--output=json", check=False) or ""
+    try:
+        mounts = json.loads(out)
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(mounts, list):
+        return ""
+    want = mount_point.strip("/")
+    for m in mounts:
+        if not isinstance(m, dict):
+            continue
+        point = str(m.get("mount_point") or m.get("mountPoint") or "").strip("/")
+        if point != want:
+            continue
+        mid = m.get("mount_id", m.get("id"))
+        return str(mid) if mid is not None else ""
+    return ""
+
+
+def _ensure_smb_external(env: dict) -> None:
+    """Enable files_external and mount Samba ``shared`` for NC admins only.
+
+    Visible only to Nextcloud group ``admin`` (Authentik ``homelab-admins`` get
+    that group via the nextcloud OIDC scope). Auth to Samba uses the bootstrap
+    Authentik user + ``homelab_password``.
+    """
+    if not wait_for(_nextcloud_ready, timeout=120, interval=5):
+        warn("Nextcloud not ready; skip SMB external storage")
+        return
+
+    _occ("app:enable", "files_external", check=False)
+    if not _app_enabled("files_external"):
+        warn("Could not enable files_external")
+        return
+
+    backends = _occ("files_external:backends", check=False) or ""
+    if "smb" not in backends.lower():
+        warn(
+            "SMB backend unavailable — rebuild Nextcloud image with smbclient "
+            "(services/nextcloud/Dockerfile)"
+        )
+        return
+
+    mount_point = "Shared"
+    mount_id = _smb_mount_id(mount_point)
+
+    if not mount_id:
+        username = (env.get("HOMELAB_USERNAME") or "").strip()
+        pw_path = Path("./volumes/secrets/homelab_password")
+        if not username or not pw_path.is_file():
+            warn("HOMELAB_USERNAME / homelab_password missing; skip SMB Shared mount")
+            return
+        password = pw_path.read_text(encoding="utf-8").strip()
+        if not password:
+            warn("homelab_password empty; skip SMB Shared mount")
+            return
+
+        out = _occ(
+            "files_external:create",
+            mount_point,
+            "smb",
+            "password::password",
+            "-c",
+            "host=samba",
+            "-c",
+            "share=shared",
+            "-c",
+            "domain=WORKGROUP",
+            "-c",
+            f"user={username}",
+            "-c",
+            f"password={password}",
+            check=False,
+        ) or ""
+        mount_id = _smb_mount_id(mount_point)
+        if not mount_id:
+            warn(f"SMB Shared mount failed: {out[:400]}")
+            return
+
+    # Restrict to Nextcloud "admin" group (not globally applicable).
+    _occ(
+        "files_external:applicable",
+        mount_id,
+        "--add-group=admin",
+        check=False,
+    )
+    ok("Nextcloud external storage: Shared → smb://samba/shared (admin group only)")
 
 
 def _ensure_groupware_apps(env: dict) -> None:
@@ -665,6 +756,10 @@ class NextcloudService(Service):
                 f"Manual: occ app:install richdocuments; "
                 f"wopi_url=http://collabora:9980 public_wopi_url=https://{office}"
             )
+        try:
+            _ensure_smb_external(env)
+        except Exception as exc:
+            warn(f"SMB external storage failed: {exc}")
 
     def backup(self, env: dict) -> None:
         # Live Postgres dir is restic-excluded; dump into db-dumps for upload.
