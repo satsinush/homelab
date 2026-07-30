@@ -143,20 +143,53 @@ async function readCoreDbMtimeSec(): Promise<string | null> {
 
 /**
  * When pacman-sync.service last finished (oneshot → inactive).
- * InactiveEnterTimestampUSec is realtime µs; 0 means never run.
+ * Prefer *USec; some hosts only populate the wall-clock InactiveEnterTimestamp.
  */
 async function readPacmanSyncLastRunSec(): Promise<string | null> {
     try {
         const { stdout } = await execFileAsync(
             'systemctl',
-            ['show', 'pacman-sync.service', '-p', 'InactiveEnterTimestampUSec', '--value'],
+            [
+                'show',
+                'pacman-sync.service',
+                '-p',
+                'InactiveEnterTimestampUSec',
+                '-p',
+                'InactiveEnterTimestamp',
+                '--value',
+            ],
             { timeout: 10000 }
         );
-        const usec = parseInt(stdout.trim(), 10);
-        if (!Number.isFinite(usec) || usec <= 0) {
-            return null;
+        const lines = stdout
+            .split('\n')
+            .map((l) => l.trim())
+            .filter((l) => l.length > 0 && l !== 'n/a' && l !== '0');
+
+        for (const line of lines) {
+            // µs since epoch (property order: USec first when present)
+            if (/^\d+$/.test(line)) {
+                const usec = parseInt(line, 10);
+                if (usec > 0) {
+                    return String(Math.floor(usec / 1_000_000));
+                }
+                continue;
+            }
+            // Wall clock e.g. "Thu 2026-07-30 18:03:42 CDT" — parse on the host
+            try {
+                const { stdout: epochOut } = await execFileAsync(
+                    'date',
+                    ['-d', line, '+%s'],
+                    { timeout: 5000 }
+                );
+                const sec = parseInt(epochOut.trim(), 10);
+                if (Number.isFinite(sec) && sec > 0) {
+                    return String(sec);
+                }
+            } catch {
+                // try next line
+            }
         }
-        return String(Math.floor(usec / 1_000_000));
+        return null;
     } catch {
         return null;
     }
