@@ -37,7 +37,7 @@ What it configures (source of truth is the role files under [`ansible/roles/`](.
 | Area | What's applied |
 | --- | --- |
 | **SSH hardening** | Port `2222`, key-only auth, no root login — via drop-in `/etc/ssh/sshd_config.d/10-homelab.conf` |
-| **firewalld zones** | `local` (LAN), `vpn` (Tailscale `tailscale0`, Headscale prefix), `docker` (bridge subnet) — each opens only the services that zone needs (SSH, HTTP/S, DNS, RustDesk, SMB) |
+| **firewalld zones** | `local` (LAN), `vpn` (Tailscale `tailscale0`, Headscale prefix), `docker` (bridge subnet) — each opens only the services that zone needs (SSH, HTTP/S, DNS, RustDesk, SMB, IMAPS/SMTPS) |
 | **Forwarding policies** | `vpn-to-lan`, `lan-to-vpn`, `docker-to-any` + masquerading, so VPN ↔ LAN routing works both directions |
 | **VPN host prep** | `net.ipv4.ip_forward=1`, TUN module, disables legacy `wg-quick@wg0` (Headscale itself runs in Docker) |
 | **Host DNS** | Installs the [`dns/`](../dns/) configs — disables the systemd-resolved stub listener so Pi-hole can own port 53 |

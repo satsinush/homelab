@@ -5,14 +5,14 @@
     enabled: true
     state: started
 
-- name: Define custom services (ssh-custom, rustdesk, samba-homelab, headscale-public)
+- name: Define custom services (ssh-custom, rustdesk, samba-homelab, mail-homelab, headscale-public)
   ansible.builtin.template:
     src: "service-{{ item }}.xml.j2"
     dest: "/etc/firewalld/services/{{ item }}.xml"
     owner: root
     group: root
     mode: "0644"
-  loop: [ssh-custom, rustdesk, samba-homelab, headscale-public]
+  loop: [ssh-custom, rustdesk, samba-homelab, mail-homelab, headscale-public]
   notify: reload firewalld
 
 - name: Define zones (local, vpn, docker)
