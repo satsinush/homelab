@@ -98,6 +98,9 @@ services:
       - host_api_token
     networks:
       - homelab-net
+    extra_hosts:
+      # Linux Docker: required so HOST_API_URL (host.docker.internal) reaches host-api
+      - "host.docker.internal:host-gateway"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.authentik.rule=Host(`${AUTHENTIK_SERVICE_NAME}.${HOMELAB_HOSTNAME}`)"
@@ -183,6 +186,8 @@ services:
       - host_api_token
     networks:
       - homelab-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       authentik-postgres:
         condition: service_healthy

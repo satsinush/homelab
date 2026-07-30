@@ -63,14 +63,21 @@ def _post_smb(path: str, payload: dict, username: str) -> None:
                 "smb sync failed",
                 path=path,
                 username=username,
+                url=url,
                 status=resp.status_code,
                 body=resp.text[:200],
             )
         else:
-            LOGGER.info("smb sync ok", path=path, username=username)
+            LOGGER.info("smb sync ok", path=path, username=username, url=url)
     except Exception as exc:
         # Never block Authentik password changes on SMB failures.
-        LOGGER.warning("smb sync error", path=path, username=username, error=str(exc))
+        LOGGER.warning(
+            "smb sync error",
+            path=path,
+            username=username,
+            url=url,
+            error=str(exc),
+        )
 
 
 @receiver(password_changed)
@@ -87,11 +94,13 @@ def sync_smb_password(sender, user: User, password: str | None = None, **_):
         return
 
     if not _is_smb_admin(user):
+        LOGGER.info("smb sync skip: not in homelab-admins", username=username)
         # Drop any leftover Samba account for non-admins.
         _post_smb("/smb/disable-user", {"username": username}, username)
         return
 
     if not password:
+        LOGGER.warning("smb sync skip: no cleartext password in signal", username=username)
         return
 
     _post_smb(
