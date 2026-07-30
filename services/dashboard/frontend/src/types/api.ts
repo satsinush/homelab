@@ -349,6 +349,11 @@ export interface ServerSettings {
 
 export interface UserSettings {
     theme?: string;
+    defaultHomePage?: string;
+    deviceListView?: string;
+    showOfflineDevices?: boolean;
+    devicesPerPage?: number | string;
+    compactMode?: boolean;
     [key: string]: unknown;
 }
 

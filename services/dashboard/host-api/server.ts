@@ -358,6 +358,70 @@ app.get('/packages/sync-time', (req: Request, res: Response) => {
     });
 });
 
+/**
+ * @openapi
+ * /packages/sync:
+ *   post:
+ *     summary: Sync pacman package databases via systemd pacman-sync.service
+ *     description: >
+ *       Runs `sudo systemctl start pacman-sync.service` (oneshot → pacman -Sy).
+ *       Requires a narrow sudoers rule for the host-api user (Ansible packages role).
+ *     responses:
+ *       200:
+ *         description: Sync completed
+ *       500:
+ *         description: Sync failed or sudoers missing
+ */
+app.post('/packages/sync', (req: Request, res: Response) => {
+    console.log('Received request to sync package databases');
+    if (os.platform() !== 'linux') {
+        return res.status(500).json({
+            success: false,
+            error: 'Package sync is only supported on Linux (pacman)',
+        });
+    }
+
+    // systemctl start waits for Type=oneshot to finish (pacman -Sy).
+    execFile(
+        'sudo',
+        ['-n', '/usr/bin/systemctl', 'start', 'pacman-sync.service'],
+        { timeout: 180000 },
+        (error, stdout, stderr) => {
+            if (error) {
+                console.error('Package sync failed:', error.message, stderr);
+                return res.status(500).json({
+                    success: false,
+                    error: error.message,
+                    stderr: (stderr || '').trim(),
+                    hint:
+                        'Ensure Ansible installed /etc/sudoers.d/homelab-host-api ' +
+                        'and pacman-sync.service is installed',
+                    code: error.code,
+                });
+            }
+
+            exec(
+                getPlatformCommand('packageSyncTime') || 'stat -c %Z /var/lib/pacman/sync/core.db',
+                { timeout: 10000 },
+                (statErr, syncStdout) => {
+                    res.json({
+                        success: true,
+                        data: {
+                            message: 'Package databases synced',
+                            syncTime: (syncStdout || '').trim() || 'Unknown',
+                            platform: os.platform(),
+                        },
+                        stdout: (stdout || '').trim(),
+                        stderr: (stderr || '').trim(),
+                        timestamp: new Date().toISOString(),
+                        code: 0,
+                    });
+                }
+            );
+        }
+    );
+});
+
 // Wake on LAN endpoint
 /**
  * @openapi

@@ -138,6 +138,29 @@ class SystemController {
         }
     }
 
+    // Sync pacman databases on the host (via host-api → pacman-sync.service)
+    async syncPackages(req: Request, res: Response) {
+        try {
+            const syncResult = await this.hostApi.syncPackages();
+            if (!syncResult.success) {
+                return sendError(res, 500, 'Failed to sync package databases', String(syncResult.error || 'Unknown error'));
+            }
+            const packageInfo = await this.getPackageInfo();
+            return sendSuccess(res, {
+                message: 'Package databases synced',
+                packages: packageInfo.packages,
+                updatesAvailable: packageInfo.updatesAvailable,
+                lastChecked: packageInfo.lastChecked,
+                lastSynced: packageInfo.lastSynced,
+                packageManager: packageInfo.packageManager,
+                note: packageInfo.note,
+            });
+        } catch (error: unknown) {
+            console.error('Package sync error:', error);
+            return sendError(res, 500, 'Failed to sync package databases', getErrorMessage(error));
+        }
+    }
+
     // Trigger package update check
     async checkUpdates(req: Request, res: Response) {
         try {

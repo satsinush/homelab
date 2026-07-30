@@ -26,3 +26,13 @@
       - restic
       - acl             # setfacl: UID-1000 containers read 0600 secrets
       - python
+
+# Narrow sudo for dashboard host-api → pacman-sync.service (no general root).
+- name: Install host-api sudoers for pacman-sync
+  ansible.builtin.template:
+    src: sudoers-homelab-host-api.j2
+    dest: /etc/sudoers.d/homelab-host-api
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "visudo -cf %s"

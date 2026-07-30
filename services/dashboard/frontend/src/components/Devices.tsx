@@ -30,7 +30,8 @@ import {
     Tooltip,
     Select,
     MenuItem,
-    FormControl
+    FormControl,
+    TablePagination
 } from '@mui/material';
 import {
     Refresh as RefreshIcon,
@@ -70,9 +71,41 @@ import {
     ClearCacheResponse,
     FavoriteResponse,
     RustdeskConfig,
+    UserSettings,
 } from '../types/api';
 
 import { getErrorMessage } from '../utils/errors';
+
+type DeviceViewMode = 'cards' | 'table';
+
+interface DeviceListPrefs {
+    deviceListView: string;
+    showOfflineDevices: boolean;
+    devicesPerPage: number;
+    compactMode: boolean;
+}
+
+const DEFAULT_DEVICE_PREFS: DeviceListPrefs = {
+    deviceListView: 'grid',
+    showOfflineDevices: true,
+    devicesPerPage: 25,
+    compactMode: false,
+};
+
+function settingToViewMode(setting: string | undefined | null): DeviceViewMode {
+    if (setting === 'list' || setting === 'table') return 'table';
+    return 'cards';
+}
+
+function viewModeToSetting(mode: DeviceViewMode): 'grid' | 'list' {
+    return mode === 'table' ? 'list' : 'grid';
+}
+
+function clampDevicesPerPage(n: number): number {
+    if (!Number.isFinite(n) || n < 5) return 25;
+    if (n > 100) return 100;
+    return Math.floor(n);
+}
 
 interface DeviceDialogProps {
     open: boolean;
@@ -174,9 +207,9 @@ const Devices = () => {
     const [rustdeskConfig, setRustdeskConfig] = useState<RustdeskConfig>({ available: false, relayHost: '', publicKey: '' });
 
     // Filter and search states
-    const [viewMode, setViewMode] = useState(() => {
-        return localStorage.getItem('devicesViewMode') || 'cards';
-    }); // 'cards' or 'table'
+    const [viewMode, setViewMode] = useState<DeviceViewMode>('cards');
+    const [prefs, setPrefs] = useState<DeviceListPrefs>(DEFAULT_DEVICE_PREFS);
+    const [page, setPage] = useState(0);
 
     // Table filter states
     const [nameFilter, setNameFilter] = useState('');
@@ -187,6 +220,56 @@ const Devices = () => {
     // Sorting states
     const [sortBy, setSortBy] = useState('status');
     const [sortOrder, setSortOrder] = useState('desc'); // 'asc' or 'desc'
+
+    const persistDevicePrefs = useCallback(async (patch: Partial<DeviceListPrefs>) => {
+        setPrefs((prev) => {
+            const next = { ...prev, ...patch };
+            void (async () => {
+                try {
+                    const res = await tryApiCall<{ settings: UserSettings }>('/user-settings');
+                    const current = res.data?.settings || {};
+                    await tryApiCall('/user-settings', {
+                        method: 'PUT',
+                        data: {
+                            ...current,
+                            deviceListView: next.deviceListView,
+                            showOfflineDevices: next.showOfflineDevices,
+                            devicesPerPage: next.devicesPerPage,
+                            compactMode: next.compactMode,
+                        },
+                    });
+                } catch (err) {
+                    console.error('Failed to save device list preferences:', err);
+                }
+            })();
+            return next;
+        });
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await tryApiCall<{ settings: UserSettings }>('/user-settings');
+                if (cancelled) return;
+                const s = res.data?.settings || {};
+                const loaded: DeviceListPrefs = {
+                    deviceListView:
+                        typeof s.deviceListView === 'string' ? s.deviceListView : 'grid',
+                    showOfflineDevices: s.showOfflineDevices !== false,
+                    devicesPerPage: clampDevicesPerPage(Number(s.devicesPerPage) || 25),
+                    compactMode: Boolean(s.compactMode),
+                };
+                setPrefs(loaded);
+                setViewMode(settingToViewMode(loaded.deviceListView));
+            } catch {
+                /* keep defaults */
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const fetchRustdeskConfig = useCallback(async () => {
         try {
@@ -448,6 +531,7 @@ const Devices = () => {
             if (macFilter && !deviceMac.includes(normalizeMacForApi(macFilter))) return false;
             if (ipFilter && !deviceIp.replace('.', '').includes(ipFilter.replace('.', '').toLowerCase())) return false;
             if (statusFilter && !deviceStatus.includes(statusFilter.toLowerCase())) return false;
+            if (!prefs.showOfflineDevices && deviceStatus !== 'online') return false;
 
             return true;
         });
@@ -495,7 +579,7 @@ const Devices = () => {
                 return bValue.localeCompare(aValue);
             }
         });
-    }, [nameFilter, macFilter, ipFilter, statusFilter, sortBy, sortOrder]);
+    }, [nameFilter, macFilter, ipFilter, statusFilter, sortBy, sortOrder, prefs.showOfflineDevices]);
 
     const getUniqueValues = useCallback((devicesList: Device[], key: string): string[] => {
         const values = devicesList
@@ -515,13 +599,30 @@ const Devices = () => {
         return getFilteredDevices(devices);
     }, [devices, getFilteredDevices]);
 
+    useEffect(() => {
+        setPage(0);
+    }, [nameFilter, macFilter, ipFilter, statusFilter, prefs.showOfflineDevices, prefs.devicesPerPage]);
+
+    const pagedDevices = useMemo(() => {
+        const size = prefs.devicesPerPage;
+        const start = page * size;
+        return filteredAllDevices.slice(start, start + size);
+    }, [filteredAllDevices, page, prefs.devicesPerPage]);
+
     const renderCards = () => (
         <>
             {/* All Devices Section */}
-            {filteredAllDevices.length > 0 ? (
-                <Grid container spacing={3}>
-                    {filteredAllDevices.map(device => (
-                        <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={device.macNormalized || device.mac}>
+            {pagedDevices.length > 0 ? (
+                <Grid container spacing={prefs.compactMode ? 1.5 : 3}>
+                    {pagedDevices.map(device => (
+                        <Grid
+                            size={
+                                prefs.compactMode
+                                    ? { xs: 12, sm: 6, md: 4, lg: 3 }
+                                    : { xs: 12, sm: 6, lg: 4 }
+                            }
+                            key={device.macNormalized || device.mac}
+                        >
                             <Card sx={{
                                 height: '100%',
                                 display: 'flex',
@@ -529,16 +630,11 @@ const Devices = () => {
                                 border: device.isFavorite ? '2px solid' : '1px solid',
                                 borderColor: device.isFavorite ? 'primary.main' : 'divider'
                             }}>
-                                <CardContent sx={{ flexGrow: 1 }}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <CardContent sx={{ flexGrow: 1, py: prefs.compactMode ? 1.5 : 2, '&:last-child': { pb: prefs.compactMode ? 1.5 : 2 } }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: prefs.compactMode ? 1 : 2 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
                                                 {getDeviceTypeIcon(device.name)}
-                                                {/* {device.status === 'online' ? (
-                                                    <OnlineIcon sx={{ color: 'success.main', fontSize: 16, position: 'absolute', top: -4, right: -4 }} />
-                                                ) : (
-                                                    <OfflineIcon sx={{ color: 'error.main', fontSize: 16, position: 'absolute', top: -4, right: -4 }} />
-                                                )} */}
                                             </Box>
                                             <Chip
                                                 label={device.status === 'online' ? 'Online' : 'Offline'}
@@ -548,14 +644,16 @@ const Devices = () => {
                                                 icon={device.status === 'online' ? <OnlineIcon /> : <OfflineIcon />}
                                             />
                                         </Box>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Chip
-                                                label={device.isFavorite ? "FAVORITE" : "DISCOVERED"}
-                                                color={device.isFavorite ? "primary" : "default"}
-                                                size="small"
-                                                variant={device.isFavorite ? 'filled' : 'outlined'}
-                                                icon={device.isFavorite ? <StarIcon /> : undefined}
-                                            />
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            {!prefs.compactMode && (
+                                                <Chip
+                                                    label={device.isFavorite ? "FAVORITE" : "DISCOVERED"}
+                                                    color={device.isFavorite ? "primary" : "default"}
+                                                    size="small"
+                                                    variant={device.isFavorite ? 'filled' : 'outlined'}
+                                                    icon={device.isFavorite ? <StarIcon /> : undefined}
+                                                />
+                                            )}
                                             <IconButton
                                                 size="small"
                                                 onClick={() => handleToggleFavorite(device)}
@@ -566,25 +664,28 @@ const Devices = () => {
                                         </Box>
                                     </Box>
 
-                                    <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
+                                    <Typography
+                                        variant={prefs.compactMode ? 'subtitle1' : 'h6'}
+                                        sx={{ mb: 1, fontWeight: 600 }}
+                                    >
                                         {device.name}
                                     </Typography>
 
                                     {/* Device Details */}
-                                    <Stack spacing={1} sx={{ mb: 3 }}>
+                                    <Stack spacing={prefs.compactMode ? 0.5 : 1} sx={{ mb: prefs.compactMode ? 1 : 3 }}>
                                         {device.ip && (
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                                 <Typography variant="body2" color="text.secondary">IP:</Typography>
                                                 <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{device.ip}</Typography>
                                             </Box>
                                         )}
-                                        {device.mac && (
+                                        {device.mac && !prefs.compactMode && (
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                                 <Typography variant="body2" color="text.secondary">MAC:</Typography>
                                                 <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{device.mac}</Typography>
                                             </Box>
                                         )}
-                                        {device.description && (
+                                        {device.description && !prefs.compactMode && (
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                                                 <Typography variant="body2" color="text.secondary">Description:</Typography>
                                                 <Typography variant="body2">{device.description}</Typography>
@@ -595,16 +696,17 @@ const Devices = () => {
 
                                 {/* Actions */}
                                 <Divider />
-                                <Box sx={{ p: 2 }}>
-                                    <Stack spacing={1}>
+                                <Box sx={{ p: prefs.compactMode ? 1 : 2 }}>
+                                    <Stack spacing={1} direction={prefs.compactMode ? 'row' : 'column'}>
                                         <Button
                                             fullWidth
                                             variant="contained"
                                             startIcon={<PowerIcon />}
                                             onClick={() => handleWakeOnLan(device)}
                                             color="primary"
+                                            size={prefs.compactMode ? 'small' : 'medium'}
                                         >
-                                            Wake Device
+                                            {prefs.compactMode ? 'Wake' : 'Wake Device'}
                                         </Button>
                                         {device.rustdeskId && (
                                             <Button
@@ -613,13 +715,14 @@ const Devices = () => {
                                                 startIcon={!rustdeskConfig.available ? <WarningIcon /> : <RustDeskIcon />}
                                                 onClick={() => handleRustDeskConnect(device)}
                                                 color={!rustdeskConfig.available ? "warning" : "secondary"}
+                                                size={prefs.compactMode ? 'small' : 'medium'}
                                             >
-                                                Connect RustDesk
+                                                {prefs.compactMode ? 'Remote' : 'Connect RustDesk'}
                                             </Button>
                                         )}
                                         {device.isFavorite && (
                                             <Button
-                                                fullWidth
+                                                fullWidth={!prefs.compactMode}
                                                 variant="outlined"
                                                 startIcon={<EditIcon />}
                                                 onClick={() => handleEditDevice(device)}
@@ -660,7 +763,7 @@ const Devices = () => {
                 overflowX: 'auto',
             }}
         >
-            <Table>
+            <Table size={prefs.compactMode ? 'small' : 'medium'}>
                 <TableHead>
                     <TableRow>
                         <TableCell>Name</TableCell>
@@ -671,8 +774,8 @@ const Devices = () => {
                     </TableRow>
                 </TableHead>
                 <TableBody>
-                    {filteredAllDevices.length > 0 ? (
-                        filteredAllDevices.map(device => (
+                    {pagedDevices.length > 0 ? (
+                        pagedDevices.map(device => (
                             <TableRow key={device.macNormalized || device.mac} hover>
                                 <TableCell>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -799,10 +902,12 @@ const Devices = () => {
                         <ToggleButtonGroup
                             value={viewMode}
                             exclusive
-                            onChange={(e, newView) => {
+                            onChange={(e, newView: DeviceViewMode | null) => {
                                 if (newView) {
                                     setViewMode(newView);
-                                    localStorage.setItem('devicesViewMode', newView);
+                                    void persistDevicePrefs({
+                                        deviceListView: viewModeToSetting(newView),
+                                    });
                                 }
                             }}
                             size="small"
@@ -1054,6 +1159,21 @@ const Devices = () => {
                     renderCards()
                 ) : (
                     renderDevicesTable()
+                )}
+                {filteredAllDevices.length > 0 && (
+                    <TablePagination
+                        component="div"
+                        count={filteredAllDevices.length}
+                        page={page}
+                        onPageChange={(_e, next) => setPage(next)}
+                        rowsPerPage={prefs.devicesPerPage}
+                        onRowsPerPageChange={(e) => {
+                            const next = clampDevicesPerPage(parseInt(e.target.value, 10));
+                            setPage(0);
+                            void persistDevicePrefs({ devicesPerPage: next });
+                        }}
+                        rowsPerPageOptions={[5, 10, 25, 50, 100]}
+                    />
                 )}
             </Box>
 

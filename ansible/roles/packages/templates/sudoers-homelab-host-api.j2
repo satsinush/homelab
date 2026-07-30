@@ -1,0 +1,3 @@
+# Allow the host-api service user to start the pacman DB sync oneshot only.
+# Host-api runs as this user (PUID); it must not get general sudo or pacman.
+{{ homelab_user }} ALL=(root) NOPASSWD: /usr/bin/systemctl start pacman-sync.service

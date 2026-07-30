@@ -116,7 +116,28 @@ router.put('/user-settings', requireAuth(), (req: Request, res: Response) => {
         if (!userId) {
             return sendError(res, 401, 'Unauthorized');
         }
-        const updated = userSettings.setAll(userId, req.body);
+        const body = { ...(req.body || {}) } as Record<string, unknown>;
+        // Only allow known dashboard page ids as default home.
+        const allowedHomes = new Set([
+            'home',
+            'system',
+            'devices',
+            'chat',
+            'wordgames',
+            'packages',
+            'files',
+            'users',
+            'secrets',
+            'settings',
+            'profile',
+        ]);
+        if (
+            body.defaultHomePage !== undefined &&
+            (typeof body.defaultHomePage !== 'string' || !allowedHomes.has(body.defaultHomePage))
+        ) {
+            body.defaultHomePage = 'home';
+        }
+        const updated = userSettings.setAll(userId, body);
         return sendSuccess(res, { settings: updated });
     } catch (error: unknown) {
         return sendError(res, 500, 'Failed to save user settings', getErrorMessage(error));
@@ -159,6 +180,24 @@ router.get('/system', requireAuth('dashboard-system-user'), (req: Request, res: 
  *         description: Forbidden
  */
 router.get('/packages', requireAuth('dashboard-packages-user'), (req: Request, res: Response) => systemController.getPackages(req, res));
+
+/**
+ * @openapi
+ * /api/packages/sync:
+ *   post:
+ *     summary: Sync pacman package databases on the host
+ *     tags: [System]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Databases synced; returns refreshed package list
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.post('/packages/sync', requireAuth('dashboard-packages-user'), (req: Request, res: Response) => systemController.syncPackages(req, res));
 
 /**
  * @openapi

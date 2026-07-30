@@ -85,6 +85,13 @@ class HostApiService {
         return this.makeRequest('/packages/sync-time');
     }
 
+    async syncPackages(): Promise<HostApiResponse> {
+        return this.makeRequest('/packages/sync', {
+            method: 'POST',
+            timeout: 180000,
+        });
+    }
+
     // Health check
     async healthCheck(): Promise<HostApiResponse> {
         return this.makeRequest('/health');

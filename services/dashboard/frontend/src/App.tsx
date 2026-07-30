@@ -23,6 +23,7 @@ import Users from './components/Users';
 import Secrets from './components/Secrets';
 import NotFound from './components/NotFound';
 import Files from './components/Files';
+import DefaultHomeRedirect from './components/DefaultHomeRedirect';
 import './App.css';
 
 import { ReactNode } from 'react';
@@ -164,7 +165,7 @@ function AppContent() {
               }}
             >
               <Routes>
-                <Route path="/" element={<Home />} />
+                <Route path="/" element={<DefaultHomeRedirect />} />
                 <Route path="/home" element={<Home />} />
                 <Route path="/system" element={<ProtectedRoute role="dashboard-system-user"><System /></ProtectedRoute>} />
                 <Route path="/devices" element={<ProtectedRoute role="dashboard-devices-user"><Devices /></ProtectedRoute>} />

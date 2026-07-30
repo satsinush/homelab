@@ -42,6 +42,7 @@ import { useNotification } from '../contexts/useNotification';
 import { useAuth } from '../contexts/useAuth';
 
 import { getErrorMessage } from '../utils/errors';
+import { allowedDefaultHomePages, resolveDefaultHome } from '../utils/navPages';
 
 const Settings = () => {
     const [serverSettings, setServerSettings] = useState<ServerSettings | null>(null);
@@ -51,8 +52,13 @@ const Settings = () => {
     const [tabValue, setTabValue] = useState(0);
     const { themeMode, setThemeMode, actualMode } = useThemeMode();
     const { showSuccess, showError } = useNotification();
-    const { hasPermission } = useAuth();
+    const { hasPermission, user } = useAuth();
     const canManageSettings = hasPermission('dashboard-settings-user');
+    const homePageOptions = useMemo(
+        () => allowedDefaultHomePages(hasPermission),
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- roles drive permission set
+        [user?.roles]
+    );
 
     const tabsList = useMemo(() => {
         const list = [];
@@ -132,7 +138,22 @@ const Settings = () => {
                     tryApiCall<{ settings: UserSettings }>('/user-settings').catch(() => null)
                 ]);
                 setServerSettings(serverRes?.data?.settings || { scanTimeout: 30000, cacheTimeout: 300000 });
-                setUserSettings(userRes?.data?.settings || {});
+                let loaded = userRes?.data?.settings || {};
+                const stored =
+                    typeof loaded.defaultHomePage === 'string' ? loaded.defaultHomePage : 'home';
+                const { pageId, reset } = resolveDefaultHome(stored, hasPermission);
+                if (reset) {
+                    loaded = { ...loaded, defaultHomePage: pageId };
+                    try {
+                        await tryApiCall('/user-settings', {
+                            method: 'PUT',
+                            data: loaded,
+                        });
+                    } catch {
+                        /* keep local reset even if save fails */
+                    }
+                }
+                setUserSettings(loaded);
             } catch (err) {
                 showError(`Failed to load settings: ${getErrorMessage(err)}`);
             } finally {
@@ -140,7 +161,8 @@ const Settings = () => {
             }
         };
         fetchAll();
-    }, [showError]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- roles drive permission set
+    }, [showError, user?.roles]);
 
     const handleServerSettingChange = (key: string, value: unknown) => {
         const newSettings = { ...(serverSettings || {}), [key]: value };
@@ -324,14 +346,25 @@ const Settings = () => {
                                             <FormControl fullWidth>
                                                 <InputLabel>Default Home Page</InputLabel>
                                                 <Select
-                                                    value={userSettings.defaultHomePage || 'home'}
+                                                    value={
+                                                        homePageOptions.some(
+                                                            (p) => p.id === (userSettings.defaultHomePage || 'home')
+                                                        )
+                                                            ? userSettings.defaultHomePage || 'home'
+                                                            : 'home'
+                                                    }
                                                     label="Default Home Page"
                                                     onChange={(e) => handleUserSettingChange('defaultHomePage', e.target.value)}
                                                 >
-                                                    <MenuItem value="home">Home Dashboard</MenuItem>
-                                                    <MenuItem value="devices">Devices</MenuItem>
+                                                    {homePageOptions.map((page) => (
+                                                        <MenuItem key={page.id} value={page.id}>
+                                                            {page.label}
+                                                        </MenuItem>
+                                                    ))}
                                                 </Select>
-                                                <FormHelperText>Page shown when you first sign in</FormHelperText>
+                                                <FormHelperText>
+                                                    Opened after sign-in (and when you visit the site root). Resets to Home if you lose access to the chosen page.
+                                                </FormHelperText>
                                             </FormControl>
                                         </Stack>
                                     </CardContent>
@@ -350,14 +383,21 @@ const Settings = () => {
                                             <FormControl fullWidth>
                                                 <InputLabel>Default View</InputLabel>
                                                 <Select
-                                                    value={userSettings.deviceListView || 'grid'}
+                                                    value={
+                                                        userSettings.deviceListView === 'list' ||
+                                                        userSettings.deviceListView === 'table'
+                                                            ? 'list'
+                                                            : 'grid'
+                                                    }
                                                     label="Default View"
                                                     onChange={(e) => handleUserSettingChange('deviceListView', e.target.value)}
                                                 >
-                                                    <MenuItem value="grid">Grid</MenuItem>
-                                                    <MenuItem value="list">List</MenuItem>
+                                                    <MenuItem value="grid">Grid (cards)</MenuItem>
+                                                    <MenuItem value="list">List (table)</MenuItem>
                                                 </Select>
-                                                <FormHelperText>How devices are displayed by default</FormHelperText>
+                                                <FormHelperText>
+                                                    Default Devices layout (synced to your account; the page toggle updates this too)
+                                                </FormHelperText>
                                             </FormControl>
                                             <TextField
                                                 label="Devices Per Page"
@@ -384,7 +424,7 @@ const Settings = () => {
                                                     handleUserSettingChange('devicesPerPage', num);
                                                 }}
                                                 fullWidth
-                                                helperText="Number of devices shown per page (5-100)"
+                                                helperText="Pagination size on the Devices page (5-100)"
                                                 slotProps={{
                                                     input: {
                                                         sx: {
@@ -424,9 +464,6 @@ const Settings = () => {
                 {/* Device Settings Tab (localStorage) */}
                 {currentTabId === 'device' && (
                     <Box role="tabpanel" id="settings-tabpanel-device">
-                        <Alert severity="info" sx={{ mb: 3 }}>
-                            Device settings are stored locally on this browser and not synced across devices.
-                        </Alert>
                         <Grid container spacing={3}>
                             {/* Theme Settings */}
                             <Grid size={{ xs: 12, md: 6 }}>

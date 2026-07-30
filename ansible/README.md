@@ -33,7 +33,7 @@ but keep your current session open until you've verified `ssh -p 2222 <host>` wo
 
 | Role | Manages |
 | --- | --- |
-| `packages` | pacman packages (docker, restic, acl, …) — see [prerequisites](../docs/1-prerequisites.md) |
+| `packages` | pacman packages (docker, restic, acl, …), sudoers for host-api → `pacman-sync.service` — see [prerequisites](../docs/1-prerequisites.md) |
 | `firewalld` | zones `local`/`vpn`/`docker`, services `ssh-custom`/`rustdesk`/`samba-homelab`/`mail-homelab`, forwarding policies |
 | `ssh` | key-only auth + custom port via `/etc/ssh/sshd_config.d/10-homelab.conf` |
 | `docker` | daemon enabled, user in `docker` group |

@@ -54,7 +54,8 @@ const PackageManager = () => {
     const [versionSearchTerm, setVersionSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'updates', 'uptodate'
     const [lastSynced, setLastSynced] = useState<string | null>(null);
-    const { showError } = useNotification();
+    const [syncing, setSyncing] = useState(false);
+    const { showError, showSuccess } = useNotification();
 
     const fetchPackages = useCallback(async () => {
         setLoading(true);
@@ -74,6 +75,23 @@ const PackageManager = () => {
             setLoading(false);
         }
     }, [showError]);
+
+    const syncPackageDatabase = useCallback(async () => {
+        setSyncing(true);
+        try {
+            const result = await tryApiCall<PackagesResponse>('/packages/sync', {
+                method: 'POST',
+                timeout: 180000,
+            });
+            setPackages(result.data.packages || []);
+            setLastSynced(result.data.lastSynced);
+            showSuccess(result.data.note || 'Package databases synced');
+        } catch (err) {
+            showError(getErrorMessage(err) || 'Failed to sync package databases');
+        } finally {
+            setSyncing(false);
+        }
+    }, [showError, showSuccess]);
 
     useEffect(() => {
         fetchPackages();
@@ -184,11 +202,12 @@ const PackageManager = () => {
 
                     <Button
                         variant="contained"
-                        startIcon={<RefreshIcon />}
-                        onClick={fetchPackages}
+                        startIcon={syncing ? <CircularProgress size={18} color="inherit" /> : <RefreshIcon />}
+                        onClick={syncPackageDatabase}
+                        disabled={syncing || loading}
                         sx={{ width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}
                     >
-                        Sync Database
+                        {syncing ? 'Syncing…' : 'Sync Database'}
                     </Button>
                 </Box>
             </Box>
