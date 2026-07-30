@@ -43,6 +43,7 @@ interface SystemPackage {
 
 interface PackagesResponse {
     packages: SystemPackage[];
+    lastChecked: string | null;
     lastSynced: string | null;
     note?: string;
 }
@@ -53,16 +54,22 @@ const PackageManager = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [versionSearchTerm, setVersionSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'updates', 'uptodate'
+    const [lastChecked, setLastChecked] = useState<string | null>(null);
     const [lastSynced, setLastSynced] = useState<string | null>(null);
     const [syncing, setSyncing] = useState(false);
     const { showError, showSuccess } = useNotification();
+
+    const applyPackageResponse = useCallback((data: PackagesResponse) => {
+        setPackages(data.packages || []);
+        setLastChecked(data.lastChecked);
+        setLastSynced(data.lastSynced);
+    }, []);
 
     const fetchPackages = useCallback(async () => {
         setLoading(true);
         try {
             const result = await tryApiCall<PackagesResponse>('/packages', { 'timeout': 30000 });
-            setPackages(result.data.packages || []);
-            setLastSynced(result.data.lastSynced);
+            applyPackageResponse(result.data);
 
             if (result.data.note) {
                 console.log('Package status:', result.data.note);
@@ -70,11 +77,12 @@ const PackageManager = () => {
         } catch (err) {
             showError(getErrorMessage(err) || 'Unable to fetch package information - Package management not available');
             setPackages([]);
+            setLastChecked(null);
             setLastSynced(null);
         } finally {
             setLoading(false);
         }
-    }, [showError]);
+    }, [applyPackageResponse, showError]);
 
     const syncPackageDatabase = useCallback(async () => {
         setSyncing(true);
@@ -83,15 +91,14 @@ const PackageManager = () => {
                 method: 'POST',
                 timeout: 180000,
             });
-            setPackages(result.data.packages || []);
-            setLastSynced(result.data.lastSynced);
+            applyPackageResponse(result.data);
             showSuccess(result.data.note || 'Package databases synced');
         } catch (err) {
             showError(getErrorMessage(err) || 'Failed to sync package databases');
         } finally {
             setSyncing(false);
         }
-    }, [showError, showSuccess]);
+    }, [applyPackageResponse, showError, showSuccess]);
 
     useEffect(() => {
         fetchPackages();
@@ -193,9 +200,11 @@ const PackageManager = () => {
                         <Typography variant="body2" color="text.secondary">
                             {packages.length > 0 && `Total: ${packages.length} packages, ${packages.filter(pkg => pkg.hasUpdate).length} updates available`}
                         </Typography>
-                        {lastSynced && (
+                        {(lastChecked || lastSynced) && (
                             <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                                Package database last synced: {formatSyncTime(lastSynced)}
+                                Last checked: {formatSyncTime(lastChecked)}
+                                {' · '}
+                                DB updated: {formatSyncTime(lastSynced)}
                             </Typography>
                         )}
                     </Box>

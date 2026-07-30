@@ -42,10 +42,17 @@ export interface PackageInfo {
     packages: Array<{ name: string; currentVersion: string; newVersion: string | null; hasUpdate: boolean; status: string }>;
     totalPackages: number;
     updatesAvailable: number;
-    lastChecked: string;
+    /** When pacman-sync.service last finished (check ran). */
+    lastChecked: string | null;
+    /** When core.db mtime last moved (mirror had new metadata). */
     lastSynced: string | null;
     packageManager: string;
     note: string;
+}
+
+interface PackageSyncTimestamps {
+    lastChecked: Date | null;
+    lastSynced: Date | null;
 }
 
 class SystemController {
@@ -375,10 +382,10 @@ class SystemController {
     // Get package information
     async getPackageInfo(): Promise<PackageInfo> {
         try {
-            const [installedPackages, availableUpdates, syncTime] = await Promise.all([
+            const [installedPackages, availableUpdates, syncTimestamps] = await Promise.all([
                 this.getInstalledPackages(),
                 this.getAvailableUpdates(),
-                this.getPackageSyncTime()
+                this.getPackageSyncTimestamps()
             ]);
 
             const packages = [];
@@ -412,8 +419,12 @@ class SystemController {
                 packages: packages,
                 totalPackages: packages.length,
                 updatesAvailable: updatesAvailable,
-                lastChecked: new Date().toISOString(),
-                lastSynced: syncTime ? syncTime.toISOString() : null,
+                lastChecked: syncTimestamps.lastChecked
+                    ? syncTimestamps.lastChecked.toISOString()
+                    : null,
+                lastSynced: syncTimestamps.lastSynced
+                    ? syncTimestamps.lastSynced.toISOString()
+                    : null,
                 packageManager: 'pacman',
                 note: updatesAvailable > 0 
                     ? `${updatesAvailable} updates available out of ${packages.length} packages`
@@ -455,30 +466,38 @@ class SystemController {
         }
     }
 
-    async getPackageSyncTime() {
+    private parseHostEpoch(value: string | undefined): Date | null {
+        if (!value || value === 'Unknown') {
+            return null;
+        }
+        const timestamp = parseInt(value, 10);
+        if (!isNaN(timestamp)) {
+            return new Date(timestamp * 1000);
+        }
+        const parsedDate = new Date(value);
+        if (!isNaN(parsedDate.getTime())) {
+            return parsedDate;
+        }
+        return null;
+    }
+
+    async getPackageSyncTimestamps(): Promise<PackageSyncTimestamps> {
         try {
             const syncResult = await this.hostApi.getPackageSyncTime();
-            const data = syncResult.data as { syncTime?: string } | undefined;
+            const data = syncResult.data as { syncTime?: string; lastRun?: string } | undefined;
             if (!syncResult.success || !data) {
                 console.error('Package sync time error from host API');
-                return null;
+                return { lastChecked: null, lastSynced: null };
             }
-            
-            const syncTime = data.syncTime;
-            if (syncTime && syncTime !== 'Unknown') {
-                const timestamp = parseInt(syncTime);
-                if (!isNaN(timestamp)) {
-                    return new Date(timestamp * 1000);
-                }
-                const parsedDate = new Date(syncTime);
-                if (!isNaN(parsedDate.getTime())) {
-                    return parsedDate;
-                }
-            }
-            return null;
+
+            return {
+                // lastRun = pacman-sync.service finished; syncTime = core.db mtime
+                lastChecked: this.parseHostEpoch(data.lastRun),
+                lastSynced: this.parseHostEpoch(data.syncTime),
+            };
         } catch (error: unknown) {
             console.error('Package sync time error:', getErrorMessage(error));
-            return null;
+            return { lastChecked: null, lastSynced: null };
         }
     }
 

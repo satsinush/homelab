@@ -128,6 +128,53 @@ function getPlatformCommand(operation: string): string | null {
     return commands[operation] || null;
 }
 
+/** Unix epoch seconds, or null if unavailable / never. */
+async function readCoreDbMtimeSec(): Promise<string | null> {
+    try {
+        const { stdout } = await execFileAsync('stat', ['-c', '%Z', '/var/lib/pacman/sync/core.db'], {
+            timeout: 10000,
+        });
+        const v = stdout.trim();
+        return v || null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * When pacman-sync.service last finished (oneshot → inactive).
+ * InactiveEnterTimestampUSec is realtime µs; 0 means never run.
+ */
+async function readPacmanSyncLastRunSec(): Promise<string | null> {
+    try {
+        const { stdout } = await execFileAsync(
+            'systemctl',
+            ['show', 'pacman-sync.service', '-p', 'InactiveEnterTimestampUSec', '--value'],
+            { timeout: 10000 }
+        );
+        const usec = parseInt(stdout.trim(), 10);
+        if (!Number.isFinite(usec) || usec <= 0) {
+            return null;
+        }
+        return String(Math.floor(usec / 1_000_000));
+    } catch {
+        return null;
+    }
+}
+
+async function getPackageSyncTimestamps(): Promise<{
+    /** core.db mtime — only moves when mirrors had new metadata */
+    syncTime: string | null;
+    /** pacman-sync.service last completed run */
+    lastRun: string | null;
+}> {
+    const [syncTime, lastRun] = await Promise.all([
+        readCoreDbMtimeSec(),
+        readPacmanSyncLastRunSec(),
+    ]);
+    return { syncTime, lastRun };
+}
+
 interface Device {
     ip: string;
     mac: string;
@@ -332,30 +379,39 @@ app.get('/packages/updates', (req: Request, res: Response) => {
  * @openapi
  * /packages/sync-time:
  *   get:
- *     summary: Get last package database sync timestamp
+ *     summary: Get package DB mtime and last pacman-sync.service run
+ *     description: >
+ *       syncTime is core.db mtime (updates only when mirror metadata changed).
+ *       lastRun is when pacman-sync.service last finished (every successful check).
  *     responses:
  *       200:
  *         description: Sync time payload
  */
-app.get('/packages/sync-time', (req: Request, res: Response) => {
-    console.log("Received request for package sync time");
-    const cmd = getPlatformCommand('packageSyncTime');
-    if (!cmd) {
+app.get('/packages/sync-time', async (req: Request, res: Response) => {
+    console.log('Received request for package sync time');
+    if (os.platform() !== 'linux') {
         return res.status(500).json({ success: false, error: 'Command not supported' });
     }
-    
-    exec(cmd, { timeout: 10000 }, (error, stdout, stderr) => {
-        res.json({ 
-            success: !error,
+
+    try {
+        const { syncTime, lastRun } = await getPackageSyncTimestamps();
+        res.json({
+            success: true,
             data: {
-                syncTime: stdout.trim() || 'Unknown',
-                platform: os.platform()
+                syncTime: syncTime || 'Unknown',
+                lastRun: lastRun || 'Unknown',
+                platform: os.platform(),
             },
-            stderr: stderr.trim(),
             timestamp: new Date().toISOString(),
-            code: error ? error.code : 0
+            code: 0,
         });
-    });
+    } catch (error: unknown) {
+        res.status(500).json({
+            success: false,
+            error: getErrorMessage(error),
+            timestamp: new Date().toISOString(),
+        });
+    }
 });
 
 /**
@@ -400,15 +456,14 @@ app.post('/packages/sync', (req: Request, res: Response) => {
                 });
             }
 
-            exec(
-                getPlatformCommand('packageSyncTime') || 'stat -c %Z /var/lib/pacman/sync/core.db',
-                { timeout: 10000 },
-                (statErr, syncStdout) => {
+            getPackageSyncTimestamps()
+                .then(({ syncTime, lastRun }) => {
                     res.json({
                         success: true,
                         data: {
                             message: 'Package databases synced',
-                            syncTime: (syncStdout || '').trim() || 'Unknown',
+                            syncTime: syncTime || 'Unknown',
+                            lastRun: lastRun || 'Unknown',
                             platform: os.platform(),
                         },
                         stdout: (stdout || '').trim(),
@@ -416,8 +471,23 @@ app.post('/packages/sync', (req: Request, res: Response) => {
                         timestamp: new Date().toISOString(),
                         code: 0,
                     });
-                }
-            );
+                })
+                .catch((statErr: unknown) => {
+                    res.json({
+                        success: true,
+                        data: {
+                            message: 'Package databases synced',
+                            syncTime: 'Unknown',
+                            lastRun: 'Unknown',
+                            platform: os.platform(),
+                        },
+                        stdout: (stdout || '').trim(),
+                        stderr: (stderr || '').trim(),
+                        timestamp: new Date().toISOString(),
+                        code: 0,
+                        warning: getErrorMessage(statErr),
+                    });
+                });
         }
     );
 });
