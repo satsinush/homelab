@@ -137,10 +137,8 @@ endpoints:
     conditions:
       - "[STATUS] == 200"
     alerts:
-      # Overriding defaults here for security: alert instantly on 1 failure, bug me every 5m
       - type: custom
         description: "Authentik is down! Authentication is completely broken."
-        failure-threshold: 1
 
   - name: "Vaultwarden"
     group: "Identity"
