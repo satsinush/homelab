@@ -87,6 +87,12 @@ class DatabaseModel {
                 PRIMARY KEY (user_id, key),
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS package_update_notifications (
+                name TEXT PRIMARY KEY,
+                notified_version TEXT NOT NULL,
+                last_notified_at INTEGER NOT NULL
+            );
         `);
     }
 

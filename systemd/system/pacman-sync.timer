@@ -1,12 +1,14 @@
 # /etc/systemd/system/pacman-sync.timer
 
 [Unit]
-Description=Run pacman-sync daily
+Description=Run pacman-sync every 6 hours
 Requires=pacman-sync.service
 
 [Timer]
-OnCalendar=*-*-* 08:00:00
+# :15 past every 6 hours so the run is predictable after boot/restarts.
+OnCalendar=*-*-* 00/6:15:00
 Persistent=true
+RandomizedDelaySec=5min
 
 [Install]
 WantedBy=timers.target

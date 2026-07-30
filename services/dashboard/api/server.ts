@@ -215,7 +215,7 @@ const initializeServer = async () => {
             // Start package update checker
             try {
                 packageUpdateChecker.start();
-                console.log('Package update checker started (hourly notifications) ✓');
+                console.log('Package update checker started (6h at :30 local, weekly reminders) ✓');
             } catch (error: unknown) {
                 console.error('Failed to start package update checker:', getErrorMessage(error));
             }

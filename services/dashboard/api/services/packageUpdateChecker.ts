@@ -1,26 +1,83 @@
 import SystemController from '../controllers/systemController';
+import PackageUpdateNotifications from '../models/PackageUpdateNotifications';
 import AlertsService from './alertsService';
 import { getErrorMessage } from '../utils/errors';
+
+/** Wall-clock slots: after pacman-sync at :15 every 6h. */
+const CHECK_HOURS = [0, 6, 12, 18] as const;
+const CHECK_MINUTE = 30;
+const REMINDER_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+
+type UpdatablePackage = {
+    name: string;
+    currentVersion: string;
+    newVersion: string | null;
+    hasUpdate: boolean;
+    status: string;
+};
 
 class PackageUpdateChecker {
     private systemController: SystemController;
     private notificationService: AlertsService;
-    private intervalId: NodeJS.Timeout | null;
+    private store: PackageUpdateNotifications;
+    private timeoutId: NodeJS.Timeout | null;
     private isRunning: boolean;
-    private lastNotificationTime: number | null;
-    private lastNotifiedPackages: Set<string>;
-    private checkIntervalMs: number;
-    private minNotificationIntervalMs: number;
+    private nextCheckAt: number | null;
 
     constructor() {
         this.systemController = new SystemController();
         this.notificationService = new AlertsService();
-        this.intervalId = null;
+        this.store = new PackageUpdateNotifications();
+        this.timeoutId = null;
         this.isRunning = false;
-        this.lastNotificationTime = null;
-        this.lastNotifiedPackages = new Set<string>(); // Track which packages we've already notified about
-        this.checkIntervalMs = 60 * 60 * 1000; // 1 hour
-        this.minNotificationIntervalMs = 24 * 60 * 60 * 1000; // 24 hours minimum between notifications
+        this.nextCheckAt = null;
+    }
+
+    /** Next local 00/6/12/18:30 after `from`. */
+    static nextCheckDate(from: Date = new Date()): Date {
+        for (let dayOffset = 0; dayOffset <= 1; dayOffset++) {
+            for (const hour of CHECK_HOURS) {
+                const candidate = new Date(from);
+                candidate.setDate(from.getDate() + dayOffset);
+                candidate.setHours(hour, CHECK_MINUTE, 0, 0);
+                if (candidate.getTime() > from.getTime()) {
+                    return candidate;
+                }
+            }
+        }
+        const fallback = new Date(from);
+        fallback.setDate(from.getDate() + 1);
+        fallback.setHours(0, CHECK_MINUTE, 0, 0);
+        return fallback;
+    }
+
+    private availableVersion(pkg: UpdatablePackage): string {
+        return (pkg.newVersion || pkg.currentVersion || '').trim();
+    }
+
+    private scheduleNext(): void {
+        if (this.timeoutId) {
+            clearTimeout(this.timeoutId);
+            this.timeoutId = null;
+        }
+        if (!this.isRunning) {
+            return;
+        }
+
+        const next = PackageUpdateChecker.nextCheckDate();
+        this.nextCheckAt = next.getTime();
+        const delayMs = Math.max(1000, this.nextCheckAt - Date.now());
+
+        console.log(`Next package update check at ${next.toISOString()} (in ${Math.round(delayMs / 60000)}m)`);
+
+        this.timeoutId = setTimeout(() => {
+            void this.runScheduledCheck();
+        }, delayMs);
+    }
+
+    private async runScheduledCheck(): Promise<void> {
+        await this.checkForUpdates();
+        this.scheduleNext();
     }
 
     start() {
@@ -29,88 +86,108 @@ class PackageUpdateChecker {
             return;
         }
 
-        console.log('Starting package update checker (checking every hour)');
+        const rows = this.store.list();
+        if (rows.length > 0) {
+            console.log(`Loaded package notify state: ${rows.length} tracked package(s)`);
+        }
+        console.log(
+            'Starting package update checker (00/6/12/18:30 local, after pacman-sync :15)'
+        );
         this.isRunning = true;
-
-        // Run initial check after 5 minutes
-        setTimeout(() => this.checkForUpdates(), 5 * 60 * 1000);
-
-        // Set up hourly interval
-        this.intervalId = setInterval(() => {
-            this.checkForUpdates();
-        }, this.checkIntervalMs);
+        this.scheduleNext();
     }
 
     stop() {
-        if (this.intervalId) {
-            clearInterval(this.intervalId);
-            this.intervalId = null;
+        if (this.timeoutId) {
+            clearTimeout(this.timeoutId);
+            this.timeoutId = null;
         }
         this.isRunning = false;
+        this.nextCheckAt = null;
         console.log('Package update checker stopped');
     }
 
     async checkForUpdates() {
         try {
             console.log('Checking for package updates...');
-            
+
             const packageInfo = await this.systemController.getPackageInfo();
-            const packagesWithUpdates = packageInfo.packages.filter(pkg => pkg.hasUpdate);
+            const packagesWithUpdates = packageInfo.packages.filter(
+                pkg => pkg.hasUpdate
+            ) as UpdatablePackage[];
             const updatesAvailable = packagesWithUpdates.length;
-            
-            if (updatesAvailable > 0) {
-                // Create a set of current packages that need updates
-                const currentPackageNames = new Set(packagesWithUpdates.map(pkg => pkg.name));
-                
-                // Check if there are any new packages that need updates
-                const newPackages = packagesWithUpdates.filter(pkg => !this.lastNotifiedPackages.has(pkg.name));
-                const hasNewUpdates = newPackages.length > 0;
-                
-                // Check if enough time has passed since last notification
-                const now = Date.now();
-                const timeSinceLastNotification = this.lastNotificationTime ? (now - this.lastNotificationTime) : Infinity;
-                const enoughTimePassed = timeSinceLastNotification >= this.minNotificationIntervalMs;
-                
-                if (hasNewUpdates || (!this.lastNotificationTime && updatesAvailable > 0)) {
-                    // Send notification for new updates or first-time discovery
-                    await this.notificationService.sendPackageUpdateNotification(
-                        updatesAvailable, 
-                        packagesWithUpdates
-                    );
-                    
-                    this.lastNotificationTime = now;
-                    this.lastNotifiedPackages = currentPackageNames;
-                    
-                    if (hasNewUpdates) {
-                        console.log(`Package update notification sent: ${newPackages.length} new updates (${updatesAvailable} total)`);
-                    } else {
-                        console.log(`Package update notification sent: ${updatesAvailable} updates available (first check)`);
-                    }
-                } else if (enoughTimePassed && updatesAvailable > 0) {
-                    // Send reminder notification after 6+ hours even for same packages
-                    await this.notificationService.sendPackageUpdateNotification(
-                        updatesAvailable, 
-                        packagesWithUpdates
-                    );
-                    
-                    this.lastNotificationTime = now;
-                    this.lastNotifiedPackages = currentPackageNames;
-                    
-                    const hoursSinceLastNotification = Math.round(timeSinceLastNotification / (60 * 60 * 1000));
-                    console.log(`Package update reminder sent: ${updatesAvailable} updates still pending (${hoursSinceLastNotification}h since last notification)`);
-                } else {
-                    const hoursSinceLastNotification = Math.round(timeSinceLastNotification / (60 * 60 * 1000));
-                    console.log(`${updatesAvailable} updates available (same packages), but notification was sent ${hoursSinceLastNotification}h ago`);
-                }
-            } else {
-                // No updates available - clear the tracking
-                if (this.lastNotifiedPackages.size > 0) {
+            const pendingNames = new Set(packagesWithUpdates.map(p => p.name));
+            const now = Date.now();
+
+            if (updatesAvailable === 0) {
+                if (this.store.list().length > 0) {
                     console.log('All packages are now up to date - clearing notification tracking');
-                    this.lastNotifiedPackages.clear();
+                    this.store.clear();
                 } else {
                     console.log('No package updates available');
                 }
+                return;
             }
+
+            // Drop rows for packages that were installed / no longer pending.
+            this.store.syncPending(pendingNames);
+            const known = this.store.getMap();
+
+            const changed: UpdatablePackage[] = [];
+            const dueForReminder: UpdatablePackage[] = [];
+
+            for (const pkg of packagesWithUpdates) {
+                const ver = this.availableVersion(pkg);
+                const row = known.get(pkg.name);
+                if (!row || row.notifiedVersion !== ver) {
+                    changed.push(pkg);
+                } else if (now - row.lastNotifiedAt >= REMINDER_AFTER_MS) {
+                    dueForReminder.push(pkg);
+                }
+            }
+
+            if (changed.length > 0) {
+                await this.notificationService.sendPackageUpdateNotification(
+                    updatesAvailable,
+                    packagesWithUpdates
+                );
+                // Bump only new/changed packages so unrelated pending keep their reminder clocks.
+                this.store.upsertMany(
+                    changed.map(pkg => ({
+                        name: pkg.name,
+                        notifiedVersion: this.availableVersion(pkg),
+                        lastNotifiedAt: now,
+                    }))
+                );
+                console.log(
+                    `Package update notification sent: ${changed.length} new/changed ` +
+                        `(${updatesAvailable} total pending)`
+                );
+                return;
+            }
+
+            if (dueForReminder.length > 0) {
+                await this.notificationService.sendPackageUpdateNotification(
+                    updatesAvailable,
+                    packagesWithUpdates
+                );
+                this.store.upsertMany(
+                    dueForReminder.map(pkg => ({
+                        name: pkg.name,
+                        notifiedVersion: this.availableVersion(pkg),
+                        lastNotifiedAt: now,
+                    }))
+                );
+                console.log(
+                    `Package update reminder sent: ${dueForReminder.length} package(s) due ` +
+                        `(${updatesAvailable} total pending)`
+                );
+                return;
+            }
+
+            console.log(
+                `${updatesAvailable} updates available (same versions, none due for weekly reminder)`
+            );
         } catch (error: unknown) {
             console.error('Package update check failed:', getErrorMessage(error));
         }
@@ -119,10 +196,9 @@ class PackageUpdateChecker {
     getStatus() {
         return {
             isRunning: this.isRunning,
-            checkInterval: this.checkIntervalMs,
-            lastNotificationTime: this.lastNotificationTime,
-            lastNotifiedPackages: Array.from(this.lastNotifiedPackages),
-            nextCheckIn: this.intervalId ? this.checkIntervalMs : null
+            schedule: '00/6/12/18:30 local',
+            nextCheckAt: this.nextCheckAt,
+            tracked: this.store.list(),
         };
     }
 }
