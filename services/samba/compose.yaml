@@ -18,6 +18,8 @@ services:
       SAMBA_CONF_SMB3_DIRECTORY_LEASES: "no"
       # Private per-user home: \\server\username → storage/users/<username>
       # Accounts only for Authentik homelab-admins (password sync gated).
+      # path ends in %U → image appends root preexec calling samba_create_user_dir.sh
+      # (we bind-mount a homelab-owned variant; do not set root preexec here).
       SAMBA_VOLUME_CONFIG_homes: >-
         [homes];
         path=/shares/users/%U;
@@ -30,8 +32,7 @@ services:
         force group=homelab;
         create mask=0700;
         directory mask=0700;
-        hide unreadable=yes;
-        root preexec=/bin/sh -c 'mkdir -p /shares/users/%U && chown homelab:homelab /shares/users/%U && chmod 700 /shares/users/%U'
+        hide unreadable=yes
       # Shared by Samba users (admins): \\server\shared → storage/shared
       SAMBA_VOLUME_CONFIG_shared: >-
         [shared];
@@ -50,6 +51,7 @@ services:
       - ${PROJECT_ROOT}/storage:/shares
       - ${PROJECT_ROOT}/services/samba/volumes/data:/var/lib/samba
       - ${PROJECT_ROOT}/services/samba/entrypoint.sh:/entrypoint-homelab.sh:ro
+      - ${PROJECT_ROOT}/services/samba/samba_create_user_dir.sh:/container/scripts/samba_create_user_dir.sh:ro
     entrypoint: ["/bin/sh", "/entrypoint-homelab.sh"]
     command: ["runsvdir", "-P", "/container/config/runit"]
     ports:

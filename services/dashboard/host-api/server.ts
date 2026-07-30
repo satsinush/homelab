@@ -931,6 +931,14 @@ app.post('/smb/set-password', async (req: Request, res: Response) => {
             timeout: 30000,
             maxBuffer: 1024 * 1024,
         });
+        // Ensure host home exists and is owned by the Samba force-user (PUID).
+        const homeDir = path.join(REPO_ROOT, 'storage', 'users', username);
+        fs.mkdirSync(homeDir, { recursive: true, mode: 0o700 });
+        try {
+            fs.chmodSync(homeDir, 0o700);
+        } catch {
+            /* ignore */
+        }
         res.json({ success: true, data: { username }, timestamp: new Date().toISOString() });
     } catch (err: unknown) {
         console.error('smb/set-password failed:', err);
