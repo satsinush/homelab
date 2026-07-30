@@ -190,7 +190,7 @@ def _ensure_smb_external(env: dict) -> None:
 
 def _ensure_groupware_apps(env: dict) -> None:
     if not wait_for(_nextcloud_ready, timeout=120, interval=5):
-        warn("Nextcloud not ready; skip calendar/contacts/tasks/mail")
+        warn("Nextcloud not ready; skip calendar/contacts/tasks/mail/dav_push")
         return
     cal_ok = _ensure_app(
         "calendar",
@@ -212,6 +212,12 @@ def _ensure_groupware_apps(env: dict) -> None:
         "https://github.com/nextcloud-releases/mail/releases/download/"
         "v5.10.9/mail-v5.10.9.tar.gz",
     )
+    # WebDAV-Push for DAVx⁵ (near-instant CalDAV/CardDAV sync via FCM/UnifiedPush).
+    push_ok = _ensure_app(
+        "dav_push",
+        "https://github.com/bitfireAT/nc_ext_dav_push/releases/download/"
+        "v1.0.2/dav_push.tar.gz",
+    )
     _disable_example_groupware_content()
     if not (cal_ok and contacts_ok and tasks_ok):
         if not cal_ok:
@@ -224,6 +230,10 @@ def _ensure_groupware_apps(env: dict) -> None:
         _configure_mail_for_stalwart(env)
     else:
         warn("Could not enable mail")
+    if push_ok:
+        ok("Nextcloud dav_push enabled (WebDAV-Push for DAVx⁵)")
+    else:
+        warn("Could not enable dav_push")
 
 
 def _disable_example_groupware_content() -> None:
@@ -746,7 +756,7 @@ class NextcloudService(Service):
             _ensure_groupware_apps(env)
             _ensure_homelab_mail_account(env)
         except Exception as exc:
-            warn(f"Calendar/Contacts/Tasks/Mail auto-enable failed: {exc}")
+            warn(f"Calendar/Contacts/Tasks/Mail/dav_push auto-enable failed: {exc}")
         try:
             _configure_richdocuments(env)
         except Exception as exc:
