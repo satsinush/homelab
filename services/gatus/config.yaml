@@ -64,7 +64,7 @@ alerting:
     # ─── GLOBAL ALERTS DEFAULT ───
     # This automatically applies to all endpoints below, keeping your YAML tiny.
     default-alert:
-      failure-threshold: 2     # Must fail 2 times in a row before triggering (ignores random blips)
+      failure-threshold: 3     # Must fail 3 times in a row before triggering (ignores random blips)
       success-threshold: 1     # Instantly resolves on the first successful pass
       send-on-resolved: true   # Keep this true globally
 
