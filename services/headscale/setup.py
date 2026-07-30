@@ -244,6 +244,144 @@ def _approve_lan_routes(lan_subnet: str) -> None:
     _hs("nodes", "rename", "homelab-router", "--identifier", node_id, check=False)
 
 
+def _headscale_falling_back_to_cli() -> bool:
+    """True if recent Headscale logs show OIDC init failed (CLI registration mode)."""
+    logs = (run_cmd("docker logs headscale --tail 200", check=False) or "").lower()
+    return "falling back to cli" in logs
+
+
+def _maybe_reload_oidc(env: dict) -> None:
+    """Restart Headscale only when OIDC was unavailable at last start.
+
+    Unconditional restarts drop every Tailscale client on each ``setup.py`` run.
+    """
+    auth = env.get("AUTHENTIK_SERVICE_NAME") or "auth"
+    host = env.get("HOMELAB_HOSTNAME") or ""
+    if not host:
+        return
+
+    oidc_url = (
+        f"https://{auth}.{host}/application/o/headscale/"
+        ".well-known/openid-configuration"
+    )
+    if not wait_for(
+        lambda: '"issuer"'
+        in (run_cmd(f"curl -sf {shlex.quote(oidc_url)}", check=False) or ""),
+        timeout=180,
+        interval=5,
+    ):
+        warn(f"Authentik Headscale OIDC not reachable yet ({oidc_url})")
+        return
+
+    if not _headscale_falling_back_to_cli():
+        return
+
+    run_cmd("docker restart headscale", check=False)
+    if not wait_for_container_healthy("headscale", timeout=120):
+        warn("Headscale unhealthy after OIDC reload — continue anyway")
+    elif _headscale_falling_back_to_cli():
+        warn(
+            "Headscale still falling back to CLI auth after OIDC reload — "
+            "check TLS to Authentik (ca-bundle) and Traefik certs"
+        )
+    else:
+        ok("Headscale OIDC reloaded")
+
+
+def _router_backend_running() -> bool:
+    out = (
+        run_cmd(
+            "docker exec headscale-router "
+            "tailscale --socket=/tmp/tailscaled.sock status --json",
+            check=False,
+        )
+        or ""
+    )
+    return '"BackendState": "Running"' in out
+
+
+def _router_already_healthy() -> bool:
+    """Skip wipe/reauth when the subnet router is already online in Headscale."""
+    if not _router_backend_running():
+        return False
+    node_id = _router_node_id()
+    if not node_id:
+        return False
+    for node in _list_router_nodes():
+        if str(node.get("id", "") or "") == node_id and node.get("online"):
+            return True
+    return False
+
+
+def _provision_subnet_router(env: dict) -> None:
+    lan_subnet = env.get("LAN_SUBNET") or os.environ.get("LAN_SUBNET", "")
+
+    try:
+        user_id = _ensure_router_user()
+        if not user_id:
+            raise RuntimeError(f"user `{ROUTER_USER}` not found after create")
+    except Exception as exc:
+        warn(f"Failed to provision router auth key: {exc}")
+        return
+
+    if _router_already_healthy():
+        # Keep existing preauth key; only ensure routes/name stay correct.
+        try:
+            _ensure_router_authkey(user_id, rotate=False)
+        except Exception as exc:
+            warn(f"Router auth key check failed (router still running): {exc}")
+        _approve_lan_routes(lan_subnet)
+        ok("Headscale subnet router already running (skipped reauth)")
+        return
+
+    try:
+        # Fresh key only when we are about to wipe + re-register the router.
+        _ensure_router_authkey(user_id, rotate=True)
+    except Exception as exc:
+        warn(f"Failed to provision router auth key: {exc}")
+        return
+
+    # Stop any prior attempt (placeholder key / failed login) and wipe state
+    # so TS_AUTH_ONCE cannot skip re-auth with a logged-out node. Delete
+    # existing router nodes first — each wipe+reauth otherwise creates
+    # homelab-router-N leftovers with exit routes stuck on the offline one.
+    run_cmd(
+        "docker compose --profile headscale-router stop headscale-router",
+        check=False,
+    )
+    _delete_router_nodes()
+    _reset_router_state()
+
+    compose_up(
+        "headscale-router",
+        profiles=("headscale-router",),
+        force_recreate=True,
+        check=False,
+    )
+    if not wait_for(
+        lambda: _router_backend_running(),
+        timeout=90,
+        interval=3,
+    ):
+        logs = run_cmd("docker logs headscale-router --tail 30", check=False) or ""
+        warn("headscale-router did not reach Running state")
+        if logs:
+            warn(logs[-800:].strip())
+        return
+
+    docker_exec(
+        "headscale-router",
+        "tailscale",
+        "--socket=/tmp/tailscaled.sock",
+        "set",
+        "--netfilter-mode=off",
+        "--snat-subnet-routes=false",
+        check=False,
+    )
+    _approve_lan_routes(lan_subnet)
+    ok("Headscale subnet router provisioned")
+
+
 class HeadscaleService(Service):
     name = "headscale"
     volume_dirs = [
@@ -296,96 +434,11 @@ class HeadscaleService(Service):
             warn("Headscale not healthy yet — skip router key provisioning")
             return
 
-        # Headscale only initializes OIDC at process start. With
-        # only_start_if_oidc_is_available: false it may have fallen back to CLI
-        # register while Authentik blueprints were still applying — restart once
-        # discovery works so Tailscale clients get OIDC.
-        auth = env.get("AUTHENTIK_SERVICE_NAME") or "auth"
-        host = env.get("HOMELAB_HOSTNAME") or ""
-        if host:
-            oidc_url = (
-                f"https://{auth}.{host}/application/o/headscale/"
-                ".well-known/openid-configuration"
-            )
-            if wait_for(
-                lambda: '"issuer"'
-                in (run_cmd(f"curl -sf {shlex.quote(oidc_url)}", check=False) or ""),
-                timeout=180,
-                interval=5,
-            ):
-                run_cmd("docker restart headscale", check=False)
-                if not wait_for_container_healthy("headscale", timeout=120):
-                    warn("Headscale unhealthy after OIDC reload — continue anyway")
-                elif "falling back to CLI" in (
-                    run_cmd("docker logs headscale --since 2m", check=False) or ""
-                ):
-                    warn(
-                        "Headscale still falling back to CLI auth after OIDC reload — "
-                        "check TLS to Authentik (ca-bundle) and Traefik certs"
-                    )
-                else:
-                    ok("Headscale OIDC reloaded")
-            else:
-                warn(f"Authentik Headscale OIDC not reachable yet ({oidc_url})")
+        # Headscale only initializes OIDC at process start. Restart only when
+        # logs show it fell back to CLI register (Authentik not ready yet).
+        _maybe_reload_oidc(env)
 
-        try:
-            user_id = _ensure_router_user()
-            if not user_id:
-                raise RuntimeError(f"user `{ROUTER_USER}` not found after create")
-            # Always mint a fresh key on postsetup — a leftover placeholder or
-            # corrupt secret is the usual cause of "invalid pre auth key".
-            _ensure_router_authkey(user_id, rotate=True)
-        except Exception as exc:
-            warn(f"Failed to provision router auth key: {exc}")
-            return
-
-        # Stop any prior attempt (placeholder key / failed login) and wipe state
-        # so TS_AUTH_ONCE cannot skip re-auth with a logged-out node. Delete
-        # existing router nodes first — each wipe+reauth otherwise creates
-        # homelab-router-N leftovers with exit routes stuck on the offline one.
-        run_cmd(
-            "docker compose --profile headscale-router stop headscale-router",
-            check=False,
-        )
-        _delete_router_nodes()
-        _reset_router_state()
-
-        compose_up(
-            "headscale-router",
-            profiles=("headscale-router",),
-            force_recreate=True,
-            check=False,
-        )
-        # Wait until the daemon is running *and* Headscale sees the node.
-        if not wait_for(
-            lambda: '"BackendState": "Running"'
-            in (
-                run_cmd(
-                    "docker exec headscale-router tailscale --socket=/tmp/tailscaled.sock status --json",
-                    check=False,
-                )
-                or ""
-            ),
-            timeout=90,
-            interval=3,
-        ):
-            logs = run_cmd("docker logs headscale-router --tail 30", check=False) or ""
-            warn("headscale-router did not reach Running state")
-            if logs:
-                warn(logs[-800:].strip())
-            return
-
-        docker_exec(
-            "headscale-router",
-            "tailscale",
-            "--socket=/tmp/tailscaled.sock",
-            "set",
-            "--netfilter-mode=off",
-            "--snat-subnet-routes=false",
-            check=False,
-        )
-        _approve_lan_routes(env.get("LAN_SUBNET") or os.environ.get("LAN_SUBNET", ""))
-        ok("Headscale subnet router provisioned")
+        _provision_subnet_router(env)
 
     def backup(self, env: dict) -> None:
         sqlite_snapshot(

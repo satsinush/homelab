@@ -185,7 +185,6 @@ def _ensure_smb_external(env: dict) -> None:
         "--add-group=admin",
         check=False,
     )
-    ok("Nextcloud external storage: Shared → smb://samba/shared (admin group only)")
 
 
 def _ensure_groupware_apps(env: dict) -> None:
@@ -230,9 +229,7 @@ def _ensure_groupware_apps(env: dict) -> None:
         _configure_mail_for_stalwart(env)
     else:
         warn("Could not enable mail")
-    if push_ok:
-        ok("Nextcloud dav_push enabled (WebDAV-Push for DAVx⁵)")
-    else:
+    if not push_ok:
         warn("Could not enable dav_push")
 
 
@@ -770,6 +767,7 @@ class NextcloudService(Service):
             _ensure_smb_external(env)
         except Exception as exc:
             warn(f"SMB external storage failed: {exc}")
+        ok("Nextcloud configured")
 
     def backup(self, env: dict) -> None:
         # Live Postgres dir is restic-excluded; dump into db-dumps for upload.
