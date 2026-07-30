@@ -31,7 +31,7 @@ services:
         create mask=0700;
         directory mask=0700;
         hide unreadable=yes;
-        root preexec=/bin/mkdir -p /shares/users/%U
+        root preexec=/bin/sh -c 'mkdir -p /shares/users/%U && chown homelab:homelab /shares/users/%U && chmod 700 /shares/users/%U'
       # Shared by Samba users (admins): \\server\shared → storage/shared
       SAMBA_VOLUME_CONFIG_shared: >-
         [shared];
