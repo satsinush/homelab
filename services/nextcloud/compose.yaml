@@ -101,11 +101,14 @@ services:
     networks:
       - homelab-net
 
-  # Collabora lives here to avoid a broken root-owned ./collabora/ remnant.
   collabora:
     image: collabora/code:latest
     container_name: collabora
     restart: unless-stopped
+    # Recent CODE images are distroless (no /bin/sh). Password is injected via
+    # env_file written by nextcloud/setup.py from the Docker secret.
+    env_file:
+      - ${PROJECT_ROOT}/services/nextcloud/volumes/config/collabora.env
     environment:
       # Traefik terminates TLS; Collabora speaks HTTP on the Docker network.
       # server_name keeps /hosting/discovery on the public office host (not collabora:9980).
@@ -123,14 +126,6 @@ services:
         --o:net.frame_ancestors=https://${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}
       username: admin
       DONT_GEN_SSL_CERT: "true"
-    secrets:
-      - collabora_admin_password
-    # CODE only takes password via env; load it from Docker secret at start.
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        export password="$$(tr -d '\r\n' < /run/secrets/collabora_admin_password)"
-        exec /start-collabora-online.sh
     extra_hosts:
       # WOPI callbacks to Nextcloud go via Traefik HTTPS.
       - "${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}:${TRAEFIK_IP_ADDRESS}"
@@ -144,8 +139,7 @@ services:
       - "traefik.http.routers.collabora.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
       - "traefik.http.services.collabora.loadbalancer.server.port=9980"
       - "traefik.http.services.collabora.loadbalancer.server.scheme=http"
-    # Hardened CODE images have no curl/wget, and 26.04.2.1 has no coolwsd --probe.
-    # Treat "running" as enough for compose; Nextcloud postsetup probes discovery over the net.
+    # coolwsd --probe exists again on current CODE; keep disabled on slow Pi first boots.
     healthcheck:
       disable: true
     cap_add:
@@ -158,8 +152,6 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_oidc_secret
   nextcloud_admin_password:
     file: ${PROJECT_ROOT}/volumes/secrets/nextcloud_admin_password
-  collabora_admin_password:
-    file: ${PROJECT_ROOT}/volumes/secrets/collabora_admin_password
 
 networks:
   homelab-net:

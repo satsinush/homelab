@@ -705,6 +705,19 @@ def _disable_photos_app() -> None:
         warn(f"Could not disable photos app: {out[:200]}")
 
 
+def _write_collabora_env() -> None:
+    """Write Collabora password env for distroless CODE (no /bin/sh for secrets)."""
+    secret = Path("./volumes/secrets/collabora_admin_password")
+    out = Path("./services/nextcloud/volumes/config/collabora.env")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    password = secret.read_text(encoding="utf-8").strip() if secret.is_file() else "placeholder"
+    out.write_text(f"password={password}\n", encoding="utf-8")
+    try:
+        out.chmod(0o600)
+    except OSError:
+        pass
+
+
 class NextcloudService(Service):
     name = "nextcloud"
     volume_dirs = [
@@ -713,6 +726,7 @@ class NextcloudService(Service):
         VolumeDir("./services/nextcloud/volumes/db", uid=70, gid=70, mode=0o700),
         VolumeDir("./services/nextcloud/volumes/db-dumps", mode=0o700),
         VolumeDir("./services/nextcloud/volumes/redis", uid=999, gid=999, mode=0o700),
+        VolumeDir("./services/nextcloud/volumes/config", mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:
@@ -721,6 +735,7 @@ class NextcloudService(Service):
         gen_secret("nextcloud_oidc_secret", 32)
         gen_secret("nextcloud_admin_password", 32)
         gen_secret("collabora_admin_password", 24)
+        _write_collabora_env()
         if not env.get("HOMELAB_DEFAULT_QUOTA_GB"):
             append_env(env, "HOMELAB_DEFAULT_QUOTA_GB", "50")
         if not env.get("NEXTCLOUD_SERVICE_NAME"):
