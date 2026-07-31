@@ -10,9 +10,9 @@ from setup.ui import warn
 class TraefikService(Service):
     name = "traefik"
     volume_dirs = [
-        VolumeDir("./services/traefik/volumes", mode=0o755),
+        VolumeDir("./services/traefik/volumes", mode=0o700),
         # Shared with Stalwart IMAPS/SMTPS (private PEMs or LE dump).
-        VolumeDir("./volumes/certificates/stalwart-tls", uid=2000, gid=2000, mode=0o755),
+        VolumeDir("./volumes/certificates/stalwart-tls", uid=2000, gid=2000, mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:

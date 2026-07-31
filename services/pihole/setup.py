@@ -13,8 +13,8 @@ class PiholeService(Service):
         puid = int(env.get("PUID") or os.environ.get("PUID") or "1000")
         pgid = int(env.get("PGID") or os.environ.get("PGID") or "1000")
         self.volume_dirs = [
-            VolumeDir("./services/pihole/volumes/etc-pihole", uid=puid, gid=pgid, mode=0o755),
-            VolumeDir("./services/pihole/volumes/logs", uid=puid, gid=pgid, mode=0o755),
+            VolumeDir("./services/pihole/volumes/etc-pihole", uid=puid, gid=pgid, mode=0o700),
+            VolumeDir("./services/pihole/volumes/logs", uid=puid, gid=pgid, mode=0o700),
         ]
         super().setup(env)
 

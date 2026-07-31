@@ -385,7 +385,7 @@ def _provision_subnet_router(env: dict) -> None:
 class HeadscaleService(Service):
     name = "headscale"
     volume_dirs = [
-        VolumeDir("./services/headscale/volumes/config", mode=0o755),
+        VolumeDir("./services/headscale/volumes/config", mode=0o700),
         VolumeDir("./services/headscale/volumes/data", mode=0o700),
         VolumeDir("./services/headscale/volumes/router", mode=0o700),
     ]

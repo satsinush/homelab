@@ -35,6 +35,8 @@ def sync_authentik_branding_assets() -> None:
             str(dest_public / "homelab-icon.svg"),
             uid=_AUTHENTIK_UID,
             gid=_AUTHENTIK_GID,
+            mode=0o600,
+            dir_mode=0o700,
         )
     else:
         warn(f"Missing branding icon: {_ICON_SRC}")
@@ -47,6 +49,8 @@ def sync_authentik_branding_assets() -> None:
                     str(dest_icons / src.name),
                     uid=_AUTHENTIK_UID,
                     gid=_AUTHENTIK_GID,
+                    mode=0o600,
+                    dir_mode=0o700,
                 )
     else:
         warn(f"Missing icons directory: {_ICONS_SRC}")
@@ -195,14 +199,39 @@ def _sync_ldap_outpost_token() -> None:
 class AuthentikService(Service):
     name = "authentik"
     volume_dirs = [
-        VolumeDir("./services/authentik/volumes/media", uid=1000, gid=1000, mode=0o755),
-        VolumeDir("./services/authentik/volumes/media/public", uid=1000, gid=1000, mode=0o755),
-        VolumeDir("./services/authentik/volumes/media/public/icons", uid=1000, gid=1000, mode=0o755),
-        VolumeDir("./services/authentik/volumes/templates", mode=0o755),
-        VolumeDir("./services/authentik/volumes/certs", mode=0o755),
+        VolumeDir(
+            "./services/authentik/volumes/media",
+            uid=_AUTHENTIK_UID,
+            gid=_AUTHENTIK_GID,
+            mode=0o700,
+        ),
+        VolumeDir(
+            "./services/authentik/volumes/media/public",
+            uid=_AUTHENTIK_UID,
+            gid=_AUTHENTIK_GID,
+            mode=0o700,
+        ),
+        VolumeDir(
+            "./services/authentik/volumes/media/public/icons",
+            uid=_AUTHENTIK_UID,
+            gid=_AUTHENTIK_GID,
+            mode=0o700,
+        ),
+        VolumeDir(
+            "./services/authentik/volumes/templates",
+            uid=_AUTHENTIK_UID,
+            gid=_AUTHENTIK_GID,
+            mode=0o700,
+        ),
+        VolumeDir(
+            "./services/authentik/volumes/certs",
+            uid=_AUTHENTIK_UID,
+            gid=_AUTHENTIK_GID,
+            mode=0o700,
+        ),
         VolumeDir("./services/authentik/volumes/db", uid=70, gid=70, mode=0o700),
         VolumeDir("./services/authentik/volumes/db-dumps", mode=0o700),
-        VolumeDir("./services/authentik/volumes/redis", uid=999, gid=999, mode=0o755),
+        VolumeDir("./services/authentik/volumes/redis", uid=999, gid=999, mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:

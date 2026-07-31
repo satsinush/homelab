@@ -35,9 +35,9 @@ def _write_ldap_env(env: dict) -> None:
 class SambaService(Service):
     name = "samba"
     volume_dirs = [
-        VolumeDir("./services/samba/volumes/data", mode=0o755),
+        VolumeDir("./services/samba/volumes/data", mode=0o700),
         VolumeDir("./services/samba/volumes/data/private", mode=0o700),
-        VolumeDir("./services/samba/volumes/data/lock", mode=0o755),
+        VolumeDir("./services/samba/volumes/data/lock", mode=0o700),
         VolumeDir("./services/samba/volumes/config", mode=0o700),
     ]
 

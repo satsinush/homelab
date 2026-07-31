@@ -7,7 +7,7 @@ from setup.service import Service, VolumeDir
 class OllamaService(Service):
     name = "ollama"
     volume_dirs = [
-        VolumeDir("./services/ollama/volumes/ollama", mode=0o755),
+        VolumeDir("./services/ollama/volumes/ollama", mode=0o700),
     ]
 
 

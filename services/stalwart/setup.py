@@ -368,7 +368,7 @@ def _ensure_tls_certificate(jmap, env: dict) -> None:
     write_volume_file(
         str(_TLS_DIR / "fullchain.pem"),
         cert_pem,
-        mode=0o644,
+        mode=0o600,
         uid=_STALWART_UID,
         gid=_STALWART_GID,
     )
@@ -615,7 +615,7 @@ class StalwartService(Service):
     volume_dirs = [
         VolumeDir("./services/stalwart/volumes/config", uid=2000, gid=2000, mode=0o700),
         VolumeDir("./services/stalwart/volumes/data", uid=2000, gid=2000, mode=0o700),
-        VolumeDir("./volumes/certificates/stalwart-tls", uid=2000, gid=2000, mode=0o755),
+        VolumeDir("./volumes/certificates/stalwart-tls", uid=2000, gid=2000, mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:

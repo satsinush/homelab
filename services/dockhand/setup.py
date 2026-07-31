@@ -171,7 +171,7 @@ def _ensure_oidc(env: dict) -> None:
 class DockhandService(Service):
     name = "dockhand"
     volume_dirs = [
-        VolumeDir("./services/dockhand/volumes/data", mode=0o755),
+        VolumeDir("./services/dockhand/volumes/data", mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:

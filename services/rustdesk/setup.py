@@ -12,7 +12,7 @@ from setup.utils import run_cmd
 class RustdeskService(Service):
     name = "rustdesk"
     volume_dirs = [
-        VolumeDir("./services/rustdesk/volumes/server", mode=0o755),
+        VolumeDir("./services/rustdesk/volumes/server", mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:

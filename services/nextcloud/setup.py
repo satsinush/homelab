@@ -814,7 +814,7 @@ def _write_collabora_env() -> None:
 class NextcloudService(Service):
     name = "nextcloud"
     volume_dirs = [
-        VolumeDir("./services/nextcloud/volumes/html", uid=33, gid=33, mode=0o755),
+        VolumeDir("./services/nextcloud/volumes/html", uid=33, gid=33, mode=0o700),
         VolumeDir("./services/nextcloud/volumes/data", uid=33, gid=33, mode=0o750),
         VolumeDir("./services/nextcloud/volumes/db", uid=70, gid=70, mode=0o700),
         VolumeDir("./services/nextcloud/volumes/db-dumps", mode=0o700),

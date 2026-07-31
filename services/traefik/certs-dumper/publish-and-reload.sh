@@ -36,7 +36,7 @@ cp -f "${src}/certificate.crt" /certs/fullchain.pem
 cp -f "${src}/privatekey.key" /certs/privkey.pem
 # Stalwart runs as uid 2000.
 chown 2000:2000 /certs/fullchain.pem /certs/privkey.pem 2>/dev/null || true
-chmod 644 /certs/fullchain.pem
+chmod 600 /certs/fullchain.pem
 chmod 600 /certs/privkey.pem
 echo "traefik-certs-dumper: published $(basename "$src") → /certs"
 

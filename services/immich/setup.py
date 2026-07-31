@@ -273,8 +273,8 @@ def configure_immich(env: dict) -> None:
 class ImmichService(Service):
     name = "immich"
     volume_dirs = [
-        VolumeDir("./services/immich/volumes/upload", mode=0o755),
-        VolumeDir("./services/immich/volumes/model-cache", mode=0o755),
+        VolumeDir("./services/immich/volumes/upload", mode=0o700),
+        VolumeDir("./services/immich/volumes/model-cache", mode=0o700),
         VolumeDir("./services/immich/volumes/db", uid=999, gid=999, mode=0o700),
     ]
 

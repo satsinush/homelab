@@ -11,7 +11,7 @@ GOTIFY_ALERTS_USERNAME = "alerts"
 class GotifyService(Service):
     name = "gotify"
     volume_dirs = [
-        VolumeDir("./services/gotify/volumes/data", mode=0o755),
+        VolumeDir("./services/gotify/volumes/data", mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:

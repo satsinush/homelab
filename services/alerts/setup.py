@@ -208,7 +208,7 @@ def _ensure_app(
 class AlertsService(Service):
     name = "alerts"
     volume_dirs = [
-        VolumeDir("./services/alerts/volumes/config", mode=0o755),
+        VolumeDir("./services/alerts/volumes/config", mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:
@@ -264,7 +264,7 @@ class AlertsService(Service):
         with open(template_path, encoding="utf-8") as f:
             template = f.read()
         urls_content = substitute_env_vars(template)
-        write_host_file(f"{config_dir}/urls.yaml", urls_content, mode=0o644)
+        write_host_file(f"{config_dir}/urls.yaml", urls_content, mode=0o600)
         container_curl("alerts", "GET", "http://localhost:80/health")
         ok("Alerts notification gateway ready")
 

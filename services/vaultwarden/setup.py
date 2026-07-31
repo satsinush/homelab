@@ -16,7 +16,7 @@ class VaultwardenService(Service):
     name = "vaultwarden"
     volume_dirs = [
         VolumeDir("./services/vaultwarden/volumes/data", mode=0o700),
-        VolumeDir("./services/vaultwarden/volumes/config", mode=0o755),
+        VolumeDir("./services/vaultwarden/volumes/config", mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:
