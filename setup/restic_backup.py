@@ -174,8 +174,11 @@ def _restic_argv(args: list[str]) -> list[str]:
         return argv
     if not shutil.which("sudo"):
         return argv
+    # -H: use root's HOME so the restic cache is not written into the
+    # invoking user's ~/.cache/restic (which then becomes root-owned).
     return [
         "sudo",
+        "-H",
         "--preserve-env=RESTIC_REPOSITORY,RESTIC_PASSWORD,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_DEFAULT_REGION",
         *argv,
     ]
