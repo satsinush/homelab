@@ -116,7 +116,7 @@ if shopt -q login_shell && [[ -n "$SSH_CONNECTION" ]]; then
 
     if [ "$UPDATES" -gt 0 ]; then
         UPDATE_COLOR="$RED"
-        UPDATE_MESSAGE="(${RED}Run 'sudo pacman -Syu')${NC}"
+        UPDATE_MESSAGE="(${RED}Run 'update')${NC}"
     fi
 
     # Get IP address using the 'ip' command
