@@ -218,7 +218,7 @@ Client **Network** → **ID/Relay server** (and key). There is **no** API/consol
 
 - [ ] Confirm Restic secrets exist under `volumes/secrets/restic_*` (configured during setup if you enabled cloud backup)
 - [ ] Confirm the backup timer is active: `systemctl status homelab-backup.timer`
-- [ ] Optional dry run: `python3 setup.py backup`
+- [ ] Optional dry run: `python3 setup.py backup` (escalates to sudo)
 - [ ] Confirm `storage/` is included in snapshots
 - [ ] Details: [5. Backup and Restore](./5-backup-restore.md)
 

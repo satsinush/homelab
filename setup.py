@@ -10,7 +10,25 @@ import shutil
 import subprocess
 import sys
 
-from setup.ui import banner, error, ok, section, skip, step, warn
+from setup.ui import banner, error, info, ok, section, skip, step, warn
+
+
+def _reexec_as_root(*, reason: str) -> None:
+    """Replace this process with ``sudo`` running the same argv (no-op if root)."""
+    if not hasattr(os, "geteuid") or os.geteuid() == 0:
+        return
+    if not shutil.which("sudo"):
+        error(f"{reason} Needs root, but sudo was not found.")
+        sys.exit(1)
+    info(f"{reason} Re-running with sudo…")
+    # Absolute script path so sudo works regardless of PATH / cwd quirks.
+    script = os.path.abspath(sys.argv[0])
+    argv = [sys.executable, script, *sys.argv[1:]]
+    try:
+        os.execvp("sudo", ["sudo", "--", *argv])
+    except OSError as exc:
+        error(f"Failed to exec sudo: {exc}")
+        sys.exit(1)
 
 
 def _parse_ipv4_network(value: str) -> ipaddress.IPv4Network | None:
@@ -720,6 +738,19 @@ def run_backup(auto: bool = False) -> None:
     from setup.registry import get_services
     from setup.utils import load_env, load_secrets
 
+    # Match homelab-backup.service (User=root): dumps and many bind mounts are
+    # root-owned. Interactive runs re-exec under sudo; --auto must already be root.
+    if hasattr(os, "geteuid") and os.geteuid() != 0:
+        if auto:
+            error(
+                "backup --auto must run as root "
+                "(homelab-backup.service uses User=root)."
+            )
+            sys.exit(1)
+        _reexec_as_root(
+            reason="Backup needs root for Postgres dumps and Restic bind mounts."
+        )
+
     banner("Homelab backup", "==============")
     check_prereqs(extra=["restic"])
 
@@ -744,6 +775,10 @@ def run_restore(snapshot: str = "latest") -> None:
     from setup.service import run_all_postsetup, run_all_restore, run_all_setup
     from setup.registry import get_services
     from setup.utils import compose_up, load_env, load_secrets, wait_for_containers
+
+    _reexec_as_root(
+        reason="Restore needs root to overwrite bind mounts and apply dumps."
+    )
 
     banner("Homelab restore", "===============")
     check_prereqs(extra=["restic"])

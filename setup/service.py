@@ -469,11 +469,23 @@ def pg_dump_to_file(
         warn(f"pg_dump failed for {container}/{database}")
         return False
     parts.append(dump_out)
+    content = "".join(parts)
+    if not content.endswith("\n"):
+        content += "\n"
 
-    with open(dest_path, "w", encoding="utf-8") as f:
-        f.write("".join(parts))
-        if not parts[-1].endswith("\n"):
-            f.write("\n")
+    # Mode 0600: dumps contain credentials/hashes. Nightly timer runs as root;
+    # interactive runs should too when overwriting root-owned dumps.
+    try:
+        fd = os.open(dest_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+        os.chmod(dest_path, 0o600)
+    except PermissionError:
+        warn(
+            f"Cannot write {dest_path} (likely root-owned from the nightly timer). "
+            "Re-run as root: sudo ./setup.py backup"
+        )
+        return False
 
     size = os.path.getsize(dest_path)
     if size > 0:
