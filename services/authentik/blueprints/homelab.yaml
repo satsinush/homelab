@@ -194,7 +194,7 @@ entries:
       roles:
         - !Find [authentik_rbac.role, [name, ldap-search]]
 
-  # Stalwart SMTP submitters (Vaultwarden alerts + system noreply).
+  # Stalwart SMTP submitters (Vaultwarden, Nextcloud system mail, noreply).
   # Auth is via Authentik LDAP — do not create local Stalwart passwords.
   - model: authentik_core.user
     id: smtp-vaultwarden
@@ -219,6 +219,18 @@ entries:
       path: users
       type: service_account
       password: !File /run/secrets/stalwart_smtp_noreply_password
+
+  - model: authentik_core.user
+    id: smtp-nextcloud
+    identifiers:
+      username: nextcloud
+    attrs:
+      username: nextcloud
+      name: Nextcloud SMTP
+      email: !Format ["nextcloud@%s", !Env HOMELAB_HOSTNAME]
+      path: users
+      type: service_account
+      password: !File /run/secrets/stalwart_smtp_nextcloud_password
 
   # =================================================================
   # Password Policies

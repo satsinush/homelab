@@ -305,28 +305,6 @@ def _ensure_tls_certificate(jmap, env: dict) -> None:
     )
 
 
-def _destroy_local_smtp_accounts(jmap, domain_id: str, local_parts: list[str]) -> None:
-    """Remove leftover local Stalwart users; auth comes from Authentik LDAP."""
-    for local_part in local_parts:
-        resp = jmap(
-            [
-                [
-                    "x:Account/query",
-                    {"filter": {"name": local_part, "domainId": domain_id}},
-                    "c1",
-                ]
-            ]
-        )
-        _, query_data = _method_result(resp)
-        ids = [i for i in list((query_data or {}).get("ids") or []) if i]
-        if not ids:
-            continue
-        resp = jmap([["x:Account/set", {"destroy": ids}, "c1"]])
-        _, data = _method_result(resp)
-        if (data or {}).get("notDestroyed"):
-            warn(f"Could not destroy local {local_part}: {(data or {}).get('notDestroyed')}")
-
-
 def _ensure_mail_webhook(jmap) -> None:
     """POST message-ingest.* events to the alerts gateway → Gotify Mail app."""
     url = "http://alerts/stalwart"
@@ -437,6 +415,7 @@ def configure_stalwart(env: dict) -> None:
     ldap_pass = _secret("ldap_service_password")
     vw_pass = _secret("stalwart_smtp_vaultwarden_password")
     nr_pass = _secret("stalwart_smtp_noreply_password")
+    nc_pass = _secret("stalwart_smtp_nextcloud_password")
     if not admin_pass:
         warn("stalwart_admin_password missing; skip Stalwart configure")
         return
@@ -472,14 +451,14 @@ def configure_stalwart(env: dict) -> None:
     if ldap_id:
         _ensure_auth_directory(jmap, ldap_id)
 
-    # Drop legacy local SMTP users; mailboxes materialize via LDAP on first auth.
-    _destroy_local_smtp_accounts(jmap, domain_id, ["vaultwarden", "noreply"])
     if vw_pass:
         _ensure_authentik_smtp_user(
             "vaultwarden", f"vaultwarden@{domain_name}", vw_pass
         )
     if nr_pass:
         _ensure_authentik_smtp_user("noreply", f"noreply@{domain_name}", nr_pass)
+    if nc_pass:
+        _ensure_authentik_smtp_user("nextcloud", f"nextcloud@{domain_name}", nc_pass)
 
     _ensure_mail_webhook(jmap)
 
@@ -519,6 +498,7 @@ class StalwartService(Service):
         gen_secret("stalwart_admin_password", 32)
         gen_secret("stalwart_smtp_vaultwarden_password", 32)
         gen_secret("stalwart_smtp_noreply_password", 32)
+        gen_secret("stalwart_smtp_nextcloud_password", 32)
         if not env.get("MAIL_SERVICE_NAME"):
             append_env(env, "MAIL_SERVICE_NAME", "mail")
 
@@ -539,7 +519,7 @@ class StalwartService(Service):
             warn(f"Stalwart auto-configure failed: {exc}")
             warn(
                 "Retry later or finish in WebUI: LDAP → authentik-ldap:3389; "
-                "local users vaultwarden@ / noreply@"
+                "Authentik SMTP users vaultwarden@ / noreply@ / nextcloud@"
             )
 
 

@@ -47,6 +47,7 @@ _STALWART_SKIP_LOCALPARTS = frozenset(
     {
         "vaultwarden",
         "noreply",
+        "nextcloud",
         "authentik",
         "ldapservice",
     }

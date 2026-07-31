@@ -95,6 +95,7 @@ services:
       - ldap_service_password
       - stalwart_smtp_vaultwarden_password
       - stalwart_smtp_noreply_password
+      - stalwart_smtp_nextcloud_password
       - host_api_token
     networks:
       - homelab-net
@@ -183,6 +184,7 @@ services:
       - ldap_service_password
       - stalwart_smtp_vaultwarden_password
       - stalwart_smtp_noreply_password
+      - stalwart_smtp_nextcloud_password
       - host_api_token
     networks:
       - homelab-net
@@ -243,6 +245,8 @@ secrets:
     file: ${PROJECT_ROOT}/volumes/secrets/stalwart_smtp_vaultwarden_password
   stalwart_smtp_noreply_password:
     file: ${PROJECT_ROOT}/volumes/secrets/stalwart_smtp_noreply_password
+  stalwart_smtp_nextcloud_password:
+    file: ${PROJECT_ROOT}/volumes/secrets/stalwart_smtp_nextcloud_password
   ldap_outpost_token:
     file: ${PROJECT_ROOT}/volumes/secrets/ldap_outpost_token
   host_api_token:

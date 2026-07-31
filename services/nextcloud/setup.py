@@ -46,8 +46,12 @@ def _maintenance_window_start_utc(local_hour: int = 4) -> int:
     return local_start.astimezone(timezone.utc).hour
 
 
-def _ensure_maintenance_tuning() -> None:
-    """Quiet-hour jobs + schema/mimetype maintenance Nextcloud does not auto-run."""
+def _ensure_maintenance_tuning(env: dict | None = None) -> None:
+    """Quiet-hour jobs, phone region, serverid, and schema/mimetype maintenance."""
+    import os
+
+    from setup.utils import phone_region_from_tz
+
     start_utc = _maintenance_window_start_utc(4)
     _occ(
         "config:system:set",
@@ -56,9 +60,69 @@ def _ensure_maintenance_tuning() -> None:
         "--value=" + str(start_utc),
         check=False,
     )
+    # Single-node: any id in 0..1023 clears the admin warning (default is -1).
+    _occ(
+        "config:system:set",
+        "serverid",
+        "--type=integer",
+        "--value=0",
+        check=False,
+    )
+    tz = (env or {}).get("TZ") or os.environ.get("TZ") or "UTC"
+    region = phone_region_from_tz(tz)
+    _occ(
+        "config:system:set",
+        "default_phone_region",
+        "--value=" + region,
+        check=False,
+    )
     _occ("db:add-missing-indices", check=False)
     # Includes mimetype migrations; fine on a small homelab, skip if NC down.
     _occ("maintenance:repair", "--include-expensive", check=False)
+
+
+def _configure_system_mail(env: dict) -> None:
+    """Nextcloud system SMTP (share notifications, etc.) via Stalwart as nextcloud@.
+
+    Same pattern as Vaultwarden: Authentik LDAP user + SMTPS to mail.<domain>.
+    Delivered messages land in user mailboxes; Stalwart webhook → Gotify Mail.
+    """
+    domain = (env.get("HOMELAB_HOSTNAME") or "homelab.home.arpa").strip()
+    mail_host = _mail_hostname(env)
+    pw_path = Path("./volumes/secrets/stalwart_smtp_nextcloud_password")
+    if not pw_path.is_file():
+        warn("stalwart_smtp_nextcloud_password missing; skip Nextcloud system mail")
+        return
+    password = pw_path.read_text(encoding="utf-8").strip()
+    if not password:
+        warn("stalwart_smtp_nextcloud_password empty; skip Nextcloud system mail")
+        return
+
+    smtp_user = f"nextcloud@{domain}"
+    settings: list[tuple[str, str] | tuple[str, str, str]] = [
+        ("mail_smtpmode", "smtp"),
+        ("mail_sendmailmode", "smtp"),
+        ("mail_from_address", "nextcloud"),
+        ("mail_domain", domain),
+        ("mail_smtphost", mail_host),
+        ("mail_smtpport", "465"),
+        ("mail_smtpsecure", "ssl"),
+        ("mail_smtpauth", "1", "boolean"),
+        ("mail_smtpname", smtp_user),
+        ("mail_smtppassword", password),
+    ]
+    for item in settings:
+        key, value = item[0], item[1]
+        if len(item) == 3:
+            _occ(
+                "config:system:set",
+                key,
+                f"--type={item[2]}",
+                f"--value={value}",
+                check=False,
+            )
+        else:
+            _occ("config:system:set", key, f"--value={value}", check=False)
 
 
 def _app_enabled(app_id: str) -> bool:
@@ -764,6 +828,7 @@ class NextcloudService(Service):
         gen_secret("nextcloud_oidc_secret", 32)
         gen_secret("nextcloud_admin_password", 32)
         gen_secret("collabora_admin_password", 24)
+        gen_secret("stalwart_smtp_nextcloud_password", 32)
         _write_collabora_env()
         if not env.get("HOMELAB_DEFAULT_QUOTA_GB"):
             append_env(env, "HOMELAB_DEFAULT_QUOTA_GB", "50")
@@ -778,7 +843,8 @@ class NextcloudService(Service):
                 _ensure_local_admin()
                 _disable_skeleton()
                 _disable_photos_app()
-                _ensure_maintenance_tuning()
+                _ensure_maintenance_tuning(env)
+                _configure_system_mail(env)
         except Exception as exc:
             warn(f"Local admin / skeleton / photos / maintenance sync failed: {exc}")
         try:
