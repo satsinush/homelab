@@ -83,7 +83,7 @@ Flow: `restic restore` → `Service.setup()` (permissions) → `docker compose u
 | Samba data | `storage/users/` (private) + `storage/shared/` (included as `storage/` target) |
 | ddclient | Config at `ddclient/volumes/ddclient.conf` (included via `*/volumes/`) |
 
-`.backup_exclude` skips `ollama/volumes/ollama/` and `immich/volumes/model-cache/` (regenerable) until/unless S3 capacity grows.
+`.backup_exclude` skips `services/ollama/volumes/ollama/` and `services/immich/volumes/model-cache/` (regenerable) until/unless S3 capacity grows. Patterns are relative to the repo root (same as Restic targets under `services/…`).
 
 Pi-hole, Dockhand, RustDesk id/relay, word-games data are still uploaded as ordinary files (no freeze hook).
 

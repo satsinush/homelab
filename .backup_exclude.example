@@ -1,17 +1,18 @@
+# Paths are relative to the homelab repo root (restic backup cwd).
 # Live Postgres data dirs (backed up via pg_dump into */volumes/db-dumps/)
-authentik/volumes/db/
-nextcloud/volumes/db/
-immich/volumes/db/
+services/authentik/volumes/db/
+services/nextcloud/volumes/db/
+services/immich/volumes/db/
 
 # Redis caches (safe to lose)
-authentik/volumes/redis/
-nextcloud/volumes/redis/
-unbound/volumes/redis/
+services/authentik/volumes/redis/
+services/nextcloud/volumes/redis/
+services/unbound/volumes/redis/
 
 # Regenerable ML models / caches
-immich/volumes/model-cache/
+services/immich/volumes/model-cache/
 
 # Exclude only Ollama models until upgrading S3 storage.
-ollama/volumes/ollama/
+services/ollama/volumes/ollama/
 
 *.sock
