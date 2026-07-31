@@ -110,3 +110,4 @@ fi
 echo
 echo "Done. Reload your shell:  source ~/.bashrc"
 echo "New SSH sessions pick this up automatically."
+
