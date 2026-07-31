@@ -162,7 +162,7 @@ Stalwart has **no** built-in webmail. Setup enables **Nextcloud Mail** against `
 - [ ] Password: **Authentik password**
 - [ ] Incoming: `mail.<your-hostname>:993` SSL/TLS
 - [ ] Outgoing: `mail.<your-hostname>:465` SSL/TLS
-- [ ] Trust the Homelab CA if using private TLS
+- [ ] TLS: Let's Encrypt mode uses the public cert via `traefik-certs-dumper` → Stalwart (Thunderbird trusts it without Homelab CA). Private TLS mode still needs Homelab CA trust.
 - [ ] Docs: [Nextcloud Mail](https://docs.nextcloud.com/server/latest/user_manual/en/groupware/mail.html) · [Stalwart](https://stalw.art/docs/)
 
 ### Gotify / Alerts

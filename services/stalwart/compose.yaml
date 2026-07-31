@@ -8,6 +8,8 @@ services:
     volumes:
       - ${PROJECT_ROOT}/services/stalwart/volumes/config:/etc/stalwart
       - ${PROJECT_ROOT}/services/stalwart/volumes/data:/var/lib/stalwart
+      # Shared PEMs: Homelab private (setup) or Let's Encrypt (traefik-certs-dumper).
+      - ${PROJECT_ROOT}/volumes/certificates/stalwart-tls:/etc/stalwart/certs:ro
       - ${PROJECT_ROOT}/services/stalwart/entrypoint.sh:/entrypoint-homelab.sh:ro
     expose:
       - "25"

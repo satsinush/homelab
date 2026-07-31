@@ -1,6 +1,7 @@
 """Stalwart service — RocksDB bootstrap, recovery admin, LDAP + SMTP users via postsetup."""
 from __future__ import annotations
 
+import base64
 import json
 import time
 from pathlib import Path
@@ -11,6 +12,10 @@ from setup.utils import append_env, gen_secret
 
 _STALWART_UID = 2000
 _STALWART_GID = 2000
+_ACME_JSON = Path("./services/traefik/volumes/acme.json")
+# Host path for PEMs mounted read-only at /etc/stalwart/certs (shared with
+# traefik-certs-dumper for Let's Encrypt renewals).
+_TLS_DIR = Path("./volumes/certificates/stalwart-tls")
 
 
 def _secret(name: str) -> str:
@@ -196,6 +201,137 @@ def _ensure_default_domain(jmap, domain_id: str, mail_hostname: str) -> None:
         warn(f"SystemSettings.defaultDomainId error: {data}")
 
 
+def _b64_or_pem(raw: str | bytes) -> str:
+    """Traefik stores cert/key as base64(PEM); accept already-decoded PEM too."""
+    if isinstance(raw, bytes):
+        text = raw.decode("utf-8", errors="replace")
+    else:
+        text = str(raw).strip()
+    if "BEGIN " in text:
+        return text if text.endswith("\n") else text + "\n"
+    try:
+        decoded = base64.b64decode(text)
+        out = decoded.decode("utf-8")
+        return out if out.endswith("\n") else out + "\n"
+    except Exception:
+        return text if text.endswith("\n") else text + "\n"
+
+
+def _acme_domain_names(entry: dict) -> set[str]:
+    domain = entry.get("domain") or entry.get("Domain") or {}
+    if not isinstance(domain, dict):
+        return set()
+    names: set[str] = set()
+    main = domain.get("main") or domain.get("Main")
+    if main:
+        names.add(str(main).lower())
+    sans = domain.get("sans") or domain.get("SANs") or domain.get("Sans") or []
+    if isinstance(sans, list):
+        names.update(str(s).lower() for s in sans if s)
+    return names
+
+
+def _cert_covers_host(names: set[str], host: str) -> bool:
+    host = host.lower().rstrip(".")
+    if host in names:
+        return True
+    # One-level DNS wildcard: *.example.com → mail.example.com
+    parts = host.split(".")
+    if len(parts) >= 3:
+        wildcard = "*." + ".".join(parts[1:])
+        if wildcard in names:
+            return True
+    return False
+
+
+def _extract_le_tls_from_acme(hostname: str) -> tuple[str, str] | None:
+    """Pull leaf+key covering mail.<hostname> from Traefik acme.json."""
+    if not _ACME_JSON.is_file() or _ACME_JSON.stat().st_size < 8:
+        return None
+    try:
+        data = json.loads(_ACME_JSON.read_text(encoding="utf-8"))
+    except Exception as exc:
+        warn(f"Could not read Traefik acme.json: {exc}")
+        return None
+    if not isinstance(data, dict):
+        return None
+
+    mail_host = f"mail.{hostname}".lower()
+    apex = hostname.lower()
+    best: dict | None = None
+    best_score = -1
+    for _resolver, body in data.items():
+        if not isinstance(body, dict):
+            continue
+        certs = body.get("Certificates") or body.get("certificates") or []
+        if not isinstance(certs, list):
+            continue
+        for entry in certs:
+            if not isinstance(entry, dict):
+                continue
+            names = _acme_domain_names(entry)
+            if not names:
+                continue
+            score = -1
+            if _cert_covers_host(names, mail_host):
+                score = 3
+            elif f"*.{apex}" in names:
+                score = 2
+            elif apex in names:
+                score = 1
+            if score > best_score:
+                best_score = score
+                best = entry
+
+    if not best or best_score < 0:
+        return None
+    cert_raw = best.get("certificate") or best.get("Certificate")
+    key_raw = best.get("key") or best.get("Key")
+    if not cert_raw or not key_raw:
+        return None
+    cert_pem = _b64_or_pem(cert_raw)
+    key_pem = _b64_or_pem(key_raw)
+    if "BEGIN CERTIFICATE" not in cert_pem or "BEGIN " not in key_pem:
+        warn("Traefik ACME entry for mail host did not decode to PEM")
+        return None
+    return cert_pem, key_pem
+
+
+def _load_private_homelab_tls(hostname: str) -> tuple[str, str] | None:
+    candidates = [
+        (f"./volumes/certificates/{hostname}.crt", f"./volumes/certificates/{hostname}.key"),
+        ("./volumes/certificates/homelab.crt", "./volumes/certificates/homelab.key"),
+    ]
+    for c, k in candidates:
+        if Path(c).is_file() and Path(k).is_file():
+            cert_pem = Path(c).read_text(encoding="utf-8")
+            key_pem = Path(k).read_text(encoding="utf-8")
+            return (
+                cert_pem if cert_pem.endswith("\n") else cert_pem + "\n",
+                key_pem if key_pem.endswith("\n") else key_pem + "\n",
+            )
+    return None
+
+
+def _load_stalwart_tls_material(env: dict) -> tuple[str, str, str] | None:
+    """Return (cert_pem, key_pem, source_label) for Stalwart IMAPS/SMTPS."""
+    hostname = (env.get("HOMELAB_HOSTNAME") or "homelab.home.arpa").strip()
+    resolver = (env.get("TRAEFIK_CERT_RESOLVER") or "").strip().lower()
+    if resolver == "letsencrypt":
+        le = _extract_le_tls_from_acme(hostname)
+        if le:
+            return (*le, "letsencrypt")
+        warn(
+            "Let's Encrypt enabled but no matching cert in Traefik acme.json yet; "
+            "Stalwart will use Homelab private TLS until ACME issues "
+            "(traefik-certs-dumper will publish + reload)"
+        )
+    private = _load_private_homelab_tls(hostname)
+    if private:
+        return (*private, "homelab-private")
+    return None
+
+
 def _restart_stalwart() -> None:
     """Reload LDAP directory / system settings into the running process."""
     import subprocess
@@ -212,39 +348,33 @@ def _restart_stalwart() -> None:
 
 
 def _ensure_tls_certificate(jmap, env: dict) -> None:
-    """Register the Homelab wildcard cert as Stalwart's default TLS certificate.
+    """Install default TLS for Stalwart IMAPS/SMTPS (bypasses Traefik).
 
-    Covers mail.<HOMELAB_HOSTNAME> (SAN ``*.homelab.home.arpa``). Cert/key are
-    copied into the RocksDB config volume so uid 2000 can read them.
+    Prefer Let's Encrypt from Traefik ``acme.json`` when public TLS is enabled;
+    otherwise Homelab private wildcard. PEMs are written to the shared
+    ``volumes/certificates/stalwart-tls`` dir (mounted at ``/etc/stalwart/certs``).
+    In Let's Encrypt mode, ``traefik-certs-dumper`` keeps that dir in sync on renew
+    and triggers ``ReloadTlsCertificates`` — setup does not need to re-run.
     """
-    hostname = (env.get("HOMELAB_HOSTNAME") or "homelab.home.arpa").strip()
-    # Prefer hostname-specific cert; fall back to stable Traefik/homelab copies.
-    candidates = [
-        (f"./volumes/certificates/{hostname}.crt", f"./volumes/certificates/{hostname}.key"),
-        ("./volumes/certificates/homelab.crt", "./volumes/certificates/homelab.key"),
-    ]
-    cert_src: str | None = None
-    key_src: str | None = None
-    for c, k in candidates:
-        if Path(c).is_file() and Path(k).is_file():
-            cert_src, key_src = c, k
-            break
-    if not cert_src or not key_src:
-        warn("No Homelab TLS cert found under volumes/certificates; Stalwart keeps self-signed")
+    material = _load_stalwart_tls_material(env)
+    if not material:
+        warn(
+            "No TLS cert found for Stalwart "
+            "(acme.json / volumes/certificates); keeping self-signed"
+        )
         return
+    cert_pem, key_pem, source = material
 
-    cert_pem = Path(cert_src).read_text(encoding="utf-8")
-    key_pem = Path(key_src).read_text(encoding="utf-8")
     write_volume_file(
-        "./services/stalwart/volumes/config/certs/fullchain.pem",
-        cert_pem if cert_pem.endswith("\n") else cert_pem + "\n",
+        str(_TLS_DIR / "fullchain.pem"),
+        cert_pem,
         mode=0o644,
         uid=_STALWART_UID,
         gid=_STALWART_GID,
     )
     write_volume_file(
-        "./services/stalwart/volumes/config/certs/privkey.pem",
-        key_pem if key_pem.endswith("\n") else key_pem + "\n",
+        str(_TLS_DIR / "privkey.pem"),
+        key_pem,
         mode=0o600,
         uid=_STALWART_UID,
         gid=_STALWART_GID,
@@ -262,15 +392,9 @@ def _ensure_tls_certificate(jmap, env: dict) -> None:
     ids = list((data or {}).get("ids") or [])
     cert_id = None
     if ids:
-        get_resp = jmap([["x:Certificate/get", {"ids": ids}, "c1"]])
-        _, get_data = _method_result(get_resp)
-        for obj in (get_data or {}).get("list") or []:
-            sans = obj.get("subjectAlternativeNames") or {}
-            if f"*.{hostname}" in sans or hostname in sans:
-                # Refresh file pointers (idempotent).
-                jmap([["x:Certificate/set", {"update": {obj["id"]: create}}, "c1"]])
-                cert_id = obj["id"]
-                break
+        # Refresh the first registered cert's file pointers (PEM already rewritten).
+        cert_id = ids[0]
+        jmap([["x:Certificate/set", {"update": {cert_id: create}}, "c1"]])
     if not cert_id:
         resp = jmap([["x:Certificate/set", {"create": {"c1": create}}, "c1"]])
         name, cdata = _method_result(resp)
@@ -303,6 +427,7 @@ def _ensure_tls_certificate(jmap, env: dict) -> None:
             ]
         ]
     )
+    ok(f"Stalwart TLS ← {source}")
 
 
 def _ensure_mail_webhook(jmap) -> None:
@@ -490,6 +615,7 @@ class StalwartService(Service):
     volume_dirs = [
         VolumeDir("./services/stalwart/volumes/config", uid=2000, gid=2000, mode=0o700),
         VolumeDir("./services/stalwart/volumes/data", uid=2000, gid=2000, mode=0o700),
+        VolumeDir("./volumes/certificates/stalwart-tls", uid=2000, gid=2000, mode=0o755),
     ]
 
     def setup(self, env: dict) -> None:
