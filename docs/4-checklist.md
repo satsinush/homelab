@@ -105,7 +105,7 @@ Shared files live under [`./storage/`](../storage/) (gitignored; included in Res
 ### Immich (photos)
 
 - [ ] Open `https://photos.<your-hostname>` → **Authentik** (OIDC). First SSO login creates your library
-- [ ] Confirm upload works in the browser
+- [ ] Confirm upload works in the browser (large videos need Traefik `readTimeout: 0s` on `websecure` — already in `traefik.yml`; recreate Traefik after changing it)
 - [ ] **Mobile app:** Server URL = `https://photos.<your-hostname>` → sign in with Authentik / OAuth (install the Homelab CA on the phone if you use private TLS)
 - [ ] Admins (`homelab-admins` / Immich admin) get unlimited quota; others get `HOMELAB_DEFAULT_QUOTA_GB`
 - [ ] **Break-glass:** local admin email is `admin@<your-hostname>`, password `volumes/secrets/immich_admin_password` (created by setup)

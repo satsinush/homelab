@@ -28,6 +28,13 @@ entryPoints:
           to: websecure
           scheme: https
           permanent: true
+    # Traefik v3 default readTimeout is 60s (entire request body). That breaks
+    # multi‑GB Immich uploads; 0 = no limit (LAN/VPN-only apps).
+    transport:
+      respondingTimeouts:
+        readTimeout: 0s
+        writeTimeout: 0s
+        idleTimeout: 0s
 
   # HTTPS — internal (LAN/VPN) entrypoint serving every service.
   websecure:
@@ -35,6 +42,11 @@ entryPoints:
     http:
       middlewares:
         - hsts-headers@file   # HSTS on every HTTPS response
+    transport:
+      respondingTimeouts:
+        readTimeout: 0s
+        writeTimeout: 0s
+        idleTimeout: 0s
 
   # HTTPS — public entrypoint. The home router forwards WAN 443 → host 8443,
   # and ONLY the Headscale control endpoint binds here (see its compose labels).
@@ -45,6 +57,11 @@ entryPoints:
     http:
       middlewares:
         - hsts-headers@file
+    transport:
+      respondingTimeouts:
+        readTimeout: 0s
+        writeTimeout: 0s
+        idleTimeout: 0s
 
 providers:
   # Docker provider — discovers services by reading container labels
