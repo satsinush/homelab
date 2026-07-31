@@ -16,3 +16,19 @@ services/immich/volumes/model-cache/
 services/ollama/volumes/ollama/
 
 *.sock
+
+# --- Optional (uncomment to skip from cloud backup) ---
+# Immich library + dumps (large; keep Takeout / local disk as source of truth for now)
+#services/immich/volumes/upload/
+#services/immich/volumes/db-dumps/
+
+# Nextcloud user files (large; dumps still cover DB metadata if you keep db-dumps)
+#services/nextcloud/volumes/data/
+#services/nextcloud/volumes/html/
+
+# Shared / home NAS trees (also under the top-level `storage/` backup target)
+#storage/shared/
+#storage/users/
+
+# Stalwart mail store (large over time; config still backed up)
+#services/stalwart/volumes/data/
