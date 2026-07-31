@@ -91,18 +91,13 @@ The whole point of the VPN is that services are **not** reachable from the inter
 
 Follow these steps to add additional functionality to your shell.
 
-1.  **.bashrc**: Add the lines inside [`./bashrc/user.bashrc`](../bashrc/user.bashrc) and [`./bashrc/root.bashrc`](../bashrc/root.bashrc) to `~/.bashrc` and `/root/.bashrc` on the server respectively.
-    This will add configurations to color code your shell prompt, add helpful aliases, and set up a welcome message when you connect via SSH.
+1.  **.bashrc**: From the repo root on the server, run:
 
-2. **.bash_profile**: Add this to `~/.bash_profile` (or `/root/.bash_profile` for root):
+    ```bash
+    ./bashrc/apply.bashrc.sh
+    ```
 
-```bash
-#
-# ~/.bash_profile
-#
-
-[[ -f ~/.bashrc ]] && . ~/.bashrc
-```
+    That installs [`user.bashrc`](../bashrc/user.bashrc) → `~/.bashrc` and [`root.bashrc`](../bashrc/root.bashrc) → `/root/.bashrc` (with timestamped `.bak.*` copies of any existing files), and ensures `.bash_profile` sources `.bashrc`. Then `source ~/.bashrc` (or open a new SSH session).
 
 ## Next: 3\. 🚀 Deploy the Services
 [Continue to the next section of the guide for detailed instructions on deploying the homelab services.](./3-deployment.md)

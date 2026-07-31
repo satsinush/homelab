@@ -66,6 +66,7 @@ alias l='ls -CF'
 
 # Arch Linux specific shortcuts
 alias update='pacman -Syu'
+alias reboot='sudo reboot'
 
 # Docker Shortcuts
 alias dps='docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"' # Prettier output
