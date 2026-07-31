@@ -230,6 +230,10 @@ def restic_backup(*, auto: bool = False) -> None:
     section("Enforcing retention policy...", emoji="🧹")
     forget = [
         "forget",
+        # Default groups by host+paths; our path set changes over time, so each
+        # layout becomes its own retention group and old snaps never expire.
+        "--group-by",
+        "host",
         "--keep-daily", "7",
         "--keep-weekly", "4",
         "--keep-monthly", "12",

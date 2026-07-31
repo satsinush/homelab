@@ -35,7 +35,7 @@ python3 setup.py backup
 
 Privileged bits use `sudo` when needed (same pattern as setup): Restic is wrapped so it can read root-owned bind mounts; Postgres dumps are written mode `0600` via `write_host_file` (sudo/Docker fallback for root-owned dump files from the nightly timer).
 
-Flow: load env/secrets → each `Service.backup()` → `restic backup` of `.env`, `volumes/`, `*/volumes/`, `storage/` → retention `forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune`.
+Flow: load env/secrets → each `Service.backup()` → `restic backup` of `.env`, `volumes/`, `*/volumes/`, `storage/` → retention `forget --group-by host --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune` (group by host only so changing path sets still expire).
 
 ### Automated backups (systemd)
 
