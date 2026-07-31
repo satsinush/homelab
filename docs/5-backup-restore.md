@@ -33,7 +33,7 @@ Compose services use host bind mounts (not Docker named volumes). Directory owne
 python3 setup.py backup
 ```
 
-Re-execs under `sudo` automatically (same as the nightly timer’s `User=root`). Postgres dumps are written mode `0600` under `*/volumes/db-dumps/`. You may be prompted for your sudo password.
+Privileged bits use `sudo` when needed (same pattern as setup): Restic is wrapped so it can read root-owned bind mounts; Postgres dumps are written mode `0600` via `write_host_file` (sudo/Docker fallback for root-owned dump files from the nightly timer).
 
 Flow: load env/secrets → each `Service.backup()` → `restic backup` of `.env`, `volumes/`, `*/volumes/`, `storage/` → retention `forget --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune`.
 

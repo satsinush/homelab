@@ -473,18 +473,12 @@ def pg_dump_to_file(
     if not content.endswith("\n"):
         content += "\n"
 
-    # Mode 0600: dumps contain credentials/hashes. Nightly timer runs as root;
-    # interactive runs should too when overwriting root-owned dumps.
+    # Mode 0600: dumps contain credentials/hashes. Use write_host_file so
+    # sudo/Docker can overwrite root-owned dumps from the nightly timer.
     try:
-        fd = os.open(dest_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(content)
-        os.chmod(dest_path, 0o600)
-    except PermissionError:
-        warn(
-            f"Cannot write {dest_path} (likely root-owned from the nightly timer). "
-            "Re-run as root: sudo ./setup.py backup"
-        )
+        write_host_file(dest_path, content, mode=0o600)
+    except PermissionError as exc:
+        warn(f"Cannot write pg_dump to {dest_path}: {exc}")
         return False
 
     size = os.path.getsize(dest_path)
