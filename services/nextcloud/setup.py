@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from setup.service import (
@@ -30,6 +31,33 @@ def _occ(*args: str, check: bool = True) -> str:
 def _nextcloud_ready() -> bool:
     out = _occ("status", check=False) or ""
     return "installed: true" in out and "maintenance: false" in out
+
+
+def _maintenance_window_start_utc(local_hour: int = 1) -> int:
+    """Map local quiet-hour start → UTC hour for Nextcloud.
+
+    Nextcloud runs heavy daily jobs in a 4-hour window starting at
+    ``maintenance_window_start`` (UTC). Local 01:00 → ~01:00–05:00 local.
+    Uses the host timezone at setup time (DST-aware).
+    """
+    local_now = datetime.now().astimezone()
+    local_start = local_now.replace(hour=local_hour, minute=0, second=0, microsecond=0)
+    return local_start.astimezone(timezone.utc).hour
+
+
+def _ensure_maintenance_tuning() -> None:
+    """Quiet-hour jobs + schema/mimetype maintenance Nextcloud does not auto-run."""
+    start_utc = _maintenance_window_start_utc(1)
+    _occ(
+        "config:system:set",
+        "maintenance_window_start",
+        "--type=integer",
+        "--value=" + str(start_utc),
+        check=False,
+    )
+    _occ("db:add-missing-indices", check=False)
+    # Includes mimetype migrations; fine on a small homelab, skip if NC down.
+    _occ("maintenance:repair", "--include-expensive", check=False)
 
 
 def _app_enabled(app_id: str) -> bool:
@@ -749,8 +777,9 @@ class NextcloudService(Service):
                 _ensure_local_admin()
                 _disable_skeleton()
                 _disable_photos_app()
+                _ensure_maintenance_tuning()
         except Exception as exc:
-            warn(f"Local admin / skeleton / photos sync failed: {exc}")
+            warn(f"Local admin / skeleton / photos / maintenance sync failed: {exc}")
         try:
             _configure_theming(env)
         except Exception as exc:
