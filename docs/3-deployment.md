@@ -65,8 +65,8 @@ Setup supports two SSL modes that are selected interactively during the first ru
 
 | Mode | When to use | How it works |
 |------|-------------|--------------|
-| **Private (default)** | No public domain | OpenSSL generates a local CA and a wildcard server certificate. Import the CA cert once per client device. |
-| **Public (Let's Encrypt)** | You own a domain managed by Cloudflare | Traefik uses the ACME DNS-01 challenge to obtain a globally-trusted certificate — no open ports required. Setup still generates a local CA for internal trust mounts, but Traefik’s default TLS cert is **localhost-only** so it cannot shadow Let’s Encrypt for your real hostname. |
+| **Private (default)** | No public domain | OpenSSL generates a local CA and a wildcard server certificate. Import the CA cert once per client device. Traefik + Stalwart (IMAPS/SMTPS) both use this cert. |
+| **Public (Let's Encrypt)** | You own a domain managed by Cloudflare | Traefik uses ACME DNS-01 for HTTPS. `traefik-certs-dumper` watches `acme.json`, writes PEMs to `volumes/certificates/stalwart-tls/`, and tells Stalwart to reload TLS (mail ports bypass Traefik). Renewals do not require re-running setup. A local CA is still minted for internal container trust mounts. |
 
 ### Cloudflare credentials
 
