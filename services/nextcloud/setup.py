@@ -105,9 +105,9 @@ def _configure_system_mail(env: dict) -> None:
         ("mail_from_address", "nextcloud"),
         ("mail_domain", domain),
         ("mail_smtphost", mail_host),
-        ("mail_smtpport", "465"),
+        ("mail_smtpport", "465", "integer"),
         ("mail_smtpsecure", "ssl"),
-        ("mail_smtpauth", "1", "boolean"),
+        ("mail_smtpauth", "true", "boolean"),
         ("mail_smtpname", smtp_user),
         ("mail_smtppassword", password),
     ]
