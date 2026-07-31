@@ -4,13 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from setup.service import (
-    Service,
-    VolumeDir,
-    latest_file,
-    pg_dump_to_file,
-    pg_restore_from_file,
-)
+from setup.service import Service, VolumeDir
 from setup.ui import ok, warn
 from setup.utils import append_env, authentik_group_usernames, gen_secret, run_cmd, wait_for
 
@@ -282,7 +276,6 @@ class ImmichService(Service):
         VolumeDir("./services/immich/volumes/upload", mode=0o755),
         VolumeDir("./services/immich/volumes/model-cache", mode=0o755),
         VolumeDir("./services/immich/volumes/db", uid=999, gid=999, mode=0o700),
-        VolumeDir("./services/immich/volumes/db-dumps", mode=0o700),
     ]
 
     def setup(self, env: dict) -> None:
@@ -300,28 +293,6 @@ class ImmichService(Service):
             configure_immich(env)
         except Exception as exc:
             warn(f"Immich auto-configure failed: {exc}")
-
-    def backup(self, env: dict) -> None:
-        # Live Postgres dir is restic-excluded; dump into db-dumps for upload.
-        dest = "./services/immich/volumes/db-dumps/immich-backup.sql"
-        pg_dump_to_file(
-            "immich-postgres",
-            "immich",
-            "immich",
-            dest,
-            password_file="/run/secrets/immich_db_password",
-        )
-
-    def restore(self, env: dict) -> None:
-        dump = latest_file("./services/immich/volumes/db-dumps", ".sql")
-        if dump:
-            pg_restore_from_file(
-                "immich-postgres",
-                "immich",
-                "immich",
-                dump,
-                password_file="/run/secrets/immich_db_password",
-            )
 
 
 service = ImmichService()

@@ -1,5 +1,6 @@
 # Paths are relative to the homelab repo root (restic backup cwd).
-# Live Postgres data dirs (backed up via pg_dump into */volumes/db-dumps/)
+# Live Postgres data dirs (Authentik/Nextcloud: pg_dump → */volumes/db-dumps/;
+# Immich: app dumps → upload/backups/*.sql.gz when upload/ is backed up)
 services/authentik/volumes/db/
 services/nextcloud/volumes/db/
 services/immich/volumes/db/
@@ -18,11 +19,10 @@ services/ollama/volumes/ollama/
 *.sock
 
 # --- Optional (uncomment to skip from cloud backup) ---
-# Immich library + dumps (large; keep Takeout / local disk as source of truth for now)
+# Immich library + Immich's own DB dumps under upload/backups/ (large)
 #services/immich/volumes/upload/
-#services/immich/volumes/db-dumps/
 
-# Nextcloud user files (large; dumps still cover DB metadata if you keep db-dumps)
+# Nextcloud user files (large; DB still covered via db-dumps/)
 #services/nextcloud/volumes/data/
 #services/nextcloud/volumes/html/
 

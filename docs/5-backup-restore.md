@@ -78,7 +78,8 @@ Flow: `restic restore` → `Service.setup()` (permissions) → `docker compose u
 
 | Service | Hook |
 | --- | --- |
-| Authentik, Nextcloud, Immich | `pg_dump` → `*/volumes/db-dumps/`; live `*/volumes/db/` excluded from Restic |
+| Authentik, Nextcloud | `pg_dump` → `*/volumes/db-dumps/`; live `*/volumes/db/` excluded from Restic |
+| Immich | No homelab dump hook — live `db/` excluded; Immich writes `upload/backups/*.sql.gz` (backed up with `upload/`). Restore DB via Immich UI / onboarding |
 | Vaultwarden, Dashboard, Gotify | SQLite online `.backup` into the service bind mount |
 | Samba data | `storage/users/` (private) + `storage/shared/` (included as `storage/` target) |
 | ddclient | Config at `ddclient/volumes/ddclient.conf` (included via `*/volumes/`) |
