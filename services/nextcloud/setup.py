@@ -33,12 +33,13 @@ def _nextcloud_ready() -> bool:
     return "installed: true" in out and "maintenance: false" in out
 
 
-def _maintenance_window_start_utc(local_hour: int = 1) -> int:
+def _maintenance_window_start_utc(local_hour: int = 4) -> int:
     """Map local quiet-hour start → UTC hour for Nextcloud.
 
     Nextcloud runs heavy daily jobs in a 4-hour window starting at
-    ``maintenance_window_start`` (UTC). Local 01:00 → ~01:00–05:00 local.
-    Uses the host timezone at setup time (DST-aware).
+    ``maintenance_window_start`` (UTC). Default local 04:00 → ~04:00–08:00
+    local, after the 03:00 homelab-backup.timer. Uses the host timezone at
+    setup time (DST-aware).
     """
     local_now = datetime.now().astimezone()
     local_start = local_now.replace(hour=local_hour, minute=0, second=0, microsecond=0)
@@ -47,7 +48,7 @@ def _maintenance_window_start_utc(local_hour: int = 1) -> int:
 
 def _ensure_maintenance_tuning() -> None:
     """Quiet-hour jobs + schema/mimetype maintenance Nextcloud does not auto-run."""
-    start_utc = _maintenance_window_start_utc(1)
+    start_utc = _maintenance_window_start_utc(4)
     _occ(
         "config:system:set",
         "maintenance_window_start",

@@ -16,10 +16,32 @@ Once the host is configured, follow these steps to deploy the services.
 [`setup.py`](../setup.py) installs and enables these automatically:
 
 * `homelab-host-api.service` — dashboard Host API (`services/dashboard/host-api`, after `npm install`)
-* `homelab-backup.timer` — daily Restic backup via `setup.py backup --auto`
-* `pacman-sync.timer` — daily `pacman -Sy` (Arch hosts only)
+* `homelab-backup.timer` — daily Restic backup via `setup.py backup --auto` (03:00 host local)
+* `pacman-sync.timer` — `pacman -Sy` every 6 hours at `:15` (Arch hosts only)
 * `docker.socket` / `docker.service`
 * `systemd-timesyncd`
+
+#### Scheduled jobs (host local time)
+
+Times use the **host timezone** (`timedatectl`). Systemd `OnCalendar` is local unless the unit sets a different timezone.
+
+| When (local) | What | Where |
+| --- | --- | --- |
+| **03:00** daily | Restic cloud backup (`setup.py backup --auto`) | `homelab-backup.timer` |
+| **00/06/12/18:15** (+ up to 5 min jitter) | Pacman DB sync (`pacman -Sy`) | `pacman-sync.timer` |
+| **00/06/12/18:30** | Dashboard package-update check + Gotify alerts | Dashboard API (`packageUpdateChecker`) |
+| **04:00–08:00** | Nextcloud heavy daily jobs (4-hour maintenance window) | Set in Nextcloud postsetup from host TZ (`maintenance_window_start`) |
+| ~every **5 min** | Nextcloud ordinary cron (`nextcloud-cron`) | `services/nextcloud/compose.yaml` |
+| every **5 min** | ddclient DDNS (if configured) | `ddclient` / `daemon=300` |
+
+Overnight order is intentional: **backup at 03:00**, then Nextcloud’s expensive window **after** that (04:00–08:00 local) so they do not compete for disk.
+
+Check timers:
+
+```shell
+systemctl list-timers homelab-backup.timer pacman-sync.timer --all
+docker exec -u www-data nextcloud php occ config:system:get maintenance_window_start
+```
 
 Unit templates live in [`systemd/system/`](../systemd/system/) and use `${PROJECT_ROOT}`, `${PUID}`, `${PGID}` (from `.env`) plus `${PYTHON}` (detected at install). Setup expands them with `substitute_env_vars`, installs under `/etc/systemd/system/`, and adds your user to the `docker` group when needed (re-entering the group for the same setup run). You get a y/n prompt first so you can skip this on a non-server / dev machine. The host API unit runs `tsx server.ts` from `services/dashboard/host-api` after `npm install`.
 

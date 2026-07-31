@@ -37,11 +37,13 @@ Flow: load env/secrets → each `Service.backup()` → `restic backup` of `.env`
 
 ### Automated backups (systemd)
 
-[`homelab-backup.timer`](../systemd/system/homelab-backup.timer) runs daily at 03:00 and executes:
+[`homelab-backup.timer`](../systemd/system/homelab-backup.timer) runs daily at **03:00 host local** and executes:
 
 ```shell
 python3 setup.py backup --auto
 ```
+
+That is ahead of Nextcloud’s maintenance window (04:00–08:00 local). Full schedule table: [3. Project Deployment — Scheduled jobs](./3-deployment.md#scheduled-jobs-host-local-time).
 
 Setup installs and enables the timer. To reinstall units after editing templates under [`systemd/system/`](../systemd/system/), re-run `python3 setup.py setup`, or:
 
