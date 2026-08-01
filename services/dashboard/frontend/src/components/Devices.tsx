@@ -48,7 +48,6 @@ import {
     Add as AddIcon,
     Edit as EditIcon,
     Clear as ClearIcon,
-    FilterList as FilterIcon,
     ViewModule as CardViewIcon,
     ViewList as TableViewIcon,
     ArrowUpward as ArrowUpIcon,
@@ -581,19 +580,7 @@ const Devices = () => {
         });
     }, [nameFilter, macFilter, ipFilter, statusFilter, sortBy, sortOrder, prefs.showOfflineDevices]);
 
-    const getUniqueValues = useCallback((devicesList: Device[], key: string): string[] => {
-        const values = devicesList
-            .map((device: Device) => {
-                if (key === 'status') return device.status || '';
-                return '';
-            })
-            .filter((value: string) => value && value.trim() !== '')
-            .map((value: string) => value.toLowerCase());
-        return [...new Set(values)].sort();
-    }, []);
-
-    // Memoize expensive computations to prevent re-calculation on every render
-    const statusOptions = useMemo(() => getUniqueValues(devices, 'status'), [devices, getUniqueValues]);
+    const hasActiveFilters = Boolean(nameFilter || macFilter || ipFilter || statusFilter);
 
     const filteredAllDevices = useMemo(() => {
         return getFilteredDevices(devices);
@@ -754,115 +741,210 @@ const Devices = () => {
         </>
     )
 
-    // Table rendering helper
+    const SortHeaderButton = ({
+        label,
+        field,
+    }: {
+        label: string;
+        field: 'name' | 'mac' | 'ip' | 'status';
+    }) => (
+        <Button
+            size="small"
+            onClick={() => {
+                if (sortBy === field) {
+                    setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                } else {
+                    setSortBy(field);
+                    setSortOrder('asc');
+                }
+            }}
+            endIcon={
+                sortBy === field
+                    ? (sortOrder === 'asc' ? <ArrowUpIcon fontSize="small" /> : <ArrowDownIcon fontSize="small" />)
+                    : undefined
+            }
+            sx={{
+                textTransform: 'none',
+                fontWeight: 700,
+                color: 'text.primary',
+                minWidth: 0,
+                px: 0.5,
+                justifyContent: 'flex-start',
+            }}
+        >
+            {label}
+        </Button>
+    );
+
+    // Filters always live in the table header; body rows only when viewMode === 'table'
     const renderDevicesTable = () => (
         <TableContainer
             component={Paper}
             sx={{
-                mb: 4,
+                mb: viewMode === 'cards' ? 2 : 4,
                 overflowX: 'auto',
             }}
         >
             <Table size={prefs.compactMode ? 'small' : 'medium'}>
                 <TableHead>
                     <TableRow>
-                        <TableCell>Name</TableCell>
-                        <TableCell>MAC Address</TableCell>
-                        <TableCell>IP Address</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell align="center">Actions</TableCell>
+                        <TableCell sx={{ verticalAlign: 'bottom', pt: 1.5, pb: 0.5, borderBottom: 0 }}>
+                            <SortHeaderButton label="Name" field="name" />
+                        </TableCell>
+                        <TableCell sx={{ verticalAlign: 'bottom', pt: 1.5, pb: 0.5, borderBottom: 0 }}>
+                            <SortHeaderButton label="MAC Address" field="mac" />
+                        </TableCell>
+                        <TableCell sx={{ verticalAlign: 'bottom', pt: 1.5, pb: 0.5, borderBottom: 0 }}>
+                            <SortHeaderButton label="IP Address" field="ip" />
+                        </TableCell>
+                        <TableCell sx={{ verticalAlign: 'bottom', pt: 1.5, pb: 0.5, borderBottom: 0 }}>
+                            <SortHeaderButton label="Status" field="status" />
+                        </TableCell>
+                        <TableCell align="center" sx={{ verticalAlign: 'bottom', pt: 1.5, pb: 0.5, borderBottom: 0 }}>
+                            Actions
+                        </TableCell>
+                    </TableRow>
+                    <TableRow>
+                        <TableCell sx={{ pt: 0.5, pb: 1.5, borderBottom: viewMode === 'table' ? 1 : 0, borderColor: 'divider' }}>
+                            <TextField
+                                size="small"
+                                fullWidth
+                                placeholder="Filter name…"
+                                value={nameFilter}
+                                onChange={(e) => setNameFilter(e.target.value)}
+                            />
+                        </TableCell>
+                        <TableCell sx={{ pt: 0.5, pb: 1.5, borderBottom: viewMode === 'table' ? 1 : 0, borderColor: 'divider' }}>
+                            <TextField
+                                size="small"
+                                fullWidth
+                                placeholder="Filter MAC…"
+                                value={macFilter}
+                                onChange={(e) => setMacFilter(e.target.value)}
+                            />
+                        </TableCell>
+                        <TableCell sx={{ pt: 0.5, pb: 1.5, borderBottom: viewMode === 'table' ? 1 : 0, borderColor: 'divider' }}>
+                            <TextField
+                                size="small"
+                                fullWidth
+                                placeholder="Filter IP…"
+                                value={ipFilter}
+                                onChange={(e) => setIpFilter(e.target.value)}
+                            />
+                        </TableCell>
+                        <TableCell sx={{ pt: 0.5, pb: 1.5, borderBottom: viewMode === 'table' ? 1 : 0, borderColor: 'divider' }}>
+                            <FormControl size="small" fullWidth>
+                                <Select
+                                    value={statusFilter}
+                                    displayEmpty
+                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                >
+                                    <MenuItem value="">All</MenuItem>
+                                    <MenuItem value="online">Online</MenuItem>
+                                    <MenuItem value="offline">Offline</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </TableCell>
+                        <TableCell align="center" sx={{ pt: 0.5, pb: 1.5, borderBottom: viewMode === 'table' ? 1 : 0, borderColor: 'divider' }}>
+                            <Button size="small" onClick={clearTableFilters} disabled={!hasActiveFilters}>
+                                Clear
+                            </Button>
+                        </TableCell>
                     </TableRow>
                 </TableHead>
-                <TableBody>
-                    {pagedDevices.length > 0 ? (
-                        pagedDevices.map(device => (
-                            <TableRow key={device.macNormalized || device.mac} hover>
-                                <TableCell>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        {getDeviceTypeIcon(device.name)}
-                                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                            {device.name || 'Unknown Device'}
-                                        </Typography>
-                                        {device.isFavorite && (
-                                            <StarIcon sx={{ color: 'primary.main', fontSize: 16 }} />
-                                        )}
-                                    </Box>
-                                </TableCell>
-                                <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                                    {device.mac}
-                                </TableCell>
-                                <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                                    {device.ip || '-'}
-                                </TableCell>
-                                <TableCell>
-                                    <Chip
-                                        label={device.status === 'online' ? 'Online' : 'Offline'}
-                                        color={device.status === 'online' ? 'success' : 'error'}
-                                        size="small"
-                                        icon={device.status === 'online' ? <OnlineIcon /> : <OfflineIcon />}
-                                    />
-                                </TableCell>
-                                <TableCell align="center">
-                                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                                        <Tooltip title="Toggle Favorite">
-                                            <IconButton
-                                                onClick={() => handleToggleFavorite(device)}
-                                                color={device.isFavorite ? "primary" : "default"}
-                                                size="small"
-                                            >
-                                                {device.isFavorite ? <StarIcon /> : <StarBorderIcon />}
-                                            </IconButton>
-                                        </Tooltip>
-                                        <Tooltip title={"Wake Device"}>
-                                            <IconButton
-                                                onClick={() => handleWakeOnLan(device)}
-                                                color="primary"
-                                                size="small"
-                                            >
-                                                <PowerIcon />
-                                            </IconButton>
-                                        </Tooltip>
-                                        {device.rustdeskId && (
-                                            <Tooltip title={!rustdeskConfig.available ? "RustDesk Config Missing" : "Connect RustDesk"}>
+                {viewMode === 'table' && (
+                    <TableBody>
+                        {pagedDevices.length > 0 ? (
+                            pagedDevices.map(device => (
+                                <TableRow key={device.macNormalized || device.mac} hover>
+                                    <TableCell>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            {getDeviceTypeIcon(device.name)}
+                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                {device.name || 'Unknown Device'}
+                                            </Typography>
+                                            {device.isFavorite && (
+                                                <StarIcon sx={{ color: 'primary.main', fontSize: 16 }} />
+                                            )}
+                                        </Box>
+                                    </TableCell>
+                                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                                        {device.mac}
+                                    </TableCell>
+                                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                                        {device.ip || '-'}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            label={device.status === 'online' ? 'Online' : 'Offline'}
+                                            color={device.status === 'online' ? 'success' : 'error'}
+                                            size="small"
+                                            icon={device.status === 'online' ? <OnlineIcon /> : <OfflineIcon />}
+                                        />
+                                    </TableCell>
+                                    <TableCell align="center">
+                                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                                            <Tooltip title="Toggle Favorite">
                                                 <IconButton
-                                                    onClick={() => handleRustDeskConnect(device)}
-                                                    color={!rustdeskConfig.available ? "warning" : "secondary"}
+                                                    onClick={() => handleToggleFavorite(device)}
+                                                    color={device.isFavorite ? "primary" : "default"}
                                                     size="small"
                                                 >
-                                                    {!rustdeskConfig.available ? <WarningIcon /> : <RustDeskIcon />}
+                                                    {device.isFavorite ? <StarIcon /> : <StarBorderIcon />}
                                                 </IconButton>
                                             </Tooltip>
-                                        )}
-                                        {device.isFavorite && (
-                                            <Tooltip title="Edit Device">
+                                            <Tooltip title={"Wake Device"}>
                                                 <IconButton
-                                                    onClick={() => handleEditDevice(device)}
+                                                    onClick={() => handleWakeOnLan(device)}
+                                                    color="primary"
                                                     size="small"
                                                 >
-                                                    <EditIcon />
+                                                    <PowerIcon />
                                                 </IconButton>
                                             </Tooltip>
-                                        )}
-                                    </Box>
+                                            {device.rustdeskId && (
+                                                <Tooltip title={!rustdeskConfig.available ? "RustDesk Config Missing" : "Connect RustDesk"}>
+                                                    <IconButton
+                                                        onClick={() => handleRustDeskConnect(device)}
+                                                        color={!rustdeskConfig.available ? "warning" : "secondary"}
+                                                        size="small"
+                                                    >
+                                                        {!rustdeskConfig.available ? <WarningIcon /> : <RustDeskIcon />}
+                                                    </IconButton>
+                                                </Tooltip>
+                                            )}
+                                            {device.isFavorite && (
+                                                <Tooltip title="Edit Device">
+                                                    <IconButton
+                                                        onClick={() => handleEditDevice(device)}
+                                                        size="small"
+                                                    >
+                                                        <EditIcon />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            )}
+                                        </Box>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={5} sx={{ textAlign: 'center', py: 4 }}>
+                                    <ComputerIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2, display: 'block', mx: 'auto' }} />
+                                    <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
+                                        No Devices Found
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {devices.length === 0
+                                            ? 'No devices available. Try running a network scan or add devices manually.'
+                                            : 'No devices match your current filters. Try adjusting your search criteria.'
+                                        }
+                                    </Typography>
                                 </TableCell>
                             </TableRow>
-                        ))
-                    ) : (
-                        <TableRow>
-                            <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4 }}>
-                                <ComputerIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2, display: 'block', mx: 'auto' }} />
-                                <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
-                                    No Devices Found
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                    {devices.length === 0
-                                        ? 'No devices available. Try running a network scan or add devices manually.'
-                                        : 'No devices match your current filters. Try adjusting your search criteria.'
-                                    }
-                                </Typography>
-                            </TableCell>
-                        </TableRow>)}
-                </TableBody>
+                        )}
+                    </TableBody>
+                )}
             </Table>
         </TableContainer>
     );
@@ -958,208 +1040,30 @@ const Devices = () => {
                     </Box>
                 </Box>
 
-                {/* Stats Cards */}
-                <Grid container spacing={2} sx={{ mb: 3 }}>
-                    <Grid size={{ xs: 6, sm: 3 }}>
-                        <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'action.selected' }}>
-                            <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main', mb: 1 }}>
-                                {devices.length}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 1 }}>
-                                Total Devices
-                            </Typography>
-                        </Paper>
-                    </Grid>
-                    <Grid size={{ xs: 6, sm: 3 }}>
-                        <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'info.light', color: 'info.contrastText' }}>
-                            <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-                                {devices.filter(device => device.isFavorite).length}
-                            </Typography>
-                            <Typography variant="body2" color="inherit" sx={{ textTransform: 'uppercase', letterSpacing: 1 }}>
-                                Favorite Devices
-                            </Typography>
-                        </Paper>
-                    </Grid>
-                    <Grid size={{ xs: 6, sm: 3 }}>
-                        <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'success.light', color: 'success.contrastText' }}>
-                            <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-                                {devices.filter(d => d.status === 'online').length}
-                            </Typography>
-                            <Typography variant="body2" color="inherit" sx={{ textTransform: 'uppercase', letterSpacing: 1 }}>
-                                Online
-                            </Typography>
-                        </Paper>
-                    </Grid>
-                    <Grid size={{ xs: 6, sm: 3 }}>
-                        <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'warning.light', color: 'warning.contrastText' }}>
-                            <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-                                {devices.filter(device => !device.isFavorite).length}
-                            </Typography>
-                            <Typography variant="body2" color="inherit" sx={{ textTransform: 'uppercase', letterSpacing: 1 }}>
-                                Discovered
-                            </Typography>
-                        </Paper>
-                    </Grid>
-                </Grid>
+                {/* Compact stats */}
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+                    <Chip
+                        label={`Total ${devices.length}`}
+                        color="primary"
+                        variant="outlined"
+                    />
+                    <Chip
+                        label={`Online ${devices.filter((d) => d.status === 'online').length}`}
+                        color="success"
+                        variant="outlined"
+                    />
+                    <Chip
+                        label={`Favorites ${devices.filter((d) => d.isFavorite).length}`}
+                        color="info"
+                        variant="outlined"
+                    />
+                </Stack>
             </Box>
 
-            {/* Filters Section - Always Visible */}
-            <Paper sx={{ mb: 4, p: 2 }}>
-                <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>
-                    Filter & Sort Devices
-                </Typography>
-                <Grid container spacing={2}>
-                    {/* Filter Controls with Sort Buttons */}
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <TextField
-                                size="small"
-                                label="Name"
-                                placeholder="Filter by name..."
-                                value={nameFilter}
-                                onChange={(e) => setNameFilter(e.target.value)}
-                                fullWidth
-                                variant="outlined"
-                            />
-                            <IconButton
-                                size="small"
-                                onClick={() => {
-                                    if (sortBy === 'name') {
-                                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                                    } else {
-                                        setSortBy('name');
-                                        setSortOrder('asc');
-                                    }
-                                }}
-                                sx={{
-                                    color: sortBy === 'name' ? 'primary.main' : 'text.secondary',
-                                    bgcolor: sortBy === 'name' ? 'primary.50' : 'transparent'
-                                }}
-                            >
-                                {sortBy === 'name' && sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />}
-                            </IconButton>
-                        </Box>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <TextField
-                                size="small"
-                                label="MAC Address"
-                                placeholder="Filter by MAC..."
-                                value={macFilter}
-                                onChange={(e) => setMacFilter(e.target.value)}
-                                fullWidth
-                                variant="outlined"
-                            />
-                            <IconButton
-                                size="small"
-                                onClick={() => {
-                                    if (sortBy === 'mac') {
-                                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                                    } else {
-                                        setSortBy('mac');
-                                        setSortOrder('asc');
-                                    }
-                                }}
-                                sx={{
-                                    color: sortBy === 'mac' ? 'primary.main' : 'text.secondary',
-                                    bgcolor: sortBy === 'mac' ? 'primary.50' : 'transparent'
-                                }}
-                            >
-                                {sortBy === 'mac' && sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />}
-                            </IconButton>
-                        </Box>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <TextField
-                                size="small"
-                                label="IP Address"
-                                placeholder="Filter by IP..."
-                                value={ipFilter}
-                                onChange={(e) => setIpFilter(e.target.value)}
-                                fullWidth
-                                variant="outlined"
-                            />
-                            <IconButton
-                                size="small"
-                                onClick={() => {
-                                    if (sortBy === 'ip') {
-                                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                                    } else {
-                                        setSortBy('ip');
-                                        setSortOrder('asc');
-                                    }
-                                }}
-                                sx={{
-                                    color: sortBy === 'ip' ? 'primary.main' : 'text.secondary',
-                                    bgcolor: sortBy === 'ip' ? 'primary.50' : 'transparent'
-                                }}
-                            >
-                                {sortBy === 'ip' && sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />}
-                            </IconButton>
-                        </Box>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <FormControl size="small" fullWidth>
-                                <Select
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                    displayEmpty
-                                    variant="outlined"
-                                >
-                                    <MenuItem value="">All Status</MenuItem>
-                                    {statusOptions.map(status => (
-                                        <MenuItem key={status} value={status}>
-                                            {status.charAt(0).toUpperCase() + status.slice(1)}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                            <IconButton
-                                size="small"
-                                onClick={() => {
-                                    if (sortBy === 'status') {
-                                        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                                    } else {
-                                        setSortBy('status');
-                                        setSortOrder('asc');
-                                    }
-                                }}
-                                sx={{
-                                    color: sortBy === 'status' ? 'primary.main' : 'text.secondary',
-                                    bgcolor: sortBy === 'status' ? 'primary.50' : 'transparent'
-                                }}
-                            >
-                                {sortBy === 'status' && sortOrder === 'desc' ? <ArrowDownIcon /> : <ArrowUpIcon />}
-                            </IconButton>
-                        </Box>
-                    </Grid>
-
-                    {/* Clear All Button */}
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <Button
-                            variant="outlined"
-                            startIcon={<FilterIcon />}
-                            onClick={clearTableFilters}
-                            size="small"
-                            fullWidth
-                            sx={{ height: '40px' }}
-                        >
-                            Clear All
-                        </Button>
-                    </Grid>
-                </Grid>
-            </Paper>
-
-            {/* Content */}
+            {/* Filter header always; table rows only in table view; cards below in card view */}
             <Box sx={{ mb: 4 }}>
-                {viewMode === 'cards' ? (
-                    renderCards()
-                ) : (
-                    renderDevicesTable()
-                )}
+                {renderDevicesTable()}
+                {viewMode === 'cards' && renderCards()}
                 {filteredAllDevices.length > 0 && (
                     <TablePagination
                         component="div"

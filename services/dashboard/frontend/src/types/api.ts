@@ -97,14 +97,20 @@ export interface SystemInfo {
 export interface ResourceMetrics {
     cpu?: {
         usage: number;
+        cores?: number;
+        model?: string;
     };
     memory?: {
         percentage: number;
         used: number;
+        free?: number;
         total: number;
+        cached?: number;
+        buffers?: number;
     };
     disk?: {
         percentage: number;
+        used?: number;
         available: number;
         total: number;
     };
@@ -347,6 +353,28 @@ export interface ServerSettings {
     [key: string]: unknown;
 }
 
+export type HomeSectionKind = 'recents' | 'internal' | 'external' | 'custom';
+
+export interface HomeSection {
+    id: string;
+    kind: HomeSectionKind;
+    title: string;
+    hidden: boolean;
+    collapsed: boolean;
+    cardIds: string[];
+}
+
+export type HomeCard =
+    | { id: string; type: 'catalog'; catalogId: string }
+    | {
+          id: string;
+          type: 'custom';
+          title: string;
+          url: string;
+          description?: string;
+          icon: string;
+      };
+
 export interface UserSettings {
     theme?: string;
     defaultHomePage?: string;
@@ -354,6 +382,9 @@ export interface UserSettings {
     showOfflineDevices?: boolean;
     devicesPerPage?: number | string;
     compactMode?: boolean;
+    homeRecentIds?: string[];
+    homeLayout?: HomeSection[];
+    homeCards?: HomeCard[];
     [key: string]: unknown;
 }
 

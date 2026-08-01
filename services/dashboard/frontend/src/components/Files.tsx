@@ -126,7 +126,7 @@ const Files = () => {
     };
 
     return (
-        <Container maxWidth="sm" sx={{ py: { xs: 2, md: 4 } }}>
+        <Container maxWidth="lg" sx={{ py: { xs: 2, md: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
             <PageHeader title="Sync & Files" icon={<FilesIcon />} />
 
             <Stack spacing={3}>

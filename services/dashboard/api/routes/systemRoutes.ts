@@ -144,6 +144,24 @@ router.put('/user-settings', requireAuth(), (req: Request, res: Response) => {
     }
 });
 
+/** Atomically prepend one id to homeRecentIds (avoids multi-tab PUT races). */
+router.post('/user-settings/recent', requireAuth(), (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return sendError(res, 401, 'Unauthorized');
+        }
+        const id = typeof req.body?.id === 'string' ? req.body.id.trim() : '';
+        if (!id || id.length > 200) {
+            return sendError(res, 400, 'Invalid recent id');
+        }
+        const homeRecentIds = userSettings.prependRecent(userId, id, 8);
+        return sendSuccess(res, { homeRecentIds });
+    } catch (error: unknown) {
+        return sendError(res, 500, 'Failed to record recent', getErrorMessage(error));
+    }
+});
+
 // System information endpoints
 /**
  * @openapi

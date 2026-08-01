@@ -300,12 +300,31 @@ const PackageManager = () => {
                             maxHeight={{ xs: 'min(60dvh, 480px)', md: 'calc(100vh - 280px)' }}
                             vertical
                         >
-                            <Table stickyHeader size="small">
+                            <Table
+                                stickyHeader
+                                size="small"
+                                sx={{
+                                    '& .MuiTableCell-head': {
+                                        bgcolor: 'background.paper',
+                                        color: 'text.secondary',
+                                        typography: 'overline',
+                                        letterSpacing: '0.08em',
+                                        fontWeight: 700,
+                                        lineHeight: 1.5,
+                                        borderBottom: 2,
+                                        borderColor: 'divider',
+                                        py: 1.25,
+                                        whiteSpace: 'nowrap',
+                                        backgroundImage: 'none',
+                                        zIndex: 3,
+                                    },
+                                }}
+                            >
                                 <TableHead>
                                     <TableRow>
-                                        <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Package Name</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Status</TableCell>
-                                        <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Installed Version</TableCell>
+                                        <TableCell>Package name</TableCell>
+                                        <TableCell>Status</TableCell>
+                                        <TableCell>Installed version</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>

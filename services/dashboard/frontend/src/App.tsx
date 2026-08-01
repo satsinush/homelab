@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider, CssBaseline, Box, CircularProgress, Typography } from '@mui/material';
 import { ThemeModeProvider } from './contexts/ThemeContext';
@@ -27,6 +27,7 @@ import DefaultHomeRedirect from './components/DefaultHomeRedirect';
 import './App.css';
 
 import { ReactNode } from 'react';
+import { pathToHomeCatalogId, recordHomeRecent } from './utils/homeRecents';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -41,6 +42,20 @@ function ProtectedRoute({ children, role }: ProtectedRouteProps) {
   }
   
   return children;
+}
+
+/** Record dashboard page visits into home recents (persisted; Home UI refreshes on remount). */
+function HomeRecentsTracker() {
+  const location = useLocation();
+  const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const id = pathToHomeCatalogId(location.pathname);
+    if (id) recordHomeRecent(id);
+  }, [location.pathname, isAuthenticated]);
+
+  return null;
 }
 
 function AppContent() {
@@ -137,6 +152,7 @@ function AppContent() {
       <CssBaseline />
       <NotificationProvider>
         <AuthGuard>
+          <HomeRecentsTracker />
           <Box
           sx={{
             display: 'flex',

@@ -73,7 +73,7 @@ const Users = () => {
     }
 
     return (
-        <Container maxWidth="md" sx={{ py: 3 }}>
+        <Container maxWidth="lg" sx={{ py: 3 }}>
             <PageHeader title="Users" icon={<PeopleIcon />} />
             <Alert severity="info" sx={{ mb: 2 }}>
                 <AlertTitle>Identity is managed in Authentik</AlertTitle>
@@ -84,32 +84,73 @@ const Users = () => {
                 . Samba/mail use that identity (LDAP); Nextcloud/Immich use OIDC.
             </Alert>
             <Card>
-                <CardContent>
+                <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
                     <List disablePadding>
                         {users.map((u, i) => (
                             <React.Fragment key={u.id}>
                                 {i > 0 && <Divider />}
-                                <ListItem sx={{ py: 1.5, gap: 2 }}>
-                                    <Avatar>{u.username.slice(0, 1).toUpperCase()}</Avatar>
-                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                        <Typography fontWeight={600}>{u.username}</Typography>
-                                        {u.email && (
-                                            <Typography variant="body2" color="text.secondary">
-                                                {u.email}
-                                            </Typography>
-                                        )}
-                                        <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: 'wrap' }}>
+                                <ListItem
+                                    sx={{
+                                        py: 1,
+                                        px: { xs: 0.5, sm: 1 },
+                                        gap: 2,
+                                        alignItems: 'center',
+                                        flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                                    }}
+                                >
+                                    <Avatar sx={{ width: 40, height: 40 }}>
+                                        {u.username.slice(0, 1).toUpperCase()}
+                                    </Avatar>
+                                    <Box
+                                        sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 1,
+                                            flexWrap: 'wrap',
+                                            minWidth: 0,
+                                            flex: { xs: '1 1 100%', sm: '1 1 auto' },
+                                        }}
+                                    >
+                                        <Typography fontWeight={600} noWrap>
+                                            {u.username}
+                                        </Typography>
+                                        <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
                                             {u.roles?.includes('homelab-admin') && (
-                                                <Chip size="small" icon={<AdminIcon />} label="Admin" color="primary" />
+                                                <Chip
+                                                    size="small"
+                                                    icon={<AdminIcon />}
+                                                    label="Admin"
+                                                    color="primary"
+                                                />
                                             )}
                                             {u.sso_id ? (
                                                 <Chip size="small" icon={<SSOIcon />} label="SSO" />
                                             ) : (
                                                 <Chip size="small" icon={<LocalIcon />} label="Local" />
                                             )}
-                                            {u.id === currentUser?.id && <Chip size="small" label="You" />}
+                                            {u.id === currentUser?.id && (
+                                                <Chip size="small" label="You" />
+                                            )}
                                         </Stack>
                                     </Box>
+                                    {u.email && (
+                                        <Typography
+                                            variant="body2"
+                                            color="text.secondary"
+                                            sx={{
+                                                ml: { sm: 'auto' },
+                                                flex: { xs: '1 1 100%', sm: '0 1 auto' },
+                                                pl: { xs: 7, sm: 0 },
+                                                textAlign: { sm: 'right' },
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                                maxWidth: { sm: 280, md: 360 },
+                                            }}
+                                        >
+                                            {u.email}
+                                        </Typography>
+                                    )}
                                 </ListItem>
                             </React.Fragment>
                         ))}

@@ -1,6 +1,38 @@
 import database from './Database';
 import Database from 'better-sqlite3';
 
+export type HomeSectionKind = 'recents' | 'internal' | 'external' | 'custom';
+
+export interface HomeSection {
+    id: string;
+    kind: HomeSectionKind;
+    title: string;
+    hidden: boolean;
+    collapsed: boolean;
+    /** Card ids for custom sections only */
+    cardIds: string[];
+}
+
+export type HomeCard =
+    | { id: string; type: 'catalog'; catalogId: string }
+    | {
+          id: string;
+          type: 'custom';
+          title: string;
+          url: string;
+          description?: string;
+          /** `mui:IconName` or `emoji:…` */
+          icon: string;
+      };
+
+export function defaultHomeLayout(): HomeSection[] {
+    return [
+        { id: 'recents', kind: 'recents', title: 'Recents', hidden: false, collapsed: false, cardIds: [] },
+        { id: 'internal', kind: 'internal', title: 'Pages', hidden: false, collapsed: false, cardIds: [] },
+        { id: 'external', kind: 'external', title: 'Services', hidden: false, collapsed: false, cardIds: [] },
+    ];
+}
+
 // Default user settings - these define the available settings and their defaults
 export interface UserSettingsData {
     defaultHomePage: string;
@@ -8,6 +40,9 @@ export interface UserSettingsData {
     showOfflineDevices: boolean;
     devicesPerPage: number;
     compactMode: boolean;
+    homeRecentIds: string[];
+    homeLayout: HomeSection[];
+    homeCards: HomeCard[];
     [key: string]: unknown;
 }
 
@@ -17,6 +52,9 @@ const DEFAULT_USER_SETTINGS: UserSettingsData = {
     showOfflineDevices: true,
     devicesPerPage: 25,
     compactMode: false,
+    homeRecentIds: [],
+    homeLayout: defaultHomeLayout(),
+    homeCards: [],
 };
 
 class UserSettings {
@@ -42,6 +80,32 @@ class UserSettings {
         }
 
         return { ...DEFAULT_USER_SETTINGS, ...userOverrides };
+    }
+
+    /** Atomically prepend a home recent id (safe under multi-tab / rapid clicks). */
+    prependRecent(userId: number, id: string, cap = 8): string[] {
+        if (!id || typeof id !== 'string') {
+            return this.get(userId).homeRecentIds;
+        }
+        return this.db.transaction(() => {
+            const row = this.db.prepare(
+                'SELECT value FROM user_settings WHERE user_id = ? AND key = ?'
+            ).get(userId, 'homeRecentIds') as { value: string } | undefined;
+
+            let current: string[] = [];
+            if (row?.value) {
+                try {
+                    const parsed = JSON.parse(row.value);
+                    if (Array.isArray(parsed)) current = parsed.filter((x) => typeof x === 'string');
+                } catch {
+                    current = [];
+                }
+            }
+
+            const next = [id, ...current.filter((x) => x !== id)].slice(0, cap);
+            this.set(userId, 'homeRecentIds', next);
+            return next;
+        })();
     }
 
     // Set a single setting for a user
@@ -90,7 +154,11 @@ class UserSettings {
 
     // Get the defaults (for the frontend to know available settings)
     getDefaults(): UserSettingsData {
-        return { ...DEFAULT_USER_SETTINGS };
+        return {
+            ...DEFAULT_USER_SETTINGS,
+            homeLayout: defaultHomeLayout(),
+            homeCards: [],
+        };
     }
 }
 
