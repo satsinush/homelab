@@ -22,8 +22,8 @@ Compose services use host bind mounts (not Docker named volumes). Directory owne
    - Ask for repository URL, encryption password, and S3 access key / secret
    - Write `volumes/secrets/restic_*` (mode `0600`)
    - Copy [`.backup_exclude.example`](../.backup_exclude.example) → `.backup_exclude` if needed
-   - Run `restic init` when the binary is available
-4. Re-run setup later if you skipped the prompt; existing secrets are left alone.
+   - Run `restic init` when the binary is available (also runs on later setups if the bucket is still empty)
+4. To switch backends later: overwrite `volumes/secrets/restic_repository` and the AWS key files, then `python3 setup.py setup` or `python3 setup.py backup` (both init an empty bucket using those secrets — no manual `export` needed). Keep the same `restic_password` unless you intend new encryption.
 
 **Do not** put Restic credentials in `.env` — only under `volumes/secrets/`.
 
@@ -35,7 +35,7 @@ python3 setup.py backup
 
 Privileged bits use `sudo` when needed (same pattern as setup): Restic is wrapped so it can read root-owned bind mounts; Postgres dumps are written mode `0600` via `write_host_file` (sudo/Docker fallback for root-owned dump files from the nightly timer).
 
-Flow: load env/secrets → each `Service.backup()` → `restic backup` of `.env`, `volumes/`, `*/volumes/`, `storage/` → retention `forget --group-by host --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune` (group by host only so changing path sets still expire).
+Flow: load env/secrets → init repo if empty → each `Service.backup()` → `restic backup` of `.env`, `volumes/`, `*/volumes/`, `storage/` → retention `forget --group-by host --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune` (group by host only so changing path sets still expire).
 
 ### Automated backups (systemd)
 

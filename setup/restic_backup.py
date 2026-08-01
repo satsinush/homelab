@@ -209,9 +209,41 @@ def run_restic(
     return proc.returncode
 
 
+def ensure_restic_repository(
+    env: dict[str, str] | None = None,
+    *,
+    require_binary: bool = True,
+) -> bool:
+    """Init the remote repo if needed. Loads credentials from volumes/secrets/.
+
+    Returns True when the repository is ready (already existed or just created).
+    """
+    if not shutil.which("restic"):
+        if require_binary:
+            error("restic is not installed. Install it and try again.")
+            sys.exit(1)
+        warn("restic not installed; skip repository init.")
+        return False
+
+    env = env or restic_env(prompt=False)
+    if run_restic(["cat", "config"], env=env, quiet=True) == 0:
+        ok("Restic repository already initialized")
+        return True
+
+    step("Initializing Restic repository...")
+    code = run_restic(["init"], env=env)
+    if code == 0:
+        ok("Restic repository initialized")
+        return True
+    error(f"restic init failed (exit {code}). Check credentials / bucket.")
+    return False
+
+
 def restic_backup(*, auto: bool = False) -> None:
     # systemd --auto must not hang on prompts; interactive backup may ask.
     env = restic_env(prompt=not auto, confirm_password=True)
+    if not ensure_restic_repository(env):
+        sys.exit(1)
     targets = backup_targets()
     if not targets:
         warn("No backup targets found (.env / volumes / */volumes / storage)")
