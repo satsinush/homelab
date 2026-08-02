@@ -76,21 +76,23 @@ class DeviceController {
         try {
             const scannedDevices = await this.performNetworkScan();
             const now = new Date().toISOString();
-
             const scannedMacSet = new Set(scannedDevices.map(d => d.mac));
 
             this.scanCache.byMac = new Map(scannedDevices.map(d => [d.mac, d]));
 
-            for (const d of scannedDevices) {
-                this.deviceModel.updateScanDataForMac(d.mac, d.ip || '', 'online', now);
+            const userIds = this.deviceModel.getAllUserIds();
+
+            for (const userId of userIds) {
+                for (const d of scannedDevices) {
+                    this.deviceModel.upsertScanDiscoveredDevice(userId, d.mac, d.ip || null, 'online', now);
+                }
+                const userSaved = this.deviceModel.getAllForUser(userId);
+                const offlineMacs = userSaved.map(d => d.mac).filter(mac => !scannedMacSet.has(mac));
+                this.deviceModel.markOfflineForUserMacs(userId, offlineMacs);
             }
 
-            const allSavedMacs = this.deviceModel.getAllSavedMacs();
-            const offlineMacs = allSavedMacs.filter(mac => !scannedMacSet.has(mac));
-            this.deviceModel.markOfflineByMacs(offlineMacs);
-
             this.scanCache.lastScan = Date.now();
-            console.log(`Scan complete: ${scannedDevices.length} online, ${offlineMacs.length} saved devices now offline`);
+            console.log(`Scan complete: ${scannedDevices.length} online devices scanned & persisted`);
         } catch (error) {
             console.error('Scan error:', error);
         } finally {
@@ -107,31 +109,7 @@ class DeviceController {
     }
 
     buildDeviceListForUser(userId: number) {
-        const userSaved = this.deviceModel.getAllForUser(userId);
-        const userSavedMacs = new Set(userSaved.map(d => d.mac));
-
-        const result = userSaved.map(d => ({ ...d }));
-
-        for (const [mac, scanEntry] of this.scanCache.byMac) {
-            if (!userSavedMacs.has(mac)) {
-                result.push({
-                    id: 0,
-                    userId: userId,
-                    mac,
-                    ip: scanEntry.ip,
-                    status: scanEntry.status,
-                    lastSeen: scanEntry.lastSeen,
-                    isFavorite: false,
-                    name: null,
-                    description: null,
-                    rustdeskId: null,
-                    createdAt: '',
-                    updatedAt: ''
-                });
-            }
-        }
-
-        return result;
+        return this.deviceModel.getAllForUser(userId);
     }
 
     // GET /api/devices

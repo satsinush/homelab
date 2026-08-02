@@ -231,6 +231,50 @@ class Device {
         }
     }
 
+    getAllUserIds(): number[] {
+        try {
+            const stmt = this.db.prepare('SELECT id FROM users');
+            return (stmt.all() as Array<{ id: number }>).map(u => u.id);
+        } catch (error) {
+            console.error('Error getting all user IDs:', error);
+            return [];
+        }
+    }
+
+    upsertScanDiscoveredDevice(userId: number, mac: string, ip: string | null, status: string, lastSeen: string): void {
+        try {
+            const now = new Date().toISOString();
+            const stmt = this.db.prepare(`
+                INSERT INTO user_devices (user_id, mac, last_ip, status, last_seen, is_favorite, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, 0, ?, ?)
+                ON CONFLICT(user_id, mac) DO UPDATE SET
+                    last_ip = excluded.last_ip,
+                    status = excluded.status,
+                    last_seen = excluded.last_seen,
+                    updated_at = excluded.updated_at
+            `);
+            stmt.run(userId, mac, ip, status, lastSeen || now, now, now);
+        } catch (error) {
+            console.error('Error upserting scan discovered device:', error);
+        }
+    }
+
+    markOfflineForUserMacs(userId: number, macs: string[]): void {
+        if (!macs || macs.length === 0) return;
+        try {
+            const now = new Date().toISOString();
+            const placeholders = macs.map(() => '?').join(', ');
+            const stmt = this.db.prepare(`
+                UPDATE user_devices
+                SET status = 'offline', updated_at = ?
+                WHERE user_id = ? AND mac IN (${placeholders})
+            `);
+            stmt.run(now, userId, ...macs);
+        } catch (error) {
+            console.error('Error marking user devices offline:', error);
+        }
+    }
+
     // Mark all user_devices for a list of MACs as offline (MACs not found in scan)
     markOfflineByMacs(macs: string[]) {
         if (!macs || macs.length === 0) return;
