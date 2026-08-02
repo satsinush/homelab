@@ -766,6 +766,14 @@ const Home = () => {
                                 borderBottomColor: theme.palette.primary.main,
                                 opacity: 0.9,
                             },
+                            '.react-grid-item.react-grid-placeholder': {
+                                background: `${theme.palette.primary.main}25 !important`,
+                                border: `2px dashed ${theme.palette.primary.main} !important`,
+                                borderRadius: '12px !important',
+                                opacity: '0.85 !important',
+                                transitionDuration: '100ms',
+                                zIndex: 2,
+                            },
                             '.home-widget-grid--editing .react-grid-item:hover > .react-resizable-handle::after, .home-widget-grid--editing .react-grid-item.resizing > .react-resizable-handle::after':
                                 {
                                     opacity: 1,
