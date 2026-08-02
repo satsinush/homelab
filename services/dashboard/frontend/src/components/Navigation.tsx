@@ -313,6 +313,9 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
                     onClose={handleDrawerToggle}
                     ModalProps={{
                         keepMounted: true,
+                        disableRestoreFocus: true,
+                        disableEnforceFocus: true,
+                        disableAutoFocus: true,
                     }}
                     sx={{
                         '& .MuiDrawer-paper': {

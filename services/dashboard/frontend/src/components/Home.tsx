@@ -303,12 +303,12 @@ function RecentTile({
         borderColor: 'divider',
         textDecoration: 'none',
         color: 'inherit',
-        width: 168,
-        minWidth: 168,
-        maxWidth: 168,
+        width: { xs: '100%', sm: 168 },
+        minWidth: 0,
+        maxWidth: '100%',
         height: 44,
         boxSizing: 'border-box' as const,
-        flexShrink: 0,
+        flexShrink: 1,
         overflow: 'hidden',
         ...(disabled
             ? { pointerEvents: 'none' as const, opacity: 0.85 }
@@ -412,12 +412,12 @@ function ServiceTile({
         borderColor: 'divider',
         width: 104,
         height: 104,
-        minWidth: 104,
+        minWidth: 0,
         minHeight: 104,
-        maxWidth: 104,
+        maxWidth: '100%',
         maxHeight: 104,
         boxSizing: 'border-box' as const,
-        flexShrink: 0,
+        flexShrink: 1,
         textDecoration: 'none',
         color: 'inherit',
         overflow: 'hidden',
@@ -1390,16 +1390,38 @@ const Home = () => {
     const theme = useTheme();
     // Match Navigation: treat md-and-down as mobile (not RGL container width).
     const isMobile = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
-    const { width, containerRef, mounted } = useContainerWidth({
-        initialWidth: typeof window !== 'undefined' ? Math.min(window.innerWidth, 1200) : 1200,
-    });
+    const [loaded, setLoaded] = useState(false);
+    const containerRef = useRef<HTMLDivElement | null>(null);
+    const [measuredWidth, setMeasuredWidth] = useState<number>(0);
+
+    useLayoutEffect(() => {
+        const el = containerRef.current;
+        if (!el) return;
+        const target = el.parentElement || el;
+        const updateWidth = () => {
+            const rect = target.getBoundingClientRect();
+            // Subtract horizontal padding of parent container (24px padding on lg container = 48px)
+            const style = getComputedStyle(target);
+            const padLeft = parseFloat(style.paddingLeft) || 0;
+            const padRight = parseFloat(style.paddingRight) || 0;
+            const availableWidth = Math.floor(rect.width - padLeft - padRight);
+            if (availableWidth > 0) setMeasuredWidth(availableWidth);
+        };
+        updateWidth();
+        const ro = new ResizeObserver(updateWidth);
+        ro.observe(target);
+        window.addEventListener('resize', updateWidth);
+        return () => {
+            ro.disconnect();
+            window.removeEventListener('resize', updateWidth);
+        };
+    }, [loaded]);
 
     const [editing, setEditing] = useState(false);
     const layoutEditing = editing && !isMobile;
     const [recentIds, setRecentIds] = useState<string[]>([]);
     const [widgets, setWidgets] = useState<HomeWidget[]>(defaultHomeWidgets);
     const [cards, setCards] = useState<HomeCard[]>([]);
-    const [loaded, setLoaded] = useState(false);
 
     // Auto-scroll the page when resizing/dragging near the viewport edge.
     useEffect(() => {
@@ -1938,9 +1960,15 @@ const Home = () => {
                 className={`home-widget-grid${editing ? ' home-widget-grid--editing' : ''}`}
                 sx={{
                     width: '100%',
+                    maxWidth: '100%',
+                    minWidth: 0,
+                    overflow: 'hidden',
                     minHeight: 200,
                     // Extra room below so resizing a bottom widget can scroll into view.
                     pb: editing ? 12 : 0,
+                    '& .react-grid-layout': {
+                        maxWidth: '100%',
+                    },
                     '& .react-grid-item': {
                         overflow: 'hidden',
                     },
@@ -1988,101 +2016,186 @@ const Home = () => {
                         })}
                     />
                 )}
-                {(mounted || width > 0) && (
-                    <GridLayout
-                        key={isMobile ? 'mobile' : 'desktop'}
-                        width={Math.max(width, 1)}
-                        layout={gridLayout}
-                        gridConfig={{
-                            cols: isMobile ? 1 : HOME_GRID_COLS,
-                            rowHeight: HOME_GRID_ROW_HEIGHT,
-                            margin: isMobile ? [10, 10] : [12, 12],
-                        }}
-                        dragConfig={{
-                            enabled: layoutEditing,
-                            handle: '.home-widget-drag',
-                        }}
-                        resizeConfig={{ enabled: layoutEditing }}
-                        compactor={verticalCompactor}
-                        onLayoutChange={onLayoutChange}
-                    >
-                        {widgets.map((widget) => (
-                            <div key={widget.id} className="home-widget-item">
-                                <WidgetShell
-                                    title={editing ? (widget.title ?? '') : widgetTitle(widget)}
-                                    titlePlaceholder={HOME_WIDGET_META[widget.type].label}
-                                    iconName={widgetIconName(widget)}
-                                    editing={editing}
-                                    layoutEditing={layoutEditing}
-                                    onRemove={() => removeWidget(widget.id)}
-                                    onIconChange={(icon) =>
-                                        updateWidgets(
-                                            widgets.map((w) => (w.id === widget.id ? { ...w, icon } : w))
-                                        )
-                                    }
-                                    onTitleChange={(raw) => {
-                                        updateWidgets(
-                                            widgets.map((w) =>
-                                                w.id === widget.id
-                                                    ? { ...w, title: raw.trim() || undefined }
-                                                    : w
+                {isMobile ? (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
+                        {widgets.map((widget) => {
+                            const meta = HOME_WIDGET_META[widget.type];
+                            const heightPx = meta.defaultH * HOME_GRID_ROW_HEIGHT + (meta.defaultH - 1) * 10;
+                            return (
+                                <Box key={widget.id} sx={{ height: heightPx, width: '100%' }}>
+                                    <WidgetShell
+                                        title={editing ? (widget.title ?? '') : widgetTitle(widget)}
+                                        titlePlaceholder={HOME_WIDGET_META[widget.type].label}
+                                        iconName={widgetIconName(widget)}
+                                        editing={editing}
+                                        layoutEditing={false}
+                                        onRemove={() => removeWidget(widget.id)}
+                                        onIconChange={(icon) =>
+                                            updateWidgets(
+                                                widgets.map((w) => (w.id === widget.id ? { ...w, icon } : w))
                                             )
-                                        );
-                                    }}
-                                    headerActions={
-                                        <>
-                                            {widget.type === 'clock' && editing && (
-                                                <ToggleButtonGroup
-                                                    size="small"
-                                                    exclusive
-                                                    value={widget.data?.clockStyle === 'analog' ? 'analog' : 'digital'}
-                                                    onChange={(_, value: 'digital' | 'analog' | null) => {
-                                                        if (!value) return;
-                                                        updateWidgets(
-                                                            widgets.map((w) =>
-                                                                w.id === widget.id && w.type === 'clock'
-                                                                    ? { ...w, data: { ...w.data, clockStyle: value } }
-                                                                    : w
-                                                            )
-                                                        );
-                                                    }}
-                                                    sx={{ flexShrink: 0, mr: 0.5 }}
-                                                >
-                                                    <ToggleButton value="digital" sx={{ px: 1, py: 0.25, fontSize: '0.7rem' }}>
-                                                        Digital
-                                                    </ToggleButton>
-                                                    <ToggleButton value="analog" sx={{ px: 1, py: 0.25, fontSize: '0.7rem' }}>
-                                                        Analog
-                                                    </ToggleButton>
-                                                </ToggleButtonGroup>
-                                            )}
-                                            {widget.type === 'links' && editing && (
-                                                <Button
-                                                    size="small"
-                                                    startIcon={<AddIcon />}
-                                                    onClick={() => openAddCard(widget.id)}
-                                                    sx={{ flexShrink: 0, minWidth: 108, px: 1.5, whiteSpace: 'nowrap' }}
-                                                >
-                                                    Add link
-                                                </Button>
-                                            )}
-                                            {widget.type === 'recents' && !editing && recentIds.length > 0 && (
-                                                <Button
-                                                    size="small"
-                                                    startIcon={<ClearIcon />}
-                                                    onClick={clearRecents}
-                                                >
-                                                    Clear
-                                                </Button>
-                                            )}
-                                        </>
-                                    }
-                                >
-                                    {renderWidgetBody(widget)}
-                                </WidgetShell>
-                            </div>
-                        ))}
-                    </GridLayout>
+                                        }
+                                        onTitleChange={(raw) => {
+                                            updateWidgets(
+                                                widgets.map((w) =>
+                                                    w.id === widget.id
+                                                        ? { ...w, title: raw.trim() || undefined }
+                                                        : w
+                                                )
+                                            );
+                                        }}
+                                        headerActions={
+                                            <>
+                                                {widget.type === 'clock' && editing && (
+                                                    <ToggleButtonGroup
+                                                        size="small"
+                                                        exclusive
+                                                        value={widget.data?.clockStyle === 'analog' ? 'analog' : 'digital'}
+                                                        onChange={(_, value: 'digital' | 'analog' | null) => {
+                                                            if (!value) return;
+                                                            updateWidgets(
+                                                                widgets.map((w) =>
+                                                                    w.id === widget.id && w.type === 'clock'
+                                                                        ? { ...w, data: { ...w.data, clockStyle: value } }
+                                                                        : w
+                                                                )
+                                                            );
+                                                        }}
+                                                        sx={{ flexShrink: 0, mr: 0.5 }}
+                                                    >
+                                                        <ToggleButton value="digital" sx={{ px: 1, py: 0.25, fontSize: '0.7rem' }}>
+                                                            Digital
+                                                        </ToggleButton>
+                                                        <ToggleButton value="analog" sx={{ px: 1, py: 0.25, fontSize: '0.7rem' }}>
+                                                            Analog
+                                                        </ToggleButton>
+                                                    </ToggleButtonGroup>
+                                                )}
+                                                {widget.type === 'links' && editing && (
+                                                    <Button
+                                                        size="small"
+                                                        startIcon={<AddIcon />}
+                                                        onClick={() => openAddCard(widget.id)}
+                                                        sx={{ flexShrink: 0, minWidth: 108, px: 1.5, whiteSpace: 'nowrap' }}
+                                                    >
+                                                        Add link
+                                                    </Button>
+                                                )}
+                                                {widget.type === 'recents' && !editing && recentIds.length > 0 && (
+                                                    <Button
+                                                        size="small"
+                                                        startIcon={<ClearIcon />}
+                                                        onClick={clearRecents}
+                                                    >
+                                                        Clear
+                                                    </Button>
+                                                )}
+                                            </>
+                                        }
+                                    >
+                                        {renderWidgetBody(widget)}
+                                    </WidgetShell>
+                                </Box>
+                            );
+                        })}
+                    </Box>
+                ) : (
+                    measuredWidth > 0 && (
+                        <GridLayout
+                            key="desktop"
+                            width={measuredWidth}
+                            layout={gridLayout}
+                            gridConfig={{
+                                cols: HOME_GRID_COLS,
+                                rowHeight: HOME_GRID_ROW_HEIGHT,
+                                margin: [12, 12],
+                            }}
+                            dragConfig={{
+                                enabled: layoutEditing,
+                                handle: '.home-widget-drag',
+                            }}
+                            resizeConfig={{ enabled: layoutEditing }}
+                            compactor={verticalCompactor}
+                            onLayoutChange={onLayoutChange}
+                        >
+                            {widgets.map((widget) => (
+                                <div key={widget.id} className="home-widget-item">
+                                    <WidgetShell
+                                        title={editing ? (widget.title ?? '') : widgetTitle(widget)}
+                                        titlePlaceholder={HOME_WIDGET_META[widget.type].label}
+                                        iconName={widgetIconName(widget)}
+                                        editing={editing}
+                                        layoutEditing={layoutEditing}
+                                        onRemove={() => removeWidget(widget.id)}
+                                        onIconChange={(icon) =>
+                                            updateWidgets(
+                                                widgets.map((w) => (w.id === widget.id ? { ...w, icon } : w))
+                                            )
+                                        }
+                                        onTitleChange={(raw) => {
+                                            updateWidgets(
+                                                widgets.map((w) =>
+                                                    w.id === widget.id
+                                                        ? { ...w, title: raw.trim() || undefined }
+                                                        : w
+                                                )
+                                            );
+                                        }}
+                                        headerActions={
+                                            <>
+                                                {widget.type === 'clock' && editing && (
+                                                    <ToggleButtonGroup
+                                                        size="small"
+                                                        exclusive
+                                                        value={widget.data?.clockStyle === 'analog' ? 'analog' : 'digital'}
+                                                        onChange={(_, value: 'digital' | 'analog' | null) => {
+                                                            if (!value) return;
+                                                            updateWidgets(
+                                                                widgets.map((w) =>
+                                                                    w.id === widget.id && w.type === 'clock'
+                                                                        ? { ...w, data: { ...w.data, clockStyle: value } }
+                                                                        : w
+                                                                )
+                                                            );
+                                                        }}
+                                                        sx={{ flexShrink: 0, mr: 0.5 }}
+                                                    >
+                                                        <ToggleButton value="digital" sx={{ px: 1, py: 0.25, fontSize: '0.7rem' }}>
+                                                            Digital
+                                                        </ToggleButton>
+                                                        <ToggleButton value="analog" sx={{ px: 1, py: 0.25, fontSize: '0.7rem' }}>
+                                                            Analog
+                                                        </ToggleButton>
+                                                    </ToggleButtonGroup>
+                                                )}
+                                                {widget.type === 'links' && editing && (
+                                                    <Button
+                                                        size="small"
+                                                        startIcon={<AddIcon />}
+                                                        onClick={() => openAddCard(widget.id)}
+                                                        sx={{ flexShrink: 0, minWidth: 108, px: 1.5, whiteSpace: 'nowrap' }}
+                                                    >
+                                                        Add link
+                                                    </Button>
+                                                )}
+                                                {widget.type === 'recents' && !editing && recentIds.length > 0 && (
+                                                    <Button
+                                                        size="small"
+                                                        startIcon={<ClearIcon />}
+                                                        onClick={clearRecents}
+                                                    >
+                                                        Clear
+                                                    </Button>
+                                                )}
+                                            </>
+                                        }
+                                    >
+                                        {renderWidgetBody(widget)}
+                                    </WidgetShell>
+                                </div>
+                            ))}
+                        </GridLayout>
+                    )
                 )}
             </Box>
 
