@@ -31,6 +31,9 @@ import {
     Select,
     MenuItem,
     FormControl,
+    FormControlLabel,
+    Switch,
+    InputAdornment,
     TablePagination
 } from '@mui/material';
 import {
@@ -48,6 +51,8 @@ import {
     Add as AddIcon,
     Edit as EditIcon,
     Clear as ClearIcon,
+    Search as SearchIcon,
+    FilterList as FilterIcon,
     ViewModule as CardViewIcon,
     ViewList as TableViewIcon,
     ArrowUpward as ArrowUpIcon,
@@ -525,8 +530,15 @@ const Devices = () => {
             const deviceIp = (device.ip || '').toLowerCase();
             const deviceStatus = (device.status || '').toLowerCase();
 
-            // Apply all filters
-            if (nameFilter && !deviceName.includes(nameFilter.toLowerCase())) return false;
+            // Apply search query (matches name, mac, or ip)
+            if (nameFilter) {
+                const q = nameFilter.toLowerCase().trim();
+                const qMac = normalizeMacForApi(q);
+                const matchesName = deviceName.includes(q);
+                const matchesMac = qMac ? deviceMac.includes(qMac) : false;
+                const matchesIp = deviceIp.includes(q);
+                if (!matchesName && !matchesMac && !matchesIp) return false;
+            }
             if (macFilter && !deviceMac.includes(normalizeMacForApi(macFilter))) return false;
             if (ipFilter && !deviceIp.replace('.', '').includes(ipFilter.replace('.', '').toLowerCase())) return false;
             if (statusFilter && !deviceStatus.includes(statusFilter.toLowerCase())) return false;
@@ -563,7 +575,6 @@ const Devices = () => {
                     bValue = (b.status || '').toLowerCase();
                     break;
                 case 'isFavorite':
-                    // If sorting by favorite and both have same favorite status, sort by name
                     aValue = (a.name || 'Unknown').toLowerCase();
                     bValue = (b.name || 'Unknown').toLowerCase();
                     break;
@@ -598,92 +609,83 @@ const Devices = () => {
 
     const renderCards = () => (
         <>
-            {/* All Devices Section */}
             {pagedDevices.length > 0 ? (
-                <Grid container spacing={prefs.compactMode ? 1.5 : 3}>
-                    {pagedDevices.map(device => (
-                        <Grid
-                            size={
-                                prefs.compactMode
-                                    ? { xs: 12, sm: 6, md: 4, lg: 3 }
-                                    : { xs: 12, sm: 6, lg: 4 }
-                            }
-                            key={device.macNormalized || device.mac}
-                        >
-                            <Card sx={{
-                                height: '100%',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                border: device.isFavorite ? '2px solid' : '1px solid',
-                                borderColor: device.isFavorite ? 'primary.main' : 'divider'
-                            }}>
-                                <CardContent sx={{ flexGrow: 1, py: prefs.compactMode ? 1.5 : 2, '&:last-child': { pb: prefs.compactMode ? 1.5 : 2 } }}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: prefs.compactMode ? 1 : 2 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+                <Grid container spacing={2}>
+                    {pagedDevices.map((device) => (
+                        <Grid key={device.macNormalized || device.mac} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                            <Card
+                                variant="outlined"
+                                sx={{
+                                    height: '100%',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    position: 'relative',
+                                    borderRadius: 2.5,
+                                    borderColor: device.isFavorite ? 'primary.main' : 'divider',
+                                    ...(device.isFavorite && {
+                                        boxShadow: (theme) =>
+                                            `0 0 0 1px ${theme.palette.primary.main}`,
+                                    }),
+                                }}
+                            >
+                                <CardContent sx={{ flexGrow: 1, p: prefs.compactMode ? 1.5 : 2 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
+                                        <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+                                            <Box sx={{ color: 'primary.main', display: 'flex' }}>
                                                 {getDeviceTypeIcon(device.name)}
                                             </Box>
-                                            <Chip
-                                                label={device.status === 'online' ? 'Online' : 'Offline'}
-                                                color={device.status === 'online' ? 'success' : 'error'}
-                                                size="small"
-                                                sx={{ mb: 0 }}
-                                                icon={device.status === 'online' ? <OnlineIcon /> : <OfflineIcon />}
-                                            />
-                                        </Box>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                            {!prefs.compactMode && (
-                                                <Chip
-                                                    label={device.isFavorite ? "FAVORITE" : "DISCOVERED"}
-                                                    color={device.isFavorite ? "primary" : "default"}
-                                                    size="small"
-                                                    variant={device.isFavorite ? 'filled' : 'outlined'}
-                                                    icon={device.isFavorite ? <StarIcon /> : undefined}
-                                                />
-                                            )}
-                                            <IconButton
-                                                size="small"
-                                                onClick={() => handleToggleFavorite(device)}
-                                                color={device.isFavorite ? "primary" : "default"}
-                                            >
-                                                {device.isFavorite ? <StarIcon /> : <StarBorderIcon />}
-                                            </IconButton>
-                                        </Box>
+                                            <Typography variant="subtitle1" sx={{ fontWeight: 700 }} noWrap>
+                                                {device.name || 'Unknown Device'}
+                                            </Typography>
+                                        </Stack>
+                                        <IconButton
+                                            size="small"
+                                            onClick={() => handleToggleFavorite(device)}
+                                            sx={{ color: device.isFavorite ? 'warning.main' : 'text.secondary' }}
+                                        >
+                                            {device.isFavorite ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
+                                        </IconButton>
                                     </Box>
 
-                                    <Typography
-                                        variant={prefs.compactMode ? 'subtitle1' : 'h6'}
-                                        sx={{ mb: 1, fontWeight: 600 }}
-                                    >
-                                        {device.name}
-                                    </Typography>
-
-                                    {/* Device Details */}
-                                    <Stack spacing={prefs.compactMode ? 0.5 : 1} sx={{ mb: prefs.compactMode ? 1 : 3 }}>
-                                        {device.ip && (
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <Typography variant="body2" color="text.secondary">IP:</Typography>
-                                                <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{device.ip}</Typography>
-                                            </Box>
-                                        )}
-                                        {device.mac && !prefs.compactMode && (
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <Typography variant="body2" color="text.secondary">MAC:</Typography>
-                                                <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{device.mac}</Typography>
-                                            </Box>
-                                        )}
-                                        {device.description && !prefs.compactMode && (
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <Typography variant="body2" color="text.secondary">Description:</Typography>
-                                                <Typography variant="body2">{device.description}</Typography>
-                                            </Box>
+                                    <Stack spacing={0.75} sx={{ mt: 1 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <Typography variant="caption" color="text.secondary">
+                                                Status
+                                            </Typography>
+                                            <Chip
+                                                size="small"
+                                                icon={device.status === 'online' ? <OnlineIcon /> : <OfflineIcon />}
+                                                label={device.status === 'online' ? 'Online' : 'Offline'}
+                                                color={device.status === 'online' ? 'success' : 'default'}
+                                                variant="outlined"
+                                            />
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <Typography variant="caption" color="text.secondary">
+                                                IP Address
+                                            </Typography>
+                                            <Typography variant="body2" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                                                {device.ip || '—'}
+                                            </Typography>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <Typography variant="caption" color="text.secondary">
+                                                MAC Address
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                                                {formatMacForDisplay(device.macNormalized || device.mac) || '—'}
+                                            </Typography>
+                                        </Box>
+                                        {device.description && (
+                                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                                                {device.description}
+                                            </Typography>
                                         )}
                                     </Stack>
                                 </CardContent>
 
-                                {/* Actions */}
                                 <Divider />
-                                <Box sx={{ p: prefs.compactMode ? 1 : 2 }}>
+                                <Box sx={{ p: prefs.compactMode ? 1 : 1.5 }}>
                                     <Stack spacing={1} direction={prefs.compactMode ? 'row' : 'column'}>
                                         <Button
                                             fullWidth
@@ -725,7 +727,7 @@ const Devices = () => {
                     ))}
                 </Grid>
             ) : (
-                <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'action.selected' }}>
+                <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'action.selected', borderRadius: 2.5 }}>
                     <ComputerIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
                     <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
                         No Devices Found
@@ -733,13 +735,13 @@ const Devices = () => {
                     <Typography variant="body2" color="text.secondary">
                         {devices.length === 0
                             ? 'No devices available. Try running a network scan or add devices manually.'
-                            : 'No devices match your current filters. Try adjusting your search criteria.'
+                            : 'No devices match your current search or filters. Try adjusting your criteria.'
                         }
                     </Typography>
                 </Paper>
             )}
         </>
-    )
+    );
 
     const SortHeaderButton = ({
         label,
@@ -776,195 +778,245 @@ const Devices = () => {
         </Button>
     );
 
-    // Filters always live in the table header; body rows only when viewMode === 'table'
+    const renderFilterToolbar = () => (
+        <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 2.5 }}>
+            <Grid container spacing={2} alignItems="center">
+                {/* Search Bar */}
+                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                    <TextField
+                        size="small"
+                        fullWidth
+                        placeholder="Search name, MAC, or IP…"
+                        value={nameFilter}
+                        onChange={(e) => setNameFilter(e.target.value)}
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon fontSize="small" color="action" />
+                                    </InputAdornment>
+                                ),
+                                endAdornment: nameFilter ? (
+                                    <InputAdornment position="end">
+                                        <IconButton size="small" onClick={() => setNameFilter('')}>
+                                            <ClearIcon fontSize="small" />
+                                        </IconButton>
+                                    </InputAdornment>
+                                ) : null,
+                            },
+                        }}
+                    />
+                </Grid>
+
+                {/* Status Dropdown */}
+                <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+                    <FormControl size="small" fullWidth>
+                        <Select
+                            value={statusFilter}
+                            displayEmpty
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                        >
+                            <MenuItem value="">Status: All</MenuItem>
+                            <MenuItem value="online">Online</MenuItem>
+                            <MenuItem value="offline">Offline</MenuItem>
+                        </Select>
+                    </FormControl>
+                </Grid>
+
+                {/* Show Offline Toggle */}
+                <Grid size={{ xs: 6, sm: 3, md: 2.5 }}>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                size="small"
+                                checked={prefs.showOfflineDevices}
+                                onChange={(e) => void persistDevicePrefs({ showOfflineDevices: e.target.checked })}
+                            />
+                        }
+                        label="Show Offline"
+                        sx={{ typography: 'body2', m: 0 }}
+                    />
+                </Grid>
+
+                {/* View Mode & Actions */}
+                <Grid size={{ xs: 12, md: 3.5 }} sx={{ display: 'flex', gap: 1, justifyContent: { xs: 'flex-start', md: 'flex-end' }, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {hasActiveFilters && (
+                        <Button size="small" color="inherit" onClick={clearTableFilters} startIcon={<ClearIcon />}>
+                            Clear Filters
+                        </Button>
+                    )}
+                    <ToggleButtonGroup
+                        value={viewMode}
+                        exclusive
+                        onChange={(_e, newView: DeviceViewMode | null) => {
+                            if (newView) {
+                                setViewMode(newView);
+                                void persistDevicePrefs({
+                                    deviceListView: viewModeToSetting(newView),
+                                });
+                            }
+                        }}
+                        size="small"
+                    >
+                        <ToggleButton value="cards" aria-label="Grid view">
+                            <CardViewIcon fontSize="small" />
+                        </ToggleButton>
+                        <ToggleButton value="table" aria-label="List view">
+                            <TableViewIcon fontSize="small" />
+                        </ToggleButton>
+                    </ToggleButtonGroup>
+                </Grid>
+            </Grid>
+        </Paper>
+    );
+
     const renderDevicesTable = () => (
         <TableContainer
             component={Paper}
+            variant="outlined"
             sx={{
-                mb: viewMode === 'cards' ? 2 : 4,
+                mb: 3,
                 overflowX: 'auto',
+                borderRadius: 2.5,
             }}
         >
             <Table size={prefs.compactMode ? 'small' : 'medium'}>
                 <TableHead>
                     <TableRow>
-                        <TableCell sx={{ verticalAlign: 'bottom', pt: 1.5, pb: 0.5, borderBottom: 0 }}>
+                        <TableCell sx={{ py: 1.5 }}>
                             <SortHeaderButton label="Name" field="name" />
                         </TableCell>
-                        <TableCell sx={{ verticalAlign: 'bottom', pt: 1.5, pb: 0.5, borderBottom: 0 }}>
+                        <TableCell sx={{ py: 1.5 }}>
                             <SortHeaderButton label="MAC Address" field="mac" />
                         </TableCell>
-                        <TableCell sx={{ verticalAlign: 'bottom', pt: 1.5, pb: 0.5, borderBottom: 0 }}>
+                        <TableCell sx={{ py: 1.5 }}>
                             <SortHeaderButton label="IP Address" field="ip" />
                         </TableCell>
-                        <TableCell sx={{ verticalAlign: 'bottom', pt: 1.5, pb: 0.5, borderBottom: 0 }}>
+                        <TableCell sx={{ py: 1.5 }}>
                             <SortHeaderButton label="Status" field="status" />
                         </TableCell>
-                        <TableCell align="center" sx={{ verticalAlign: 'bottom', pt: 1.5, pb: 0.5, borderBottom: 0 }}>
+                        <TableCell align="center" sx={{ py: 1.5 }}>
                             Actions
                         </TableCell>
                     </TableRow>
-                    <TableRow>
-                        <TableCell sx={{ pt: 0.5, pb: 1.5, borderBottom: viewMode === 'table' ? 1 : 0, borderColor: 'divider' }}>
-                            <TextField
-                                size="small"
-                                fullWidth
-                                placeholder="Filter name…"
-                                value={nameFilter}
-                                onChange={(e) => setNameFilter(e.target.value)}
-                            />
-                        </TableCell>
-                        <TableCell sx={{ pt: 0.5, pb: 1.5, borderBottom: viewMode === 'table' ? 1 : 0, borderColor: 'divider' }}>
-                            <TextField
-                                size="small"
-                                fullWidth
-                                placeholder="Filter MAC…"
-                                value={macFilter}
-                                onChange={(e) => setMacFilter(e.target.value)}
-                            />
-                        </TableCell>
-                        <TableCell sx={{ pt: 0.5, pb: 1.5, borderBottom: viewMode === 'table' ? 1 : 0, borderColor: 'divider' }}>
-                            <TextField
-                                size="small"
-                                fullWidth
-                                placeholder="Filter IP…"
-                                value={ipFilter}
-                                onChange={(e) => setIpFilter(e.target.value)}
-                            />
-                        </TableCell>
-                        <TableCell sx={{ pt: 0.5, pb: 1.5, borderBottom: viewMode === 'table' ? 1 : 0, borderColor: 'divider' }}>
-                            <FormControl size="small" fullWidth>
-                                <Select
-                                    value={statusFilter}
-                                    displayEmpty
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                >
-                                    <MenuItem value="">All</MenuItem>
-                                    <MenuItem value="online">Online</MenuItem>
-                                    <MenuItem value="offline">Offline</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </TableCell>
-                        <TableCell align="center" sx={{ pt: 0.5, pb: 1.5, borderBottom: viewMode === 'table' ? 1 : 0, borderColor: 'divider' }}>
-                            <Button size="small" onClick={clearTableFilters} disabled={!hasActiveFilters}>
-                                Clear
-                            </Button>
-                        </TableCell>
-                    </TableRow>
                 </TableHead>
-                {viewMode === 'table' && (
-                    <TableBody>
-                        {pagedDevices.length > 0 ? (
-                            pagedDevices.map(device => (
-                                <TableRow key={device.macNormalized || device.mac} hover>
-                                    <TableCell>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <TableBody>
+                    {pagedDevices.length > 0 ? (
+                        pagedDevices.map((device) => (
+                            <TableRow key={device.macNormalized || device.mac} hover>
+                                <TableCell>
+                                    <Stack direction="row" spacing={1} alignItems="center">
+                                        <IconButton
+                                            size="small"
+                                            onClick={() => handleToggleFavorite(device)}
+                                            sx={{ color: device.isFavorite ? 'warning.main' : 'text.secondary' }}
+                                        >
+                                            {device.isFavorite ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
+                                        </IconButton>
+                                        <Box sx={{ color: 'primary.main', display: 'flex' }}>
                                             {getDeviceTypeIcon(device.name)}
-                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                        </Box>
+                                        <Box sx={{ minWidth: 0 }}>
+                                            <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
                                                 {device.name || 'Unknown Device'}
                                             </Typography>
-                                            {device.isFavorite && (
-                                                <StarIcon sx={{ color: 'primary.main', fontSize: 16 }} />
+                                            {device.description && (
+                                                <Typography variant="caption" color="text.secondary" noWrap>
+                                                    {device.description}
+                                                </Typography>
                                             )}
                                         </Box>
-                                    </TableCell>
-                                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                                        {device.mac}
-                                    </TableCell>
-                                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
-                                        {device.ip || '-'}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Chip
-                                            label={device.status === 'online' ? 'Online' : 'Offline'}
-                                            color={device.status === 'online' ? 'success' : 'error'}
-                                            size="small"
-                                            icon={device.status === 'online' ? <OnlineIcon /> : <OfflineIcon />}
-                                        />
-                                    </TableCell>
-                                    <TableCell align="center">
-                                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                                            <Tooltip title="Toggle Favorite">
+                                    </Stack>
+                                </TableCell>
+                                <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                                    {formatMacForDisplay(device.macNormalized || device.mac) || '—'}
+                                </TableCell>
+                                <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                                    {device.ip || '—'}
+                                </TableCell>
+                                <TableCell>
+                                    <Chip
+                                        size="small"
+                                        icon={device.status === 'online' ? <OnlineIcon /> : <OfflineIcon />}
+                                        label={device.status === 'online' ? 'Online' : 'Offline'}
+                                        color={device.status === 'online' ? 'success' : 'default'}
+                                        variant="outlined"
+                                    />
+                                </TableCell>
+                                <TableCell align="center">
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+                                        <Tooltip title="Wake Device">
+                                            <IconButton
+                                                onClick={() => handleWakeOnLan(device)}
+                                                color="primary"
+                                                size="small"
+                                            >
+                                                <PowerIcon />
+                                            </IconButton>
+                                        </Tooltip>
+                                        {device.rustdeskId && (
+                                            <Tooltip title={!rustdeskConfig.available ? "RustDesk Config Missing" : "Connect RustDesk"}>
                                                 <IconButton
-                                                    onClick={() => handleToggleFavorite(device)}
-                                                    color={device.isFavorite ? "primary" : "default"}
+                                                    onClick={() => handleRustDeskConnect(device)}
+                                                    color={!rustdeskConfig.available ? "warning" : "secondary"}
                                                     size="small"
                                                 >
-                                                    {device.isFavorite ? <StarIcon /> : <StarBorderIcon />}
+                                                    {!rustdeskConfig.available ? <WarningIcon /> : <RustDeskIcon />}
                                                 </IconButton>
                                             </Tooltip>
-                                            <Tooltip title={"Wake Device"}>
+                                        )}
+                                        {device.isFavorite && (
+                                            <Tooltip title="Edit Device">
                                                 <IconButton
-                                                    onClick={() => handleWakeOnLan(device)}
-                                                    color="primary"
+                                                    onClick={() => handleEditDevice(device)}
                                                     size="small"
                                                 >
-                                                    <PowerIcon />
+                                                    <EditIcon />
                                                 </IconButton>
                                             </Tooltip>
-                                            {device.rustdeskId && (
-                                                <Tooltip title={!rustdeskConfig.available ? "RustDesk Config Missing" : "Connect RustDesk"}>
-                                                    <IconButton
-                                                        onClick={() => handleRustDeskConnect(device)}
-                                                        color={!rustdeskConfig.available ? "warning" : "secondary"}
-                                                        size="small"
-                                                    >
-                                                        {!rustdeskConfig.available ? <WarningIcon /> : <RustDeskIcon />}
-                                                    </IconButton>
-                                                </Tooltip>
-                                            )}
-                                            {device.isFavorite && (
-                                                <Tooltip title="Edit Device">
-                                                    <IconButton
-                                                        onClick={() => handleEditDevice(device)}
-                                                        size="small"
-                                                    >
-                                                        <EditIcon />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            )}
-                                        </Box>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={5} sx={{ textAlign: 'center', py: 4 }}>
-                                    <ComputerIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2, display: 'block', mx: 'auto' }} />
-                                    <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
-                                        No Devices Found
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary">
-                                        {devices.length === 0
-                                            ? 'No devices available. Try running a network scan or add devices manually.'
-                                            : 'No devices match your current filters. Try adjusting your search criteria.'
-                                        }
-                                    </Typography>
+                                        )}
+                                    </Box>
                                 </TableCell>
                             </TableRow>
-                        )}
-                    </TableBody>
-                )}
+                        ))
+                    ) : (
+                        <TableRow>
+                            <TableCell colSpan={5} sx={{ textAlign: 'center', py: 4 }}>
+                                <ComputerIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2, display: 'block', mx: 'auto' }} />
+                                <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
+                                    No Devices Found
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    {devices.length === 0
+                                        ? 'No devices available. Try running a network scan or add devices manually.'
+                                        : 'No devices match your current search or filters. Try adjusting your criteria.'
+                                    }
+                                </Typography>
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
             </Table>
         </TableContainer>
     );
 
     if (loading) {
-        return (<Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
-            <Box sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minHeight: 'calc(100vh - 200px)',
-                py: 8
-            }}>
-                <CircularProgress size={60} sx={{ mb: 2 }} />
-                <Typography variant="h6" color="text.secondary">
-                    Loading devices...
-                </Typography>
-            </Box>
-        </Container>
+        return (
+            <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 }, width: '100%', minHeight: 'calc(100vh - 64px)' }}>
+                <Box sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: 'calc(100vh - 200px)',
+                    py: 8
+                }}>
+                    <CircularProgress size={60} sx={{ mb: 2 }} />
+                    <Typography variant="h6" color="text.secondary">
+                        Loading devices...
+                    </Typography>
+                </Box>
+            </Container>
         );
     }
 
@@ -977,93 +1029,76 @@ const Devices = () => {
             }}
         >
             {/* Header Section */}
-            <Box sx={{ mb: 4 }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
-                    <PageHeader title="Devices" icon={<DevicesIcon />} />
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                        <ToggleButtonGroup
-                            value={viewMode}
-                            exclusive
-                            onChange={(e, newView: DeviceViewMode | null) => {
-                                if (newView) {
-                                    setViewMode(newView);
-                                    void persistDevicePrefs({
-                                        deviceListView: viewModeToSetting(newView),
-                                    });
-                                }
-                            }}
-                            size="small"
-                        >
-                            <ToggleButton value="cards">
-                                <CardViewIcon />
-                            </ToggleButton>
-                            <ToggleButton value="table">
-                                <TableViewIcon />
-                            </ToggleButton>
-                        </ToggleButtonGroup>
-                        <Button
-                            variant="outlined"
-                            startIcon={<AddIcon />}
-                            onClick={handleAddDevice}
-                        >
-                            Add Favorite
-                        </Button>
-                        <Button
-                            variant="contained"
-                            startIcon={<RefreshIcon sx={{
-                                animation: refreshingAll ? 'spin 1s linear infinite' : 'none',
-                                '@keyframes spin': {
-                                    '0%': { transform: 'rotate(0deg)' },
-                                    '100%': { transform: 'rotate(360deg)' }
-                                }
-                            }} />}
-                            onClick={handleRefreshAll}
-                            disabled={refreshingAll || clearingCache}
-                        >
-                            {refreshingAll ? 'Rescanning...' : 'Rescan'}
-                        </Button>
-                        <Button
-                            variant="outlined"
-                            color="warning"
-                            startIcon={<ClearIcon sx={{
-                                animation: clearingCache ? 'spin 1s linear infinite' : 'none',
-                                '@keyframes spin': {
-                                    '0%': { transform: 'rotate(0deg)' },
-                                    '100%': { transform: 'rotate(360deg)' }
-                                }
-                            }} />}
-                            onClick={handleClearCache}
-                            disabled={refreshingAll || clearingCache}
-                        >
-                            {clearingCache ? 'Clearing...' : 'Clear Devices & Rescan'}
-                        </Button>
-                    </Box>
-                </Box>
+            <Box sx={{ mb: 3 }}>
+                <PageHeader
+                    title="Devices"
+                    icon={<DevicesIcon />}
+                    actions={
+                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                            <Button
+                                variant="contained"
+                                startIcon={<AddIcon />}
+                                onClick={handleAddDevice}
+                            >
+                                Add Favorite
+                            </Button>
+                            <Button
+                                variant="outlined"
+                                startIcon={<RefreshIcon sx={{
+                                    animation: refreshingAll ? 'spin 1s linear infinite' : 'none',
+                                    '@keyframes spin': {
+                                        '0%': { transform: 'rotate(0deg)' },
+                                        '100%': { transform: 'rotate(360deg)' }
+                                    }
+                                }} />}
+                                onClick={handleRefreshAll}
+                                disabled={refreshingAll || clearingCache}
+                            >
+                                {refreshingAll ? 'Rescanning...' : 'Rescan'}
+                            </Button>
+                            <Tooltip title="Clear non-favorite discovered devices & rescan">
+                                <IconButton
+                                    color="warning"
+                                    onClick={handleClearCache}
+                                    disabled={refreshingAll || clearingCache}
+                                    sx={{ border: '1px solid', borderColor: 'warning.main', borderRadius: 1.5 }}
+                                >
+                                    <ClearIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        </Stack>
+                    }
+                />
 
-                {/* Compact stats */}
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+                {/* Compact Stats Badges */}
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
                     <Chip
-                        label={`Total ${devices.length}`}
+                        label={`Total: ${devices.length}`}
                         color="primary"
                         variant="outlined"
+                        size="small"
                     />
                     <Chip
-                        label={`Online ${devices.filter((d) => d.status === 'online').length}`}
+                        label={`Online: ${devices.filter((d) => d.status === 'online').length}`}
                         color="success"
                         variant="outlined"
+                        size="small"
                     />
                     <Chip
-                        label={`Favorites ${devices.filter((d) => d.isFavorite).length}`}
+                        label={`Favorites: ${devices.filter((d) => d.isFavorite).length}`}
                         color="info"
                         variant="outlined"
+                        size="small"
                     />
                 </Stack>
             </Box>
 
-            {/* Filter header always; table rows only in table view; cards below in card view */}
+            {/* Responsive Search & Filter Toolbar */}
+            {renderFilterToolbar()}
+
+            {/* Display table view or cards view */}
             <Box sx={{ mb: 4 }}>
-                {renderDevicesTable()}
-                {viewMode === 'cards' && renderCards()}
+                {viewMode === 'table' ? renderDevicesTable() : renderCards()}
                 {filteredAllDevices.length > 0 && (
                     <TablePagination
                         component="div"

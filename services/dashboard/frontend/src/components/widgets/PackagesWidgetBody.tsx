@@ -14,7 +14,7 @@ export function PackagesWidgetBody({ interactive = true }: { interactive?: boole
     useEffect(() => {
         if (!can) return;
         let cancelled = false;
-        (async () => {
+        const load = async () => {
             try {
                 const res = await tryApiCall<{ updatesAvailable: number }>('/packages/summary');
                 if (!cancelled) setCount(res.data?.updatesAvailable ?? 0);
@@ -23,9 +23,12 @@ export function PackagesWidgetBody({ interactive = true }: { interactive?: boole
             } finally {
                 if (!cancelled) setLoading(false);
             }
-        })();
+        };
+        void load();
+        const interval = setInterval(() => void load(), 300_000);
         return () => {
             cancelled = true;
+            clearInterval(interval);
         };
     }, [can]);
 

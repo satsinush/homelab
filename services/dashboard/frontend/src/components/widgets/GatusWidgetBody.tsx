@@ -14,7 +14,7 @@ export function GatusWidgetBody({ interactive = true }: { interactive?: boolean 
 
     useEffect(() => {
         let cancelled = false;
-        (async () => {
+        const load = async () => {
             try {
                 const res = await tryApiCall<{ up: number; down: number; total: number }>('/gatus/summary');
                 if (!cancelled && res.data) {
@@ -29,9 +29,12 @@ export function GatusWidgetBody({ interactive = true }: { interactive?: boolean 
             } finally {
                 if (!cancelled) setLoading(false);
             }
-        })();
+        };
+        void load();
+        const interval = setInterval(() => void load(), 30_000);
         return () => {
             cancelled = true;
+            clearInterval(interval);
         };
     }, []);
 

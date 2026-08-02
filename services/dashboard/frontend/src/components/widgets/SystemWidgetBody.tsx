@@ -2,11 +2,14 @@ import React, { useEffect, useState } from 'react';
 import {
     Box,
     CircularProgress,
+    IconButton,
     LinearProgress,
     Stack,
+    Tooltip,
     Typography,
 } from '@mui/material';
 import {
+    InfoOutlined as InfoIcon,
     Memory as MemoryIcon,
     Speed as SpeedIcon,
     Storage as StorageIcon,
@@ -91,11 +94,16 @@ export function SystemWidgetBody({ interactive = true }: { interactive?: boolean
     const disk = data.resources.disk?.percentage;
     const temp = data.temperature?.cpu;
     if (cpu != null && Number.isFinite(cpu)) {
-        items.push({ label: 'CPU', value: `${Math.round(cpu)}%`, pct: cpu, icon: <SpeedIcon sx={{ fontSize: 16 }} /> });
+        items.push({
+            label: 'CPU',
+            value: `${Math.round(cpu)}%`,
+            pct: cpu,
+            icon: <SpeedIcon sx={{ fontSize: 16 }} />,
+        });
     }
     if (mem != null && Number.isFinite(mem)) {
         items.push({
-            label: 'Mem',
+            label: 'Memory',
             value: `${Math.round(mem)}%`,
             pct: mem,
             icon: <MemoryIcon sx={{ fontSize: 16 }} />,
@@ -157,15 +165,17 @@ export function SystemWidgetBody({ interactive = true }: { interactive?: boolean
                             gap: 0.75,
                         }}
                     >
-                        <Stack direction="row" spacing={0.5} alignItems="center">
-                            <Box sx={{ color: 'text.secondary', display: 'flex' }}>{item.icon}</Box>
-                            <Typography variant="caption" color="text.secondary">
-                                {item.label}
-                            </Typography>
+                        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="space-between" sx={{ width: '100%' }}>
+                            <Stack direction="row" spacing={0.5} alignItems="center">
+                                <Box sx={{ color: 'text.secondary', display: 'flex' }}>{item.icon}</Box>
+                                <Typography variant="caption" color="text.secondary">
+                                    {item.label}
+                                </Typography>
+                            </Stack>
                             <Typography
                                 variant="body2"
                                 color="text.primary"
-                                sx={{ fontWeight: 700, ml: 'auto', fontVariantNumeric: 'tabular-nums' }}
+                                sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}
                             >
                                 {item.value}
                             </Typography>

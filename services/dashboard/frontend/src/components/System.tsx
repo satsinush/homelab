@@ -20,6 +20,7 @@ import {
     TableHead,
     TableRow,
     Paper,
+    Tooltip,
 } from '@mui/material';
 import {
     Memory as MemoryIcon,
@@ -31,6 +32,7 @@ import {
     Computer as ComputerIcon,
     CheckCircle as CheckIcon,
     Dashboard as DashboardIcon,
+    InfoOutlined as InfoIcon,
 } from '@mui/icons-material';
 import PageHeader from './PageHeader';
 import { useNotification } from '../contexts/useNotification';
@@ -59,15 +61,15 @@ const Gauge = ({ value, color, label, title }: GaugeProps) => (
         <CircularProgress
             variant="determinate"
             value={100}
-            size={100}
-            thickness={4}
+            size={128}
+            thickness={4.5}
             sx={{ color: (theme) => theme.palette.grey[theme.palette.mode === 'light' ? 200 : 700] }}
         />
         <CircularProgress
             variant="determinate"
             value={Math.min(100, Math.max(0, value))}
-            size={100}
-            thickness={4}
+            size={128}
+            thickness={4.5}
             color={color}
             sx={{
                 position: 'absolute',
@@ -87,7 +89,7 @@ const Gauge = ({ value, color, label, title }: GaugeProps) => (
             alignItems="center"
             justifyContent="center"
         >
-            <Typography variant="h5" component="div" color="text.primary" sx={{ fontWeight: 'bold' }}>
+            <Typography variant="h4" component="div" color="text.primary" sx={{ fontWeight: 'bold' }}>
                 {label ?? `${Math.round(value)}%`}
             </Typography>
             {title && (
@@ -300,6 +302,13 @@ const System = () => {
                                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                                     CPU
                                 </Typography>
+                                {resources?.cpu?.model && (
+                                    <Tooltip title={resources.cpu.model} arrow placement="top">
+                                        <IconButton size="small" sx={{ ml: 0.5, color: 'text.secondary' }} aria-label="CPU details">
+                                            <InfoIcon fontSize="small" />
+                                        </IconButton>
+                                    </Tooltip>
+                                )}
                             </Box>
                             <Box
                                 sx={{
@@ -323,15 +332,6 @@ const System = () => {
                                     <Typography color="text.secondary">No CPU data</Typography>
                                 )}
                             </Box>
-                            {resources?.cpu?.model && (
-                                <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    sx={{ mt: 1, display: 'block', textAlign: 'center' }}
-                                >
-                                    {resources.cpu.model}
-                                </Typography>
-                            )}
                         </CardContent>
                     </Card>
                 </Grid>

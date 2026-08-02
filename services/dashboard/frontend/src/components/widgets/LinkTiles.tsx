@@ -202,29 +202,36 @@ export function RecentTile({
     const sx = {
         display: 'flex',
         alignItems: 'center',
-        gap: 1,
-        px: 1.25,
-        py: 0.75,
-        borderRadius: 2,
+        gap: 1.25,
+        px: 1.5,
+        py: 0.85,
+        borderRadius: 2.5,
         border: '1px solid',
         borderColor: 'divider',
         textDecoration: 'none',
         color: 'inherit',
         width: { xs: 'calc(50% - 4px)', md: 168 },
+        flex: { xs: '0 0 calc(50% - 4px)', md: '0 0 168px' },
         minWidth: 0,
         maxWidth: '100%',
-        height: 44,
+        height: 48,
         boxSizing: 'border-box' as const,
-        flexShrink: 1,
-        flexGrow: 1,
         overflow: 'hidden',
+        transition: 'all 0.18s ease-in-out',
         ...(disabled
             ? { pointerEvents: 'none' as const, opacity: 0.85 }
-            : { '&:hover': { bgcolor: 'action.hover' } }),
+            : {
+                  '&:hover': {
+                      bgcolor: 'action.hover',
+                      borderColor: 'primary.main',
+                      transform: 'translateY(-1.5px)',
+                      boxShadow: 2,
+                  },
+              }),
     };
     const inner = (
         <>
-            <LinkIconMark link={link} size={28} />
+            <LinkIconMark link={link} size={30} />
             <Typography variant="body2" noWrap sx={{ fontWeight: 600, minWidth: 0, flex: 1 }}>
                 {link.title}
             </Typography>
@@ -286,7 +293,7 @@ export function ServiceTile({
                     )}
                 </Stack>
             )}
-            <LinkIconMark link={link} size={40} />
+            <LinkIconMark link={link} size={42} />
             <Typography
                 variant="body2"
                 sx={{
@@ -315,7 +322,7 @@ export function ServiceTile({
         gap: 1,
         px: 1,
         py: 1.25,
-        borderRadius: 2,
+        borderRadius: 2.5,
         border: '1px solid',
         borderColor: 'divider',
         width: 104,
@@ -325,15 +332,21 @@ export function ServiceTile({
         maxWidth: '100%',
         maxHeight: 104,
         boxSizing: 'border-box' as const,
-        flexShrink: 1,
+        flexShrink: 0,
         textDecoration: 'none',
         color: 'inherit',
         overflow: 'hidden',
+        transition: 'all 0.18s ease-in-out',
         ...(editing
             ? {}
             : {
                   cursor: 'pointer',
-                  '&:hover': { bgcolor: 'action.hover' },
+                  '&:hover': {
+                      bgcolor: 'action.hover',
+                      borderColor: 'primary.main',
+                      transform: 'translateY(-2px)',
+                      boxShadow: 2,
+                  },
               }),
     };
 

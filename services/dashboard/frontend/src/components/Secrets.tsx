@@ -20,7 +20,11 @@ import {
     Stack,
     Divider,
     useMediaQuery,
-    useTheme
+    useTheme,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
 } from '@mui/material';
 import {
     ContentCopy as CopyIcon,
@@ -48,6 +52,8 @@ const Secrets = () => {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [visibleSecrets, setVisibleSecrets] = useState<Record<string, boolean>>({});
+    const [popupSecret, setPopupSecret] = useState<SecretItem | null>(null);
+    const [popupVisible, setPopupVisible] = useState(false);
     const { showSuccess, showError } = useNotification();
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -82,6 +88,11 @@ const Secrets = () => {
     const handleCopyToClipboard = (value: string, name: string) => {
         navigator.clipboard.writeText(value);
         showSuccess(`Copied value for secret "${name}" to clipboard`);
+    };
+
+    const handleOpenPopup = (sec: SecretItem) => {
+        setPopupSecret(sec);
+        setPopupVisible(true);
     };
 
     const filteredSecrets = secrets
@@ -136,169 +147,131 @@ const Secrets = () => {
                 />
             </Box>
 
-            <Card>
+            <Card variant="outlined" sx={{ borderRadius: 2.5 }}>
                 <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-                    {isMobile ? (
-                        <ScrollContainer maxHeight="min(70dvh, 560px)" vertical>
-                            {filteredSecrets.length === 0 ? (
-                                <Box sx={{ py: 4, px: 2, textAlign: 'center' }}>
-                                    <Typography variant="body1" color="text.secondary">
-                                        No secrets found matching query
-                                    </Typography>
-                                </Box>
-                            ) : (
-                                <Stack divider={<Divider />} sx={{ px: 2 }}>
-                                    {filteredSecrets.map((sec, index) => {
-                                        const isVisible = !!visibleSecrets[sec.name];
-                                        return (
-                                            <Box key={sec.name || index} sx={{ py: 2 }}>
-                                                <Typography
-                                                    variant="subtitle2"
-                                                    sx={{
-                                                        fontFamily: 'monospace',
-                                                        fontWeight: 600,
-                                                        overflowWrap: 'anywhere',
-                                                        wordBreak: 'break-word',
-                                                        mb: 1
-                                                    }}
+                    <ScrollContainer maxHeight="min(75dvh, 600px)" vertical>
+                        {filteredSecrets.length === 0 ? (
+                            <Box sx={{ py: 6, px: 2, textAlign: 'center' }}>
+                                <Typography variant="body1" color="text.secondary">
+                                    No secrets found matching query
+                                </Typography>
+                            </Box>
+                        ) : (
+                            <Stack divider={<Divider />} sx={{ px: { xs: 2, sm: 3 } }}>
+                                {filteredSecrets.map((sec, index) => (
+                                    <Box
+                                        key={sec.name || index}
+                                        sx={{
+                                            py: 1.75,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            gap: 2,
+                                            '&:hover': { bgcolor: 'action.hover' },
+                                            px: 1,
+                                            borderRadius: 1.5,
+                                        }}
+                                    >
+                                        <Typography
+                                            variant="body1"
+                                            sx={{
+                                                fontFamily: 'monospace',
+                                                fontWeight: 600,
+                                                overflowWrap: 'anywhere',
+                                                wordBreak: 'break-word',
+                                                flex: 1,
+                                                minWidth: 0,
+                                            }}
+                                        >
+                                            {sec.name}
+                                        </Typography>
+                                        <Stack direction="row" spacing={1} alignItems="center">
+                                            <Button
+                                                size="small"
+                                                variant="outlined"
+                                                startIcon={<ShowIcon fontSize="small" />}
+                                                onClick={() => handleOpenPopup(sec)}
+                                                sx={{ textTransform: 'none', fontWeight: 600 }}
+                                            >
+                                                View
+                                            </Button>
+                                            <Tooltip title="Copy value to clipboard">
+                                                <IconButton
+                                                    onClick={() => handleCopyToClipboard(sec.value, sec.name)}
+                                                    size="small"
+                                                    color="primary"
                                                 >
-                                                    {sec.name}
-                                                </Typography>
-                                                <Box
-                                                    sx={{
-                                                        fontFamily: 'monospace',
-                                                        fontSize: '0.875rem',
-                                                        overflowWrap: 'anywhere',
-                                                        wordBreak: 'break-word',
-                                                        whiteSpace: isVisible ? 'pre-wrap' : 'nowrap',
-                                                        overflowX: isVisible ? 'visible' : 'auto',
-                                                        mb: 1.5,
-                                                        color: 'text.secondary'
-                                                    }}
-                                                >
-                                                    {isVisible ? sec.value : '••••••••••••••••••••••••••••••••'}
-                                                </Box>
-                                                <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                                    <Tooltip title={isVisible ? 'Hide value' : 'Show value'}>
-                                                        <IconButton onClick={() => handleToggleVisibility(sec.name)} size="small">
-                                                            {isVisible ? <HideIcon /> : <ShowIcon />}
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                    <Tooltip title="Copy to clipboard">
-                                                        <IconButton
-                                                            onClick={() => handleCopyToClipboard(sec.value, sec.name)}
-                                                            size="small"
-                                                            color="primary"
-                                                        >
-                                                            <CopyIcon />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                </Stack>
-                                            </Box>
-                                        );
-                                    })}
-                                </Stack>
-                            )}
-                        </ScrollContainer>
-                    ) : (
-                        <ScrollContainer
-                            contentMinWidth={720}
-                            maxHeight="min(70dvh, 550px)"
-                            vertical
-                        >
-                            <Table
-                                stickyHeader
-                                size="small"
-                                sx={{
-                                    tableLayout: 'fixed',
-                                    width: '100%',
-                                    '& .MuiTableCell-head': {
-                                        bgcolor: 'background.paper',
-                                        color: 'text.secondary',
-                                        typography: 'overline',
-                                        letterSpacing: '0.08em',
-                                        fontWeight: 700,
-                                        lineHeight: 1.5,
-                                        borderBottom: 2,
-                                        borderColor: 'divider',
-                                        py: 1.25,
-                                        // Keep sticky head opaque over scrolling rows
-                                        backgroundImage: 'none',
-                                        zIndex: 3
-                                    }
-                                }}
-                            >
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell sx={{ width: '35%' }}>Secret name</TableCell>
-                                        <TableCell sx={{ width: 'calc(65% - 104px)' }}>Value</TableCell>
-                                        <TableCell align="right" sx={{ width: 104, pr: 2 }}>Actions</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {filteredSecrets.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
-                                                <Typography variant="body1" color="text.secondary">
-                                                    No secrets found matching query
-                                                </Typography>
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        filteredSecrets.map((sec, index) => {
-                                            const isVisible = !!visibleSecrets[sec.name];
-                                            return (
-                                                <TableRow key={sec.name || index} hover>
-                                                    <TableCell sx={{ verticalAlign: 'top' }}>
-                                                        <Box
-                                                            sx={{
-                                                                fontFamily: 'monospace',
-                                                                fontWeight: 500,
-                                                                overflowWrap: 'anywhere',
-                                                                wordBreak: 'break-word',
-                                                                whiteSpace: 'normal'
-                                                            }}
-                                                        >
-                                                            {sec.name}
-                                                        </Box>
-                                                    </TableCell>
-                                                    <TableCell sx={{ verticalAlign: 'top', minWidth: 0 }}>
-                                                        <Box
-                                                            sx={{
-                                                                fontFamily: 'monospace',
-                                                                overflowWrap: isVisible ? 'anywhere' : 'normal',
-                                                                wordBreak: isVisible ? 'break-word' : 'normal',
-                                                                whiteSpace: isVisible ? 'pre-wrap' : 'nowrap',
-                                                                overflow: isVisible ? 'visible' : 'hidden',
-                                                                textOverflow: isVisible ? 'clip' : 'ellipsis',
-                                                                maxWidth: '100%'
-                                                            }}
-                                                        >
-                                                            {isVisible ? sec.value : '••••••••••••••••••••••••••••••••'}
-                                                        </Box>
-                                                    </TableCell>
-                                                    <TableCell align="right" sx={{ pr: 1, whiteSpace: 'nowrap', width: 104 }}>
-                                                        <Tooltip title={isVisible ? 'Hide value' : 'Show value'}>
-                                                            <IconButton onClick={() => handleToggleVisibility(sec.name)} size="small" sx={{ mr: 0.5 }}>
-                                                                {isVisible ? <HideIcon /> : <ShowIcon />}
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                        <Tooltip title="Copy to clipboard">
-                                                            <IconButton onClick={() => handleCopyToClipboard(sec.value, sec.name)} size="small" color="primary">
-                                                                <CopyIcon />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </ScrollContainer>
-                    )}
+                                                    <CopyIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </Stack>
+                                    </Box>
+                                ))}
+                            </Stack>
+                        )}
+                    </ScrollContainer>
                 </CardContent>
             </Card>
+
+            {/* Secret Detail Popup Dialog for Mobile */}
+            <Dialog
+                open={popupVisible}
+                onClose={() => setPopupVisible(false)}
+                maxWidth="sm"
+                fullWidth
+            >
+                {popupSecret && (
+                    <>
+                        <DialogTitle sx={{ fontFamily: 'monospace', fontWeight: 700, pr: 6, wordBreak: 'break-word' }}>
+                            {popupSecret.name}
+                        </DialogTitle>
+                        <DialogContent dividers>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                                Secret Value
+                            </Typography>
+                            <Box
+                                sx={{
+                                    p: 2,
+                                    bgcolor: 'action.hover',
+                                    borderRadius: 2,
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    fontFamily: 'monospace',
+                                    fontSize: '0.9rem',
+                                    overflowWrap: 'anywhere',
+                                    wordBreak: 'break-word',
+                                    whiteSpace: visibleSecrets[popupSecret.name] ? 'pre-wrap' : 'nowrap',
+                                    overflowX: 'auto',
+                                    userSelect: 'all',
+                                }}
+                            >
+                                {visibleSecrets[popupSecret.name] ? popupSecret.value : '••••••••••••••••••••••••••••••••'}
+                            </Box>
+                        </DialogContent>
+                        <DialogActions sx={{ px: 3, py: 1.5, justifyContent: 'space-between' }}>
+                            <Button
+                                startIcon={visibleSecrets[popupSecret.name] ? <HideIcon /> : <ShowIcon />}
+                                onClick={() => handleToggleVisibility(popupSecret.name)}
+                                color="inherit"
+                            >
+                                {visibleSecrets[popupSecret.name] ? 'Hide' : 'Reveal'}
+                            </Button>
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                <Button
+                                    variant="contained"
+                                    startIcon={<CopyIcon />}
+                                    onClick={() => handleCopyToClipboard(popupSecret.value, popupSecret.name)}
+                                >
+                                    Copy
+                                </Button>
+                                <Button onClick={() => setPopupVisible(false)}>
+                                    Close
+                                </Button>
+                            </Box>
+                        </DialogActions>
+                    </>
+                )}
+            </Dialog>
         </Container>
     );
 };

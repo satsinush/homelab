@@ -14,7 +14,7 @@ export function DevicesWidgetBody({ interactive = true }: { interactive?: boolea
     useEffect(() => {
         if (!can) return;
         let cancelled = false;
-        (async () => {
+        const load = async () => {
             try {
                 const res = await tryApiCall<{ onlineDevices: number; totalDevices: number }>('/devices');
                 if (!cancelled) {
@@ -28,9 +28,12 @@ export function DevicesWidgetBody({ interactive = true }: { interactive?: boolea
             } finally {
                 if (!cancelled) setLoading(false);
             }
-        })();
+        };
+        void load();
+        const interval = setInterval(() => void load(), 30_000);
         return () => {
             cancelled = true;
+            clearInterval(interval);
         };
     }, [can]);
 
