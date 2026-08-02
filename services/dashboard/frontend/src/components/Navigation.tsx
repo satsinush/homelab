@@ -69,7 +69,17 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
     const { actualMode } = useThemeMode();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
+    const closeMobileDrawer = () => {
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+        setMobileOpen(false);
+    };
+
     const handleDrawerToggle = () => {
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
         setMobileOpen(!mobileOpen);
     };
 
@@ -83,13 +93,13 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
 
     const handleProfileClick = () => {
         handleMenuClose();
-        setMobileOpen(false);
+        closeMobileDrawer();
         navigate('/profile');
     };
 
     const handleLogout = async () => {
         handleMenuClose();
-        setMobileOpen(false);
+        closeMobileDrawer();
         try {
             const redirected = await logout();
             // Navigating to Authentik end-session — don't toast over that transition
@@ -156,7 +166,7 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
                                 selected={activeTab === tab.id}
                                 onClick={() => {
                                     if (isMobile) {
-                                        setMobileOpen(false);
+                                        closeMobileDrawer();
                                     }
                                 }}
                                 sx={{
@@ -314,8 +324,6 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
                     ModalProps={{
                         keepMounted: true,
                         disableRestoreFocus: true,
-                        disableEnforceFocus: true,
-                        disableAutoFocus: true,
                     }}
                     sx={{
                         '& .MuiDrawer-paper': {

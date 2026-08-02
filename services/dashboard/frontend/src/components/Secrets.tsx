@@ -213,10 +213,11 @@ const Secrets = () => {
                 </CardContent>
             </Card>
 
-            {/* Secret Detail Popup Dialog for Mobile */}
+            {/* Secret Detail Popup Dialog */}
             <Dialog
                 open={popupVisible}
                 onClose={() => setPopupVisible(false)}
+                disableRestoreFocus
                 maxWidth="sm"
                 fullWidth
             >
