@@ -23,6 +23,8 @@ import {
     LinearProgress,
     GlobalStyles,
     Menu,
+    useMediaQuery,
+    useTheme,
 } from '@mui/material';
 import {
     Dashboard as DashboardIcon,
@@ -94,6 +96,7 @@ import {
     applyLayoutToWidgets,
     defaultHomeWidgets,
     layoutFromWidgets,
+    stackedMobileLayout,
     widgetIconName,
     widgetTitle,
     type HomeWidgetType,
@@ -437,6 +440,7 @@ function WidgetShell({
     titlePlaceholder,
     iconName,
     editing,
+    layoutEditing = editing,
     onRemove,
     onIconChange,
     onTitleChange,
@@ -447,6 +451,8 @@ function WidgetShell({
     titlePlaceholder?: string;
     iconName: string;
     editing: boolean;
+    /** Drag handle / layout chrome — off on mobile stacked view. */
+    layoutEditing?: boolean;
     onRemove?: () => void;
     onIconChange?: (icon: string) => void;
     onTitleChange?: (title: string) => void;
@@ -499,7 +505,7 @@ function WidgetShell({
                     bgcolor: 'background.paper',
                 }}
             >
-                {editing && (
+                {layoutEditing && (
                     <DragIcon
                         className="home-widget-drag"
                         sx={{ cursor: 'grab', color: 'text.secondary', fontSize: 18, touchAction: 'none' }}
@@ -1249,9 +1255,15 @@ const Home = () => {
     const { user, hasPermission } = useAuth();
     const { config } = useConfig();
     const hostnames = config.hostnames || {};
-    const { width, containerRef, mounted } = useContainerWidth();
+    const theme = useTheme();
+    // Match Navigation: treat md-and-down as mobile (not RGL container width).
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
+    const { width, containerRef, mounted } = useContainerWidth({
+        initialWidth: typeof window !== 'undefined' ? Math.min(window.innerWidth, 1200) : 1200,
+    });
 
     const [editing, setEditing] = useState(false);
+    const layoutEditing = editing && !isMobile;
     const [recentIds, setRecentIds] = useState<string[]>([]);
     const [widgets, setWidgets] = useState<HomeWidget[]>(defaultHomeWidgets);
     const [cards, setCards] = useState<HomeCard[]>([]);
@@ -1259,7 +1271,7 @@ const Home = () => {
 
     // Auto-scroll the page when resizing/dragging near the viewport edge.
     useEffect(() => {
-        if (!editing) return;
+        if (!editing || isMobile) return;
         let active = false;
         let raf = 0;
         let lastY = 0;
@@ -1320,7 +1332,7 @@ const Home = () => {
             window.removeEventListener('pointercancel', onPointerUp, true);
             document.removeEventListener('selectstart', onSelectStart, true);
         };
-    }, [editing]);
+    }, [editing, isMobile]);
 
     const [addWidgetOpen, setAddWidgetOpen] = useState(false);
     const [addWidgetType, setAddWidgetType] = useState<HomeWidgetType>('clock');
@@ -1446,7 +1458,8 @@ const Home = () => {
     const externalLinks = useMemo(() => catalog.filter((l) => l.kind === 'external'), [catalog]);
 
     const onLayoutChange = (layout: Layout) => {
-        if (!editing) return;
+        // Mobile uses a derived 1-col stack — don't write that back over the desktop layout.
+        if (!editing || isMobile) return;
         updateWidgets(applyLayoutToWidgets(widgets, layout));
     };
 
@@ -1625,7 +1638,10 @@ const Home = () => {
         setResetConfirmOpen(false);
     };
 
-    const gridLayout = useMemo(() => layoutFromWidgets(widgets), [widgets]);
+    const gridLayout = useMemo(
+        () => (isMobile ? stackedMobileLayout(widgets) : layoutFromWidgets(widgets)),
+        [widgets, isMobile]
+    );
 
     const renderWidgetBody = (widget: HomeWidget) => {
         const interactive = !editing;
@@ -1749,8 +1765,9 @@ const Home = () => {
             {editing && (
                 <Stack direction="row" spacing={1} sx={{ mb: 2 }} alignItems="center" flexWrap="wrap" useFlexGap>
                     <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
-                        Drag widgets by the handle, resize from edges, rename titles, and click a header icon to change it.
-                        Clock widgets can switch between digital and analog.
+                        {isMobile
+                            ? 'Narrow view stacks widgets in one column. Resize the window or use a larger screen to drag and rearrange.'
+                            : 'Drag widgets by the handle, resize from edges, rename titles, and click a header icon to change it. Clock widgets can switch between digital and analog.'}
                     </Typography>
                     <Button
                         startIcon={<ResetIcon />}
@@ -1827,16 +1844,21 @@ const Home = () => {
                         })}
                     />
                 )}
-                {mounted && (
+                {(mounted || width > 0) && (
                     <GridLayout
-                        width={width}
+                        key={isMobile ? 'mobile' : 'desktop'}
+                        width={Math.max(width, 1)}
                         layout={gridLayout}
-                        gridConfig={{ cols: HOME_GRID_COLS, rowHeight: HOME_GRID_ROW_HEIGHT, margin: [12, 12] }}
+                        gridConfig={{
+                            cols: isMobile ? 1 : HOME_GRID_COLS,
+                            rowHeight: HOME_GRID_ROW_HEIGHT,
+                            margin: isMobile ? [10, 10] : [12, 12],
+                        }}
                         dragConfig={{
-                            enabled: editing,
+                            enabled: layoutEditing,
                             handle: '.home-widget-drag',
                         }}
-                        resizeConfig={{ enabled: editing }}
+                        resizeConfig={{ enabled: layoutEditing }}
                         compactor={verticalCompactor}
                         onLayoutChange={onLayoutChange}
                     >
@@ -1847,6 +1869,7 @@ const Home = () => {
                                     titlePlaceholder={HOME_WIDGET_META[widget.type].label}
                                     iconName={widgetIconName(widget)}
                                     editing={editing}
+                                    layoutEditing={layoutEditing}
                                     onRemove={() => removeWidget(widget.id)}
                                     onIconChange={(icon) =>
                                         updateWidgets(

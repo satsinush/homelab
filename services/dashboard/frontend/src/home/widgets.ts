@@ -179,6 +179,31 @@ export function layoutFromWidgets(widgets: HomeWidget[]) {
     });
 }
 
+/** Single-column stack for narrow viewports (does not mutate stored desktop positions). */
+export function stackedMobileLayout(widgets: HomeWidget[]) {
+    const sorted = [...widgets].sort(
+        (a, b) => a.y - b.y || a.x - b.x || a.id.localeCompare(b.id)
+    );
+    let y = 0;
+    return sorted.map((w) => {
+        const meta = HOME_WIDGET_META[w.type];
+        const h = meta.defaultH;
+        const item = {
+            i: w.id,
+            x: 0,
+            y,
+            w: 1,
+            h,
+            minW: 1,
+            maxW: 1,
+            minH: meta.minH,
+            maxH: meta.maxH,
+        };
+        y += h;
+        return item;
+    });
+}
+
 export function applyLayoutToWidgets(
     widgets: HomeWidget[],
     layout: ReadonlyArray<{ readonly i: string; readonly x: number; readonly y: number; readonly w: number; readonly h: number }>
