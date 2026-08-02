@@ -1,5 +1,13 @@
 import database from './Database';
 import Database from 'better-sqlite3';
+import {
+    defaultHomeWidgets,
+    type HomeWidget,
+    type HomeWidgetType,
+} from '@shared/defaultHomeWidgets';
+
+export type { HomeWidget, HomeWidgetType };
+export { defaultHomeWidgets };
 
 export type HomeCard =
     | { id: string; type: 'catalog'; catalogId: string }
@@ -12,45 +20,6 @@ export type HomeCard =
           /** `mui:IconName` or `emoji:…` */
           icon: string;
       };
-
-export type HomeWidgetType =
-    | 'recents'
-    | 'pages'
-    | 'services'
-    | 'links'
-    | 'system'
-    | 'packages'
-    | 'gatus'
-    | 'devices'
-    | 'wake'
-    | 'clock';
-
-export interface HomeWidget {
-    id: string;
-    type: HomeWidgetType;
-    title?: string;
-    /** MUI icon name for the widget header */
-    icon?: string;
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    cardIds?: string[];
-    /** Clock widget only */
-    clockStyle?: 'digital' | 'analog';
-}
-
-export function defaultHomeWidgets(): HomeWidget[] {
-    return [
-        { id: 'system', type: 'system', x: 0, y: 0, w: 6, h: 4 },
-        { id: 'packages', type: 'packages', x: 6, y: 0, w: 3, h: 3 },
-        { id: 'gatus', type: 'gatus', x: 9, y: 0, w: 3, h: 3 },
-        { id: 'recents', type: 'recents', x: 0, y: 4, w: 9, h: 3 },
-        { id: 'clock', type: 'clock', x: 9, y: 4, w: 3, h: 3 },
-        { id: 'services', type: 'services', x: 0, y: 7, w: 12, h: 6 },
-        { id: 'wake', type: 'wake', x: 0, y: 13, w: 12, h: 3 },
-    ];
-}
 
 // Default user settings - these define the available settings and their defaults
 export interface UserSettingsData {

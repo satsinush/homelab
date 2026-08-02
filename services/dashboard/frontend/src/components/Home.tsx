@@ -1597,8 +1597,8 @@ const Home = () => {
     const removeWidget = (id: string) => {
         const widget = widgets.find((w) => w.id === id);
         const nextWidgets = widgets.filter((w) => w.id !== id);
-        if (widget?.type === 'links' && widget.cardIds?.length) {
-            const removeIds = new Set(widget.cardIds);
+        if (widget?.type === 'links' && widget.data?.cardIds?.length) {
+            const removeIds = new Set(widget.data.cardIds);
             const nextCards = cards.filter((c) => !removeIds.has(c.id));
             setCards(nextCards);
             setWidgets(nextWidgets);
@@ -1614,13 +1614,13 @@ const Home = () => {
         const maxY = widgets.reduce((m, w) => Math.max(m, w.y + w.h), 0);
         const next: HomeWidget = {
             id,
-            type: addWidgetType,
+            type: addWidgetType as any,
             x: 0,
             y: maxY,
             w: meta.defaultW,
             h: meta.defaultH,
-            ...(addWidgetType === 'links' ? { cardIds: [] } : {}),
-        };
+            ...(addWidgetType === 'links' ? { data: { cardIds: [] } } : {}),
+        } as HomeWidget;
         updateWidgets([...widgets, next]);
         setAddWidgetOpen(false);
     };
@@ -1715,7 +1715,9 @@ const Home = () => {
             const id = `card-${crypto.randomUUID()}`;
             const nextCards: HomeCard[] = [...cards, { id, type: 'catalog', catalogId: formCatalogId }];
             const nextWidgets = widgets.map((w) =>
-                w.id === cardDialogWidgetId ? { ...w, cardIds: [...(w.cardIds || []), id] } : w
+                w.id === cardDialogWidgetId && w.type === 'links'
+                    ? { ...w, data: { ...w.data, cardIds: [...(w.data?.cardIds || []), id] } }
+                    : w
             );
             setCards(nextCards);
             setWidgets(nextWidgets);
@@ -1732,7 +1734,9 @@ const Home = () => {
                 { id, type: 'custom', title, url, description: formDescription.trim(), icon },
             ];
             const nextWidgets = widgets.map((w) =>
-                w.id === cardDialogWidgetId ? { ...w, cardIds: [...(w.cardIds || []), id] } : w
+                w.id === cardDialogWidgetId && w.type === 'links'
+                    ? { ...w, data: { ...w.data, cardIds: [...(w.data?.cardIds || []), id] } }
+                    : w
             );
             setCards(nextCards);
             setWidgets(nextWidgets);
@@ -1744,7 +1748,9 @@ const Home = () => {
     const deleteCardFromWidget = (widgetId: string, cardId: string) => {
         const nextCards = cards.filter((c) => c.id !== cardId);
         const nextWidgets = widgets.map((w) =>
-            w.id === widgetId ? { ...w, cardIds: (w.cardIds || []).filter((id) => id !== cardId) } : w
+            w.id === widgetId && w.type === 'links'
+                ? { ...w, data: { ...w.data, cardIds: (w.data?.cardIds || []).filter((id) => id !== cardId) } }
+                : w
         );
         const filteredRecents = (peekHomeRecents() ?? recentIds).filter((x) => x !== cardId);
         setRecentIds((prev) => prev.filter((x) => x !== cardId));
@@ -1786,7 +1792,7 @@ const Home = () => {
             case 'devices':
                 return <DevicesWidgetBody interactive={interactive} />;
             case 'clock':
-                return <ClockWidgetBody style={widget.clockStyle === 'analog' ? 'analog' : 'digital'} />;
+                return <ClockWidgetBody style={widget.data?.clockStyle === 'analog' ? 'analog' : 'digital'} />;
             case 'wake':
                 return <WakeWidgetBody interactive={interactive} />;
             case 'recents':
@@ -1820,8 +1826,8 @@ const Home = () => {
                     />
                 );
             case 'links': {
-                const links = (widget.cardIds || [])
-                    .map((id) => {
+                const links = (widget.data?.cardIds || [])
+                    .map((id: string) => {
                         const card = cardsById.get(id);
                         return card ? resolveHomeCard(card, catalogById) : null;
                     })
@@ -2024,13 +2030,13 @@ const Home = () => {
                                                 <ToggleButtonGroup
                                                     size="small"
                                                     exclusive
-                                                    value={widget.clockStyle === 'analog' ? 'analog' : 'digital'}
+                                                    value={widget.data?.clockStyle === 'analog' ? 'analog' : 'digital'}
                                                     onChange={(_, value: 'digital' | 'analog' | null) => {
                                                         if (!value) return;
                                                         updateWidgets(
                                                             widgets.map((w) =>
-                                                                w.id === widget.id
-                                                                    ? { ...w, clockStyle: value }
+                                                                w.id === widget.id && w.type === 'clock'
+                                                                    ? { ...w, data: { ...w.data, clockStyle: value } }
                                                                     : w
                                                             )
                                                         );

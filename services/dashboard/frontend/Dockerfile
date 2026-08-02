@@ -1,16 +1,15 @@
-# Use an official Node.js Alpine image as the base
+# Build context: services/dashboard (so ./shared is available next to ./frontend)
 FROM node:20-alpine
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy package files first
-COPY package*.json ./
-
-# Install dependencies for your React app
+COPY shared ./shared
+COPY frontend/package*.json ./frontend/
+WORKDIR /app/frontend
 RUN npm install
 
-# The 'command: npm run dev' in your override file will run after this.
+COPY frontend ./
+
 CMD ["npm", "run", "dev"]
 
 EXPOSE 5173

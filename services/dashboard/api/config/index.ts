@@ -118,8 +118,7 @@ const config = {
     port: 5000,
     sessionSecret: SESSION_SECRET,
     database: {
-        // Resolve from process cwd (/app/api) so paths stay stable under both
-        // `tsx server.ts` and compiled `node dist/server.js`.
+        // Resolve from process cwd (/app/api) so paths stay stable under `tsx server.ts`.
         path: path.join(process.cwd(), 'data'),
         filename: 'homelab.db'
     },

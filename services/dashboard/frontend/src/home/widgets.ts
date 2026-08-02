@@ -1,34 +1,7 @@
-import type { HomeCard } from '../types/api';
+import type { HomeWidget, HomeWidgetType } from '@shared/defaultHomeWidgets';
 
-/** Widget kinds available on the Home dashboard. */
-export type HomeWidgetType =
-    | 'recents'
-    | 'pages'
-    | 'services'
-    | 'links'
-    | 'system'
-    | 'packages'
-    | 'gatus'
-    | 'devices'
-    | 'wake'
-    | 'clock';
-
-export interface HomeWidget {
-    id: string;
-    type: HomeWidgetType;
-    /** Optional display title override */
-    title?: string;
-    /** MUI icon name (from HOME_MUI_ICON_OPTIONS / widget defaults) */
-    icon?: string;
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    /** Custom link widget only — references homeCards ids */
-    cardIds?: string[];
-    /** Clock widget only */
-    clockStyle?: 'digital' | 'analog';
-}
+export type { HomeWidget, HomeWidgetType };
+export { defaultHomeWidgets } from '@shared/defaultHomeWidgets';
 
 export const HOME_GRID_COLS = 12;
 export const HOME_GRID_ROW_HEIGHT = 36;
@@ -149,19 +122,6 @@ export const HOME_WIDGET_META: Record<
     },
 };
 
-/** Fresh default Home — no migration from legacy sections. */
-export function defaultHomeWidgets(): HomeWidget[] {
-    return [
-        { id: 'system', type: 'system', x: 0, y: 0, w: 6, h: 4 },
-        { id: 'packages', type: 'packages', x: 6, y: 0, w: 3, h: 3 },
-        { id: 'gatus', type: 'gatus', x: 9, y: 0, w: 3, h: 3 },
-        { id: 'recents', type: 'recents', x: 0, y: 4, w: 9, h: 3 },
-        { id: 'clock', type: 'clock', x: 9, y: 4, w: 3, h: 3 },
-        { id: 'services', type: 'services', x: 0, y: 7, w: 12, h: 6 },
-        { id: 'wake', type: 'wake', x: 0, y: 13, w: 12, h: 3 },
-    ];
-}
-
 export function widgetTitle(widget: HomeWidget): string {
     return widget.title?.trim() || HOME_WIDGET_META[widget.type].label;
 }
@@ -230,5 +190,3 @@ export function applyLayoutToWidgets(
         return { ...w, x: l.x, y: l.y, w: l.w, h };
     });
 }
-
-export type { HomeCard };

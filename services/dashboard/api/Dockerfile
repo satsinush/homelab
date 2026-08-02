@@ -2,21 +2,18 @@
 # We use an official Node.js image as a temporary "builder" container.
 # Using 'alpine' keeps this stage small and fast. We name it 'react-builder'.
 FROM node:20-alpine AS react-builder
-WORKDIR /frontend
+WORKDIR /build
 
+# Shared contracts (imported as @shared/* from the frontend)
+COPY services/dashboard/shared ./shared
 
-
-# Copy the package.json and package-lock.json from your dashboard folder
-# This step is separated to take advantage of Docker's layer caching.
-# 'npm install' will only re-run if these files change.
-COPY services/dashboard/frontend/package*.json ./
-# Install all the project dependencies
+# Frontend package files first for layer caching
+COPY services/dashboard/frontend/package*.json ./frontend/
+WORKDIR /build/frontend
 RUN npm install
-# Copy the rest of your dashboard's source code into the container
-COPY services/dashboard/frontend ./
-# Run the build script defined in your package.json to compile the React app
-RUN npm run build
 
+COPY services/dashboard/frontend ./
+RUN npm run build
 
 
 
@@ -38,7 +35,8 @@ RUN mv build/mingw-core/p++ build/mingw-core/word_games
 FROM node:20-alpine
 WORKDIR /app
 
-# 1. Copy API package files and install dependencies
+# 1. Copy shared + API package files and install dependencies
+COPY ./services/dashboard/shared ./shared
 COPY ./services/dashboard/api/package*.json ./api/
 WORKDIR /app/api
 
@@ -46,13 +44,13 @@ RUN apk add --no-cache --virtual .build-deps python3 make g++ py3-setuptools \
     && npm install \
     && apk del .build-deps
 
-# 2. Copy API source code and compile TypeScript
+# 2. Copy API source and typecheck (runtime uses tsx + @shared path alias)
 COPY ./services/dashboard/api/ .
 RUN npm run build
 
 # 3. Copy built frontend into /app/frontend
 WORKDIR /app
-COPY --from=react-builder /frontend/dist ./frontend/dist/
+COPY --from=react-builder /build/frontend/dist ./frontend/dist/
 
 # 4. Copy word_games binary into /app/word_games
 COPY --from=cpp-builder /build/build/mingw-core/word_games ./word_games/

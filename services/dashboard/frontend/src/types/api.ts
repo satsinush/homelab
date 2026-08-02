@@ -353,32 +353,8 @@ export interface ServerSettings {
     [key: string]: unknown;
 }
 
-export type HomeWidgetType =
-    | 'recents'
-    | 'pages'
-    | 'services'
-    | 'links'
-    | 'system'
-    | 'packages'
-    | 'gatus'
-    | 'devices'
-    | 'wake'
-    | 'clock';
-
-export interface HomeWidget {
-    id: string;
-    type: HomeWidgetType;
-    title?: string;
-    /** MUI icon name for the widget header */
-    icon?: string;
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    cardIds?: string[];
-    /** Clock widget only */
-    clockStyle?: 'digital' | 'analog';
-}
+export type { HomeWidget, HomeWidgetType } from '@shared/defaultHomeWidgets';
+import type { HomeWidget } from '@shared/defaultHomeWidgets';
 
 export type HomeCard =
     | { id: string; type: 'catalog'; catalogId: string }
