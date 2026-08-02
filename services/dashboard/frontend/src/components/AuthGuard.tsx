@@ -9,7 +9,7 @@ interface AuthGuardProps {
 }
 
 const AuthGuard = ({ children }: AuthGuardProps) => {
-    const { isAuthenticated, user, loading } = useAuth();
+    const { isAuthenticated, loading } = useAuth();
 
     if (loading) {
         return (

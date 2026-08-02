@@ -94,6 +94,7 @@ import {
     HOME_GRID_ROW_HEIGHT,
     HOME_WIDGET_META,
     applyLayoutToWidgets,
+    defaultHomeCards,
     defaultHomeWidgets,
     layoutFromWidgets,
     stackedMobileLayout,
@@ -258,7 +259,7 @@ function useWidgetHref(href: string | null | undefined, interactive: boolean) {
     const navigate = useNavigate();
     return useMemo(() => {
         if (!interactive || !href) return {};
-        const external = /^https?:\/\//i.test(href);
+        const external = /^(?:[a-z0-9+.-]+:)/i.test(href);
         return {
             component: 'a' as const,
             href,
@@ -1385,7 +1386,7 @@ function LinksWidgetBody({
 const Home = () => {
     const { user, hasPermission } = useAuth();
     const { config } = useConfig();
-    const hostnames = config.hostnames || {};
+    const hostnames = useMemo(() => config.hostnames || {}, [config.hostnames]);
     const theme = useTheme();
     // Match Navigation: treat md-and-down as mobile (not RGL container width).
     const isMobile = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
@@ -1525,7 +1526,11 @@ const Home = () => {
                     } else {
                         setWidgets(defaultHomeWidgets());
                     }
-                    if (Array.isArray(s.homeCards)) setCards(s.homeCards);
+                    if (Array.isArray(s.homeCards) && s.homeCards.length > 0) {
+                        setCards(s.homeCards);
+                    } else {
+                        setCards(defaultHomeCards());
+                    }
                 }
             } catch (err) {
                 console.error('Failed to load home settings', err);
@@ -1612,9 +1617,9 @@ const Home = () => {
         const meta = HOME_WIDGET_META[addWidgetType];
         const id = `${addWidgetType}-${crypto.randomUUID().slice(0, 8)}`;
         const maxY = widgets.reduce((m, w) => Math.max(m, w.y + w.h), 0);
-        const next: HomeWidget = {
+        const next = {
             id,
-            type: addWidgetType as any,
+            type: addWidgetType,
             x: 0,
             y: maxY,
             w: meta.defaultW,
@@ -1687,7 +1692,7 @@ const Home = () => {
                 const title = formTitle.trim();
                 let url = formUrl.trim();
                 if (!title || !url) return;
-                if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+                if (!/^(?:[a-z0-9+.-]+:|\/)/i.test(url)) url = `https://${url}`;
                 const icon =
                     formIconKind === 'emoji' ? `emoji:${formEmoji || '🔗'}` : `mui:${formMuiIcon}`;
                 const nextCards = cards.map((c) =>
@@ -1726,7 +1731,7 @@ const Home = () => {
             const title = formTitle.trim();
             let url = formUrl.trim();
             if (!title || !url) return;
-            if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+            if (!/^(?:[a-z0-9+.-]+:|\/)/i.test(url)) url = `https://${url}`;
             const icon = formIconKind === 'emoji' ? `emoji:${formEmoji || '🔗'}` : `mui:${formMuiIcon}`;
             const id = `card-${crypto.randomUUID()}`;
             const nextCards: HomeCard[] = [
@@ -1768,7 +1773,7 @@ const Home = () => {
 
     const resetToDefaults = () => {
         const nextWidgets = defaultHomeWidgets();
-        const nextCards: HomeCard[] = [];
+        const nextCards: HomeCard[] = defaultHomeCards();
         setWidgets(nextWidgets);
         setCards(nextCards);
         persist({ homeWidgets: nextWidgets, homeCards: nextCards });
@@ -2231,6 +2236,7 @@ const Home = () => {
                             <>
                                 <TextField
                                     label="Title"
+                                    required
                                     value={formTitle}
                                     onChange={(e) => setFormTitle(e.target.value)}
                                     fullWidth
@@ -2238,10 +2244,11 @@ const Home = () => {
                                 />
                                 <TextField
                                     label="URL"
+                                    required
                                     value={formUrl}
                                     onChange={(e) => setFormUrl(e.target.value)}
                                     fullWidth
-                                    placeholder="https://example.com"
+                                    placeholder="https://example.com or mailto:user@domain.com"
                                 />
                                 <TextField
                                     label="Description"

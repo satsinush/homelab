@@ -1,25 +1,15 @@
 import database from './Database';
 import Database from 'better-sqlite3';
 import {
+    defaultHomeCards,
     defaultHomeWidgets,
+    type HomeCard,
     type HomeWidget,
     type HomeWidgetType,
 } from '@shared/defaultHomeWidgets';
 
-export type { HomeWidget, HomeWidgetType };
-export { defaultHomeWidgets };
-
-export type HomeCard =
-    | { id: string; type: 'catalog'; catalogId: string }
-    | {
-          id: string;
-          type: 'custom';
-          title: string;
-          url: string;
-          description?: string;
-          /** `mui:IconName` or `emoji:…` */
-          icon: string;
-      };
+export type { HomeCard, HomeWidget, HomeWidgetType };
+export { defaultHomeCards, defaultHomeWidgets };
 
 // Default user settings - these define the available settings and their defaults
 export interface UserSettingsData {
@@ -42,7 +32,7 @@ const DEFAULT_USER_SETTINGS: UserSettingsData = {
     compactMode: false,
     homeRecentIds: [],
     homeWidgets: defaultHomeWidgets(),
-    homeCards: [],
+    homeCards: defaultHomeCards(),
 };
 
 class UserSettings {
@@ -158,7 +148,7 @@ class UserSettings {
         return {
             ...DEFAULT_USER_SETTINGS,
             homeWidgets: defaultHomeWidgets(),
-            homeCards: [],
+            homeCards: defaultHomeCards(),
         };
     }
 }

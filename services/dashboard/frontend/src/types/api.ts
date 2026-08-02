@@ -353,19 +353,8 @@ export interface ServerSettings {
     [key: string]: unknown;
 }
 
-export type { HomeWidget, HomeWidgetType } from '@shared/defaultHomeWidgets';
-import type { HomeWidget } from '@shared/defaultHomeWidgets';
-
-export type HomeCard =
-    | { id: string; type: 'catalog'; catalogId: string }
-    | {
-          id: string;
-          type: 'custom';
-          title: string;
-          url: string;
-          description?: string;
-          icon: string;
-      };
+export type { HomeCard, HomeWidget, HomeWidgetType } from '@shared/defaultHomeWidgets';
+import type { HomeCard, HomeWidget } from '@shared/defaultHomeWidgets';
 
 export interface UserSettings {
     theme?: string;

@@ -6,7 +6,7 @@
     "build": "tsc --noEmit",
     "start": "tsx server.ts",
     "dev": "tsx watch server.ts",
-    "lint": "tsc --noEmit && eslint \"**/*.ts\""
+    "lint": "tsc --noEmit && eslint ."
   },
   "keywords": [],
   "author": "",

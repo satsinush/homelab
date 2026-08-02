@@ -1,7 +1,7 @@
-import type { HomeWidget, HomeWidgetType } from '@shared/defaultHomeWidgets';
+import type { HomeCard, HomeWidget, HomeWidgetType } from '@shared/defaultHomeWidgets';
 
-export type { HomeWidget, HomeWidgetType };
-export { defaultHomeWidgets } from '@shared/defaultHomeWidgets';
+export type { HomeCard, HomeWidget, HomeWidgetType };
+export { defaultHomeCards, defaultHomeWidgets } from '@shared/defaultHomeWidgets';
 
 export const HOME_GRID_COLS = 12;
 export const HOME_GRID_ROW_HEIGHT = 36;
