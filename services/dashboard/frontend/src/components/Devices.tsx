@@ -74,7 +74,6 @@ import {
     ScanResponse,
     ClearCacheResponse,
     FavoriteResponse,
-    RustdeskConfig,
     UserSettings,
 } from '../types/api';
 
@@ -208,7 +207,6 @@ const Devices = () => {
     const [deviceDialog, setDeviceDialog] = useState(false);
     const [editingDevice, setEditingDevice] = useState<Device | null>(null);
     const [initialDeviceForm, setInitialDeviceForm] = useState<Device>({ name: '', mac: '', description: '', rustdeskId: '' });
-    const [rustdeskConfig, setRustdeskConfig] = useState<RustdeskConfig>({ available: false, relayHost: '', publicKey: '' });
 
     // Filter and search states
     const [viewMode, setViewMode] = useState<DeviceViewMode>('cards');
@@ -275,17 +273,6 @@ const Devices = () => {
         };
     }, []);
 
-    const fetchRustdeskConfig = useCallback(async () => {
-        try {
-            const response = await tryApiCall<RustdeskConfig>('/system/rustdesk-config');
-            if (response.data) {
-                setRustdeskConfig(response.data);
-            }
-        } catch (err) {
-            console.error('Failed to fetch RustDesk config:', err);
-        }
-    }, []);
-
     const fetchDevices = useCallback(async () => {
         try {
             // Fetch all device data using simplified endpoint
@@ -305,8 +292,7 @@ const Devices = () => {
 
     useEffect(() => {
         fetchDevices();
-        fetchRustdeskConfig();
-    }, [fetchDevices, fetchRustdeskConfig]);
+    }, [fetchDevices]);
 
     const handleWakeOnLan = async (device: Device) => {
         try {
@@ -324,12 +310,7 @@ const Devices = () => {
     const handleRustDeskConnect = (device: Device) => {
         if (!device.rustdeskId) return;
 
-        if (!rustdeskConfig.available) {
-            showError('Warning: RustDesk config is unavailable on the server. Launching client anyway...');
-        }
-
         const url = `rustdesk://${device.rustdeskId.replace(/\s+/g, '')}`;
-        
         showSuccess(`Launching RustDesk connection to ${device.name || device.rustdeskId}...`);
         window.location.href = url;
     };
@@ -701,9 +682,9 @@ const Devices = () => {
                                             <Button
                                                 fullWidth
                                                 variant="contained"
-                                                startIcon={!rustdeskConfig.available ? <WarningIcon /> : <RustDeskIcon />}
+                                                startIcon={<RustDeskIcon />}
                                                 onClick={() => handleRustDeskConnect(device)}
-                                                color={!rustdeskConfig.available ? "warning" : "secondary"}
+                                                color="secondary"
                                                 size={prefs.compactMode ? 'small' : 'medium'}
                                             >
                                                 {prefs.compactMode ? 'Remote' : 'Connect RustDesk'}
@@ -955,13 +936,13 @@ const Devices = () => {
                                             </IconButton>
                                         </Tooltip>
                                         {device.rustdeskId && (
-                                            <Tooltip title={!rustdeskConfig.available ? "RustDesk Config Missing" : "Connect RustDesk"}>
+                                            <Tooltip title="Connect RustDesk">
                                                 <IconButton
                                                     onClick={() => handleRustDeskConnect(device)}
-                                                    color={!rustdeskConfig.available ? "warning" : "secondary"}
+                                                    color="secondary"
                                                     size="small"
                                                 >
-                                                    {!rustdeskConfig.available ? <WarningIcon /> : <RustDeskIcon />}
+                                                    <RustDeskIcon />
                                                 </IconButton>
                                             </Tooltip>
                                         )}
