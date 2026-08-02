@@ -162,6 +162,24 @@ class DeviceController {
         }
     }
 
+    /** Favorites only from DB — no network scan (for Home wake shortcuts). */
+    async getFavoriteDevices(req: Request, res: Response) {
+        try {
+            const userId = req.user?.id;
+            if (!userId) {
+                return sendError(res, 401, 'Unauthorized');
+            }
+            const devices = this.deviceModel
+                .getAllForUser(userId)
+                .filter((d) => d.isFavorite)
+                .sort((a, b) => (a.name || a.mac).localeCompare(b.name || b.mac));
+            return sendSuccess(res, { devices });
+        } catch (error: unknown) {
+            console.error('Get favorite devices error:', error);
+            return sendError(res, 500, 'Failed to retrieve favorite devices', getErrorMessage(error));
+        }
+    }
+
     // POST /api/devices/scan
     async scanDevices(req: Request, res: Response) {
         try {

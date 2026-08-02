@@ -353,15 +353,30 @@ export interface ServerSettings {
     [key: string]: unknown;
 }
 
-export type HomeSectionKind = 'recents' | 'internal' | 'external' | 'custom';
+export type HomeWidgetType =
+    | 'recents'
+    | 'pages'
+    | 'services'
+    | 'links'
+    | 'system'
+    | 'packages'
+    | 'gatus'
+    | 'wake'
+    | 'clock';
 
-export interface HomeSection {
+export interface HomeWidget {
     id: string;
-    kind: HomeSectionKind;
-    title: string;
-    hidden: boolean;
-    collapsed: boolean;
-    cardIds: string[];
+    type: HomeWidgetType;
+    title?: string;
+    /** MUI icon name for the widget header */
+    icon?: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    cardIds?: string[];
+    /** Clock widget only */
+    clockStyle?: 'digital' | 'analog';
 }
 
 export type HomeCard =
@@ -383,7 +398,7 @@ export interface UserSettings {
     devicesPerPage?: number | string;
     compactMode?: boolean;
     homeRecentIds?: string[];
-    homeLayout?: HomeSection[];
+    homeWidgets?: HomeWidget[];
     homeCards?: HomeCard[];
     [key: string]: unknown;
 }

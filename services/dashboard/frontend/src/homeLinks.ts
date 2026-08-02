@@ -1,5 +1,5 @@
 import type { Hostnames } from './contexts/ConfigContextCore';
-import type { HomeCard, HomeSection } from './types/api';
+import type { HomeCard } from './types/api';
 
 export type HomeLinkKind = 'internal' | 'external';
 
@@ -34,20 +34,6 @@ export interface HomeLinkItem {
 
 export const HOME_RECENTS_CAP = 8;
 
-export const BUILTIN_SECTION_LABELS: Record<'recents' | 'internal' | 'external', string> = {
-    recents: 'Recents',
-    internal: 'Internal',
-    external: 'External',
-};
-
-export function defaultHomeLayout(): HomeSection[] {
-    return [
-        { id: 'recents', kind: 'recents', title: 'Recents', hidden: false, collapsed: false, cardIds: [] },
-        { id: 'internal', kind: 'internal', title: 'Pages', hidden: false, collapsed: false, cardIds: [] },
-        { id: 'external', kind: 'external', title: 'Services', hidden: false, collapsed: false, cardIds: [] },
-    ];
-}
-
 /** Curated MUI icon names for custom cards */
 export const HOME_MUI_ICON_OPTIONS = [
     'Link',
@@ -75,6 +61,11 @@ export const HOME_MUI_ICON_OPTIONS = [
     'Favorite',
     'Build',
     'Speed',
+    'Apps',
+    'Schedule',
+    'PowerSettingsNew',
+    'Memory',
+    'Thermostat',
 ] as const;
 
 export const BUILTIN_HOME_LINKS: BuiltinHomeLink[] = [
@@ -168,7 +159,7 @@ export const BUILTIN_HOME_LINKS: BuiltinHomeLink[] = [
     },
     {
         id: 'external-pihole',
-        title: 'Pi-hole Admin',
+        title: 'Pi-hole',
         description: 'Network-wide ad blocking and DNS management',
         kind: 'external',
         url: (h) => `https://${h.pihole || ''}/admin`,
@@ -251,7 +242,7 @@ export const BUILTIN_HOME_LINKS: BuiltinHomeLink[] = [
     },
     {
         id: 'external-stalwart',
-        title: 'Stalwart Mail',
+        title: 'Stalwart',
         description: 'IMAP/SMTP mail server admin',
         kind: 'external',
         url: (h) => `https://${h.mail || ''}`,

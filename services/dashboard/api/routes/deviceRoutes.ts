@@ -33,6 +33,26 @@ router.get('/devices', requireAuth('dashboard-devices-user'), (req: Request, res
 
 /**
  * @openapi
+ * /api/devices/favorites:
+ *   get:
+ *     summary: List favorite devices for the current user (no network scan)
+ *     tags: [Devices]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Favorite devices
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get('/devices/favorites', requireAuth('dashboard-devices-user'), (req: Request, res: Response) =>
+    deviceController.getFavoriteDevices(req, res)
+);
+
+/**
+ * @openapi
  * /api/devices/scan:
  *   post:
  *     summary: Trigger network scan for online hosts

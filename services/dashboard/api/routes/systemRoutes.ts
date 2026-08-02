@@ -201,6 +201,46 @@ router.get('/packages', requireAuth('dashboard-packages-user'), (req: Request, r
 
 /**
  * @openapi
+ * /api/packages/summary:
+ *   get:
+ *     summary: Pending package update count (cached, for Home glance)
+ *     tags: [System]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: updatesAvailable count
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
+router.get('/packages/summary', requireAuth('dashboard-packages-user'), (req: Request, res: Response) =>
+    systemController.getPackageUpdatesSummary(req, res)
+);
+
+/**
+ * @openapi
+ * /api/gatus/summary:
+ *   get:
+ *     summary: Gatus endpoint up/down counts for Home glance
+ *     tags: [System]
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: up/down/total
+ *       401:
+ *         description: Unauthorized
+ *       502:
+ *         description: Gatus unreachable
+ */
+router.get('/gatus/summary', requireAuth(), (req: Request, res: Response) =>
+    systemController.getGatusSummary(req, res)
+);
+
+/**
+ * @openapi
  * /api/packages/sync:
  *   post:
  *     summary: Sync pacman package databases on the host

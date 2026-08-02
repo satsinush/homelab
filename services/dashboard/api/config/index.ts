@@ -140,9 +140,6 @@ const config = {
         sameSite: 'lax' as const,
         maxAge: 24 * 60 * 60 * 1000
     },
-    netdata: {
-        url: `http://netdata:19999`
-    },
     ollama: {
         url: `http://ollama:11434`
     },
@@ -156,6 +153,10 @@ const config = {
     },
     alerts: {
         url: 'http://alerts'
+    },
+    gatus: {
+        // Docker service name (public hostname may be status.* via GATUS_SERVICE_NAME)
+        url: (process.env.GATUS_INTERNAL_URL || 'http://gatus:8080').replace(/\/$/, ''),
     },
     dashBoardWebHostname: DASHBOARD_WEB_HOSTNAME,
     authentikWebHostname: AUTHENTIK_WEB_HOSTNAME,

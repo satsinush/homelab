@@ -1,18 +1,6 @@
 import database from './Database';
 import Database from 'better-sqlite3';
 
-export type HomeSectionKind = 'recents' | 'internal' | 'external' | 'custom';
-
-export interface HomeSection {
-    id: string;
-    kind: HomeSectionKind;
-    title: string;
-    hidden: boolean;
-    collapsed: boolean;
-    /** Card ids for custom sections only */
-    cardIds: string[];
-}
-
 export type HomeCard =
     | { id: string; type: 'catalog'; catalogId: string }
     | {
@@ -25,11 +13,41 @@ export type HomeCard =
           icon: string;
       };
 
-export function defaultHomeLayout(): HomeSection[] {
+export type HomeWidgetType =
+    | 'recents'
+    | 'pages'
+    | 'services'
+    | 'links'
+    | 'system'
+    | 'packages'
+    | 'gatus'
+    | 'wake'
+    | 'clock';
+
+export interface HomeWidget {
+    id: string;
+    type: HomeWidgetType;
+    title?: string;
+    /** MUI icon name for the widget header */
+    icon?: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    cardIds?: string[];
+    /** Clock widget only */
+    clockStyle?: 'digital' | 'analog';
+}
+
+export function defaultHomeWidgets(): HomeWidget[] {
     return [
-        { id: 'recents', kind: 'recents', title: 'Recents', hidden: false, collapsed: false, cardIds: [] },
-        { id: 'internal', kind: 'internal', title: 'Pages', hidden: false, collapsed: false, cardIds: [] },
-        { id: 'external', kind: 'external', title: 'Services', hidden: false, collapsed: false, cardIds: [] },
+        { id: 'system', type: 'system', x: 0, y: 0, w: 6, h: 4 },
+        { id: 'packages', type: 'packages', x: 6, y: 0, w: 3, h: 3 },
+        { id: 'gatus', type: 'gatus', x: 9, y: 0, w: 3, h: 3 },
+        { id: 'recents', type: 'recents', x: 0, y: 4, w: 9, h: 3 },
+        { id: 'clock', type: 'clock', x: 9, y: 4, w: 3, h: 3 },
+        { id: 'services', type: 'services', x: 0, y: 7, w: 12, h: 6 },
+        { id: 'wake', type: 'wake', x: 0, y: 13, w: 12, h: 3 },
     ];
 }
 
@@ -41,7 +59,7 @@ export interface UserSettingsData {
     devicesPerPage: number;
     compactMode: boolean;
     homeRecentIds: string[];
-    homeLayout: HomeSection[];
+    homeWidgets: HomeWidget[];
     homeCards: HomeCard[];
     [key: string]: unknown;
 }
@@ -53,7 +71,7 @@ const DEFAULT_USER_SETTINGS: UserSettingsData = {
     devicesPerPage: 25,
     compactMode: false,
     homeRecentIds: [],
-    homeLayout: defaultHomeLayout(),
+    homeWidgets: defaultHomeWidgets(),
     homeCards: [],
 };
 
@@ -79,7 +97,20 @@ class UserSettings {
             }
         }
 
-        return { ...DEFAULT_USER_SETTINGS, ...userOverrides };
+        // Ignore legacy homeLayout — Home is widget-based from scratch
+        delete userOverrides.homeLayout;
+
+        const merged = { ...DEFAULT_USER_SETTINGS, ...userOverrides } as UserSettingsData;
+        if (!Array.isArray(merged.homeWidgets) || merged.homeWidgets.length === 0) {
+            merged.homeWidgets = defaultHomeWidgets();
+        }
+        if (!Array.isArray(merged.homeCards)) {
+            merged.homeCards = [];
+        }
+        if (!Array.isArray(merged.homeRecentIds)) {
+            merged.homeRecentIds = [];
+        }
+        return merged;
     }
 
     /** Atomically prepend a home recent id (safe under multi-tab / rapid clicks). */
@@ -156,7 +187,7 @@ class UserSettings {
     getDefaults(): UserSettingsData {
         return {
             ...DEFAULT_USER_SETTINGS,
-            homeLayout: defaultHomeLayout(),
+            homeWidgets: defaultHomeWidgets(),
             homeCards: [],
         };
     }

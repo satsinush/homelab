@@ -33,7 +33,6 @@ import {
     Dashboard as DashboardIcon,
 } from '@mui/icons-material';
 import PageHeader from './PageHeader';
-import { tryApiCall } from '../utils/api';
 import { useNotification } from '../contexts/useNotification';
 import {
     SystemInfo,
@@ -43,6 +42,7 @@ import {
     SystemDataResponse,
 } from '../types/api';
 import { getErrorMessage } from '../utils/errors';
+import { fetchSystemMetrics } from '../utils/systemMetrics';
 
 const CPU_TEMP_CAP_C = 80;
 
@@ -130,15 +130,18 @@ const System = () => {
     const [refreshing, setRefreshing] = useState(false);
     const { showError } = useNotification();
 
-    const fetchSystemData = useCallback(async () => {
+    const applySystemData = useCallback((data: SystemDataResponse) => {
+        setSystemInfo(data.system);
+        setResources(data.resources);
+        setTemperature(data.temperature);
+        setNetwork(data.network);
+        setOnline(true);
+    }, []);
+
+    const fetchSystemData = useCallback(async (force = false) => {
         try {
-            const systemDataResult = await tryApiCall<SystemDataResponse>('/system');
-            const data = systemDataResult.data;
-            setSystemInfo(data.system);
-            setResources(data.resources);
-            setTemperature(data.temperature);
-            setNetwork(data.network);
-            setOnline(true);
+            const data = await fetchSystemMetrics({ force });
+            applySystemData(data);
         } catch (err) {
             setOnline(false);
             showError(getErrorMessage(err) || 'Unable to connect to API server');
@@ -146,27 +149,17 @@ const System = () => {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [showError]);
+    }, [applySystemData, showError]);
 
     useEffect(() => {
         fetchSystemData();
         let interval: ReturnType<typeof setInterval> | undefined;
         if (autoRefresh) {
-            interval = setInterval(async () => {
-                try {
-                    const systemDataResult = await tryApiCall<SystemDataResponse>('/system');
-                    const systemData = systemDataResult.data;
-                    if (systemData) {
-                        if (systemData.resources) setResources(systemData.resources);
-                        if (systemData.temperature) setTemperature(systemData.temperature);
-                        if (systemData.network) setNetwork(systemData.network);
-                        if (systemData.system) setSystemInfo(systemData.system);
-                        setOnline(true);
-                    }
-                } catch (err) {
+            interval = setInterval(() => {
+                void fetchSystemData(true).catch((err) => {
                     console.error('Auto-refresh failed:', err);
                     setOnline(false);
-                }
+                });
             }, 10000);
         }
         return () => {
@@ -184,7 +177,7 @@ const System = () => {
 
     const handleManualRefresh = async () => {
         setRefreshing(true);
-        await fetchSystemData();
+        await fetchSystemData(true);
     };
 
     const formatBytes = (bytes: number | string) => {

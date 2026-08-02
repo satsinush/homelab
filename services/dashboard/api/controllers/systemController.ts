@@ -3,6 +3,7 @@ import Settings from '../models/Settings';
 import fs from 'fs';
 import config from '../config';
 import HostApiService, { HostApiResponse } from '../services/hostApiService';
+import GatusService from '../services/gatusService';
 import { sendError, sendSuccess } from '../utils/response';
 
 import { getErrorMessage } from '../utils/errors';
@@ -58,10 +59,33 @@ interface PackageSyncTimestamps {
 class SystemController {
     private settingsModel: Settings;
     private hostApi: HostApiService;
+    private gatusService: GatusService;
+    /** In-memory metrics cache (same idea as device scan cache). */
+    private metricsCache: { lastFetch: number; payload: unknown } = {
+        lastFetch: 0,
+        payload: null,
+    };
+    private metricsInflight: Promise<unknown> | null = null;
+    /** Short TTL — host metrics sample ~500ms; System page refreshes every 10s. */
+    private static readonly METRICS_CACHE_TTL_MS = 5_000;
+
+    private packageUpdatesCache: { lastFetch: number; count: number } = {
+        lastFetch: 0,
+        count: 0,
+    };
+    private static readonly PACKAGE_UPDATES_CACHE_TTL_MS = 60_000;
+
+    private gatusCache: { lastFetch: number; payload: { up: number; down: number; total: number } | null } = {
+        lastFetch: 0,
+        payload: null,
+    };
+    private gatusInflight: Promise<{ up: number; down: number; total: number }> | null = null;
+    private static readonly GATUS_CACHE_TTL_MS = 15_000;
 
     constructor() {
         this.settingsModel = new Settings();
         this.hostApi = new HostApiService();
+        this.gatusService = new GatusService();
     }
 
     // Health check (no auth required)
@@ -126,7 +150,8 @@ class SystemController {
     // Get system information
     async getSystemInfo(req: Request, res: Response) {
         try {
-            const systemInfo = await this.getCombinedSystemInfo();
+            const force = String(req.query.refresh || '') === '1';
+            const systemInfo = await this.getCombinedSystemInfo(force);
             return sendSuccess(res, systemInfo);
         } catch (error: unknown) {
             console.error('Get system info error:', error);
@@ -173,6 +198,10 @@ class SystemController {
         try {
             // Retrieve latest packages info
             const packageInfo = await this.getPackageInfo();
+            this.packageUpdatesCache = {
+                lastFetch: Date.now(),
+                count: packageInfo.updatesAvailable,
+            };
             return sendSuccess(res, {
                 message: 'Package update check completed successfully',
                 updatesAvailable: packageInfo.updatesAvailable,
@@ -181,6 +210,64 @@ class SystemController {
         } catch (error: unknown) {
             console.error('Manual package update check error:', error);
             return sendError(res, 500, 'Failed to check for package updates', getErrorMessage(error));
+        }
+    }
+
+    /** Lightweight count for Home — only queries pending updates, not full install list. */
+    async getPackageUpdatesSummary(req: Request, res: Response) {
+        try {
+            const now = Date.now();
+            if (
+                this.packageUpdatesCache.lastFetch &&
+                now - this.packageUpdatesCache.lastFetch < SystemController.PACKAGE_UPDATES_CACHE_TTL_MS
+            ) {
+                return sendSuccess(res, {
+                    updatesAvailable: this.packageUpdatesCache.count,
+                    cached: true,
+                });
+            }
+
+            const updates = await this.getAvailableUpdates();
+            const count = updates.size;
+            this.packageUpdatesCache = { lastFetch: now, count };
+            return sendSuccess(res, { updatesAvailable: count, cached: false });
+        } catch (error: unknown) {
+            console.error('Package updates summary error:', error);
+            return sendError(res, 500, 'Failed to retrieve package updates summary', getErrorMessage(error));
+        }
+    }
+
+    /** Aggregated Gatus health for Home (up/down counts only). */
+    async getGatusSummary(req: Request, res: Response) {
+        try {
+            const now = Date.now();
+            if (
+                this.gatusCache.payload &&
+                now - this.gatusCache.lastFetch < SystemController.GATUS_CACHE_TTL_MS
+            ) {
+                return sendSuccess(res, { ...this.gatusCache.payload, cached: true });
+            }
+
+            if (this.gatusInflight) {
+                const summary = await this.gatusInflight;
+                return sendSuccess(res, { ...summary, cached: true });
+            }
+
+            this.gatusInflight = this.gatusService
+                .getSummary()
+                .then((summary) => {
+                    this.gatusCache = { lastFetch: Date.now(), payload: summary };
+                    return summary;
+                })
+                .finally(() => {
+                    this.gatusInflight = null;
+                });
+
+            const summary = await this.gatusInflight;
+            return sendSuccess(res, { ...summary, cached: false });
+        } catch (error: unknown) {
+            console.error('Gatus summary error:', error);
+            return sendError(res, 502, 'Failed to retrieve Gatus summary', getErrorMessage(error));
         }
     }
 
@@ -317,8 +404,48 @@ class SystemController {
         return { interfaces: [] as Array<{ name: string; downloadSpeed?: number; uploadSpeed?: number; active?: boolean }>, source: 'fallback', timestamp: new Date().toISOString() };
     }
 
-    // Get combined system information from Host API
-    async getCombinedSystemInfo() {
+    // Get combined system information from Host API (cached briefly like device scans)
+    async getCombinedSystemInfo(force = false) {
+        const now = Date.now();
+        const cacheFresh =
+            !force &&
+            this.metricsCache.payload &&
+            now - this.metricsCache.lastFetch < SystemController.METRICS_CACHE_TTL_MS;
+
+        if (cacheFresh) {
+            return {
+                ...(this.metricsCache.payload as object),
+                cached: true,
+                cacheAgeMs: now - this.metricsCache.lastFetch,
+            };
+        }
+
+        if (!force && this.metricsInflight) {
+            const payload = await this.metricsInflight;
+            return {
+                ...(payload as object),
+                cached: true,
+                cacheAgeMs: Date.now() - this.metricsCache.lastFetch,
+            };
+        }
+
+        this.metricsInflight = this.fetchCombinedSystemInfo()
+            .then((payload) => {
+                this.metricsCache = { lastFetch: Date.now(), payload };
+                return payload;
+            })
+            .finally(() => {
+                this.metricsInflight = null;
+            });
+
+        const payload = await this.metricsInflight;
+        return {
+            ...(payload as object),
+            cached: false,
+        };
+    }
+
+    private async fetchCombinedSystemInfo() {
         const startTime = Date.now();
         try {
             const metrics = await this.hostApi.getSystemMetrics();
@@ -338,9 +465,9 @@ class SystemController {
             // Filter network interfaces
             let filteredInterfaces: Array<{ name: string; downloadSpeed?: number; uploadSpeed?: number; active?: boolean }> = [];
             if (network && Array.isArray(network.interfaces)) {
-                filteredInterfaces = network.interfaces.filter((iface: { name: string }) => 
-                    iface.name !== 'total' && 
-                    iface.name !== 'Total Network' && 
+                filteredInterfaces = network.interfaces.filter((iface: { name: string }) =>
+                    iface.name !== 'total' &&
+                    iface.name !== 'Total Network' &&
                     !iface.name.includes('veth') &&
                     iface.name !== 'docker0' &&
                     !iface.name.startsWith('br-')
