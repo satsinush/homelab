@@ -2086,6 +2086,19 @@ const Home = () => {
                 )}
             </Box>
 
+            {editing && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, mb: 2 }}>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        size="medium"
+                        onClick={() => setEditing(false)}
+                    >
+                        Exit customize mode
+                    </Button>
+                </Box>
+            )}
+
             <Dialog open={addWidgetOpen} onClose={() => setAddWidgetOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Add widget</DialogTitle>
                 <DialogContent>
