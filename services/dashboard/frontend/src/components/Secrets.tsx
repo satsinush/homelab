@@ -246,7 +246,7 @@ const Secrets = () => {
                                     userSelect: 'all',
                                 }}
                             >
-                                {visibleSecrets[popupSecret.name] ? popupSecret.value : '••••••••••••••••••••••••••••••••'}
+                                {visibleSecrets[popupSecret.name] ? popupSecret.value : '••••••••••••'}
                             </Box>
                         </DialogContent>
                         <DialogActions sx={{ px: 3, py: 1.5, justifyContent: 'space-between' }}>

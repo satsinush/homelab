@@ -76,28 +76,22 @@ export function DevicesWidgetBody({ interactive = true }: { interactive?: boolea
                     </Typography>
                 </Stack>
             ) : (
-                <>
+                <Stack direction="row" spacing={1} alignItems="baseline">
                     <Typography
-                        variant="h5"
-                        sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', lineHeight: 1.15 }}
+                        variant="h4"
+                        sx={{
+                            fontWeight: 700,
+                            fontVariantNumeric: 'tabular-nums',
+                            lineHeight: 1,
+                            color: noneOnline ? 'text.secondary' : 'success.main',
+                        }}
                     >
-                        <Box
-                            component="span"
-                            sx={{
-                                color: noneOnline ? 'text.secondary' : allOnline ? 'success.main' : 'text.primary',
-                            }}
-                        >
-                            {online}
-                        </Box>
-                        <Box component="span" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-                            {' '}
-                            / {total}
-                        </Box>
+                        {online}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 600 }}>
                         online
                     </Typography>
-                </>
+                </Stack>
             )}
         </Box>
     );

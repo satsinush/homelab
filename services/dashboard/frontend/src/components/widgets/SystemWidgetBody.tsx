@@ -88,7 +88,7 @@ export function SystemWidgetBody({ interactive = true }: { interactive?: boolean
         return 'success' as const;
     };
 
-    const items: { label: string; value: string; pct?: number; icon: React.ReactNode }[] = [];
+    const items: { label: string; value: string; pct?: number; color?: 'success' | 'warning' | 'error' | 'primary'; icon: React.ReactNode }[] = [];
     const cpu = data.resources.cpu?.usage;
     const mem = data.resources.memory?.percentage;
     const disk = data.resources.disk?.percentage;
@@ -118,9 +118,14 @@ export function SystemWidgetBody({ interactive = true }: { interactive?: boolean
         });
     }
     if (temp != null && Number.isFinite(temp)) {
+        const tempNum = Number(temp);
+        const tempPct = Math.min(100, Math.max(0, ((tempNum - 30) / 70) * 100));
+        const tempColor = tempNum > 80 ? 'error' as const : tempNum > 60 ? 'warning' as const : 'success' as const;
         items.push({
             label: 'Temp',
-            value: `${Math.round(temp)}°C`,
+            value: `${Math.round(tempNum)}°C`,
+            pct: tempPct,
+            color: tempColor,
             icon: <ThermostatIcon sx={{ fontSize: 16 }} />,
         });
     }
@@ -184,7 +189,7 @@ export function SystemWidgetBody({ interactive = true }: { interactive?: boolean
                             <LinearProgress
                                 variant="determinate"
                                 value={Math.min(100, Math.max(0, item.pct))}
-                                color={barColor(item.pct)}
+                                color={item.color ?? barColor(item.pct)}
                                 sx={{ height: 6, borderRadius: 1, flexShrink: 0, width: '100%' }}
                             />
                         )}

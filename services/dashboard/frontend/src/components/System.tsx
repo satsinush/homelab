@@ -225,16 +225,17 @@ const System = () => {
     };
 
     const cpuTemp = temperature?.cpu;
+    const numericTemp = cpuTemp != null && !Number.isNaN(Number(cpuTemp)) ? Number(cpuTemp) : null;
     const tempGaugeValue =
-        cpuTemp != null && !Number.isNaN(Number(cpuTemp))
-            ? Math.min(100, (Number(cpuTemp) / CPU_TEMP_CAP_C) * 100)
+        numericTemp != null
+            ? Math.min(100, Math.max(0, ((numericTemp - 30) / 70) * 100))
             : 0;
     const tempColor =
-        cpuTemp == null
+        numericTemp == null
             ? 'inherit'
-            : cpuTemp > 75
+            : numericTemp > 80
               ? 'error'
-              : cpuTemp > 60
+              : numericTemp > 60
                 ? 'warning'
                 : 'success';
 
@@ -478,7 +479,6 @@ const System = () => {
                                         value={tempGaugeValue}
                                         color={tempColor}
                                         label={`${Math.round(Number(cpuTemp))}°C`}
-                                        title={`cap ${CPU_TEMP_CAP_C}°C`}
                                     />
                                 ) : (
                                     <Typography color="text.secondary">No temp data</Typography>
