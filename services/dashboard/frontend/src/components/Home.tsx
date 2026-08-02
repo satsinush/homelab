@@ -101,6 +101,7 @@ import {
     widgetTitle,
     type HomeWidgetType,
 } from '../home/widgets';
+import { WidgetTypePreview } from '../home/WidgetTypePreview';
 import { fetchSystemMetrics } from '../utils/systemMetrics';
 import { useNotification } from '../contexts/useNotification';
 import { getErrorMessage } from '../utils/errors';
@@ -497,27 +498,55 @@ function WidgetShell({
                 sx={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 0.5,
-                    px: 1.25,
+                    minHeight: 40,
                     pt: 1,
                     pb: 0.5,
-                    minHeight: 40,
+                    pl: 1.25,
+                    pr: 0,
                     bgcolor: 'background.paper',
+                    minWidth: 0,
                 }}
             >
                 {layoutEditing && (
                     <DragIcon
                         className="home-widget-drag"
-                        sx={{ cursor: 'grab', color: 'text.secondary', fontSize: 18, touchAction: 'none' }}
+                        sx={{
+                            cursor: 'grab',
+                            color: 'text.secondary',
+                            fontSize: 18,
+                            touchAction: 'none',
+                            flexShrink: 0,
+                            mr: 0.5,
+                        }}
                     />
                 )}
+                <Box
+                    sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        flex: 1,
+                        minWidth: 0,
+                        pr: 1.25,
+                        flexWrap: 'nowrap',
+                        ...(editing
+                            ? {
+                                  overflowX: 'auto',
+                                  overflowY: 'hidden',
+                                  WebkitOverflowScrolling: 'touch',
+                              }
+                            : {
+                                  overflow: 'hidden',
+                              }),
+                    }}
+                >
                 {editing && onIconChange ? (
                     <>
                         <IconButton
                             size="small"
                             onClick={(e) => setIconMenuAnchor(e.currentTarget)}
                             aria-label="Change widget icon"
-                            sx={{ color: 'text.secondary' }}
+                            sx={{ color: 'text.secondary', flexShrink: 0 }}
                         >
                             {headerIcon}
                         </IconButton>
@@ -547,7 +576,9 @@ function WidgetShell({
                         </Menu>
                     </>
                 ) : (
-                    <Box sx={{ display: 'flex', color: 'text.secondary', mr: 0.25 }}>{headerIcon}</Box>
+                    <Box sx={{ display: 'flex', color: 'text.secondary', mr: 0.25, flexShrink: 0 }}>
+                        {headerIcon}
+                    </Box>
                 )}
                 {editing && onTitleChange ? (
                     <TextField
@@ -556,26 +587,30 @@ function WidgetShell({
                         onChange={(e) => onTitleChange(e.target.value)}
                         onMouseDown={(e) => e.stopPropagation()}
                         variant="standard"
-                        fullWidth
                         placeholder={titlePlaceholder}
                         inputProps={{ 'aria-label': 'Widget title' }}
                         sx={{
-                            flexGrow: 1,
-                            minWidth: 0,
+                            flex: '1 0 auto',
+                            minWidth: 140,
                             '& .MuiInputBase-input': { fontWeight: 700, fontSize: '0.875rem', py: 0.25 },
                         }}
                     />
                 ) : (
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700, flexGrow: 1 }} noWrap>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, flexGrow: 1, minWidth: 0 }} noWrap>
                         {title || titlePlaceholder}
                     </Typography>
                 )}
-                {headerActions}
+                {headerActions ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                        {headerActions}
+                    </Box>
+                ) : null}
                 {editing && onRemove && (
-                    <IconButton size="small" onClick={onRemove} aria-label="Remove widget">
+                    <IconButton size="small" onClick={onRemove} aria-label="Remove widget" sx={{ flexShrink: 0 }}>
                         <DeleteIcon fontSize="small" />
                     </IconButton>
                 )}
+                </Box>
             </Box>
             <Box
                 className="home-widget-body"
@@ -840,6 +875,102 @@ function PackagesWidgetBody({ interactive = true }: { interactive?: boolean }) {
                 >
                     {count == null ? 'Unavailable' : count > 0 ? `${count} available` : 'Up to date'}
                 </Typography>
+            )}
+        </Box>
+    );
+}
+
+function DevicesWidgetBody({ interactive = true }: { interactive?: boolean }) {
+    const { hasPermission } = useAuth();
+    const can = hasPermission('dashboard-devices-user');
+    const [loading, setLoading] = useState(can);
+    const [counts, setCounts] = useState<{ online: number; total: number } | null>(null);
+    const linkProps = useWidgetHref('/devices', interactive);
+
+    useEffect(() => {
+        if (!can) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await tryApiCall<{ onlineDevices: number; totalDevices: number }>('/devices');
+                if (!cancelled) {
+                    setCounts({
+                        online: res.data?.onlineDevices ?? 0,
+                        total: res.data?.totalDevices ?? 0,
+                    });
+                }
+            } catch {
+                if (!cancelled) setCounts({ online: 0, total: 0 });
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [can]);
+
+    if (!can) {
+        return (
+            <Typography variant="body2" color="text.secondary">
+                No access to devices.
+            </Typography>
+        );
+    }
+
+    const online = counts?.online ?? 0;
+    const total = counts?.total ?? 0;
+    const allOnline = total > 0 && online === total;
+    const noneOnline = online === 0;
+
+    return (
+        <Box
+            {...linkProps}
+            sx={{
+                cursor: interactive ? 'pointer' : 'default',
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                textDecoration: 'none',
+                color: 'inherit',
+                '&:hover, &:focus, &:visited, &:active': {
+                    color: 'inherit',
+                    textDecoration: 'none',
+                    opacity: 1,
+                },
+            }}
+        >
+            {loading ? (
+                <Stack direction="row" spacing={1} alignItems="center">
+                    <CircularProgress size={14} />
+                    <Typography variant="body2" color="text.secondary">
+                        Loading…
+                    </Typography>
+                </Stack>
+            ) : (
+                <>
+                    <Typography
+                        variant="h5"
+                        sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', lineHeight: 1.15 }}
+                    >
+                        <Box
+                            component="span"
+                            sx={{
+                                color: noneOnline ? 'text.secondary' : allOnline ? 'success.main' : 'text.primary',
+                            }}
+                        >
+                            {online}
+                        </Box>
+                        <Box component="span" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                            {' '}
+                            / {total}
+                        </Box>
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        online
+                    </Typography>
+                </>
             )}
         </Box>
     );
@@ -1652,6 +1783,8 @@ const Home = () => {
                 return <PackagesWidgetBody interactive={interactive} />;
             case 'gatus':
                 return <GatusWidgetBody interactive={interactive} />;
+            case 'devices':
+                return <DevicesWidgetBody interactive={interactive} />;
             case 'clock':
                 return <ClockWidgetBody style={widget.clockStyle === 'analog' ? 'analog' : 'digital'} />;
             case 'wake':
@@ -1942,28 +2075,68 @@ const Home = () => {
                 )}
             </Box>
 
-            <Dialog open={addWidgetOpen} onClose={() => setAddWidgetOpen(false)} maxWidth="xs" fullWidth>
+            <Dialog open={addWidgetOpen} onClose={() => setAddWidgetOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Add widget</DialogTitle>
                 <DialogContent>
-                    <TextField
-                        select
-                        fullWidth
-                        label="Widget type"
-                        value={addWidgetType}
-                        onChange={(e) => setAddWidgetType(e.target.value as HomeWidgetType)}
-                        sx={{ mt: 1 }}
+                    <Box
+                        sx={{
+                            mt: 1,
+                            display: 'grid',
+                            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                            gap: 1.25,
+                        }}
                     >
-                        {(Object.keys(HOME_WIDGET_META) as HomeWidgetType[]).map((type) => (
-                            <MenuItem key={type} value={type}>
-                                {HOME_WIDGET_META[type].label} — {HOME_WIDGET_META[type].description}
-                            </MenuItem>
-                        ))}
-                    </TextField>
+                        {(Object.keys(HOME_WIDGET_META) as HomeWidgetType[]).map((type) => {
+                            const meta = HOME_WIDGET_META[type];
+                            const selected = addWidgetType === type;
+                            return (
+                                <Box
+                                    key={type}
+                                    component="button"
+                                    type="button"
+                                    onClick={() => setAddWidgetType(type)}
+                                    sx={{
+                                        m: 0,
+                                        p: 1.25,
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                        borderRadius: 2,
+                                        border: '2px solid',
+                                        borderColor: selected ? 'primary.main' : 'divider',
+                                        bgcolor: selected ? 'action.selected' : 'background.paper',
+                                        color: 'inherit',
+                                        font: 'inherit',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: 1,
+                                        transition: (t) =>
+                                            t.transitions.create(['border-color', 'background-color'], {
+                                                duration: t.transitions.duration.shorter,
+                                            }),
+                                        '&:hover': {
+                                            borderColor: selected ? 'primary.main' : 'action.active',
+                                            bgcolor: selected ? 'action.selected' : 'action.hover',
+                                        },
+                                    }}
+                                >
+                                    <WidgetTypePreview type={type} />
+                                    <Box>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
+                                            {meta.label}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                                            {meta.description}
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                            );
+                        })}
+                    </Box>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setAddWidgetOpen(false)}>Cancel</Button>
                     <Button variant="contained" onClick={addWidget}>
-                        Add
+                        Add {HOME_WIDGET_META[addWidgetType].label}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -2014,10 +2187,37 @@ const Home = () => {
                                 value={formCatalogId}
                                 onChange={(e) => setFormCatalogId(e.target.value)}
                                 fullWidth
+                                SelectProps={{
+                                    renderValue: (value) => {
+                                        const link = catalogById.get(String(value));
+                                        if (!link) return String(value);
+                                        return (
+                                            <Stack direction="row" spacing={1.25} alignItems="center">
+                                                <LinkIconMark link={link} size={28} />
+                                                <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
+                                                    {link.title}
+                                                </Typography>
+                                            </Stack>
+                                        );
+                                    },
+                                    MenuProps: {
+                                        PaperProps: { sx: { maxHeight: 360 } },
+                                    },
+                                }}
                             >
                                 {catalog.map((link) => (
                                     <MenuItem key={link.id} value={link.id}>
-                                        {link.title} ({link.kind})
+                                        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ py: 0.5 }}>
+                                            <LinkIconMark link={link} size={32} />
+                                            <Box sx={{ minWidth: 0 }}>
+                                                <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                                                    {link.title}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {link.kind === 'external' ? 'Service' : 'Page'}
+                                                </Typography>
+                                            </Box>
+                                        </Stack>
                                     </MenuItem>
                                 ))}
                             </TextField>

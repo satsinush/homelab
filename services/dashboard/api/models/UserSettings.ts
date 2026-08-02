@@ -21,6 +21,7 @@ export type HomeWidgetType =
     | 'system'
     | 'packages'
     | 'gatus'
+    | 'devices'
     | 'wake'
     | 'clock';
 

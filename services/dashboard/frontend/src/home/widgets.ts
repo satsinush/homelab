@@ -9,6 +9,7 @@ export type HomeWidgetType =
     | 'system'
     | 'packages'
     | 'gatus'
+    | 'devices'
     | 'wake'
     | 'clock';
 
@@ -93,7 +94,7 @@ export const HOME_WIDGET_META: Record<
         defaultW: 6,
         defaultH: 4,
         minW: 3,
-        minH: 4,
+        minH: 3,
         maxH: 16,
     },
     packages: {
@@ -110,6 +111,16 @@ export const HOME_WIDGET_META: Record<
         label: 'Monitored services',
         description: 'Gatus up/down summary',
         defaultIcon: 'MonitorHeart',
+        defaultW: 3,
+        defaultH: 3,
+        minW: 2,
+        minH: 3,
+        maxH: 16,
+    },
+    devices: {
+        label: 'Devices',
+        description: 'LAN devices online vs total',
+        defaultIcon: 'Devices',
         defaultW: 3,
         defaultH: 3,
         minW: 2,
