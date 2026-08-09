@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="services/dashboard/frontend/public/homelab-icon.svg" alt="Homelab Logo" width="128" height="128">
+</p>
+
 # 🏠 Homelab Dashboard & Services
 
 This repository contains all the configuration and Docker instructions needed to deploy a comprehensive, self-hosted homelab system.
@@ -17,6 +21,8 @@ This repository contains all the configuration and Docker instructions needed to
 ## 📚 Table of Contents
 - [Overview](#-overview)
 - [Quick Start Guide](#-get-started-quick-setup-guide)
+- [Services Directory & Architecture](./docs/8-services.md)
+- [Dashboard Screenshots Gallery](./docs/9-screenshots.md)
 - [License](#️-license)
 
 ## ✨ Overview
@@ -27,26 +33,23 @@ This project bundles several open-source services, managed via `docker-compose`,
 
 ### Core Services Included
 
-  * **🏠 Homelab Dashboard**: A custom web interface with:
-      * 💻 LAN device scanning and WOL support
-      * 🧩 Word puzzle game solvers (Wordle, Mastermind, Hangman, Dungleon, Letter Boxed, Spelling Bee)
-      * 📦 Host device package management (for *pacman*)
-      * 🤖 An integrated AI chatbot with Ollama
-  * **🔀 Traefik v3**: Cloud-native reverse proxy with automatic HTTPS (Let's Encrypt or self-signed).
-  * **🔑 Authentik**: Single Sign-On (SSO) and Identity Provider for securing services.
-  * **📊 Netdata**: Real-time performance monitoring.
-  * **📦 Portainer**: Docker container management UI.
-  * **📈 Uptime Kuma**: Service monitoring and status pages.
-  * **🔔 Alerts**: HTTP and SMTP notification gateway (Apprise + Gotify) for Gatus, dashboard, Vaultwarden, and Dockhand.
-  * **🚫 Pi-hole & Unbound**: Network-wide ad-blocking and recursive DNS.
-  * **🌐 ddclient**: Dynamic DNS client to keep your domain pointed to your IP.
-  * **🖥️ RustDesk**: Self-hosted remote desktop (ID + relay).
-  * **📁 Samba + Nextcloud**: LAN SMB (homelab-admins only, no quota) and Nextcloud (files/WebDAV/calendar/contacts) via Authentik. Nextcloud/Immich quotas via `HOMELAB_DEFAULT_QUOTA_GB`.
-  * **✉️ Stalwart**: Mail server with Authentik LDAP for humans; authenticated SMTP for Vaultwarden.
-  * **📷 Immich**: Photos with Authentik OIDC (same default quota as Nextcloud).
-  * **📝 Collabora**: Office editing for Nextcloud (TLS at Traefik).
-  * **🛰️ Headscale**: Self-hosted Tailscale control plane with Authentik OIDC sign-in; subnet router exposes the LAN to remote clients.
-  * **🔐 Vaultwarden**: Self-hosted password manager.
+*Detailed individual service documentation is available in [docs/8-services.md](./docs/8-services.md) and in each service's directory under `services/<service>/README.md`.*
+
+  * **🏠 [Homelab Dashboard](./services/dashboard/README.md)**: A custom web interface with LAN device scanning, WOL support, word puzzle game solvers, package management, and an integrated AI chatbot with [Ollama](./services/ollama/README.md).
+  * **🔀 [Traefik v3](./services/traefik/README.md)**: Cloud-native reverse proxy with automatic HTTPS (Let's Encrypt or self-signed).
+  * **🔑 [Authentik](./services/authentik/README.md)**: Single Sign-On (SSO) and Identity Provider for securing services.
+  * **📈 [Gatus](./services/gatus/README.md)**: Real-time health check monitoring and public status page.
+  * **📦 [Dockhand](./services/dockhand/README.md)**: Docker container management UI integrated with Authentik SSO.
+  * **🔔 [Alerts & Gotify](./services/alerts/README.md)**: HTTP and SMTP notification gateway for Gatus, dashboard, Vaultwarden, and Dockhand via [Gotify](./services/gotify/README.md).
+  * **🚫 [Pi-hole](./services/pihole/README.md) & [Unbound](./services/unbound/README.md)**: Network-wide ad-blocking and recursive DNS.
+  * **🌐 [ddclient](./services/ddclient/README.md)**: Dynamic DNS client to keep your domain pointed to your IP.
+  * **🖥️ [RustDesk](./services/rustdesk/README.md)**: Self-hosted remote desktop (ID + relay).
+  * **📁 [Samba](./services/samba/README.md) & [Nextcloud](./services/nextcloud/README.md)**: LAN SMB shares and Nextcloud (files, WebDAV, calendar, contacts, Collabora Office) via Authentik.
+  * **✉️ [Stalwart](./services/stalwart/README.md)**: Mail server with Authentik LDAP for humans; authenticated SMTP for Vaultwarden.
+  * **📷 [Immich](./services/immich/README.md)**: Photos with Authentik OIDC.
+  * **🛰️ [Headscale](./services/headscale/README.md)**: Self-hosted Tailscale control plane with Authentik OIDC sign-in and subnet router.
+  * **🔐 [Vaultwarden](./services/vaultwarden/README.md)**: Self-hosted password manager.
+  * **💾 [Restic](./services/restic/README.md)**: Encrypted offsite cloud backups.
 
 ### Infrastructure Diagram
 
@@ -54,73 +57,60 @@ This project bundles several open-source services, managed via `docker-compose`,
 %%{init: {
     "theme": "dark"
 }}%%
-graph TD
-    %% INTERNET
-    subgraph Internet
-        RemoteClient[🌍 Remote User]
+flowchart LR
+    subgraph External["🌍 Internet & Clients"]
+        Remote["🌍 Remote Client"]
+        Local["💻 LAN Devices"]
     end
 
-    %% LAN
-    subgraph LAN
-        Router[📶 Router]
-        LocalClient[💻 Local Devices]
+    subgraph Host["🖥️ Homelab Server"]
+        Headscale["🛰️ Headscale VPN"]
+        Firewall["🛡️ firewalld"]
 
-        subgraph Server[🖥️ Homelab Server]
-            Headscale[🛰️ Headscale]
-            Firewall[🛡️ firewalld]
+        subgraph Network["🐳 Docker Network"]
+            Traefik["🔀 Traefik v3 Proxy"]
+            Authentik["🔑 Authentik SSO & LDAP"]
+            
+            subgraph Apps["Services & Apps"]
+                Dashboard["🏠 Homelab Dashboard"]
+                Nextcloud["☁️ Nextcloud"]
+                Immich["📷 Immich"]
+                Vaultwarden["🔐 Vaultwarden"]
+                Stalwart["✉️ Stalwart Mail"]
+                Samba["📁 Samba SMB"]
+                Dockhand["📦 Dockhand"]
+                Ollama["🤖 Ollama AI"]
+                Rustdesk["🖥️ RustDesk"]
+            end
 
-            subgraph Docker[🐳 Docker Network]
-                Traefik[🔀 Traefik Reverse Proxy]
-                Authentik[🔑 Authentik SSO]
-                Vaultwarden[🔐 Vaultwarden]
-                Samba[📁 Samba SMB]
-                Nextcloud[☁️ Nextcloud]
-                Immich[📷 Immich]
-                Stalwart[✉️ Stalwart]
-                Dockhand[📦 Dockhand]
-                Dashboard[🏠 Homelab Dashboard]
-                Ollama[🤖 Ollama AI]
-                Gatus[📈 Gatus]
-                Alerts[🔔 Alerts Gateway]
-                Pihole[🚫 Pi-hole DNS]
-                Unbound[🔎 Unbound DNS Resolver]
-                Rustdesk[🖥️ RustDesk ID & Relay]
+            subgraph Infra["Core Infra & Ops"]
+                Pihole["🚫 Pi-hole"]
+                Unbound["🔎 Unbound"]
+                Gatus["📈 Gatus Status"]
+                Alerts["🔔 Alerts Gateway"]
+                Gotify["🔔 Gotify Push"]
+                DDNS["🌐 ddclient"]
+                Restic["💾 Restic Backup"]
             end
         end
     end
 
-    %% Entry chain
-    RemoteClient -->|Tailscale| Headscale --> Firewall
-    LocalClient --> Firewall
+    %% Routing Connections
+    Remote -->|Tailscale| Headscale --> Firewall
+    Local --> Firewall
+    Firewall --> Traefik
+    Firewall -->|DNS 53| Pihole --> Unbound
 
-    %% DNS chain
-    Pihole --> Unbound
-    Firewall -->|DNS| Pihole
+    %% Proxy Connections
+    Traefik --> Authentik & Dashboard & Nextcloud & Immich & Vaultwarden & Stalwart & Dockhand & Gatus & Gotify
 
-    %% Firewall routes
-    Firewall -->|HTTP| Traefik
-    Firewall -->|Remote Access| Rustdesk --> LocalClient
-
-    %% Proxy/Auth flows
-    Traefik --> Authentik
-    Traefik --> Vaultwarden
-    Traefik --> Nextcloud
-    Traefik --> Immich
-    Traefik --> Stalwart
-    Traefik --> Dockhand
-    Traefik --> Dashboard
-    Traefik --> Gatus
-    Traefik --> Headscale
-    Authentik -.->|OIDC| Headscale
-
-    %% Dashboard flows
+    %% Auth & App Connections
+    Dashboard & Nextcloud & Immich & Vaultwarden & Dockhand & Headscale -.->|OIDC| Authentik
+    Stalwart & Samba -.->|LDAP| Authentik
     Dashboard --> Ollama
-    Dashboard -->|WOL| LocalClient
-    Dashboard --> Alerts
 
-    %% Notifications
-    Gatus --> Alerts
-    Vaultwarden --> Alerts
+    %% Alert Flows
+    Gatus & Vaultwarden & Stalwart & Dashboard --> Alerts --> Gotify
 ```
 
 ## 🚀 Quick Start Guide
@@ -172,7 +162,7 @@ Once the core stack is running, use these sections for ongoing maintenance and c
 
 #### 4\. ✅ Post-Installation Checklist
 
-Complete a final checklist for each service (e.g., installing the root CA certificate, setting up notifications in Uptime Kuma, and disabling public sign-ups for Vaultwarden).
+Complete a final checklist for each service (e.g., installing the root CA certificate, setting up notifications in Gatus / Gotify, and verifying Authentik SSO).
 
 ➡️ **View the full checklist here:** **[4. Post Installation Checklist](./docs/4-checklist.md)**
 

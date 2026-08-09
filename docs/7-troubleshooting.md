@@ -7,7 +7,7 @@ This section covers common issues you might encounter and how to resolve them.
 This usually indicates a problem with DNS or the firewall.
 
   * **1. Check Client DNS:** Ensure the device you are using has its DNS server set to the IP address of your Pi-hole. You can test if the domain is resolving correctly by running `ping vaultwarden.your.domain`. It should return the IP of your homelab server.
-  * **2. Check Firewall Rules:** Verify that your firewall is not blocking the connection. Run `sudo ufw status` on the server and make sure the necessary ports (like `80`, `443`, `53`) are allowed from your IP address or subnet.
+  * **2. Check Firewall Rules:** Verify that your firewall is not blocking the connection. Run `sudo firewall-cmd --list-all` on the server and make sure the necessary ports (like `80`, `443`, `53`, `8443`) are allowed from your IP address or subnet.
 
 -----
 
@@ -42,15 +42,15 @@ This typically points to a misconfiguration in your `.env` file, a port conflict
 
 ### I'm seeing an HTTP error like '404 Not Found' or '502 Bad Gateway'
 
-These errors mean the request reached nginx, but it couldn't be completed.
+These errors mean the request reached Traefik, but it couldn't be completed.
 
-  * **Cause (404 Not Found):** The reverse proxy received the request but has no configuration for that specific domain. Check your NGINX configuration file for typos in the hostname.
-  * **Cause (502 Bad Gateway):** The reverse proxy has a rule, but it cannot communicate with the backend service container. This usually means the service container is stopped, unhealthy, or not on the same Docker network.
+  * **Cause (404 Not Found):** The reverse proxy received the request but has no configuration for that specific domain or router host match. Check your dynamic configuration or compose labels for typos in the hostname.
+  * **Cause (502 Bad Gateway):** Traefik has a routing rule, but it cannot communicate with the backend service container. This usually means the service container is stopped, unhealthy, or not on the `homelab-net` Docker network.
 
-  * **Solution:** Check the logs of nginx container for specific error messages.
+  * **Solution:** Check the logs of the Traefik container for specific error messages.
 
     ```shell
-    docker compose logs nginx
+    docker compose logs traefik
     ```
 
 -----
