@@ -33,5 +33,17 @@ npm run dev
 ```
 
 
+### Git Hooks (Pre-push Linting)
+
+Pre-push lint hooks for the Dashboard frontend, API, and host-API are stored and tracked in `.githooks/`.
+
+To enable the git hooks on your local environment, run:
+
+```shell
+git config core.hooksPath .githooks
+```
+
+Whenever you run `git push`, the hook will execute `npm run lint` (`tsc --noEmit && eslint`) across all three Dashboard components (`frontend`, `api`, and `host-api`).
+
 ## Next: 7\. ❓ Troubleshooting
 [Continue to the next section of the guide for detailed instructions on troubleshooting common issues.](./7-troubleshooting.md)

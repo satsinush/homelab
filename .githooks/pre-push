@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Pre-commit git hook to run linting on Dashboard frontend, API, and host-API.
+
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+echo "🔍 Running pre-push lint checks for Dashboard components..."
+
+# 1. Dashboard Frontend
+if [ -d "services/dashboard/frontend/node_modules" ]; then
+    echo "  → Linting Dashboard Frontend..."
+    npm --prefix services/dashboard/frontend run lint
+else
+    echo "  → Skipping Dashboard Frontend (node_modules not installed)"
+fi
+
+# 2. Dashboard API
+if [ -d "services/dashboard/api/node_modules" ]; then
+    echo "  → Linting Dashboard API..."
+    npm --prefix services/dashboard/api run lint
+else
+    echo "  → Skipping Dashboard API (node_modules not installed)"
+fi
+
+# 3. Dashboard Host API
+if [ -d "services/dashboard/host-api/node_modules" ]; then
+    echo "  → Linting Dashboard Host API..."
+    npm --prefix services/dashboard/host-api run lint
+else
+    echo "  → Skipping Dashboard Host API (node_modules not installed)"
+fi
+
+echo "✅ Pre-commit lint checks passed!"
