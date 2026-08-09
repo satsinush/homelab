@@ -2,14 +2,11 @@ import React, { useEffect, useState } from 'react';
 import {
     Box,
     CircularProgress,
-    IconButton,
     LinearProgress,
     Stack,
-    Tooltip,
     Typography,
 } from '@mui/material';
 import {
-    InfoOutlined as InfoIcon,
     Memory as MemoryIcon,
     Speed as SpeedIcon,
     Storage as StorageIcon,
@@ -18,7 +15,7 @@ import {
 import { useAuth } from '../../contexts/useAuth';
 import type { SystemDataResponse } from '../../types/api';
 import { fetchSystemMetrics } from '../../utils/systemMetrics';
-import { useWidgetHref } from './LinkTiles';
+import { useWidgetHref } from './linkTileUtils';
 
 export function SystemWidgetBody({ interactive = true }: { interactive?: boolean }) {
     const { hasPermission } = useAuth();

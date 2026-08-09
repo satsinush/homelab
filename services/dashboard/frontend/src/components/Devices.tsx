@@ -52,7 +52,6 @@ import {
     Edit as EditIcon,
     Clear as ClearIcon,
     Search as SearchIcon,
-    FilterList as FilterIcon,
     ViewModule as CardViewIcon,
     ViewList as TableViewIcon,
     ArrowUpward as ArrowUpIcon,
@@ -60,7 +59,6 @@ import {
     Star as StarIcon,
     StarBorder as StarBorderIcon,
     CastConnected as RustDeskIcon,
-    Warning as WarningIcon,
     Devices as DevicesIcon
 } from '@mui/icons-material';
 import PageHeader from './PageHeader';

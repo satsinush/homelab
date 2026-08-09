@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Box, CircularProgress, Stack, Typography } from '@mui/material';
 import { useAuth } from '../../contexts/useAuth';
 import { tryApiCall } from '../../utils/api';
-import { useWidgetHref } from './LinkTiles';
+import { useWidgetHref } from './linkTileUtils';
 
 export function DevicesWidgetBody({ interactive = true }: { interactive?: boolean }) {
     const { hasPermission } = useAuth();
@@ -46,8 +46,6 @@ export function DevicesWidgetBody({ interactive = true }: { interactive?: boolea
     }
 
     const online = counts?.online ?? 0;
-    const total = counts?.total ?? 0;
-    const allOnline = total > 0 && online === total;
     const noneOnline = online === 0;
 
     return (

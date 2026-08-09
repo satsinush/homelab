@@ -15,7 +15,7 @@ import {
     Link as LinkIcon,
 } from '@mui/icons-material';
 import { HOME_MUI_ICON_OPTIONS } from '../../homeLinks';
-import { MUI_ICON_MAP } from './LinkTiles';
+import { MUI_ICON_MAP } from './linkTileUtils';
 
 export function WidgetShell({
     title,

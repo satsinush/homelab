@@ -46,8 +46,6 @@ import {
 import { getErrorMessage } from '../utils/errors';
 import { fetchSystemMetrics } from '../utils/systemMetrics';
 
-const CPU_TEMP_CAP_C = 80;
-
 interface GaugeProps {
     value: number;
     color: 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info' | 'inherit';

@@ -11,16 +11,9 @@ import {
     IconButton,
     InputAdornment,
     TextField,
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableRow,
     Tooltip,
     Stack,
     Divider,
-    useMediaQuery,
-    useTheme,
     Dialog,
     DialogTitle,
     DialogContent,
@@ -55,8 +48,6 @@ const Secrets = () => {
     const [popupSecret, setPopupSecret] = useState<SecretItem | null>(null);
     const [popupVisible, setPopupVisible] = useState(false);
     const { showSuccess, showError } = useNotification();
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
     const fetchSecrets = useCallback(async () => {
         setLoading(true);

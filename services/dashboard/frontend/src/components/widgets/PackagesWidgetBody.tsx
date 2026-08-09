@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Box, CircularProgress, Stack, Typography } from '@mui/material';
 import { useAuth } from '../../contexts/useAuth';
 import { tryApiCall } from '../../utils/api';
-import { useWidgetHref } from './LinkTiles';
+import { useWidgetHref } from './linkTileUtils';
 
 export function PackagesWidgetBody({ interactive = true }: { interactive?: boolean }) {
     const { hasPermission } = useAuth();

@@ -3,7 +3,7 @@ import { Box, CircularProgress, Stack, Typography } from '@mui/material';
 import { ArrowDownward as ArrowDownIcon, ArrowUpward as ArrowUpIcon } from '@mui/icons-material';
 import { useConfig } from '../../contexts/useConfig';
 import { tryApiCall } from '../../utils/api';
-import { useWidgetHref } from './LinkTiles';
+import { useWidgetHref } from './linkTileUtils';
 
 export function GatusWidgetBody({ interactive = true }: { interactive?: boolean }) {
     const { config } = useConfig();

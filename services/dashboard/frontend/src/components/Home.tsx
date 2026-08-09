@@ -19,56 +19,19 @@ import {
     ToggleButtonGroup,
     Divider,
     CircularProgress,
-    Paper,
-    LinearProgress,
     GlobalStyles,
-    Menu,
     useMediaQuery,
     useTheme,
 } from '@mui/material';
 import {
-    Dashboard as DashboardIcon,
-    Devices as DevicesIcon,
-    Inventory as PackagesIcon,
     Settings as SettingsIcon,
     Person as PersonIcon,
-    Extension as ExtensionIcon,
-    Chat as ChatIcon,
-    People as PeopleIcon,
     Home as HomeIcon,
-    Key as KeyIcon,
-    FolderCopy as FilesIcon,
-    Link as LinkIcon,
     Add as AddIcon,
-    Edit as EditIcon,
-    Delete as DeleteIcon,
-    DragIndicator as DragIcon,
     RestartAlt as ResetIcon,
-    Cloud as CloudIcon,
-    Storage as StorageIcon,
-    Security as SecurityIcon,
-    Language as LanguageIcon,
-    Email as EmailIcon,
-    Photo as PhotoIcon,
-    MonitorHeart as MonitorHeartIcon,
-    Terminal as TerminalIcon,
-    Public as PublicIcon,
-    Bookmark as BookmarkIcon,
-    Star as StarIcon,
-    Favorite as FavoriteIcon,
-    Build as BuildIcon,
-    Speed as SpeedIcon,
-    Memory as MemoryIcon,
-    Thermostat as ThermostatIcon,
-    PowerSettingsNew as PowerIcon,
     Clear as ClearIcon,
-    Schedule as ScheduleIcon,
-    Apps as AppsIcon,
-    ArrowUpward as ArrowUpIcon,
-    ArrowDownward as ArrowDownIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
-import GridLayout, { useContainerWidth, verticalCompactor, type Layout } from 'react-grid-layout';
+import GridLayout, { verticalCompactor, type Layout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import PageHeader from './PageHeader';
@@ -82,7 +45,7 @@ import {
     recordHomeRecent,
     setHomeRecentsMemory,
 } from '../utils/homeRecents';
-import type { Device, HomeCard, HomeWidget, SystemDataResponse, UserSettings } from '../types/api';
+import type { HomeCard, HomeWidget, UserSettings } from '../types/api';
 import {
     HOME_MUI_ICON_OPTIONS,
     resolveBuiltinLinks,
@@ -103,10 +66,6 @@ import {
     type HomeWidgetType,
 } from '../home/widgets';
 import { WidgetTypePreview } from '../home/WidgetTypePreview';
-import { fetchSystemMetrics } from '../utils/systemMetrics';
-import { useNotification } from '../contexts/useNotification';
-import { getErrorMessage } from '../utils/errors';
-import { formatDevicesForDisplay } from '../utils/formatters';
 import PiHoleLogo from '../assets/pi_hole_logo.png';
 import VaultwardenLogo from '../assets/vaultwarden_logo.png';
 import GatusLogo from '../assets/gatus_logo.png';
