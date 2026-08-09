@@ -1,6 +1,6 @@
 {
   "name": "homelab-api",
-  "version": "3.0.1",
+  "version": "3.0.0",
   "main": "server.ts",
   "scripts": {
     "build": "tsc --noEmit",
