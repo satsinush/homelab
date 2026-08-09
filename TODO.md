@@ -10,8 +10,8 @@
 
 ## 🚀 Deployment
  * [ ] build APK for word games
- * [ ] Add git hooks (run lint, build, set version across projects) set to .githooks/
- * [ ] CI/CD to run lint and what not, single version file to set C++ frontend, api, and host api version
+ * [x] Add git hooks (run lint, build, set version across projects) set to .githooks/
+ * [x] Single VERSION file to set C++ frontend, api, and host api version
  * [ ] Pcie gen 3?
 
 ## 📝 Maintenance & Documentation

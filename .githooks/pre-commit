@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Pre-commit hook to sync version before commits are created.
+
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+if [ -x "scripts/sync-version.sh" ]; then
+    ./scripts/sync-version.sh
+    git -C word_games add CMakeLists.txt VERSION 2>/dev/null || true
+    git add VERSION word_games services/dashboard/frontend/package.json services/dashboard/api/package.json services/dashboard/host-api/package.json 2>/dev/null || true
+fi

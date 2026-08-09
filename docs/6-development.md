@@ -33,17 +33,19 @@ npm run dev
 ```
 
 
-### Git Hooks (Pre-push Linting)
+### Git Hooks (Pre-commit Version Sync & Pre-push Validation)
 
-Pre-push lint hooks for the Dashboard frontend, API, and host-API are stored and tracked in `.githooks/`.
+Validation and version synchronization hooks are stored and tracked in `.githooks/` and `word_games/.githooks/`.
 
 To enable the git hooks on your local environment, run:
 
 ```shell
 git config core.hooksPath .githooks
+(cd word_games && git config core.hooksPath .githooks)
 ```
 
-Whenever you run `git push`, the hook will execute `npm run lint` (`tsc --noEmit && eslint`) across all three Dashboard components (`frontend`, `api`, and `host-api`).
+- **`pre-commit`**: Automatically runs `scripts/sync-version.sh` to synchronize `VERSION` numbers across all `package.json` files and `CMakeLists.txt` *before* a commit is saved into git history.
+- **`pre-push`**: Runs ESLint, TypeScript `tsc --noEmit`, Python syntax checks, Ansible syntax checks, `clang-format`, and `ctest` unit tests *before* pushing to GitHub.
 
 ## Next: 7\. ❓ Troubleshooting
 [Continue to the next section of the guide for detailed instructions on troubleshooting common issues.](./7-troubleshooting.md)
