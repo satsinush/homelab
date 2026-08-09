@@ -184,6 +184,12 @@ Find quick solutions for common deployment issues, including DNS resolution fail
 
 ➡️ **View the troubleshooting guide here:** **[7. Troubleshooting](./docs/7-troubleshooting.md)**
 
+#### 10\. 🗺️ Roadmap & Known Issues
+
+View planned service expansions (Jellyfin, Paperless-ngx, Gitea, Headplane, MCP servers), database optimizations, and known limitations.
+
+➡️ **View the roadmap and known issues here:** **[10. Roadmap & Known Issues](./docs/10-roadmap-and-issues.md)**
+
 ## ⚖️ License
 
 This project is licensed under the MIT License. See the [`./LICENSE`](./LICENSE) file for details.

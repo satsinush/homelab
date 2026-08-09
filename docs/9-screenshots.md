@@ -75,3 +75,8 @@ This gallery showcases all interface views of the Homelab Dashboard application.
 ### 👥 User Administration
 ![User Management](../screenshots/users.png)
 *User account management, group assignment, and permissions view for administrators.*
+
+---
+
+## Next: 10\. 🗺️ Roadmap & Known Issues
+[Continue to the next section of the guide for planned feature expansions and known limitations.](./10-roadmap-and-issues.md)
