@@ -36,6 +36,7 @@ FROM node:20-alpine AS stage-2
 WORKDIR /app
 
 # 1. Install production dependencies
+COPY ./services/dashboard/shared ./shared
 COPY ./services/dashboard/api/package*.json ./api/
 WORKDIR /app/api
 
