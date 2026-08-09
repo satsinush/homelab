@@ -38,6 +38,7 @@ import {
 import { useThemeMode } from '../contexts/useThemeMode';
 import { useAuth } from '../contexts/useAuth';
 import { useNotification } from '../contexts/useNotification';
+import { version as appVersion } from '../../package.json';
 
 interface NavigationProps {
     activeTab: string;
@@ -237,6 +238,20 @@ const Navigation = ({ activeTab, mobileOpen, setMobileOpen }: NavigationProps) =
                             {user?.roles?.includes('homelab-admin') ? 'Administrator' : 'User'}
                         </Typography>
                     </Box>
+                </Box>
+                <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'center' }}>
+                    <Typography
+                        variant="caption"
+                        sx={{
+                            color: 'text.secondary',
+                            fontFamily: 'monospace',
+                            fontSize: '0.725rem',
+                            opacity: 0.7,
+                            letterSpacing: '0.05em'
+                        }}
+                    >
+                        Homelab v{appVersion}
+                    </Typography>
                 </Box>
             </Box>
         </Box>

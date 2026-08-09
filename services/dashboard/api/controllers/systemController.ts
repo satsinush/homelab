@@ -4,6 +4,7 @@ import fs from 'fs';
 import config from '../config';
 import HostApiService, { HostApiResponse } from '../services/hostApiService';
 import GatusService from '../services/gatusService';
+import releaseService from '../services/releaseService';
 import { sendError, sendSuccess } from '../utils/response';
 
 import { getErrorMessage } from '../utils/errors';
@@ -718,6 +719,24 @@ class SystemController {
         };
 
         return JSON.stringify(info);
+    }
+
+    public async getVersionInfo(req: Request, res: Response) {
+        try {
+            const info = await releaseService.getReleaseInfo(false);
+            return sendSuccess(res, info);
+        } catch (error) {
+            return sendError(res, 500, getErrorMessage(error));
+        }
+    }
+
+    public async checkReleaseInfo(req: Request, res: Response) {
+        try {
+            const info = await releaseService.getReleaseInfo(true);
+            return sendSuccess(res, info);
+        } catch (error) {
+            return sendError(res, 500, getErrorMessage(error));
+        }
     }
 }
 

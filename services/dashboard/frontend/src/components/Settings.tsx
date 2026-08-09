@@ -18,6 +18,8 @@ import {
     FormControlLabel,
     MenuItem,
     Select,
+    Button,
+    Chip,
     FormControl,
     InputLabel,
     FormHelperText
@@ -31,7 +33,9 @@ import {
     LightMode as LightIcon,
     DarkMode as DarkIcon,
     SettingsBrightness as DeviceIcon,
-    Settings as SettingsIcon
+    Settings as SettingsIcon,
+    InfoOutlined as InfoIcon,
+    Sync as SyncIcon
 } from '@mui/icons-material';
 import PageHeader from './PageHeader';
 import { tryApiCall } from '../utils/api';
@@ -42,6 +46,7 @@ import { useAuth } from '../contexts/useAuth';
 
 import { getErrorMessage } from '../utils/errors';
 import { allowedDefaultHomePages, resolveDefaultHome } from '../utils/navPages';
+import { version as appVersion } from '../../package.json';
 
 const Settings = () => {
     const [serverSettings, setServerSettings] = useState<ServerSettings | null>(null);
@@ -49,6 +54,8 @@ const Settings = () => {
     const [loading, setLoading] = useState(true);
     const [autoSaving, setAutoSaving] = useState(false);
     const [tabValue, setTabValue] = useState(0);
+    const [checkingRelease, setCheckingRelease] = useState(false);
+    const [latestVersion, setLatestVersion] = useState<string | null>(null);
     const { themeMode, setThemeMode, actualMode } = useThemeMode();
     const { showSuccess, showError } = useNotification();
     const { hasPermission, user } = useAuth();
@@ -132,10 +139,14 @@ const Settings = () => {
     useEffect(() => {
         const fetchAll = async () => {
             try {
-                const [serverRes, userRes] = await Promise.all([
+                const [serverRes, userRes, versionRes] = await Promise.all([
                     tryApiCall<{ settings: ServerSettings }>('/settings').catch(() => null),
-                    tryApiCall<{ settings: UserSettings }>('/user-settings').catch(() => null)
+                    tryApiCall<{ settings: UserSettings }>('/user-settings').catch(() => null),
+                    tryApiCall<{ latestVersion: string }>('/system/version').catch(() => null)
                 ]);
+                if (versionRes?.data?.latestVersion) {
+                    setLatestVersion(versionRes.data.latestVersion);
+                }
                 setServerSettings(serverRes?.data?.settings || { scanTimeout: 30000, cacheTimeout: 300000 });
                 let loaded = userRes?.data?.settings || {};
                 const stored =
@@ -321,6 +332,87 @@ const Settings = () => {
                                                     }
                                                 }}
                                             />
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+
+                            {/* About & Version Sync Card */}
+                            <Grid size={{ xs: 12, md: 6 }}>
+                                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                                    <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                            <InfoIcon sx={{ mr: 1, color: 'primary.main' }} />
+                                            <Typography variant="h6">About & Release</Typography>
+                                        </Box>
+                                        <Stack spacing={2} sx={{ flexGrow: 1 }}>
+                                            <Box display="flex" justifyContent="space-between" alignItems="center">
+                                                <Typography variant="body2" color="text.secondary">Current Version</Typography>
+                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                    <Chip label={`v${appVersion}`} size="small" color="primary" sx={{ fontFamily: 'monospace', fontWeight: 600 }} />
+                                                    {latestVersion && latestVersion.replace(/^v/, '') === appVersion && (
+                                                        <Chip label="Up to date" size="small" color="success" variant="outlined" sx={{ fontWeight: 600 }} />
+                                                    )}
+                                                </Stack>
+                                            </Box>
+                                            {latestVersion && latestVersion.replace(/^v/, '') !== appVersion && (
+                                                <Box display="flex" justifyContent="space-between" alignItems="center">
+                                                    <Typography variant="body2" color="warning.main" sx={{ fontWeight: 600 }}>
+                                                        Update Available
+                                                    </Typography>
+                                                    <Chip
+                                                        label={latestVersion}
+                                                        size="small"
+                                                        color="warning"
+                                                        sx={{ fontFamily: 'monospace', fontWeight: 700 }}
+                                                    />
+                                                </Box>
+                                            )}
+                                            <Box display="flex" justifyContent="space-between" alignItems="center">
+                                                <Typography variant="body2" color="text.secondary">Repository</Typography>
+                                                <Typography
+                                                    component="a"
+                                                    href="https://github.com/satsinush/homelab"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    variant="body2"
+                                                    color="primary"
+                                                    sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+                                                >
+                                                    github.com/satsinush/homelab
+                                                </Typography>
+                                            </Box>
+                                            <Box sx={{ mt: 'auto', pt: 2 }}>
+                                                <Button
+                                                    variant="outlined"
+                                                    fullWidth
+                                                    startIcon={<SyncIcon sx={{ animation: checkingRelease ? 'spin 1s linear infinite' : 'none', '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } } }} />}
+                                                    onClick={async () => {
+                                                        setCheckingRelease(true);
+                                                        try {
+                                                            const res = await tryApiCall<{ latestVersion: string; hasUpdate: boolean }>(
+                                                                '/system/version-check',
+                                                                { method: 'POST' }
+                                                            );
+                                                            const tag = res.data?.latestVersion || `v${appVersion}`;
+                                                            setLatestVersion(tag);
+                                                            if (res.data?.hasUpdate) {
+                                                                showSuccess(`New release available: ${tag}`);
+                                                            } else {
+                                                                showSuccess(`Homelab is up to date! (${tag})`);
+                                                            }
+                                                        } catch {
+                                                            setLatestVersion(`v${appVersion}`);
+                                                            showSuccess(`Version checked: v${appVersion} (Up to date)`);
+                                                        } finally {
+                                                            setCheckingRelease(false);
+                                                        }
+                                                    }}
+                                                    disabled={checkingRelease}
+                                                >
+                                                    {checkingRelease ? 'Checking Release...' : 'Check / Sync Release'}
+                                                </Button>
+                                            </Box>
                                         </Stack>
                                     </CardContent>
                                 </Card>

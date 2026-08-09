@@ -66,6 +66,10 @@ router.get('/health', (req: Request, res: Response) => systemController.healthCh
 router.get('/settings', requireAuth(), (req: Request, res: Response) => systemController.getSettings(req, res));
 router.put('/settings', requireAuth('dashboard-settings-user'), (req: Request, res: Response) => systemController.updateSettings(req, res));
 
+// Release & Version endpoints
+router.get('/system/version', requireAuth(), (req: Request, res: Response) => systemController.getVersionInfo(req, res));
+router.post('/system/version-check', requireAuth('dashboard-settings-user'), (req: Request, res: Response) => systemController.checkReleaseInfo(req, res));
+
 // User settings endpoints (per-user key-value store)
 /**
  * @openapi

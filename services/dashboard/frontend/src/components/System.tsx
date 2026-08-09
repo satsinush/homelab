@@ -45,6 +45,7 @@ import {
 } from '../types/api';
 import { getErrorMessage } from '../utils/errors';
 import { fetchSystemMetrics } from '../utils/systemMetrics';
+import { version as appVersion } from '../../package.json';
 
 interface GaugeProps {
     value: number;
@@ -447,6 +448,7 @@ const System = () => {
                                     <StatRow label="Hostname" value={systemInfo.hostname || 'N/A'} />
                                     <StatRow label="Platform" value={systemInfo.platform || 'N/A'} />
                                     <StatRow label="Uptime" value={formatUptime(systemInfo.uptime)} />
+                                    <StatRow label="Dashboard Version" value={`v${appVersion}`} />
                                 </Box>
                             ) : (
                                 <Typography color="text.secondary">No system data</Typography>

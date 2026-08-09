@@ -93,6 +93,13 @@ class DatabaseModel {
                 notified_version TEXT NOT NULL,
                 last_notified_at INTEGER NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS release_cache (
+                id TEXT PRIMARY KEY,
+                tag_name TEXT NOT NULL,
+                html_url TEXT,
+                fetched_at INTEGER NOT NULL
+            );
         `);
     }
 
