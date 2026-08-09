@@ -50,10 +50,10 @@ if command -v ansible-playbook >/dev/null 2>&1; then
     fi
 fi
 
-# 6. Delegate to word_games pre-push hook if present
-if [ -x "word_games/.githooks/pre-push" ]; then
-    echo "  → Executing word_games pre-push hook..."
-    ./word_games/.githooks/pre-push
+# 6. Delegate to puzzle-plus-plus pre-push hook if present
+if [ -x "puzzle-plus-plus/.githooks/pre-push" ]; then
+    echo "  → Executing puzzle-plus-plus pre-push hook..."
+    ./puzzle-plus-plus/.githooks/pre-push
 fi
 
 echo "✅ All pre-push checks passed!"

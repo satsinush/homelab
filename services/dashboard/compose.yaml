@@ -8,8 +8,8 @@ services:
       dockerfile: services/dashboard/api/Dockerfile
     volumes:
       - ${PROJECT_ROOT}/services/dashboard/volumes/api-data:/app/api/data
-      - ${PROJECT_ROOT}/services/dashboard/volumes/word-games-data:/app/word_games/data
-      - ${PROJECT_ROOT}/word_games/resources:/app/word_games/resources:ro
+      - ${PROJECT_ROOT}/services/dashboard/volumes/word-games-data:/app/puzzle-plus-plus/data
+      - ${PROJECT_ROOT}/puzzle-plus-plus/resources:/app/puzzle-plus-plus/resources:ro
       - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
       - ${PROJECT_ROOT}/volumes/secrets:/app/secrets:ro
     networks:

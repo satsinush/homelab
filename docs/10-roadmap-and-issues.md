@@ -23,7 +23,7 @@ This document tracks planned feature additions, proposed service expansions, kno
 
 ## 📱 Mobile & Application Deployments
 
-* **Puzzle++ (Word Games) APK Build**: Package and publish the C++ Qt `word_games` suite into a standalone Android APK for mobile devices using Qt for Android tooling.
+* **Puzzle++ APK Build**: Package and publish the C++ Qt `puzzle-plus-plus` suite into a standalone Android APK for mobile devices using Qt for Android tooling.
 
 ---
 

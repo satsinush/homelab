@@ -8,6 +8,6 @@ cd "$REPO_ROOT"
 
 if [ -x "scripts/sync-version.sh" ]; then
     ./scripts/sync-version.sh
-    git -C word_games add CMakeLists.txt VERSION 2>/dev/null || true
-    git add VERSION word_games services/dashboard/*/package.json 2>/dev/null || true
+    git -C puzzle-plus-plus add CMakeLists.txt VERSION 2>/dev/null || true
+    git add VERSION puzzle-plus-plus services/dashboard/*/package.json 2>/dev/null || true
 fi

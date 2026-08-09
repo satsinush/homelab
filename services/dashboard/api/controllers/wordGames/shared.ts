@@ -16,9 +16,9 @@ export class WordGamesContext {
     private activeProcesses: Map<string, ChildProcess>;
 
     constructor() {
-        // Path to the word_games executable (built as p++)
-        this.executableFile = 'word_games';
-        this.executableDir = path.join('/app/word_games');
+        // Path to the p++ executable inside puzzle-plus-plus
+        this.executableFile = 'p++';
+        this.executableDir = path.join('/app/puzzle-plus-plus');
         this.timeout = 300000; // 5 minutes timeout
         this.resultsFolder = 'results';
         this.cleanupDelay = 60 * 60 * 1000; // 1 hour in milliseconds
@@ -78,7 +78,7 @@ export class WordGamesContext {
         }
     }
 
-    // Execute word_games command
+    // Execute p++ solver command
     executeCommand(args: string, username?: string, timeout = this.timeout): Promise<CommandResult> {
         return new Promise((resolve) => {
             const command = `./${this.executableFile} ${args}`;

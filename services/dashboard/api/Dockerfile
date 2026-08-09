@@ -22,21 +22,20 @@ RUN npm run build
 FROM alpine:latest AS cpp-builder
 RUN apk add --no-cache g++ cmake ninja make
 WORKDIR /build
-COPY ./word_games ./
+# Copy C++ source files
+COPY ./puzzle-plus-plus ./
 # Configure and build using mingw-core preset (add -static flag for Alpine compatibility)
 RUN cmake --preset mingw-core -DCMAKE_CXX_FLAGS="-static" \
     && cmake --build --preset mingw-core --target p++
-# Rename the executable to word_games for consistency with API
-RUN mv build/mingw-core/p++ build/mingw-core/word_games
+RUN mv build/mingw-core/p++ build/mingw-core/p++_bin
 
 
 
-# --- Stage 3: Build the Final Node.js Image ---
-FROM node:20-alpine
+# --- Stage 3: Express API & Runtime ---
+FROM node:20-alpine AS stage-2
 WORKDIR /app
 
-# 1. Copy shared + API package files and install dependencies
-COPY ./services/dashboard/shared ./shared
+# 1. Install production dependencies
 COPY ./services/dashboard/api/package*.json ./api/
 WORKDIR /app/api
 
@@ -52,8 +51,8 @@ RUN npm run build
 WORKDIR /app
 COPY --from=react-builder /build/frontend/dist ./frontend/dist/
 
-# 4. Copy word_games binary into /app/word_games
-COPY --from=cpp-builder /build/build/mingw-core/word_games ./word_games/
+# 4. Copy p++ binary into /app/puzzle-plus-plus
+COPY --from=cpp-builder /build/build/mingw-core/p++_bin ./puzzle-plus-plus/p++
 
 # 5. Set working directory to /app/api for running the server
 WORKDIR /app/api

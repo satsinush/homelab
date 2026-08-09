@@ -35,13 +35,13 @@ npm run dev
 
 ### Git Hooks (Pre-commit Version Sync & Pre-push Validation)
 
-Validation and version synchronization hooks are stored and tracked in `.githooks/` and `word_games/.githooks/`.
+Validation and version synchronization hooks are stored and tracked in `.githooks/` and `puzzle-plus-plus/.githooks/`.
 
-To enable the git hooks on your local environment, run:
+To enable Git hooks locally:
 
-```shell
+```bash
 git config core.hooksPath .githooks
-(cd word_games && git config core.hooksPath .githooks)
+(cd puzzle-plus-plus && git config core.hooksPath .githooks)
 ```
 
 - **`pre-commit`**: Automatically runs `scripts/sync-version.sh` to synchronize `VERSION` numbers across all `package.json` files and `CMakeLists.txt` *before* a commit is saved into git history.

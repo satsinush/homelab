@@ -13,7 +13,7 @@ The dashboard provides a modern web interface for managing host packages, scanni
 * **Containers & Services:**
   * `dashboard`: Frontend web app and express backend container (`dashboard.<your-hostname>`)
   * `homelab-host-api.service`: Systemd service on Arch Linux host running `services/dashboard/host-api/server.ts` (listening on localhost port `3001`)
-* **Word Games:** Executes compiled C++ binary (`word_games`) inside the container backend.
+* **Word Games:** Executes compiled C++ binary (`p++` from `puzzle-plus-plus`) inside the container backend.
 
 ## Features
 
