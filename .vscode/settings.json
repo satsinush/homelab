@@ -1,0 +1,22 @@
+{
+    "cmake.ignoreCMakeListsMissing": true,
+    "git.enableSmartCommit": false,
+    "python.analysis.exclude": [
+        "**/.pixi/**",
+        "**/envs/**",
+        "**/.venv/**",
+        "**/node_modules/**"
+    ],
+    "python.analysis.ignore": [
+        "**/.pixi/**",
+        "**/envs/**"
+    ],
+    "files.watcherExclude": {
+        "**/.pixi/**": true,
+        "**/envs/**": true
+    },
+    "files.associations": {
+        "VERSION": "plaintext",
+        "**/VERSION": "plaintext"
+    }
+}

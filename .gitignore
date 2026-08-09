@@ -27,7 +27,8 @@ tmp/
 # Local Restic exclude overrides (see .backup_exclude.example)
 .backup_exclude
 
-.vscode/
+.vscode/*
+!.vscode/settings.json
 
 # Python caches
 __pycache__/
