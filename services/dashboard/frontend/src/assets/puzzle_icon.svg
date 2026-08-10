@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+
+  <!-- Top-left piece -->
+  <mask id="mask-tl">
+    <rect x="0" y="0" width="512" height="512" fill="white"/>
+    <!-- Cutout on TOP side -->
+    <circle cx="144" cy="32" r="50" fill="black"/>
+  </mask>
+  <path d="
+    M32,56
+    a24,24 0 0 1 24,-24
+    h200
+    v224
+    h-224
+    z
+  " fill="#6EA0B8" mask="url(#mask-tl)"/>
+
+  <!-- Top-right piece -->
+  <mask id="mask-tr">
+    <rect x="0" y="0" width="512" height="512" fill="white"/>
+    <!-- Cutout on RIGHT side -->
+    <circle cx="480" cy="144" r="50" fill="black"/>
+  </mask>
+  <path d="
+    M256,32
+    h200
+    a24,24 0 0 1 24,24
+    v200
+    h-224
+    z
+  " fill="#D86A76" mask="url(#mask-tr)"/>
+
+  <!-- Bottom-left piece -->
+  <mask id="mask-bl">
+    <rect x="0" y="0" width="512" height="512" fill="white"/>
+    <!-- Cutout on LEFT side -->
+    <circle cx="32" cy="368" r="50" fill="black"/>
+  </mask>
+  <path d="
+    M32,256
+    h224
+    v224
+    h-200
+    a24,24 0 0 1 -24,-24
+    z
+  " fill="#EDB269" mask="url(#mask-bl)"/>
+
+  <!-- Bottom-right piece -->
+  <mask id="mask-br">
+    <rect x="0" y="0" width="512" height="512" fill="white"/>
+    <!-- Cutout on BOTTOM side -->
+    <circle cx="368" cy="480" r="50" fill="black"/>
+  </mask>
+  <path d="
+    M256,256
+    h224
+    v200
+    a24,24 0 0 1 -24,24
+    h-200
+    z
+  " fill="#A5B78A" mask="url(#mask-br)"/>
+
+  <!-- Inner connector circles (tabs) -->
+  <g>
+    <circle cx="256" cy="144" r="50" fill="#D86A76"/>  <!-- between top pieces -->
+    <circle cx="256" cy="368" r="50" fill="#EDB269"/>  <!-- between bottom pieces -->
+    <circle cx="144" cy="256" r="50" fill="#6EA0B8"/>  <!-- between left pieces -->
+    <circle cx="368" cy="256" r="50" fill="#A5B78A"/>  <!-- between right pieces -->
+  </g>
+
+  <!-- P++ decorative white marks -->
+  <g fill="white">
+    <path fill-rule="evenodd" d="
+      M 71, 370 V 180 H 151
+      A 70 70 0 0 1 151 320
+      H 111 V 370 Z
+      M 111, 220 H 151
+      A 30 30 0 0 1 151 280
+      H 111 Z
+    "/>
+    <path d="
+      M 271, 221 V 251 H 241 V 281
+      H 271 V 311 H 301 V 281
+      H 331 V 251 H 301 V 221
+      H 271 Z
+    "/>
+    <path d="
+      M 381, 221 V 251 H 351 V 281
+      H 381 V 311 H 411 V 281
+      H 441 V 251 H 411 V 221
+      H 381 Z
+    "/>
+  </g>
+</svg>

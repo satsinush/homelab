@@ -1,0 +1,65 @@
+# traefik/compose.yaml
+services:
+  traefik:
+    image: traefik:v3
+    container_name: traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      # Public entrypoint (Headscale only). Router forwards WAN 443 → 8443.
+      - "8443:8443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${PROJECT_ROOT}/services/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ${PROJECT_ROOT}/services/traefik/dynamic_conf.yml:/etc/traefik/dynamic/middlewares.yml:ro
+      - ${PROJECT_ROOT}/services/traefik/volumes/tls.yml:/etc/traefik/dynamic/tls.yml:ro
+      - ${PROJECT_ROOT}/volumes/certificates:/etc/ssl/homelab:ro
+      - ${PROJECT_ROOT}/services/traefik/volumes/acme.json:/etc/traefik/acme.json
+      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
+    networks:
+      homelab-net:
+        ipv4_address: ${TRAEFIK_IP_ADDRESS}
+    environment:
+      # Cloudflare DNS API token — required when TRAEFIK_CERT_RESOLVER=letsencrypt
+      - CF_DNS_API_TOKEN_FILE=/secrets/cf_dns_api_token
+      - CLOUDFLARE_DNS_API_TOKEN_FILE=/secrets/cf_dns_api_token
+      # ACME e-mail address for Let's Encrypt certificate expiry notifications
+      - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL=${ACME_EMAIL}
+      # Quieter ops logs still show ACME obtain failures at ERROR
+      - TRAEFIK_LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/ping"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+  # Decode Traefik ACME → PEMs for Stalwart (IMAPS/SMTPS bypass Traefik).
+  # Idle when TRAEFIK_CERT_RESOLVER is not letsencrypt (private TLS via setup).
+  traefik-certs-dumper:
+    image: ldez/traefik-certs-dumper:v2.10.0
+    container_name: traefik-certs-dumper
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    environment:
+      TRAEFIK_CERT_RESOLVER: ${TRAEFIK_CERT_RESOLVER}
+      HOMELAB_HOSTNAME: ${HOMELAB_HOSTNAME}
+      MAIL_SERVICE_NAME: ${MAIL_SERVICE_NAME:-mail}
+      STALWART_ADMIN_PASSWORD_FILE: /secrets/stalwart_admin_password
+    volumes:
+      - ${PROJECT_ROOT}/services/traefik/volumes/acme.json:/data/acme.json:ro
+      - ${PROJECT_ROOT}/volumes/certificates/stalwart-tls:/certs
+      - ${PROJECT_ROOT}/volumes/secrets:/secrets:ro
+      - ${PROJECT_ROOT}/services/traefik/certs-dumper/entrypoint.sh:/entrypoint.sh:ro
+      - ${PROJECT_ROOT}/services/traefik/certs-dumper/publish-and-reload.sh:/hooks/publish-and-reload.sh:ro
+    tmpfs:
+      - /dump
+    networks:
+      - homelab-net
+    depends_on:
+      - traefik
+
+networks:
+  homelab-net:
+    external: true

@@ -1,9 +1,20 @@
 # docker-compose.yml
 include:
-  - ./compose/core/compose.yaml
-  - ./compose/dns/compose.yaml
-  - ./compose/auth/compose.yaml
-  - ./compose/monitoring/compose.yaml
-  - ./compose/dashboard/compose.yaml
-  - ./compose/docker/compose.yaml
-  - ./compose/apps/compose.yaml
+  - ./services/traefik/compose.yaml
+  - ./services/unbound/compose.yaml
+  - ./services/pihole/compose.yaml
+  - ./services/authentik/compose.yaml
+  - ./services/stalwart/compose.yaml
+  - ./services/samba/compose.yaml
+  - ./services/nextcloud/compose.yaml
+  - ./services/immich/compose.yaml
+  - ./services/gatus/compose.yaml
+  - ./services/dashboard/compose.yaml
+  - ./services/dockhand/compose.yaml
+  - ./services/alerts/compose.yaml
+  - ./services/vaultwarden/compose.yaml
+  - ./services/gotify/compose.yaml
+  - ./services/rustdesk/compose.yaml
+  - ./services/ddclient/compose.yaml
+  - ./services/ollama/compose.yaml
+  - ./services/headscale/compose.yaml

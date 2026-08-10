@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- Definitions for clean color gradients (subtle modern web style) -->
+  <defs>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#E5AA2C" />
+      <stop offset="100%" stop-color="#D49A1F" />
+    </linearGradient>
+    <linearGradient id="blue-peg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#547CFF" />
+      <stop offset="100%" stop-color="#224DDF" />
+    </linearGradient>
+    <linearGradient id="red-peg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF3B47" />
+      <stop offset="100%" stop-color="#C8001A" />
+    </linearGradient>
+    <linearGradient id="green-peg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#24E048" />
+      <stop offset="100%" stop-color="#00A31E" />
+    </linearGradient>
+    <linearGradient id="yellow-peg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFE03D" />
+      <stop offset="100%" stop-color="#EAA800" />
+    </linearGradient>
+  </defs>
+
+  <!-- Outer Board Base Structure -->
+  <rect 
+    x="32" 
+    y="32" 
+    width="448" 
+    height="448" 
+    rx="96" 
+    fill="url(#bg-grad)" 
+    stroke="#6E3302" 
+    stroke-width="28" 
+    stroke-linejoin="round"
+  />
+
+  <!-- 2x2 Mastermind Peg Grid Matrix -->
+  
+  <!-- Top Left: Blue Peg -->
+  <g transform="translate(164, 164)">
+    <circle cx="0" cy="0" r="68" fill="url(#blue-peg)" />
+    <!-- Crisp Vector Highlight Accent -->
+    <ellipse cx="-22" cy="-22" rx="24" ry="14" transform="rotate(-45 -22 -22)" fill="#FFFFFF" opacity="0.65" />
+  </g>
+
+  <!-- Top Right: Red Peg -->
+  <g transform="translate(348, 164)">
+    <circle cx="0" cy="0" r="68" fill="url(#red-peg)" />
+    <!-- Crisp Vector Highlight Accent -->
+    <ellipse cx="-22" cy="-22" rx="24" ry="14" transform="rotate(-45 -22 -22)" fill="#FFFFFF" opacity="0.65" />
+  </g>
+
+  <!-- Bottom Left: Green Peg -->
+  <g transform="translate(164, 348)">
+    <circle cx="0" cy="0" r="68" fill="url(#green-peg)" />
+    <!-- Crisp Vector Highlight Accent -->
+    <ellipse cx="-22" cy="-22" rx="24" ry="14" transform="rotate(-45 -22 -22)" fill="#FFFFFF" opacity="0.65" />
+  </g>
+
+  <!-- Bottom Right: Yellow Peg -->
+  <g transform="translate(348, 348)">
+    <circle cx="0" cy="0" r="68" fill="url(#yellow-peg)" />
+    <!-- Crisp Vector Highlight Accent -->
+    <ellipse cx="-22" cy="-22" rx="24" ry="14" transform="rotate(-45 -22 -22)" fill="#FFFFFF" opacity="0.65" />
+  </g>
+</svg>

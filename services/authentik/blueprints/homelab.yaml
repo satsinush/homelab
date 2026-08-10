@@ -1,0 +1,947 @@
+version: 1
+metadata:
+  name: Homelab Bootstrap
+  labels:
+    blueprints.goauthentik.io/instantiate: "true"
+entries:
+  # Fresh installs discover/apply blueprints concurrently. Ensure default flows
+  # and OAuth/proxy scope mappings exist before !Find references below.
+  # See: https://docs.goauthentik.io/customize/blueprints/v1/meta/
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: authentik Bootstrap
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Authentication flow
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Provider authorization flow (explicit consent)
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Provider invalidation flow
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: Default - Invalidation flow
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: System - OAuth2 Provider - Scopes
+      required: true
+  - model: authentik_blueprints.metaapplyblueprint
+    attrs:
+      identifiers:
+        name: System - Proxy Provider - Scopes
+      required: true
+
+  # Capitalize product name in the login welcome heading.
+  - model: authentik_flows.flow
+    identifiers:
+      slug: default-authentication-flow
+    attrs:
+      title: "Welcome to Authentik!"
+      name: "Welcome to Authentik!"
+
+  - model: authentik_flows.flow
+    identifiers:
+      slug: default-source-authentication
+    attrs:
+      title: "Welcome to Authentik!"
+      name: "Welcome to Authentik!"
+
+  # =================================================================
+  # Predefined Roles
+  # =================================================================
+  - model: authentik_rbac.role
+    identifiers:
+      name: homelab-admin
+    attrs:
+      name: homelab-admin
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: dashboard-user
+    attrs:
+      name: dashboard-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: dashboard-devices-user
+    attrs:
+      name: dashboard-devices-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: dashboard-chat-user
+    attrs:
+      name: dashboard-chat-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: dashboard-wordgames-user
+    attrs:
+      name: dashboard-wordgames-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: dashboard-packages-user
+    attrs:
+      name: dashboard-packages-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: dashboard-settings-user
+    attrs:
+      name: dashboard-settings-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: vaultwarden-user
+    attrs:
+      name: vaultwarden-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: headscale-user
+    attrs:
+      name: headscale-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: nextcloud-user
+    attrs:
+      name: nextcloud-user
+
+  - model: authentik_rbac.role
+    identifiers:
+      name: immich-user
+    attrs:
+      name: immich-user
+
+  # LDAP bind account needs object permission via a Role (assign_perm is role-only).
+  # Permission itself is granted in authentik postsetup (guardian RoleObjectPermission).
+  - model: authentik_rbac.role
+    identifiers:
+      name: ldap-search
+    attrs:
+      name: ldap-search
+
+  # =================================================================
+  # Groups
+  # =================================================================
+  - model: authentik_core.group
+    identifiers:
+      name: homelab-admins
+    attrs:
+      name: homelab-admins
+      is_superuser: true
+      roles:
+        - !Find [authentik_rbac.role, [name, homelab-admin]]
+
+  - model: authentik_core.group
+    identifiers:
+      name: homelab-users
+    attrs:
+      name: homelab-users
+      is_superuser: false
+      roles:
+        - !Find [authentik_rbac.role, [name, dashboard-user]]
+        - !Find [authentik_rbac.role, [name, dashboard-devices-user]]
+        - !Find [authentik_rbac.role, [name, dashboard-wordgames-user]]
+        - !Find [authentik_rbac.role, [name, vaultwarden-user]]
+        - !Find [authentik_rbac.role, [name, headscale-user]]
+        - !Find [authentik_rbac.role, [name, nextcloud-user]]
+        - !Find [authentik_rbac.role, [name, immich-user]]
+
+  # =================================================================
+  # Admin User
+  # =================================================================
+  - model: authentik_core.user
+    id: default-admin
+    identifiers:
+      username: !Env HOMELAB_USERNAME
+    attrs:
+      username: !Env HOMELAB_USERNAME
+      name: !Env HOMELAB_USERNAME
+      email: !Format ["%s@%s", !Env HOMELAB_USERNAME, !Env HOMELAB_HOSTNAME]
+      is_active: true
+      is_superuser: true
+      password: !File /run/secrets/homelab_password
+      groups:
+        - !Find [authentik_core.group, [name, homelab-admins]]
+
+  # LDAP bind service account (Samba search / Stalwart directory)
+  - model: authentik_core.user
+    id: ldap-service
+    identifiers:
+      username: ldapservice
+    attrs:
+      username: ldapservice
+      name: LDAP Service Account
+      email: ldapservice@goauthentik.io
+      path: users
+      type: service_account
+      password: !File /run/secrets/ldap_service_password
+      roles:
+        - !Find [authentik_rbac.role, [name, ldap-search]]
+
+  # Stalwart SMTP submitters (Vaultwarden, Nextcloud system mail, noreply).
+  # Auth is via Authentik LDAP — do not create local Stalwart passwords.
+  - model: authentik_core.user
+    id: smtp-vaultwarden
+    identifiers:
+      username: vaultwarden
+    attrs:
+      username: vaultwarden
+      name: Vaultwarden SMTP
+      email: !Format ["vaultwarden@%s", !Env HOMELAB_HOSTNAME]
+      path: users
+      type: service_account
+      password: !File /run/secrets/stalwart_smtp_vaultwarden_password
+
+  - model: authentik_core.user
+    id: smtp-noreply
+    identifiers:
+      username: noreply
+    attrs:
+      username: noreply
+      name: Noreply SMTP
+      email: !Format ["noreply@%s", !Env HOMELAB_HOSTNAME]
+      path: users
+      type: service_account
+      password: !File /run/secrets/stalwart_smtp_noreply_password
+
+  - model: authentik_core.user
+    id: smtp-nextcloud
+    identifiers:
+      username: nextcloud
+    attrs:
+      username: nextcloud
+      name: Nextcloud SMTP
+      email: !Format ["nextcloud@%s", !Env HOMELAB_HOSTNAME]
+      path: users
+      type: service_account
+      password: !File /run/secrets/stalwart_smtp_nextcloud_password
+
+  # =================================================================
+  # Password Policies
+  # =================================================================
+  - model: authentik_policies_password.passwordpolicy
+    id: password-policy-12-char
+    identifiers:
+      name: "12-char-min-policy"
+    attrs:
+      name: "12-char-min-policy"
+      amount_digits: 0
+      amount_uppercase: 0
+      amount_lowercase: 0
+      amount_symbols: 0
+      length_min: 12
+      error_message: "Password must be at least 12 characters long."
+
+  # Policy bindings for 12-char-min are applied once; re-declaring them trips
+  # PolicyBinding unique(policy, target, order) on every blueprint apply.
+
+  # Sync Authentik passwords into Samba NTLM passdb (host-api).
+  # Primary path is password_changed signal (authentik/custom/homelab_smb_sync).
+  # This flow policy is a backup for enrollment/password-change prompt_data.
+  # SMB is limited to Authentik group homelab-admins (non-admins are disabled).
+  - model: authentik_policies_expression.expressionpolicy
+    id: smb-password-sync
+    identifiers:
+      name: smb-password-sync
+    attrs:
+      name: smb-password-sync
+      execution_logging: true
+      expression: |
+        import os
+        import requests
+
+        prompt = context.get("prompt_data") or {}
+        password = prompt.get("password")
+
+        user = context.get("pending_user")
+        if user is None:
+            user = getattr(request, "user", None)
+        username = None
+        if user is not None:
+            username = getattr(user, "username", None)
+        if not username:
+            username = prompt.get("username")
+        if not username or username in ("ldapservice", "akadmin", "AnonymousUser"):
+            return True
+
+        host = (os.environ.get("HOST_API_URL") or "http://host.docker.internal:5001").rstrip("/")
+        try:
+            with open("/run/secrets/host_api_token", encoding="utf-8") as f:
+                token = f.read().strip()
+        except OSError:
+            return True
+        if not token:
+            return True
+
+        is_admin = False
+        try:
+            if user is not None:
+                groups = getattr(user, "groups", None) or getattr(user, "ak_groups", None)
+                if groups is not None:
+                    is_admin = groups.filter(name="homelab-admins").exists()
+        except Exception:
+            is_admin = False
+
+        try:
+            if not is_admin:
+                requests.post(
+                    f"{host}/smb/disable-user",
+                    json={"username": username},
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=15,
+                )
+            elif password:
+                requests.post(
+                    f"{host}/smb/set-password",
+                    json={"username": username, "password": password},
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=15,
+                )
+        except Exception:
+            # Never block Authentik auth on SMB sync failures.
+            pass
+        return True
+
+  # SMB policy bindings are created once; re-declaring them trips
+  # PolicyBinding unique(policy, target, order) on every blueprint apply.
+  # Heal via Authentik Admin or a one-shot script if missing.
+
+  # =================================================================
+  # Custom Scope Mappings
+  # =================================================================
+  - model: authentik_providers_oauth2.scopemapping
+    id: scope-groups
+    identifiers:
+      scope_name: groups
+    attrs:
+      name: "custom-scope-groups"
+      scope_name: groups
+      description: "SSO Groups and Roles"
+      expression: |
+        groups = [g.name for g in request.user.groups.all()]
+        roles = [r.name for r in request.user.all_roles()]
+        return {
+            "groups": groups,
+            "roles": roles
+        }
+
+  - model: authentik_providers_oauth2.scopemapping
+    id: scope-email
+    # Match by name — scope_name "email" collides with Authentik's default
+    # OpenID email mapping (which hardcodes email_verified: False).
+    identifiers:
+      name: custom-scope-email
+    attrs:
+      name: custom-scope-email
+      scope_name: email
+      description: "SSO Email"
+      expression: |
+        return {
+            "email": request.user.email,
+            "email_verified": True
+        }
+
+  # Nextcloud: quota + groups (incl. NC "admin") applied at OIDC provision/login.
+  - model: authentik_providers_oauth2.scopemapping
+    id: scope-nextcloud
+    identifiers:
+      name: custom-scope-nextcloud
+    attrs:
+      name: custom-scope-nextcloud
+      scope_name: nextcloud
+      description: "Nextcloud quota + groups"
+      expression: |
+        import os
+        is_admin = request.user.groups.filter(name="homelab-admins").exists()
+        groups = [g.name for g in request.user.groups.all()]
+        if is_admin and "admin" not in groups:
+            groups.append("admin")
+        quota_gb = int(os.environ.get("HOMELAB_DEFAULT_QUOTA_GB") or "50")
+        out = {"groups": groups}
+        # user_oidc only applies quota when the claim is present+non-empty.
+        # Omitting it leaves files.default_quota (50 GB). Send "none" for unlimited.
+        if is_admin:
+            out["quota"] = "none"
+        else:
+            out["quota"] = f"{quota_gb} GB"
+        return out
+
+  # Immich: role + quota claims applied only at user creation.
+  - model: authentik_providers_oauth2.scopemapping
+    id: scope-immich
+    identifiers:
+      name: custom-scope-immich
+    attrs:
+      name: custom-scope-immich
+      scope_name: immich
+      description: "Immich role + quota"
+      expression: |
+        import os
+        is_admin = request.user.groups.filter(name="homelab-admins").exists()
+        out = {"immich_role": "admin" if is_admin else "user"}
+        # Omit immich_quota for admins; Immich defaultStorageQuota=null → unlimited.
+        if not is_admin:
+            out["immich_quota"] = int(os.environ.get("HOMELAB_DEFAULT_QUOTA_GB") or "50")
+        return out
+
+  # OIDC Providers & Applications
+  # =================================================================
+
+  # Vaultwarden
+  - model: authentik_providers_oauth2.oauth2provider
+    id: vaultwarden
+    identifiers:
+      name: vaultwarden
+    attrs:
+      name: vaultwarden
+      client_id: vaultwarden
+      client_secret: !File /run/secrets/vaultwarden_oidc_secret
+      client_type: confidential
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      grant_types:
+        - authorization_code
+        - refresh_token
+      redirect_uris:
+        - url: !Format ["https://%s.%s/identity/connect/oidc-signin", !Env VAULTWARDEN_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !KeyOf scope-email
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, offline_access]]
+        - !KeyOf scope-groups
+
+  - model: authentik_core.application
+    identifiers:
+      slug: vaultwarden
+    attrs:
+      name: Vaultwarden
+      slug: vaultwarden
+      provider: !KeyOf vaultwarden
+      icon: icons/vaultwarden_logo.png
+
+  # Headscale (Tailscale control plane — OIDC device enrollment)
+  - model: authentik_providers_oauth2.oauth2provider
+    id: headscale
+    identifiers:
+      name: headscale
+    attrs:
+      name: headscale
+      client_id: headscale
+      client_secret: !File /run/secrets/headscale_oidc_secret
+      client_type: confidential
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      # Leave encryption_key unset — Headscale does not support JWE id_tokens.
+      grant_types:
+        - authorization_code
+        - refresh_token
+      redirect_uris:
+        - url: !Format ["https://%s/oidc/callback", !Env HEADSCALE_WEB_HOSTNAME]
+          matching_mode: strict
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !KeyOf scope-email
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !KeyOf scope-groups
+
+  - model: authentik_core.application
+    identifiers:
+      slug: headscale
+    attrs:
+      name: Headscale
+      slug: headscale
+      provider: !KeyOf headscale
+      meta_launch_url: !Format ["https://%s", !Env HEADSCALE_WEB_HOSTNAME]
+      meta_hide: true
+
+  # Homelab Dashboard
+  - model: authentik_providers_oauth2.oauth2provider
+    id: homelab_dashboard
+    identifiers:
+      name: homelab_dashboard
+    attrs:
+      name: homelab_dashboard
+      client_id: homelab_dashboard
+      client_secret: !File /run/secrets/dashboard_oidc_secret
+      client_type: confidential
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      # Unbind this app only — keeps the Authentik SSO session for other apps.
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      grant_types:
+        - authorization_code
+        - refresh_token
+      redirect_uris:
+        - url: !Format ["https://%s.%s/api/users/sso-callback", !Env DASHBOARD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !KeyOf scope-email
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !KeyOf scope-groups
+
+  - model: authentik_core.application
+    identifiers:
+      slug: homelab-dashboard
+    attrs:
+      name: Homelab Dashboard
+      slug: homelab-dashboard
+      provider: !KeyOf homelab_dashboard
+      meta_launch_url: !Format ["https://%s.%s", !Env DASHBOARD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      icon: homelab-icon.svg
+
+  # Nextcloud OIDC
+  - model: authentik_providers_oauth2.oauth2provider
+    id: nextcloud
+    identifiers:
+      name: nextcloud
+    attrs:
+      name: nextcloud
+      client_id: nextcloud
+      client_secret: !File /run/secrets/nextcloud_oidc_secret
+      client_type: confidential
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      grant_types:
+        - authorization_code
+        - refresh_token
+      redirect_uris:
+        - url: !Format ["https://%s.%s/apps/user_oidc/code", !Env NEXTCLOUD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+        - url: !Format ["https://%s.%s/apps/openidconnect/redirect", !Env NEXTCLOUD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+        - url: !Format ["https://%s.%s/index.php/apps/user_oidc/code", !Env NEXTCLOUD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !KeyOf scope-email
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !KeyOf scope-nextcloud
+
+  - model: authentik_core.application
+    identifiers:
+      slug: nextcloud
+    attrs:
+      name: Nextcloud
+      slug: nextcloud
+      provider: !KeyOf nextcloud
+      meta_launch_url: !Format ["https://%s.%s", !Env NEXTCLOUD_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      icon: icons/nextcloud_logo.png
+
+  # Immich OIDC
+  - model: authentik_providers_oauth2.oauth2provider
+    id: immich
+    identifiers:
+      name: immich
+    attrs:
+      name: immich
+      client_id: immich
+      client_secret: !File /run/secrets/immich_oidc_secret
+      client_type: confidential
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      grant_types:
+        - authorization_code
+        - refresh_token
+      redirect_uris:
+        - url: !Format ["https://%s.%s/auth/login", !Env IMMICH_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+        - url: !Format ["https://%s.%s/user-settings", !Env IMMICH_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+        - url: !Format ["https://%s.%s/api/oauth/mobile-redirect", !Env IMMICH_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !KeyOf scope-email
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !KeyOf scope-immich
+
+  - model: authentik_core.application
+    identifiers:
+      slug: immich
+    attrs:
+      name: Immich
+      slug: immich
+      provider: !KeyOf immich
+      meta_launch_url: !Format ["https://%s.%s", !Env IMMICH_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      icon: icons/immich_logo.png
+
+  # Stalwart (bookmark — admin UI; IMAP/SMTP auth is Authentik LDAP)
+  - model: authentik_core.application
+    identifiers:
+      slug: stalwart-app
+    attrs:
+      name: Stalwart Mail
+      slug: stalwart-app
+      meta_launch_url: !Format ["https://%s.%s", !Env MAIL_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      open_in_new_tab: true
+      meta_description: Homelab mail server
+      icon: icons/stalwart_logo.png
+
+  # LDAP Application must exist before the provider: LDAPProvider.full_clean()
+  # requires backchannel_application (blank=False), which made KeyOf fail when
+  # the provider was created first.
+  - model: authentik_core.application
+    id: ldap-app
+    identifiers:
+      slug: ldap
+    attrs:
+      name: LDAP
+      slug: ldap
+      meta_hide: true
+
+  # LDAP Provider (cached bind + cached search).
+  # Outpost uses authorization_flow as the LDAP bind flow.
+  - model: authentik_providers_ldap.ldapprovider
+    id: ldap-provider
+    identifiers:
+      name: LDAP
+    attrs:
+      name: LDAP
+      backchannel_application: !KeyOf ldap-app
+      authentication_flow: !Find [authentik_flows.flow, [slug, default-authentication-flow]]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-authentication-flow]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      bind_mode: cached
+      search_mode: cached
+      base_dn: dc=ldap,dc=goauthentik,dc=io
+      uid_start_number: 2000
+      gid_start_number: 4000
+      mfa_support: false
+
+  # =================================================================
+  # Proxy Providers for Traefik Forward-Auth
+  # =================================================================
+
+  # Pi-hole Proxy
+  - model: authentik_providers_proxy.proxyprovider
+    id: pihole-proxy
+    identifiers:
+      name: pihole-proxy
+    attrs:
+      name: pihole-proxy
+      mode: forward_single
+      external_host: !Format ["https://%s.%s", !Env PIHOLE_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+
+  - model: authentik_core.application
+    identifiers:
+      slug: pihole-app
+    attrs:
+      name: Pi-hole
+      slug: pihole-app
+      provider: !KeyOf pihole-proxy
+      icon: icons/pi_hole_logo.png
+
+  # Gatus (public status page — no SSO / forward-auth)
+  - model: authentik_core.application
+    identifiers:
+      slug: gatus-app
+    attrs:
+      name: Gatus
+      slug: gatus-app
+      meta_launch_url: !Format ["https://%s.%s", !Env GATUS_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      open_in_new_tab: true
+      meta_description: Service health status dashboard
+      icon: icons/gatus_logo.png
+
+  # Dockhand (native OIDC — not forward-auth)
+  - model: authentik_providers_oauth2.oauth2provider
+    id: dockhand
+    identifiers:
+      name: dockhand
+    attrs:
+      name: dockhand
+      client_id: dockhand
+      client_secret: !File /run/secrets/dockhand_oidc_secret
+      client_type: confidential
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      grant_types:
+        - authorization_code
+        - refresh_token
+      redirect_uris:
+        - url: !Format ["https://%s.%s/api/auth/oidc/callback", !Env DOCKHAND_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+          matching_mode: strict
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !KeyOf scope-email
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !KeyOf scope-groups
+
+  - model: authentik_core.application
+    identifiers:
+      slug: dockhand
+    attrs:
+      name: Dockhand
+      slug: dockhand
+      provider: !KeyOf dockhand
+      icon: icons/dockhand_logo.png
+
+  # Gotify (bookmark only — no SSO / forward-auth required)
+  - model: authentik_core.application
+    identifiers:
+      slug: gotify-app
+    attrs:
+      name: Gotify
+      slug: gotify-app
+      meta_launch_url: !Format ["https://%s.%s", !Env GOTIFY_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      open_in_new_tab: true
+      meta_description: Self-hosted push notification server
+      icon: icons/gotify_logo.png
+
+
+  # =================================================================
+  # Access Policies (Bind Groups to Applications)
+  # =================================================================
+  # Pi-hole
+  # Pi-hole
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, pihole-app]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 0
+
+  # Dockhand (admins only — docker.sock access)
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, dockhand]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 0
+
+  # Gotify (visible in library; service itself stays unauthenticated)
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, gotify-app]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
+    attrs:
+      order: 0
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, gotify-app]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 1
+
+  # Vaultwarden
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, vaultwarden]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
+    attrs:
+      order: 0
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, vaultwarden]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 1
+
+  # Headscale VPN enrollment
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, headscale]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
+    attrs:
+      order: 0
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, headscale]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 1
+
+  # Homelab Dashboard
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, homelab-dashboard]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
+    attrs:
+      order: 0
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, homelab-dashboard]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 1
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, nextcloud]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
+    attrs:
+      order: 0
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, nextcloud]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 1
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, immich]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
+    attrs:
+      order: 0
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, immich]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 1
+
+  # =================================================================
+  # Outpost Association
+  # =================================================================
+  - model: authentik_outposts.outpost
+    identifiers:
+      name: "authentik Embedded Outpost"
+    attrs:
+      config:
+        authentik_host: !Format ["https://%s.%s/", !Env AUTHENTIK_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      providers:
+        - !Find [authentik_providers_proxy.proxyprovider, [name, pihole-proxy]]
+
+  - model: authentik_outposts.outpost
+    id: ldap-outpost
+    identifiers:
+      name: "LDAP Outpost"
+    attrs:
+      name: "LDAP Outpost"
+      type: ldap
+      # OutpostSerializer requires config on create (Authentik 2024+).
+      config:
+        authentik_host: http://authentik-server:9000
+        authentik_host_insecure: true
+      providers:
+        - !KeyOf ldap-provider
+
+  # Brand styling to match dark dashboard theme.
+  # flow_invalidation must be set or the session-end page hides
+  # "Log out of Homelab" (only overview + log-back-in remain).
+  - model: authentik_brands.brand
+    identifiers:
+      domain: authentik-default
+    attrs:
+      domain: authentik-default
+      branding_title: "Homelab"
+      default: true
+      flow_invalidation: !Find [authentik_flows.flow, [slug, default-invalidation-flow]]
+      branding_logo: "homelab-icon.svg"
+      branding_favicon: "homelab-icon.svg"
+      branding_custom_css: |
+        /* Custom CSS to match Homelab Dashboard Dark Theme */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --pf-global--FontFamily--sans-serif: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+            --pf-global--BackgroundColor--100: #0f172a !important;
+            --pf-global--BackgroundColor--200: #1e293b !important;
+            
+            /* Primary brand/button colors */
+            --pf-global--primary-color--100: #60a5fa !important;
+            --pf-global--primary-color--200: #3b82f6 !important;
+            --pf-global--link--Color: #60a5fa !important;
+            --pf-global--link--Color--hover: #93c5fd !important;
+            
+            /* Text colors */
+            --pf-global--Color--100: #f1f5f9 !important;
+            --pf-global--Color--200: #cbd5e1 !important;
+            
+            /* Login container details */
+            --pf-c-login__main--BackgroundColor: #1e293b !important;
+            --pf-v5-c-login__main--BackgroundColor: #1e293b !important;
+        }
+
+        body, html {
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+            background-color: #0f172a !important;
+            color: #f1f5f9 !important;
+        }
+
+        /* Background image/pattern - match the dark dashboard style */
+        .pf-c-page, .pf-v5-c-page, .pf-c-login, .pf-v5-c-login {
+            background-color: #0f172a !important;
+            background-image: radial-gradient(circle at 10% 20%, rgba(96, 165, 250, 0.05) 0%, transparent 40%), 
+                              radial-gradient(circle at 90% 80%, rgba(52, 211, 153, 0.03) 0%, transparent 40%) !important;
+        }
+
+        /* Login main box glassmorphism and styling */
+        .pf-c-login__main, .pf-v5-c-login__main {
+            background-color: #1e293b !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 
+                        0 8px 10px -6px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        /* Inputs styling */
+        .pf-c-form-control, .pf-v5-c-form-control {
+            background-color: #0f172a !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            color: #f1f5f9 !important;
+            border-radius: 6px !important;
+        }
+
+        .pf-c-form-control:focus, .pf-v5-c-form-control:focus {
+            border-bottom-color: #60a5fa !important;
+            --pf-c-form-control--Focus--border-bottom-color: #60a5fa !important;
+        }
+
+        /* Button styling */
+        .pf-c-button.pf-m-primary, .pf-v5-c-button.pf-m-primary {
+            background-color: #60a5fa !important;
+            color: #0f172a !important;
+            font-weight: 600 !important;
+            border-radius: 8px !important;
+            border: none !important;
+            transition: background-color 0.2s ease-in-out !important;
+        }
+
+        .pf-c-button.pf-m-primary:hover, .pf-v5-c-button.pf-m-primary:hover {
+            background-color: #3b82f6 !important;
+            color: #ffffff !important;
+        }
+
+        /* Title text */
+        .pf-c-title, .pf-v5-c-title, h1, h2 {
+            color: #f1f5f9 !important;
+        }
+
+        /* Footer / helpers */
+        .pf-c-login__footer-list-item-link, .pf-v5-c-login__footer-list-item-link {
+            color: #cbd5e1 !important;
+        }

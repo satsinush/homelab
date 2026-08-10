@@ -1,0 +1,21 @@
+# Key-only auth on the custom port.
+# Drop-in wins over sshd_config; the stock file stays untouched.
+- name: Harden sshd via drop-in
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/10-homelab.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      Port {{ ssh_port }}
+      PermitRootLogin no
+      PasswordAuthentication no
+      PubkeyAuthentication yes
+    validate: /usr/bin/sshd -t -f %s
+  notify: restart sshd
+
+- name: Enable sshd
+  ansible.builtin.systemd:
+    name: sshd
+    enabled: true
+    state: started

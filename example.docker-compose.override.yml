@@ -1,67 +1,55 @@
 services:
-  homelab-dashboard:
+  dashboard:
     command: npm run dev
     environment:
       - ENVIRONMENT=development
     ports:
       - "5000:5000"
     volumes:
-      - ./homelab-dashboard/api:/app/api
+      - ./services/dashboard/api:/app/api
       - /app/api/node_modules
 
   dashboard-dev:
     container_name: dashboard-dev
-    build: ./homelab-dashboard/frontend
+    build: ./services/dashboard/frontend
     command: npm run dev
     ports:
       - "5173:5173"
     volumes:
-      - ./homelab-dashboard/frontend:/app
+      - ./services/dashboard/frontend:/app
       - /app/node_modules
     networks:
       - homelab-net
-    environment:
-      - VITE_PIHOLE_WEB_HOSTNAME=${VITE_PIHOLE_WEB_HOSTNAME}
-      - VITE_NETDATA_WEB_HOSTNAME=${VITE_NETDATA_WEB_HOSTNAME}
-      - VITE_PORTAINER_WEB_HOSTNAME=${VITE_PORTAINER_WEB_HOSTNAME}
-      - VITE_VAULTWARDEN_WEB_HOSTNAME=${VITE_VAULTWARDEN_WEB_HOSTNAME}
-      - VITE_UPTIME_KUMA_WEB_HOSTNAME=${VITE_UPTIME_KUMA_WEB_HOSTNAME}
-      - VITE_NTFY_WEB_HOSTNAME=${VITE_NTFY_WEB_HOSTNAME}
-      - VITE_LLDAP_WEB_HOSTNAME=${VITE_LLDAP_WEB_HOSTNAME}
-      - VITE_AUTHELIA_WEB_HOSTNAME=${VITE_AUTHELIA_WEB_HOSTNAME}
 
   pihole:
     ports:
       - "8080:80/tcp"
 
-  netdata:
-    ports:
-      - "19999:19999"
-
   ollama:
     ports:
       - "11434:11434"
-
-  portainer:
-    ports:
-      - "9000:9000"
 
   vaultwarden:
     ports:
       - "8000:80"
   
-  uptime-kuma:
+  gatus:
     ports:
-      - "3001:3001"
+      - "8085:8080"
 
-  ntfy:
+  gotify:
     ports:
-      - "8081:80"
+      - "8083:80"
 
-  lldap:
+  authentik-server:
     ports:
-      - "17170:17170"
-  
-  authelia:
-    ports:
-      - "9091:9091"
+      - "9005:9000"
+      - "9445:9443"
+
+  # Windows/Docker Desktop: host 445 is owned by Windows SMB. Publish Samba on 4445.
+  # Windows Explorer cannot use a custom SMB port (\\host:4445\share will fail).
+  # Prefer WebDAV from Windows, or smbclient/macOS with :4445. Pi: omit this block (use 445).
+  # Clients that support non-445: smb://host:4445/username
+  samba:
+    ports: !override
+      - "4445:445"

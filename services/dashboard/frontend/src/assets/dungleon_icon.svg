@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Subtle multi-stop gradient pinning the blue tint to the very bottom and bottom-right edge -->
+    <linearGradient id="perfect-blade-tint" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="78%" stop-color="#FFFFFF" />
+      <stop offset="88%" stop-color="#00C2FF" />
+      <stop offset="100%" stop-color="#2B5EFF" />
+    </linearGradient>
+    
+    <!-- Crossguard Gradient -->
+    <linearGradient id="guard-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFE764" />
+      <stop offset="100%" stop-color="#F2C100" />
+    </linearGradient>
+
+    <!-- Handle/Hilt Gradient -->
+    <linearGradient id="hilt-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#E88374" />
+      <stop offset="100%" stop-color="#CD5342" />
+    </linearGradient>
+
+    <style>
+      .knife-outline {
+        stroke: #1A1A1A;
+        stroke-width: 20; /* Marginally adjusted stroke to stay balanced with the thinner aspect ratio */
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+    </style>
+  </defs>
+
+  <!-- Vertically scaled down assembly group to give it a sleeker, thinner profile -->
+  <g transform="translate(16, 0)">
+    
+    <!-- 1. Handle / Hilt Grip (Ribbed lines extending exactly halfway up from the bottom) -->
+    <g class="knife-outline">
+      <rect x="30" y="216" width="140" height="80" rx="12" fill="url(#hilt-grad)" />
+      <line x1="76" y1="256" x2="76" y2="296" />
+      <line x1="124" y1="256" x2="124" y2="296" />
+    </g>
+
+    <!-- 2. The Blade (Squished vertically by modifying Y positions from 150/362 down to 180/332) -->
+    <path 
+      d="M 224,180 
+         L 410,180 
+         L 480,256 
+         L 410,332 
+         L 224,332 
+         Z" 
+      fill="url(#perfect-blade-tint)" 
+      class="knife-outline"
+    />
+    
+    <!-- Black Center Fuller Line: Starts at the hilt, goes exactly halfway across the blade space -->
+    <line 
+      x1="224" 
+      y1="256" 
+      x2="340" 
+      y2="256" 
+      stroke="#1A1A1A" 
+      stroke-width="14" 
+      stroke-linecap="round" 
+    />
+
+    <!-- 3. Gold Crossguard (Adjusted height down from 352 to 272 to match the new vertical scale) -->
+    <rect 
+      x="170" 
+      y="120" 
+      width="54" 
+      height="272" 
+      rx="16" 
+      fill="url(#guard-grad)" 
+      class="knife-outline"
+    />
+  </g>
+</svg>

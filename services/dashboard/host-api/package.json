@@ -1,0 +1,36 @@
+{
+  "name": "homelab-host-api",
+  "version": "3.0.0",
+  "main": "server.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "start": "tsx server.ts",
+    "dev": "nodemon --exec tsx server.ts",
+    "lint": "tsc --noEmit && eslint .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Host-privileged API for system commands",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@typescript-eslint/eslint-plugin": "^8.62.1",
+    "@typescript-eslint/parser": "^8.62.1",
+    "eslint": "^10.6.0",
+    "nodemon": "^3.1.10",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.62.1"
+  }
+}

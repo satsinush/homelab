@@ -1,0 +1,7 @@
+# Let's Encrypt mode — localhost-only default so Homelab CA cannot shadow ACME SNI.
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /etc/ssl/homelab/traefik-default.crt
+        keyFile: /etc/ssl/homelab/traefik-default.key

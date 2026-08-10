@@ -1,0 +1,280 @@
+web:
+  port: 8080
+
+# Homelab brand (matches dashboard / Authentik). Logo URL uses compose env.
+ui:
+  title: "Homelab Status"
+  header: "Homelab"
+  logo: "https://${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}/homelab-icon.svg"
+  link: "https://${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}"
+  dark-mode: true
+  favicon:
+    default: "https://${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}/homelab-icon.svg"
+    size16x16: "https://${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}/homelab-icon.svg"
+    size32x32: "https://${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}/homelab-icon.svg"
+  custom-css: |
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    :root, html, body, #global, #app, .dashboard-container {
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    }
+
+    #global, body, html {
+      background-color: #0f172a !important;
+      color: #f1f5f9 !important;
+      background-image:
+        radial-gradient(circle at 10% 20%, rgba(96, 165, 250, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(52, 211, 153, 0.03) 0%, transparent 40%) !important;
+    }
+
+    .dashboard-container,
+    .endpoint, .endpoint-group,
+    .endpoint-content, .endpoint-group-content,
+    .announcement-container, .announcement-content {
+      background-color: #1e293b !important;
+      border-color: rgba(255, 255, 255, 0.05) !important;
+      color: #f1f5f9 !important;
+    }
+
+    .endpoint-header, .endpoint-group-header,
+    .announcement-header {
+      background-color: #1e293b !important;
+      color: #f1f5f9 !important;
+    }
+
+    a, .text-blue-500, .text-blue-400 {
+      color: #60a5fa !important;
+    }
+
+    .bg-success, .bg-green-500, .bg-emerald-500 {
+      background-color: #34d399 !important;
+    }
+
+    .bg-danger, .bg-red-500, .bg-rose-500 {
+      background-color: #f87171 !important;
+    }
+
+alerting:
+  custom:
+    url: "http://alerts/gatus"
+    method: "POST"
+    headers:
+      Content-Type: "application/json"
+    
+    # ─── GLOBAL ALERTS DEFAULT ───
+    # This automatically applies to all endpoints below, keeping your YAML tiny.
+    default-alert:
+      failure-threshold: 3     # Must fail 3 times in a row before triggering (ignores random blips)
+      success-threshold: 1     # Instantly resolves on the first successful pass
+      send-on-resolved: true   # Keep this true globally
+
+    body: |
+      {
+        "title": "Gatus Alert ([ALERT_TRIGGERED_OR_RESOLVED]): [ENDPOINT_NAME]",
+        "message": "[ALERT_DESCRIPTION]\n\nTarget: [ENDPOINT_URL]"
+      }
+
+endpoints:
+  # ─── REVERSE PROXY ───
+  - name: "Traefik"
+    group: "Reverse Proxy"
+    url: "http://traefik:8082/ping"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY] == OK"
+    alerts:
+      - type: custom
+        description: "Traefik reverse proxy is unhealthy"
+
+  # ─── APPLICATIONS ───
+  - name: "Dashboard"
+    group: "Applications"
+    url: "http://dashboard:5000/health"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Homelab Dashboard is down"
+
+  - name: "Dockhand"
+    group: "Applications"
+    url: "http://dockhand:3000/"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Dockhand is unreachable"
+
+  - name: "Host API"
+    group: "Applications"
+    url: "http://host.docker.internal:5001/health"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Homelab Host API is unreachable"
+
+  - name: "Ollama"
+    group: "Applications"
+    url: "http://ollama:11434/"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+      - "[BODY] == Ollama is running"
+    alerts:
+      - type: custom
+        description: "Ollama service is unresponsive"
+
+  # ─── IDENTITY ───
+  - name: "Authentik"
+    group: "Identity"
+    url: "http://authentik-server:9000/-/health/live/"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Authentik is down! Authentication is completely broken."
+
+  - name: "Vaultwarden"
+    group: "Identity"
+    url: "http://vaultwarden:80/alive"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Vaultwarden is unreachable"
+
+  # ─── DNS ───
+  - name: "Pi-hole"
+    group: "DNS"
+    # Root path 403s when the Host header isn't the admin domain; the login
+    # page is always an unauthenticated 200.
+    url: "http://pihole:80/admin/login"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Pi-hole DNS admin portal is unresponsive"
+
+  - name: "DNS Resolution"
+    group: "DNS"
+    url: "pihole"
+    interval: 30s
+    dns:
+      query-name: "google.com"
+      query-type: "A"
+    conditions:
+      - "[DNS_RCODE] == NOERROR"
+    alerts:
+      - type: custom
+        description: "DNS resolution through Pi-hole is failing"
+
+  - name: "ddclient"
+    group: "DNS"
+    url: "icmp://ddclient"
+    interval: 1m
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: custom
+        description: "ddclient container is unreachable"
+
+  # ─── VPN & REMOTE ACCESS ───
+  - name: "Headscale"
+    group: "VPN & Remote Access"
+    url: "http://headscale:8080/health"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Headscale control plane is unreachable"
+
+  - name: "RustDesk ID Server"
+    group: "VPN & Remote Access"
+    url: "tcp://rustdesk-id-server:21116"
+    interval: 30s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: custom
+        description: "RustDesk ID Server (hbbs) is unreachable"
+
+  - name: "RustDesk Relay Server"
+    group: "VPN & Remote Access"
+    url: "tcp://rustdesk-relay-server:21117"
+    interval: 30s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: custom
+        description: "RustDesk Relay Server (hbbr) is unreachable"
+
+  # ─── FILE SHARING ───
+  - name: "Samba SMB"
+    group: "File Sharing"
+    url: "tcp://samba:445"
+    interval: 30s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: custom
+        description: "Samba SMB is unreachable"
+
+  - name: "Nextcloud"
+    group: "File Sharing"
+    url: "http://nextcloud:80/status.php"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Nextcloud is unreachable"
+
+  - name: "Stalwart"
+    group: "Mail"
+    url: "tcp://stalwart:8080"
+    interval: 30s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: custom
+        description: "Stalwart admin port is unreachable"
+
+  - name: "Immich"
+    group: "Photos"
+    url: "http://immich-server:2283/api/server/ping"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Immich is unreachable"
+
+  # ─── MONITORING ───
+  - name: "Gotify"
+    group: "Monitoring"
+    url: "http://gotify:80/health"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Gotify notification server is unhealthy"
+
+  - name: "Alerts Gateway"
+    group: "Monitoring"
+    url: "http://alerts:80/health"
+    interval: 30s
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: custom
+        description: "Alerts gateway is down (Alerting chain compromised!)"

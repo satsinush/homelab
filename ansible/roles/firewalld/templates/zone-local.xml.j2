@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<zone>
+  <short>local</short>
+  <description>Trusted physical home LAN</description>
+  <interface name="{{ lan_interface }}"/>
+  <source address="{{ lan_subnet }}"/>
+  <service name="ssh-custom"/>
+  <service name="http"/>
+  <service name="https"/>
+  <service name="dns"/>
+  <service name="rustdesk"/>
+  <service name="samba-homelab"/>
+  <service name="mail-homelab"/>
+  <!-- Ports the router forwards from the internet (Headscale control/DERP/data). -->
+  <service name="headscale-public"/>
+  <masquerade/>
+</zone>

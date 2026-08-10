@@ -56,6 +56,9 @@ if [ -x /usr/bin/dircolors ]; then
     alias egrep='egrep --color=auto'
 fi
 
+# Add a space after sudo to avoid issues with command history
+alias sudo='sudo '
+
 # Navigation shortcuts
 alias ll='ls -alF'
 alias la='ls -A'
@@ -63,6 +66,7 @@ alias l='ls -CF'
 
 # Arch Linux specific shortcuts
 alias update='sudo pacman -Syu'
+alias reboot='sudo reboot'
 
 # Docker Shortcuts
 alias dps='docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"' # Prettier output
@@ -74,11 +78,6 @@ alias dcomp='docker compose'     # Quick access to compose
 # Networking
 alias ports='sudo ss -tulanp'    # Show all open ports and what process is using them
 alias myip='curl ifconfig.me'    # Get your external public IP quickly
-
-# Ask for confirmation before overwriting/deleting more than 3 files
-alias cp='cp -I'
-alias mv='mv -I'
-alias rm='rm -I'
 
 # Make directory and enter it immediately
 mkcd () {
@@ -117,7 +116,7 @@ if shopt -q login_shell && [[ -n "$SSH_CONNECTION" ]]; then
 
     if [ "$UPDATES" -gt 0 ]; then
         UPDATE_COLOR="$RED"
-        UPDATE_MESSAGE="(${RED}Run 'sudo pacman -Syu')${NC}"
+        UPDATE_MESSAGE="(${RED}Run 'update')${NC}"
     fi
 
     # Get IP address using the 'ip' command
@@ -132,7 +131,7 @@ if shopt -q login_shell && [[ -n "$SSH_CONNECTION" ]]; then
     echo
     echo "--------------------------------------------------"
     echo
-    echo "  Hostname: $(hostname)"
+    echo "  Hostname: $(hostnamectl hostname)"
     echo "  Local IP: $LOCAL_IP"
     echo "  Uptime:   $(uptime -p)"
     echo -e "  Updates Available: $UPDATES $UPDATE_COLOR$UPDATE_MESSAGE$NC"

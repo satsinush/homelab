@@ -1,76 +1,105 @@
-## 💾 Backup and Restore
+## Backup and Restore (Restic + Service hooks)
 
-This project includes a powerful script, [`backup.sh`](../backup.sh), for both manual and automated backups. It archives all essential data—including local configurations, bind mounts (`./volumes`), and Docker named volumes—into a single, compressed `.tar.gz` file.
+Homelab state lives in gitignored bind mounts (`volumes/`, `services/*/volumes/`, `storage/`) plus `.env`. Cloud backups use **Restic** to an S3-compatible bucket (Backblaze B2). Per-service logic is implemented on the `Service` base class (`setup` / `postsetup` / `backup` / `restore`) and driven by root [`setup.py`](../setup.py).
 
-### Creating a Backup
+### Architecture
 
-The script supports two ways to create backups.
+| Layer | Role |
+| --- | --- |
+| Git | Compose stacks, scripts, `services/*/setup.py` |
+| Bind mounts | Secrets, certs, databases, app data under `volumes/`, `*/volumes/`, and NAS homes under `storage/` |
+| `Service.backup()` | Consistent dumps (Postgres `pg_dump`, SQLite `.backup`) before upload |
+| Restic → B2 | Encrypted offsite snapshots of `.env`, `volumes/`, `*/volumes/`, `storage/` |
+| `Service.restore()` | Apply dumps into live DBs after a cloud restore |
 
-#### **Manual Backups**
+Compose services use host bind mounts (not Docker named volumes). Directory ownership is created in each service’s `setup()`.
 
-To run a one-off manual backup at any time, use the `backup` command. This will temporarily stop your services, create a single timestamped archive in the `./backups` directory, and then restart everything.
+### One-time cloud repository setup
+
+1. Create a private B2 (or other S3) bucket and an application key with read/write access.
+2. Install [restic](https://restic.net/) on the host (`pacman -S restic`).
+3. Run `python3 setup.py setup` and answer **y** when prompted to configure cloud backup. [`restic/setup.py`](../services/restic/setup.py) will:
+   - Ask for repository URL, encryption password, and S3 access key / secret
+   - Write `volumes/secrets/restic_*` (mode `0600`)
+   - Copy [`.backup_exclude.example`](../.backup_exclude.example) → `.backup_exclude` if needed
+   - Run `restic init` when the binary is available (also runs on later setups if the bucket is still empty)
+4. To switch backends later: overwrite `volumes/secrets/restic_repository` and the AWS key files, then `python3 setup.py setup` or `python3 setup.py backup` (both init an empty bucket using those secrets — no manual `export` needed). Keep the same `restic_password` unless you intend new encryption.
+
+**Do not** put Restic credentials in `.env` — only under `volumes/secrets/`.
+
+### Manual backup
 
 ```shell
-sudo ./backup.sh backup
+python3 setup.py backup
 ```
 
-This will create a file like `./backups/homelab-backup-2025-08-20_19-05-00.tar.gz`.
+Privileged bits use `sudo` when needed (same pattern as setup): Restic is wrapped so it can read root-owned bind mounts; Postgres dumps are written mode `0600` via `write_host_file` (sudo/Docker fallback for root-owned dump files from the nightly timer).
 
-### Automated Backups (Systemd Timer) 🗓️
+Flow: load env/secrets → init repo if empty → each `Service.backup()` → `restic backup` of `.env`, `volumes/`, `*/volumes/`, `storage/` → retention `forget --group-by host --keep-daily 7 --keep-weekly 4 --keep-monthly 12 --prune` (group by host only so changing path sets still expire).
 
-This project uses a `systemd` timer for robust, automated backups. The `homelab-backup.timer` unit, which you enabled during setup, handles this process automatically.
+### Automated backups (systemd)
 
-By default, the timer is configured to:
-
-  * Run the backup script with the `--auto` flag **daily at 3:00 AM**.
-  * Store the archives in the `./backups/auto/` subdirectory.
-  * Keep only the **last 7 backups**, deleting older ones automatically.
-
-#### **Checking the Backup Timer Status**
-
-You can check the status of all timers, including when the next backup is scheduled to run, with the following command:
+[`homelab-backup.timer`](../systemd/system/homelab-backup.timer) runs daily at **03:00 host local** and executes:
 
 ```shell
-systemctl list-timers
+python3 setup.py backup --auto
 ```
 
-#### **Viewing Backup Logs**
+That is ahead of Nextcloud’s maintenance window (04:00–08:00 local). Full schedule table: [3. Project Deployment — Scheduled jobs](./3-deployment.md#scheduled-jobs-host-local-time).
 
-To see the output from the last time the backup service ran, use `journalctl`:
+Setup installs and enables the timer. To reinstall units after editing templates under [`systemd/system/`](../systemd/system/), re-run `python3 setup.py setup`, or:
 
 ```shell
+sudo systemctl daemon-reload
+sudo systemctl enable --now homelab-backup.timer
 sudo journalctl -u homelab-backup.service
 ```
 
-#### **Changing the Schedule**
+### Restore / disaster recovery
 
-To change the backup frequency, edit the `OnCalendar=` line in `/etc/systemd/system/homelab-backup.timer` and then reload the systemd daemon with `sudo systemctl daemon-reload`.
+⚠️ Overwrites local `.env` and volume trees from the snapshot.
 
------
+1. Clone the Git repo onto the machine.
+2. Run:
 
-### Restoring from a Backup
+```shell
+python3 setup.py restore          # latest
+# or
+python3 setup.py restore <snapshot-id>
+```
 
-⚠️ **Warning:** The restore process is destructive and will overwrite your current data.
+If `volumes/secrets/restic_*` are missing, restore (and interactive backup) will prompt for repository URL, encryption password, and S3 keys, then write them under `volumes/secrets/`. Automated `backup --auto` will not prompt.
 
-For a completely clean restore, follow these steps:
+Flow: `restic restore` → `Service.setup()` (permissions) → `docker compose up -d` → `Service.restore()` (apply DB dumps / SQLite snapshots) → wait for healthy containers.
 
-1.  **Full Teardown (Optional):** Completely remove the old stack and all its volumes to prevent any conflicts with old data.
-    ```shell
-    docker compose down -v
-    ```
-2.  **Run the Restore Script**: Use the `restore` command, providing the path to the `.tar.gz` archive you want to restore from. The script will handle the rest of the process.
-    ```shell
-    # Replace with the path to your actual backup archive
-    sudo ./backup.sh restore ./backups/auto/homelab-backup-2025-08-20_19-05-00.tar.gz
-    ```
+3. If needed, re-run full install postsetups: `python3 setup.py setup` (idempotent for most hooks).
 
------
+### What gets special snapshot hooks
 
-### Important Notes
+| Service | Hook |
+| --- | --- |
+| Authentik, Nextcloud | `pg_dump` → `*/volumes/db-dumps/`; live `*/volumes/db/` excluded from Restic |
+| Immich | No homelab dump hook — live `db/` excluded; Immich writes `upload/backups/*.sql.gz` (backed up with `upload/`). Restore DB via Immich UI / onboarding |
+| Vaultwarden, Dashboard, Gotify | SQLite online `.backup` into the service bind mount |
+| Samba data | `storage/users/` (private) + `storage/shared/` (included as `storage/` target) |
+| ddclient | Config at `ddclient/volumes/ddclient.conf` (included via `*/volumes/`) |
 
-  * The `./backups` directory should be added to your `.gitignore` file.
-  * For true disaster recovery, you should regularly copy your backups to an off-site location (e.g., cloud storage, a separate NAS, or an external drive).
+`.backup_exclude` skips `services/ollama/volumes/ollama/` and `services/immich/volumes/model-cache/` (regenerable) until/unless S3 capacity grows. Patterns are relative to the repo root (same as Restic targets under `services/…`).
+
+Pi-hole, Dockhand, RustDesk id/relay, word-games data are still uploaded as ordinary files (no freeze hook).
+
+### Service lifecycle (developers)
+
+Each `services/*/setup.py` exports `service = SomeService()` subclassing [`setup.service.Service`](../setup/service.py):
+
+- `setup(env)` — before containers (volume mkdir/chown, secrets prep)
+- `postsetup(env)` — after containers healthy (OIDC, theming, …)
+- `backup(env)` — before Restic upload
+- `restore(env)` — after cloud restore + compose up
+
+Registry: [`setup/registry.py`](../setup/registry.py).
 
 
-## Next: 6\. 🧑💻 Development
+## Next: 6. Development
+
 [Continue to the next section of the guide for detailed instructions on development tasks and contributing to the project.](./6-development.md)

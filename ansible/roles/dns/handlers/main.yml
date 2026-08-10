@@ -1,0 +1,10 @@
+- name: restart systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: restarted
+
+- name: restart dhcpcd
+  ansible.builtin.systemd:
+    name: dhcpcd
+    state: restarted
+  failed_when: false   # dhcpcd may not manage this host (e.g. NetworkManager)

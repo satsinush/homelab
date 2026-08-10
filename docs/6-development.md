@@ -13,7 +13,7 @@ This project supports a development environment with hot-reloading for the dashb
     docker compose up -d --build --force-recreate
     ```
 
-This development setup starts a separate `dashboard-dev` container running the Vite dev server for the frontend. The main `homelab-dashboard` backend container uses `nodemon` to watch for file changes. Any updates to the API or frontend source code will be updated automatically in the running containers.
+This development setup starts a separate `dashboard-dev` container running the Vite dev server for the frontend. The main `dashboard` backend container uses `nodemon` to watch for file changes. Any updates to the API or frontend source code will be updated automatically in the running containers.
 
 You should set the DNS server for your development device to 127.0.0.1 in order to test the pages with their actual domain names.
 
@@ -23,7 +23,7 @@ To work on the Host API locally with hot-reloading, you can run it directly on y
 
 ```shell
 # Navigate to the host API directory
-cd ./homelab-dashboard/host-api/
+cd ./services/dashboard/host-api/
 
 # Install dependencies
 npm install
@@ -32,6 +32,20 @@ npm install
 npm run dev
 ```
 
+
+### Git Hooks (Pre-commit Version Sync & Pre-push Validation)
+
+Validation and version synchronization hooks are stored and tracked in `.githooks/` and `puzzle-plus-plus/.githooks/`.
+
+To enable Git hooks locally:
+
+```bash
+git config core.hooksPath .githooks
+(cd puzzle-plus-plus && git config core.hooksPath .githooks)
+```
+
+- **`pre-commit`**: Automatically runs `scripts/sync-version.sh` to synchronize `VERSION` numbers across all `package.json` files and `CMakeLists.txt` *before* a commit is saved into git history.
+- **`pre-push`**: Runs ESLint, TypeScript `tsc --noEmit`, Python syntax checks, Ansible syntax checks, `clang-format`, and `ctest` unit tests *before* pushing to GitHub.
 
 ## Next: 7\. ❓ Troubleshooting
 [Continue to the next section of the guide for detailed instructions on troubleshooting common issues.](./7-troubleshooting.md)

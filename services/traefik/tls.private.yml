@@ -1,0 +1,7 @@
+# Private / self-signed mode — Homelab wildcard is the default TLS cert.
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /etc/ssl/homelab/homelab.crt
+        keyFile: /etc/ssl/homelab/homelab.key

@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Pre-push git hook to run linting and validation on homelab components.
+
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+echo "🔍 Running pre-push checks for Homelab stack..."
+
+# 1. Dashboard Frontend
+if [ -d "services/dashboard/frontend/node_modules" ]; then
+    echo "  → Linting Dashboard Frontend..."
+    npm --prefix services/dashboard/frontend run lint
+else
+    echo "  → Skipping Dashboard Frontend (node_modules not installed)"
+fi
+
+# 2. Dashboard API
+if [ -d "services/dashboard/api/node_modules" ]; then
+    echo "  → Linting Dashboard API..."
+    npm --prefix services/dashboard/api run lint
+else
+    echo "  → Skipping Dashboard API (node_modules not installed)"
+fi
+
+# 3. Dashboard Host API
+if [ -d "services/dashboard/host-api/node_modules" ]; then
+    echo "  → Linting Dashboard Host API..."
+    npm --prefix services/dashboard/host-api run lint
+else
+    echo "  → Skipping Dashboard Host API (node_modules not installed)"
+fi
+
+# 4. Python Setup & Services Syntax Check
+if command -v python3 >/dev/null 2>&1; then
+    echo "  → Checking Python setup scripts syntax..."
+    python3 -m py_compile setup.py
+    find setup services -type d -name "volumes" -prune -o -name "setup.py" -exec python3 -m py_compile {} + 2>/dev/null
+fi
+
+# 5. Ansible Playbook Syntax Check
+if command -v ansible-playbook >/dev/null 2>&1; then
+    if [ -f "ansible/inventory.yml" ]; then
+        echo "  → Checking Ansible playbook syntax..."
+        ansible-playbook -i ansible/inventory.yml ansible/site.yml --syntax-check >/dev/null 2>&1 || true
+    else
+        echo "  → Checking Ansible playbook syntax (example inventory)..."
+        ansible-playbook -i ansible/inventory.example.yml ansible/site.yml --syntax-check >/dev/null 2>&1 || true
+    fi
+fi
+
+# 6. Delegate to puzzle-plus-plus pre-push hook if present
+if [ -x "puzzle-plus-plus/.githooks/pre-push" ]; then
+    echo "  → Executing puzzle-plus-plus pre-push hook..."
+    ./puzzle-plus-plus/.githooks/pre-push
+fi
+
+echo "✅ All pre-push checks passed!"

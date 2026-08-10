@@ -1,0 +1,19 @@
+# Copy to inventory.yml and adjust. inventory.yml is gitignored.
+# These values describe this particular host, so they belong in inventory
+# rather than reusable role/group defaults.
+all:
+  children:
+    homelab:
+      hosts:
+        your-server:
+          ansible_host: 192.168.1.10
+          ansible_port: 22 # change to ssh_port after the first run
+          ansible_user: your-user
+
+          lan_interface: eth0
+          lan_subnet: 192.168.1.0/24
+          # Tailscale data-plane interface (created by headscale-router container)
+          vpn_interface: tailscale0
+          # Must match HEADSCALE_IPV4_PREFIX in .env and stay in 100.64.0.0/10.
+          vpn_subnet: 100.64.0.0/24
+          docker_subnet: 10.10.30.0/24

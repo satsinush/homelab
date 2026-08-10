@@ -1,7 +1,7 @@
 *node_modules/
-*package-lock.json
 .env
 docker-compose.override.yml
+.venv/
 
 ddclient.conf
 
@@ -11,7 +11,31 @@ id_ed25519.pub
 *.key
 *.pem
 
+# Shared infrastructure volumes (secrets, certificates)
 volumes/
+
+# Per-service generated volumes (gitignored universally)
+*/volumes/
+
+# Shared NAS / homes (Samba + WebDAV) — backed up by Restic
+storage/
+
 backups/
 
-.vscode/
+tmp/
+
+# Local Restic exclude overrides (see .backup_exclude.example)
+.backup_exclude
+
+.vscode/*
+!.vscode/settings.json
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ansible — host-specific inventory + vaulted secrets stay local
+ansible/inventory.yml
+ansible/vault.yml

@@ -1,0 +1,18 @@
+# Apprise URL config (library still used for tag routing / SMTP fallback).
+# Generated/templated by alerts/setup.py — tokens come from the Gotify alerts user apps.
+# Gateway posts with path /{service} (gatus|dashboard|vaultwarden|dockhand|mail|general).
+# Stalwart posts WebHookEvents JSON to /stalwart (handled specially → mail tag).
+
+urls:
+  - gotify://gotify/${GOTIFY_TOKEN_GATUS}:
+      - tag: gatus
+  - gotify://gotify/${GOTIFY_TOKEN_DASHBOARD}:
+      - tag: dashboard
+  - gotify://gotify/${GOTIFY_TOKEN_VAULTWARDEN}:
+      - tag: vaultwarden
+  - gotify://gotify/${GOTIFY_TOKEN_DOCKHAND}:
+      - tag: dockhand
+  - gotify://gotify/${GOTIFY_TOKEN_MAIL}:
+      - tag: mail
+  - gotify://gotify/${GOTIFY_TOKEN_GENERAL}:
+      - tag: general

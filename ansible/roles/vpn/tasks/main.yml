@@ -1,0 +1,38 @@
+# Host prep for Headscale's Tailscale subnet router.
+# Headscale itself runs in Docker; this role only readies the host data path.
+- name: Enable IPv4 forwarding (required for subnet routing)
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/40-ipv4-forward.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: "net.ipv4.ip_forward=1\n"
+  notify: reload sysctl
+
+- name: Load TUN module now (fails if modules for the running kernel are gone — reboot)
+  community.general.modprobe:
+    name: tun
+    state: present
+
+- name: Load TUN module on every boot
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/tun.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: "tun\n"
+
+- name: Stop legacy WireGuard (wg-quick@wg0) if present
+  ansible.builtin.systemd:
+    name: wg-quick@wg0
+    state: stopped
+    enabled: false
+  failed_when: false
+
+- name: Remind about Docker Headscale stack
+  ansible.builtin.debug:
+    msg: >-
+      Host VPN prep done (ip_forward + tun). Deploy Headscale via
+      `python3 setup.py setup` / docker compose. Clients use the Tailscale
+      app with login server https://{{ headscale_service_name | default('vpn') }}.<hostname>.
+      Firewall VPN zone expects interface {{ vpn_interface }} and subnet {{ vpn_subnet }}.

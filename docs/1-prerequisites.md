@@ -1,26 +1,40 @@
-## 📋 Prerequisites
+## 📋 Prerequisites & Workstation Setup
 
-This project is meant for Arch Linux systems using the `pacman` package manager.
-Services will run on other operating systems with different package managers, but the installation instructions will be different and the Homelab Dashboard Host API will not function properly.
-Before you begin, ensure your device is up to date and that the following packages are installed on your Arch Linux host:
+This project targets Arch Linux hosts and requires **Ansible** run from a control workstation (laptop/desktop) to automate all host-level configuration (packages, firewall, SSH hardening, Docker, host DNS, and VPN prep).
+
+Manual host package configuration is not supported — Ansible is the single source of truth for host setup.
+
+---
+
+### 1. 💻 Control Workstation Setup
+
+On your workstation (where you run Ansible), install Ansible core and the required Galaxy collections:
 
 ```shell
-# Install core dependencies
-sudo pacman -Syu
-sudo pacman -S \
-  openssl \         # Core SSL/TLS toolkit
-  apache \          # For the 'htpasswd' utility
-  sed grep xargs \  # Text manipulation utilities
-  docker jq \       # Docker and JSON processor
-  lm_sensors \      # For initializing hardware sensors
-  arp-scan \        # For LAN device scanning
-  openssh \         # Secure Shell server
-  wireguard-tools \ # WireGuard VPN tools
-  ufw               # Uncomplicated Firewall
+# Install Ansible core & galaxy requirements
+pipx install ansible-core        # or: sudo pacman -S ansible
+ansible-galaxy collection install -r ansible/requirements.yml
 ```
 
-  * After installing `lm_sensors`, run `sudo sensors-detect` to initialize sensor data for Netdata to use.
-  * The `apache` package is needed for the `htpasswd` utility used by the setup script to create secure password hashes.
+---
+
+### 2. 🖥️ Target Host Prerequisites (Arch Linux)
+
+On the target host, ensure:
+- Arch Linux is installed and accessible over SSH.
+- Your SSH key is copied to the host (`ssh-copy-id user@server_ip`).
+- Your remote user has `sudo` privileges.
+
+The Ansible `packages` role will handle installing all host dependencies automatically:
+
+* `docker`, `docker-compose`, `docker-buildx`
+* `apache` (for `htpasswd` password hashing utility)
+* `restic` (encrypted offsite cloud backups)
+* `acl` (POSIX ACLs for container file permissions)
+* `lm_sensors`, `arp-scan` (hardware sensors & LAN device scanning)
+* `nodejs`, `npm`, `git`, `jq`, `argon2`, `python`, `openssh`, `firewalld`
+
+---
 
 ## Next: 2\. ⚙️ Configure and Harden Host
-[Continue to the next section of the guide for detailed instructions on configuring and hardening your host machine.](./2-host-config.md)
+[Continue to the next section of the guide for detailed instructions on configuring your inventory and running the Ansible playbook.](./2-host-config.md)

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="services/dashboard/frontend/public/homelab-icon.svg" alt="Homelab Logo" width="128" height="128">
+</p>
+
 # 🏠 Homelab Dashboard & Services
 
 This repository contains all the configuration and Docker instructions needed to deploy a comprehensive, self-hosted homelab system.
@@ -17,6 +21,8 @@ This repository contains all the configuration and Docker instructions needed to
 ## 📚 Table of Contents
 - [Overview](#-overview)
 - [Quick Start Guide](#-get-started-quick-setup-guide)
+- [Services Directory & Architecture](./docs/8-services.md)
+- [Dashboard Screenshots Gallery](./docs/9-screenshots.md)
 - [License](#️-license)
 
 ## ✨ Overview
@@ -27,21 +33,23 @@ This project bundles several open-source services, managed via `docker-compose`,
 
 ### Core Services Included
 
-  * **🏠 Homelab Dashboard**: A custom web interface with:
-      * 💻 LAN device scanning and WOL support
-      * 🧩 Word puzzle game solvers (Wordle, Mastermind, Hangman, Dungleon, Letter Boxed, Spelling Bee)
-      * 📦 Host device package management (for *pacman*)
-      * 🤖 An integrated AI chatbot with Ollama
-  * **🔀 Traefik v3**: Cloud-native reverse proxy with automatic HTTPS (Let's Encrypt or self-signed).
-  * **🔑 Authelia**: Single Sign-On (SSO) for securing services.
-  * **📊 Netdata**: Real-time performance monitoring.
-  * **📦 Portainer**: Docker container management UI.
-  * **📈 Uptime Kuma**: Service monitoring and status pages.
-  * **🔔 Ntfy**: Push notifications for alerts.
-  * **🚫 Pi-hole & Unbound**: Network-wide ad-blocking and recursive DNS.
-  * **🌐 ddclient**: Dynamic DNS client to keep your domain pointed to your IP.
-  * **🖥️ RustDesk**: A self-hosted remote desktop solution.
-  * **🔐 Vaultwarden**: Self-hosted password manager.
+*Detailed individual service documentation is available in [docs/8-services.md](./docs/8-services.md) and in each service's directory under `services/<service>/README.md`.*
+
+  * **🏠 [Homelab Dashboard](./services/dashboard/README.md)**: A custom web interface with LAN device scanning, WOL support, word puzzle game solvers, package management, and an integrated AI chatbot with [Ollama](./services/ollama/README.md).
+  * **🔀 [Traefik v3](./services/traefik/README.md)**: Cloud-native reverse proxy with automatic HTTPS (Let's Encrypt or self-signed).
+  * **🔑 [Authentik](./services/authentik/README.md)**: Single Sign-On (SSO) and Identity Provider for securing services.
+  * **📈 [Gatus](./services/gatus/README.md)**: Real-time health check monitoring and public status page.
+  * **📦 [Dockhand](./services/dockhand/README.md)**: Docker container management UI integrated with Authentik SSO.
+  * **🔔 [Alerts & Gotify](./services/alerts/README.md)**: HTTP and SMTP notification gateway for Gatus, dashboard, Vaultwarden, and Dockhand via [Gotify](./services/gotify/README.md).
+  * **🚫 [Pi-hole](./services/pihole/README.md) & [Unbound](./services/unbound/README.md)**: Network-wide ad-blocking and recursive DNS.
+  * **🌐 [ddclient](./services/ddclient/README.md)**: Dynamic DNS client to keep your domain pointed to your IP.
+  * **🖥️ [RustDesk](./services/rustdesk/README.md)**: Self-hosted remote desktop (ID + relay).
+  * **📁 [Samba](./services/samba/README.md) & [Nextcloud](./services/nextcloud/README.md)**: LAN SMB shares and Nextcloud (files, WebDAV, calendar, contacts, Collabora Office) via Authentik.
+  * **✉️ [Stalwart](./services/stalwart/README.md)**: Mail server with Authentik LDAP for humans; authenticated SMTP for Vaultwarden.
+  * **📷 [Immich](./services/immich/README.md)**: Photos with Authentik OIDC.
+  * **🛰️ [Headscale](./services/headscale/README.md)**: Self-hosted Tailscale control plane with Authentik OIDC sign-in and subnet router.
+  * **🔐 [Vaultwarden](./services/vaultwarden/README.md)**: Self-hosted password manager.
+  * **💾 [Restic](./services/restic/README.md)**: Encrypted offsite cloud backups.
 
 ### Infrastructure Diagram
 
@@ -49,71 +57,60 @@ This project bundles several open-source services, managed via `docker-compose`,
 %%{init: {
     "theme": "dark"
 }}%%
-graph TD
-    %% INTERNET
-    subgraph Internet
-        RemoteClient[🌍 Remote User]
+flowchart LR
+    subgraph External["🌍 Internet & Clients"]
+        Remote["🌍 Remote Client"]
+        Local["💻 LAN Devices"]
     end
 
-    %% LAN
-    subgraph LAN
-        Router[📶 Router]
-        LocalClient[💻 Local Devices]
+    subgraph Host["🖥️ Homelab Server"]
+        Headscale["🛰️ Headscale VPN"]
+        Firewall["🛡️ firewalld"]
 
-        subgraph Server[🖥️ Homelab Server]
-            WireGuard[🔒 WireGuard VPN]
-            UFW[🛡️ UFW Firewall]
+        subgraph Network["🐳 Docker Network"]
+            Traefik["🔀 Traefik v3 Proxy"]
+            Authentik["🔑 Authentik SSO & LDAP"]
+            
+            subgraph Apps["Services & Apps"]
+                Dashboard["🏠 Homelab Dashboard"]
+                Nextcloud["☁️ Nextcloud"]
+                Immich["📷 Immich"]
+                Vaultwarden["🔐 Vaultwarden"]
+                Stalwart["✉️ Stalwart Mail"]
+                Samba["📁 Samba SMB"]
+                Dockhand["📦 Dockhand"]
+                Ollama["🤖 Ollama AI"]
+                Rustdesk["🖥️ RustDesk"]
+            end
 
-            subgraph Docker[🐳 Docker Network]
-                Traefik[🔀 Traefik Reverse Proxy]
-                Authelia[🔑 Authelia SSO]
-                Vaultwarden[🔐 Vaultwarden]
-                Portainer[📦 Portainer]
-                Dashboard[🏠 Homelab Dashboard]
-                Ollama[🤖 Ollama AI]
-                Netdata[📊 Netdata Monitoring]
-                UptimeKuma[📈 Uptime Kuma]
-                Ntfy[🔔 ntfy Notifications]
-                LLDAP[👥 LLDAP]
-                Pihole[🚫 Pi-hole DNS]
-                Unbound[🔎 Unbound DNS Resolver]
-                Rustdesk[🖥️ RustDesk ID & Relay]
+            subgraph Infra["Core Infra & Ops"]
+                Pihole["🚫 Pi-hole"]
+                Unbound["🔎 Unbound"]
+                Gatus["📈 Gatus Status"]
+                Alerts["🔔 Alerts Gateway"]
+                Gotify["🔔 Gotify Push"]
+                DDNS["🌐 ddclient"]
+                Restic["💾 Restic Backup"]
             end
         end
     end
 
-    %% Entry chain
-    RemoteClient --> Router --> WireGuard --> UFW
-    LocalClient --> UFW
+    %% Routing Connections
+    Remote -->|Tailscale| Headscale --> Firewall
+    Local --> Firewall
+    Firewall --> Traefik
+    Firewall -->|DNS 53| Pihole --> Unbound
 
-    %% DNS chain
-    Pihole --> Unbound
-    UFW -->|DNS| Pihole
+    %% Proxy Connections
+    Traefik --> Authentik & Dashboard & Nextcloud & Immich & Vaultwarden & Stalwart & Dockhand & Gatus & Gotify
 
-    %% Firewall routes
-    UFW -->|HTTP| Traefik
-    UFW -->|Remote Access| Rustdesk --> LocalClient
-
-    %% Proxy/Auth flows
-    Traefik --> Authelia
-    Traefik --> Vaultwarden
-    Traefik --> Ntfy
-    Traefik --> Portainer
-    Traefik --> Dashboard
-    Traefik --> Netdata
-    Traefik --> UptimeKuma
-
-    Authelia --> LLDAP
-
-    %% Dashboard flows
+    %% Auth & App Connections
+    Dashboard & Nextcloud & Immich & Vaultwarden & Dockhand & Headscale -.->|OIDC| Authentik
+    Stalwart & Samba -.->|LDAP| Authentik
     Dashboard --> Ollama
-    Dashboard --> Netdata
-    Dashboard -->|WOL| LocalClient
-    Dashboard --> Ntfy
 
-    %% Notifications
-    UptimeKuma --> Ntfy
-    Vaultwarden --> Ntfy
+    %% Alert Flows
+    Gatus & Vaultwarden & Stalwart & Dashboard --> Alerts --> Gotify
 ```
 
 ## 🚀 Quick Start Guide
@@ -135,22 +132,24 @@ For more info see the [GitHub Docs 🔗](https://docs.github.com/en/get-started/
 
 ### 1\. 📋 Install Host Prerequisites
 
-Before running any configuration scripts, install all base dependencies on your Arch Linux host, including Docker, UFW, and WireGuard tools.
+Before running any configuration scripts, install all base dependencies on your Arch Linux host, including Docker and host tooling.
 
 ➡️ **Follow the detailed instructions here:** **[1. Prerequisites](./docs/1-prerequisites.md)**
 
 ### 2\. ⚙️ Configure and Harden Host
 
-This is the most critical security phase. You will configure SSH key access, set up the UFW firewall rules, and establish the WireGuard VPN tunnel.
+This is the most critical security phase. You will configure SSH key access, set up firewalld rules, and prepare the host for Headscale / Tailscale remote access.
 
 ➡️ **Follow the detailed instructions here:** **[2. Host Machine Configuration](./docs/2-host-config.md)**
+
+> **🅰️ Ansible alternative:** Steps 1 and 2 (packages, firewall, SSH, Docker, VPN host prep, host DNS) can be applied automatically with the playbook in [`ansible/`](./ansible/README.md). App setup below still uses `setup.py`.
 
 ### 3\. 🚀 Deploy the Services
 
 The final deployment involves configuring environment variables, setting up custom `systemd` services for automation, and launching the Docker stack.
 
-1.  **Configure Environment:** Adjust values in the `.env.template` file.
-2.  **Enable Systemd Services:** Copy and enable host API, backup, and sync services.
+1.  **Configure Environment:** Defaults live in `setup/env_schema.py`; `setup.py` creates/syncs `.env` from that schema (prompts on first run).
+2.  **Enable Systemd Services:** Copy and enable host API, backup, and sync services (see [scheduled jobs](./docs/3-deployment.md#scheduled-jobs-host-local-time)).
 3.  **Run Setup Script:** Execute the main script to build containers and generate credentials.
 
 ➡️ **Follow the detailed instructions here:** **[3. Project Deployment](./docs/3-deployment.md)**
@@ -163,13 +162,13 @@ Once the core stack is running, use these sections for ongoing maintenance and c
 
 #### 4\. ✅ Post-Installation Checklist
 
-Complete a final checklist for each service (e.g., installing the root CA certificate, setting up notifications in Uptime Kuma, and disabling public sign-ups for Vaultwarden).
+Complete a final checklist for each service (e.g., installing the root CA certificate, setting up notifications in Gatus / Gotify, and verifying Authentik SSO).
 
 ➡️ **View the full checklist here:** **[4. Post Installation Checklist](./docs/4-checklist.md)**
 
 #### 5\. 💾 Backup and Restore
 
-Learn how to manage and protect your data. This section covers running manual backups, checking the automated `systemd` backup timer, and performing a full system restoration from an archive.
+Learn how to manage and protect your data. This section covers Restic cloud backups via `setup.py`, the automated `systemd` timer, and disaster recovery.
 
 ➡️ **View the backup and restore guide here:** **[5. Backup and Restore](./docs/5-backup-restore.md)**
 
@@ -185,8 +184,14 @@ Find quick solutions for common deployment issues, including DNS resolution fail
 
 ➡️ **View the troubleshooting guide here:** **[7. Troubleshooting](./docs/7-troubleshooting.md)**
 
+#### 10\. 🗺️ Roadmap & Known Issues
+
+View planned service expansions (Jellyfin, Paperless-ngx, Gitea, Headplane, MCP servers), database optimizations, and known limitations.
+
+➡️ **View the roadmap and known issues here:** **[10. Roadmap & Known Issues](./docs/10-roadmap-and-issues.md)**
+
 ## ⚖️ License
 
 This project is licensed under the MIT License. See the [`./LICENSE`](./LICENSE) file for details.
 
-> **ℹ️ Note**: The software for each containerized service falls under its own respective license. The MIT license for this repository applies only to the original configuration files, scripts, and the `homelab-dashboard` source code.
+> **ℹ️ Note**: The software for each containerized service falls under its own respective license. The MIT license for this repository applies only to the original configuration files, scripts, and the `dashboard` source code.

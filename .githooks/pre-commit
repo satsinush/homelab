@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Pre-commit hook to sync version before commits are created.
+
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+if [ -x "scripts/sync-version.sh" ]; then
+    ./scripts/sync-version.sh
+    git add VERSION services/dashboard/*/package.json 2>/dev/null || true
+fi

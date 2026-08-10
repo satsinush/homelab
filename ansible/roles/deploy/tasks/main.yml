@@ -1,0 +1,31 @@
+# Get the repo in place and the stack running. App bootstrap (secrets,
+# .env generation, Authentik/Gotify provisioning, systemd units)
+# stays in `python3 setup.py setup`, which is interactive on first run.
+- name: Clone homelab repo (only when homelab_repo_url is set)
+  ansible.builtin.git:
+    repo: "{{ homelab_repo_url }}"
+    dest: "{{ homelab_dir }}"
+    update: false        # never clobber local changes on an existing checkout
+  become: false
+  when: homelab_repo_url | length > 0
+
+- name: Check for generated .env
+  ansible.builtin.stat:
+    path: "{{ homelab_dir }}/.env"
+  register: homelab_env
+
+- name: First-run notice
+  ansible.builtin.debug:
+    msg: >-
+      No .env at {{ homelab_dir }} — run `python3 setup.py setup` there once
+      (interactive: users, SSL mode, secrets). Ansible only handles the host.
+  when: not homelab_env.stat.exists
+
+- name: docker compose up
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ homelab_dir }}"
+  become: false
+  when: compose_up and homelab_env.stat.exists
+  register: compose_result
+  changed_when: "'Started' in compose_result.stderr or 'Created' in compose_result.stderr"

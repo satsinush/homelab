@@ -1,0 +1,360 @@
+import asyncio
+import logging
+import os
+from aiosmtpd.controller import Controller
+from email.parser import BytesParser
+from email.policy import default
+
+import aiohttp
+import apprise
+import yaml
+from aiohttp import web
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger("alerts")
+
+CONFIG_PATH = "/config/urls.yaml"
+
+# Gotify base URL for direct sends (Apprise's Gotify plugin cannot forward the
+# `extras` object, so click URLs must bypass it and hit /message directly).
+GOTIFY_URL = os.environ.get("GOTIFY_INTERNAL_URL", "http://gotify").rstrip("/")
+
+# Must match tags in alerts/urls.yaml (and alerts/setup.py GOTIFY_APPS).
+KNOWN_ALERT_TAGS = frozenset(
+    {"gatus", "dashboard", "vaultwarden", "dockhand", "mail", "general"}
+)
+
+# Per-tag default URL opened when a Gotify notification is tapped (Android).
+# Overridable per request via a `click_url` field in the alert payload.
+DEFAULT_CLICK_URLS = {
+    "gatus": os.environ.get("GATUS_CLICK_URL", ""),
+    "dashboard": os.environ.get("DASHBOARD_CLICK_URL", ""),
+    "vaultwarden": os.environ.get("VAULTWARDEN_CLICK_URL", ""),
+    "dockhand": os.environ.get("DOCKHAND_CLICK_URL", ""),
+    "mail": os.environ.get("MAIL_CLICK_URL", ""),
+    "general": os.environ.get("GENERAL_CLICK_URL", ""),
+}
+
+# Stalwart message ingestion events (new mail into a mailbox).
+_STALWART_INGEST_EVENTS = frozenset(
+    {
+        "message-ingest.ham",
+        "message-ingest.spam",
+    }
+)
+# Don't notify for service mailboxes (SMTP submitters / system).
+_STALWART_SKIP_LOCALPARTS = frozenset(
+    {
+        "vaultwarden",
+        "noreply",
+        "nextcloud",
+        "authentik",
+        "ldapservice",
+    }
+)
+
+def _alert_tag(service: str) -> str:
+    tag = (service or "general").strip().lower()
+    return tag if tag in KNOWN_ALERT_TAGS else "general"
+
+
+def _gotify_tokens() -> dict:
+    """Map alert tag → Gotify app token, parsed from the rendered Apprise config.
+
+    setup.py writes urls.yaml with real (substituted) tokens, so each entry
+    looks like `gotify://gotify/<token>: [{tag: <tag>}]`.
+    """
+    tokens: dict[str, str] = {}
+    try:
+        with open(CONFIG_PATH, encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        for entry in cfg.get("urls", []) or []:
+            if not isinstance(entry, dict):
+                continue
+            for url, attrs in entry.items():
+                if not isinstance(url, str) or not url.startswith("gotify"):
+                    continue
+                token = url.rstrip("/").split("/")[-1]
+                for attr in attrs or []:
+                    if isinstance(attr, dict) and attr.get("tag"):
+                        tokens[str(attr["tag"])] = token
+    except Exception as e:  # noqa: BLE001 - config is best-effort
+        logger.warning(f"Could not parse Gotify tokens from {CONFIG_PATH}: {e}")
+
+    return tokens
+
+
+def _resolve_click_url(tag: str, data: dict) -> str:
+    explicit = data.get("click_url") or data.get("clickUrl") or data.get("url")
+    if explicit:
+        return str(explicit)
+    return DEFAULT_CLICK_URLS.get(tag) or ""
+
+
+async def _send_gotify_direct(
+    tag: str,
+    title: str,
+    message: str,
+    priority: int | None,
+    click_url: str,
+) -> bool:
+    """POST directly to Gotify with a click.url extra. Returns False to fall back."""
+    token = _gotify_tokens().get(tag)
+    if not token:
+        return False
+
+    payload: dict = {"title": title, "message": message}
+    if priority is not None:
+        payload["priority"] = priority
+    if click_url:
+        payload["extras"] = {"client::notification": {"click": {"url": click_url}}}
+
+    url = f"{GOTIFY_URL}/message?token={token}"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                url, json=payload, timeout=aiohttp.ClientTimeout(total=10)
+            ) as resp:
+                if resp.status < 400:
+                    return True
+                body = await resp.text()
+                logger.warning(f"Gotify direct send failed (HTTP {resp.status}): {body}")
+    except Exception as e:  # noqa: BLE001 - fall back to Apprise on any error
+        logger.warning(f"Gotify direct send error: {e}")
+    return False
+
+
+def _apprise_notify(tag: str, title: str, message: str) -> bool:
+    apobj = apprise.Apprise()
+    try:
+        config = apprise.AppriseConfig()
+        config.add(CONFIG_PATH)
+        apobj.add(config)
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"Failed to load Apprise config: {e}")
+        return False
+    return bool(apobj.notify(body=message, title=title, tag=tag))
+
+
+async def _deliver(
+    tag: str,
+    title: str,
+    message: str,
+    priority: int | None = 5,
+    click_url: str = "",
+) -> bool:
+    """Send with a Gotify click URL when available, else via Apprise."""
+    priority_val = 5 if priority is None else priority
+    if click_url and await _send_gotify_direct(tag, title, message, priority_val, click_url):
+        logger.info(f"Delivered via Gotify direct (tag={tag}, click_url set)")
+        return True
+    if click_url:
+        logger.info("Direct Gotify send unavailable; falling back to Apprise")
+    return _apprise_notify(tag, title, message)
+
+
+def _decorate_gatus_title(title: str) -> str:
+    """Prefix Gatus alert titles with a status emoji from TRIGGERED/RESOLVED."""
+    lower = title.lower()
+    if "triggered" in lower:
+        prefix = "🔴 "
+    elif "resolved" in lower:
+        prefix = "🟢 "
+    else:
+        return title
+    if title.startswith(prefix):
+        return title
+    return f"{prefix}{title}"
+
+
+async def handle_stalwart_webhook(request):
+    """Accept Stalwart WebHookEvents JSON and notify Gotify for new mail."""
+    try:
+        payload = await request.json()
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"Stalwart webhook: invalid JSON ({e})")
+        return web.Response(text="invalid json", status=400)
+
+    events = payload.get("events") if isinstance(payload, dict) else None
+    if not isinstance(events, list):
+        return web.Response(text="expected events[]", status=400)
+
+    delivered = 0
+    for ev in events:
+        if not isinstance(ev, dict):
+            continue
+        typ = str(ev.get("type") or "")
+        if typ not in _STALWART_INGEST_EVENTS:
+            continue
+        raw_data = ev.get("data")
+        data: dict = raw_data if isinstance(raw_data, dict) else {}
+        recipients = data.get("to") or data.get("recipients") or []
+        if isinstance(recipients, str):
+            recipients = [recipients]
+        if not isinstance(recipients, list):
+            recipients = []
+        recipients = [str(r).strip() for r in recipients if str(r).strip()]
+
+        # Skip if every recipient is a known service mailbox.
+        locals_ = {
+            (r.split("@", 1)[0].lower() if "@" in r else r.lower()) for r in recipients
+        }
+        if recipients and locals_ and locals_.issubset(_STALWART_SKIP_LOCALPARTS):
+            logger.info(f"Stalwart webhook: skip service mailbox mail → {recipients}")
+            continue
+
+        from_addr = str(data.get("from") or data.get("sender") or "unknown")
+        to_disp = ", ".join(recipients) if recipients else "mailbox"
+        spam = typ.endswith(".spam")
+        title = f"{'⚠ Spam' if spam else '✉ Mail'}: {to_disp}"
+        mid = data.get("messageId") or data.get("message_id") or ""
+        size = data.get("size")
+        lines = [f"From: {from_addr}", f"To: {to_disp}"]
+        if mid:
+            lines.append(f"Message-ID: {mid}")
+        if size is not None:
+            lines.append(f"Size: {size}")
+        message = "\n".join(lines)
+
+        click_url = _resolve_click_url("mail", {})
+        ok_send = await _deliver(
+            "mail", title, message, priority=4 if spam else 5, click_url=click_url
+        )
+        if ok_send:
+            delivered += 1
+        logger.info(
+            f"Stalwart {typ} → Gotify mail (to={to_disp}, from={from_addr}, ok={ok_send})"
+        )
+
+    return web.Response(text=f"OK ({delivered})")
+
+
+async def handle_alert(request):
+    if request.content_type == "message/rfc822":
+        try:
+            raw_bytes = await request.read()
+            message = BytesParser(policy=default).parsebytes(raw_bytes)
+            subject = message.get("subject", "No Subject")
+            body = message.get_body(preferencelist=("plain", "html"))
+            body_content = body.get_content() if body else str(message)
+
+            sender = message.get("from", "")
+            recipients = message.get("to", "")
+            full_body = f"From: {sender}\nTo: {recipients}\nSubject: {subject}\n\n{body_content}"
+
+            # Vaultwarden SMTP → vaultwarden app; everything else → general.
+            tag = "vaultwarden" if "vaultwarden" in sender.lower() else "general"
+            title = (
+                "Vaultwarden Alert"
+                if tag == "vaultwarden"
+                else "Homelab Email Alert"
+            )
+
+            logger.info(
+                f"Routing SMTP webhook message from {sender} to {recipients}: {subject} (tag={tag})"
+            )
+
+            click_url = _resolve_click_url(tag, {})
+            success = await _deliver(tag, title, full_body, click_url=click_url)
+            logger.info(f"SMTP webhook notification status: {success}")
+            return web.Response(text="OK")
+        except Exception as e:
+            logger.exception("Failed to process rfc822 email payload")
+            return web.Response(text="Failed to process email", status=400)
+
+    data = {}
+    body_text = ""
+    try:
+        if request.content_type == "application/json":
+            data = await request.json()
+        else:
+            data = await request.post()
+            data = dict(data)
+    except Exception as e:
+        logger.warning(f"Could not parse payload: {e}")
+
+    try:
+        body_text = await request.text()
+    except Exception as e:
+        logger.warning(f"Could not read raw body text: {e}")
+
+    service = (
+        data.get("service")
+        or request.query.get("service")
+        or request.match_info.get("service")
+        or "general"
+    )
+    tag = _alert_tag(str(service))
+    logger.info(f"Received alert request for service: {service} (tag={tag})")
+
+    title = data.get("title") or data.get("subject") or f"Homelab {tag.capitalize()} Alert"
+    if tag == "gatus":
+        title = _decorate_gatus_title(str(title))
+    message = (
+        data.get("message")
+        or data.get("msg")
+        or data.get("text")
+        or body_text
+        or "No alert message details provided."
+    )
+
+    priority = data.get("priority")
+    try:
+        priority = int(priority) if priority is not None else 5
+    except (TypeError, ValueError):
+        priority = 5
+
+    click_url = _resolve_click_url(tag, data)
+    success = await _deliver(tag, title, message, priority, click_url)
+    logger.info(f"Notification status: {success}")
+
+    if success:
+        return web.Response(text="OK")
+    return web.Response(text="Notification completed", status=200)
+
+
+async def alive_handler(request):
+    return web.Response(text="alive")
+
+
+async def health_handler(request):
+    return web.Response(text="OK")
+
+
+import signal
+
+async def main():
+    app = web.Application()
+    # Register static paths before /{service} so they win the match.
+    app.router.add_get("/alive", alive_handler)
+    app.router.add_get("/health", health_handler)
+    # Stalwart WebHookEvents → Gotify (must be before /{service}).
+    app.router.add_post("/stalwart", handle_stalwart_webhook)
+    # Legacy /alerts/{service} alias; preferred is POST /gatus, /dashboard, …
+    app.router.add_post("/alerts/{service}", handle_alert)
+    app.router.add_post("/alerts", handle_alert)
+    app.router.add_post("/{service}", handle_alert)
+    app.router.add_post("/", handle_alert)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", 80)
+    await site.start()
+    logger.info("HTTP alert gateway started on port 80...")
+
+    stop_event = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, stop_event.set)
+
+    await stop_event.wait()
+    logger.info("Shutting down HTTP alert gateway...")
+
+
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(main())
+    except (KeyboardInterrupt, SystemExit):
+        pass
+

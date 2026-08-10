@@ -1,0 +1,34 @@
+# Paths are relative to the homelab repo root (restic backup cwd).
+# Live Postgres data dirs (Authentik/Nextcloud: pg_dump → */volumes/db-dumps/;
+# Immich: app dumps → upload/backups/*.sql.gz when upload/ is backed up)
+services/authentik/volumes/db/
+services/nextcloud/volumes/db/
+services/immich/volumes/db/
+
+# Redis caches (safe to lose)
+services/authentik/volumes/redis/
+services/nextcloud/volumes/redis/
+services/unbound/volumes/redis/
+
+# Regenerable ML models / caches
+services/immich/volumes/model-cache/
+
+# Exclude only Ollama models until upgrading S3 storage.
+services/ollama/volumes/ollama/
+
+*.sock
+
+# --- Optional (uncomment to skip from cloud backup) ---
+# Immich library + Immich's own DB dumps under upload/backups/ (large)
+#services/immich/volumes/upload/
+
+# Nextcloud user files (large; DB still covered via db-dumps/)
+#services/nextcloud/volumes/data/
+#services/nextcloud/volumes/html/
+
+# Shared / home NAS trees (also under the top-level `storage/` backup target)
+#storage/shared/
+#storage/users/
+
+# Stalwart mail store (large over time; config still backed up)
+#services/stalwart/volumes/data/

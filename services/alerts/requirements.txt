@@ -1,0 +1,4 @@
+apprise
+aiosmtpd
+aiohttp
+PyYAML

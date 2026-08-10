@@ -1,0 +1,42 @@
+# unbound/compose.yaml
+services:
+  unbound:
+    image: klutchell/unbound:latest
+    container_name: unbound
+    restart: unless-stopped
+    volumes:
+      - ${PROJECT_ROOT}/services/unbound/unbound.conf:/etc/unbound/custom.conf.d/unbound.conf:ro
+      - ${PROJECT_ROOT}/services/unbound/cachedb.conf:/etc/unbound/custom.conf.d/cachedb.conf:ro
+    networks:
+      - homelab-net
+    depends_on:
+      unbound-redis:
+        condition: service_healthy
+    healthcheck:
+      # Local-zone only — must not recurse to the internet. Recursive probes
+      # (e.g. `. NS` / icann.org) time out on first-boot WSL/Docker Desktop and
+      # mark the container unhealthy, aborting `compose up` via Pi-hole depends_on.
+      test: ["CMD", "drill", "healthcheck.unbound", "A", "@127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+
+  unbound-redis:
+    image: redis:7-alpine
+    container_name: unbound-redis
+    restart: unless-stopped
+    volumes:
+      - ${PROJECT_ROOT}/services/unbound/volumes/redis:/data
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+networks:
+  homelab-net:
+    external: true

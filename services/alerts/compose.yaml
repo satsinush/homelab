@@ -1,0 +1,37 @@
+# alerts/compose.yaml
+services:
+  alerts:
+    build: ${PROJECT_ROOT}/services/alerts
+    container_name: alerts
+    restart: unless-stopped
+    volumes:
+      - ${PROJECT_ROOT}/volumes/certificates/homelab-ca.crt:/etc/ssl/certs/homelab-ca.crt:ro
+      - ${PROJECT_ROOT}/services/alerts/volumes/config:/config:ro
+      - ${PROJECT_ROOT}/services/alerts/gateway.py:/app/gateway.py:ro
+    environment:
+      - SSL_CERT_FILE=/etc/ssl/certs/homelab-ca.crt
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/homelab-ca.crt
+      - CURL_CA_BUNDLE=/etc/ssl/certs/homelab-ca.crt
+      - PYTHONUNBUFFERED=1
+      # Direct Gotify sends (for notification click URLs, which Apprise can't forward).
+      # Container name, not ${GOTIFY_SERVICE_NAME} (that's the public subdomain).
+      - GOTIFY_INTERNAL_URL=http://gotify
+      # Per-tag default URL opened when a notification is tapped (Android).
+      - GATUS_CLICK_URL=https://${GATUS_SERVICE_NAME}.${HOMELAB_HOSTNAME}
+      - DASHBOARD_CLICK_URL=https://${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}
+      - VAULTWARDEN_CLICK_URL=https://${VAULTWARDEN_SERVICE_NAME}.${HOMELAB_HOSTNAME}
+      - DOCKHAND_CLICK_URL=https://${DOCKHAND_SERVICE_NAME}.${HOMELAB_HOSTNAME}
+      - MAIL_CLICK_URL=https://${NEXTCLOUD_SERVICE_NAME:-cloud}.${HOMELAB_HOSTNAME}/apps/mail/
+      - GENERAL_CLICK_URL=https://${DASHBOARD_SERVICE_NAME}.${HOMELAB_HOSTNAME}
+    networks:
+      - homelab-net
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  homelab-net:
+    external: true

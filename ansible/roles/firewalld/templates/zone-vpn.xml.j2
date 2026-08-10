@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<zone>
+  <short>vpn</short>
+  <description>Authenticated Tailscale / Headscale clients</description>
+  <interface name="{{ vpn_interface }}"/>
+  <source address="{{ vpn_subnet }}"/>
+  <service name="ssh-custom"/>
+  <service name="http"/>
+  <service name="https"/>
+  <service name="dns"/>
+  <service name="rustdesk"/>
+  <service name="samba-homelab"/>
+  <service name="mail-homelab"/>
+  <masquerade/>
+</zone>
