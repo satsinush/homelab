@@ -103,6 +103,12 @@ def parse_args() -> argparse.Namespace:
         help="Non-interactive backup mode (used by systemd timer)",
     )
     parser.add_argument(
+        "--service",
+        "-s",
+        nargs="+",
+        help="Target one or more specific services by name (e.g. --service headscale authentik)",
+    )
+    parser.add_argument(
         "snapshot",
         nargs="?",
         default="latest",
@@ -657,7 +663,7 @@ IP.1 = 127.0.0.1
     ok("Ready")
 
 
-def run_setup() -> None:
+def run_setup(target_services: list[str] | None = None) -> None:
     from setup.service import run_all_postsetup, run_all_setup
     from setup.registry import get_services
     from setup.utils import compose_up, run_cmd, wait_for_containers
@@ -675,6 +681,15 @@ def run_setup() -> None:
     os.environ.setdefault("PROJECT_ROOT", os.getcwd())
 
     services = get_services()
+    if target_services:
+        target_set = set(target_services)
+        found_names = {s.name for s in services}
+        missing = target_set - found_names
+        if missing:
+            error(f"Service(s) not found: {', '.join(sorted(missing))}")
+            sys.exit(1)
+        services = [s for s in services if s.name in target_set]
+
     section("Service setup", emoji="📁")
     run_all_setup(services, env)
 
@@ -814,7 +829,7 @@ def main() -> None:
     args = parse_args()
 
     if args.command == "setup":
-        run_setup()
+        run_setup(target_services=args.service)
     elif args.command == "backup":
         run_backup(auto=args.auto)
     elif args.command == "restore":
