@@ -31,10 +31,11 @@ derp:
     automatically_add_embedded_derp_region: true
     # Set to false to prevent mobile handover stalls between Wi-Fi and cellular.
     verify_clients: false
-  # Empty public map — the embedded region above is the only relay.
-  urls: []
+  # Public DERP/STUN map for multi-point NAT traversal and fallback relays.
+  urls:
+    - https://controlplane.tailscale.com/derp/derp-map.json
   paths: []
-  auto_update_enabled: false
+  auto_update_enabled: true
   update_frequency: 24h
 
 database:
