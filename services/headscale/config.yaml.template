@@ -83,6 +83,7 @@ oidc:
     - profile
     - email
     - groups
+    - offline_access
   email_verified_required: true
   # Match Authentik group names from the custom "groups" scope mapping.
   allowed_groups:
