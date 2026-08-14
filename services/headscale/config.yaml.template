@@ -62,12 +62,11 @@ dns:
   override_local_dns: true
   nameservers:
     global:
-      - 100.64.0.1
+      - ${HOMELAB_IP_ADDRESS}
+      - 1.1.1.1
+      - 9.9.9.9
   search_domains: []
-  extra_records:
-    - name: ${HEADSCALE_WEB_HOSTNAME}
-      type: A
-      value: ${HOMELAB_IP_ADDRESS}
+  extra_records: []
 
 unix_socket: /var/run/headscale/headscale.sock
 unix_socket_permission: "0770"
