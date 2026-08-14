@@ -29,9 +29,8 @@ derp:
     # Persisted alongside the DB so the DERP identity survives restarts.
     private_key_path: /var/lib/headscale/derp_server_private.key
     automatically_add_embedded_derp_region: true
-    # Only relay for nodes registered with this Headscale. If DERP fails to
-    # start, set this to false and re-run setup.
-    verify_clients: true
+    # Set to false to prevent mobile handover stalls between Wi-Fi and cellular.
+    verify_clients: false
   # Empty public map — the embedded region above is the only relay.
   urls: []
   paths: []

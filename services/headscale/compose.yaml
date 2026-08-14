@@ -51,12 +51,11 @@ services:
     profiles: ["headscale-router"]
     restart: unless-stopped
     network_mode: host
-    # Host-network uses Docker Desktop's resolver (not Pi-hole), so pin the
-    # control-server name → LAN IP or login fails with NXDOMAIN on *.home.arpa.
+    # Host-network needs the control-server name pinned → LAN IP so login
+    # succeeds even if host resolution is not yet available.
     extra_hosts:
       - "${HEADSCALE_WEB_HOSTNAME}:${HOMELAB_IP_ADDRESS}"
-    # Auth key written by headscale/setup.py postsetup (avoids Docker Desktop
-    # secret bind-mount races that produce "invalid pre auth key").
+    # Auth key written by headscale/setup.py postsetup.
     env_file:
       - ${PROJECT_ROOT}/services/headscale/volumes/config/router.env
     environment:
@@ -70,7 +69,7 @@ services:
       # this host.
       # containerboot has no TS_LOGIN_SERVER variable; custom control servers
       # are selected through the arguments passed to `tailscale up`.
-      TS_EXTRA_ARGS: --login-server=https://${HEADSCALE_WEB_HOSTNAME} --advertise-routes=${LAN_SUBNET} --advertise-exit-node --accept-routes --accept-dns=false --snat-subnet-routes=false --netfilter-mode=off
+      TS_EXTRA_ARGS: --login-server=https://${HEADSCALE_WEB_HOSTNAME} --advertise-routes=${LAN_SUBNET} --advertise-exit-node --accept-routes --accept-dns=false --snat-subnet-routes=false --netfilter-mode=off --persistent-keepalive=25
       # Pin the WireGuard data-plane port (tailscaled flag, not `tailscale up`)
       # so the router can forward WAN 41641/udp for direct peer connections.
       TS_TAILSCALED_EXTRA_ARGS: --port=41641
@@ -95,7 +94,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 90s
+      start_period: 20s
     depends_on:
       headscale:
         condition: service_healthy

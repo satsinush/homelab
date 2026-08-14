@@ -376,6 +376,7 @@ def _provision_subnet_router(env: dict) -> None:
         "set",
         "--netfilter-mode=off",
         "--snat-subnet-routes=false",
+        "--persistent-keepalive=25",
         check=False,
     )
     _approve_lan_routes(lan_subnet)
