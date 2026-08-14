@@ -32,6 +32,7 @@ services:
       - "traefik.http.routers.headscale.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
       - "traefik.http.routers.headscale.tls.domains[0].main=${HEADSCALE_WEB_HOSTNAME}"
       - "traefik.http.services.headscale.loadbalancer.server.port=8080"
+      - "traefik.http.services.headscale.loadbalancer.responseforwarding.flushinterval=1ms"
     healthcheck:
       test: ["CMD", "headscale", "health"]
       interval: 30s
