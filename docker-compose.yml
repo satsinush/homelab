@@ -18,3 +18,4 @@ include:
   - ./services/ddclient/compose.yaml
   - ./services/ollama/compose.yaml
   - ./services/headscale/compose.yaml
+  - ./services/clipcascade/compose.yaml

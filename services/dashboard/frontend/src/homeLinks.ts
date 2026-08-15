@@ -13,6 +13,7 @@ export interface BuiltinHomeLink {
     role?: string;
     color?: 'primary' | 'secondary' | 'info' | 'warning' | 'success' | 'error' | 'inherit';
     iconKey: string;
+    iconToken?: string;
     logoAlt?: string;
 }
 
@@ -250,6 +251,16 @@ export const BUILTIN_HOME_LINKS: BuiltinHomeLink[] = [
         iconKey: 'logo',
         logoAlt: 'Stalwart',
     },
+    {
+        id: 'external-clipcascade',
+        title: 'ClipCascade',
+        description: 'Cross-platform clipboard synchronization',
+        kind: 'external',
+        url: (h) => `https://${h.clipcascade || ''}`,
+        color: 'primary',
+        iconKey: 'custom',
+        iconToken: 'mui:Assignment',
+    },
 ];
 
 export function resolveBuiltinLinks(
@@ -268,6 +279,7 @@ export function resolveBuiltinLinks(
             external,
             color: link.color || 'primary',
             iconKey: link.iconKey,
+            iconToken: link.iconToken,
             logoSrc: logoById[link.id],
             logoAlt: link.logoAlt,
             editable: false,

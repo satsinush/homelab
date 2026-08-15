@@ -36,6 +36,7 @@ services:
       - NEXTCLOUD_SERVICE_NAME=${NEXTCLOUD_SERVICE_NAME:-cloud}
       - IMMICH_SERVICE_NAME=${IMMICH_SERVICE_NAME:-photos}
       - MAIL_SERVICE_NAME=${MAIL_SERVICE_NAME:-mail}
+      - CLIPCASCADE_SERVICE_NAME=${CLIPCASCADE_SERVICE_NAME:-clip}
       - HOST_API_URL=${HOST_API_URL:-http://host.docker.internal:5001}
       # Dashboard is SSO-only; Authentik is the identity source (incl. Samba via hook).
       - DISABLE_LOCAL_AUTH=${DISABLE_LOCAL_AUTH:-true}

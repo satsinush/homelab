@@ -1,0 +1,30 @@
+# clipcascade/compose.yaml
+services:
+  clipcascade:
+    image: docker.io/sathvikrao/clipcascade:latest
+    container_name: clipcascade
+    restart: unless-stopped
+    volumes:
+      - ${PROJECT_ROOT}/services/clipcascade/volumes/database:/database
+    environment:
+      - CC_MAX_MESSAGE_SIZE_IN_MiB=5
+      - TZ=${TZ}
+    networks:
+      - homelab-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.clipcascade.rule=Host(`${CLIPCASCADE_SERVICE_NAME:-clip}.${HOMELAB_HOSTNAME}`)"
+      - "traefik.http.routers.clipcascade.entrypoints=websecure"
+      - "traefik.http.routers.clipcascade.tls=true"
+      - "traefik.http.routers.clipcascade.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.services.clipcascade.loadbalancer.server.port=8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+networks:
+  homelab-net:
+    external: true

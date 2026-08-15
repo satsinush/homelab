@@ -20,6 +20,7 @@ SERVICE_URL_NAMES: list[tuple[str, str, str]] = [
     ("IMMICH_SERVICE_NAME", "photos", "Immich"),
     ("MAIL_SERVICE_NAME", "mail", "Mail (Stalwart)"),
     ("HEADSCALE_SERVICE_NAME", "vpn", "Headscale (UI slug)"),
+    ("CLIPCASCADE_SERVICE_NAME", "clip", "ClipCascade"),
 ]
 
 # Keys managed in .env (template order). Values are defaults used when missing.

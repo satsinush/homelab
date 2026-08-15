@@ -23,7 +23,8 @@ export const ConfigProvider = ({ children }: ConfigProviderProps) => {
             dav: '',
             cal: '',
             immich: '',
-            mail: ''
+            mail: '',
+            clipcascade: ''
         },
         homelabHostname: ''
     });
@@ -49,7 +50,8 @@ export const ConfigProvider = ({ children }: ConfigProviderProps) => {
                             dav: d.davWebHostname || '',
                             cal: d.calWebHostname || '',
                             immich: d.immichWebHostname || '',
-                            mail: d.mailWebHostname || ''
+                            mail: d.mailWebHostname || '',
+                            clipcascade: d.clipcascadeWebHostname || ''
                         },
                         homelabHostname: d.homelabHostname || ''
                     });

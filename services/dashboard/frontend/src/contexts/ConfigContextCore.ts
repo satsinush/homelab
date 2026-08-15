@@ -12,6 +12,7 @@ export interface Hostnames {
     cal: string;
     immich: string;
     mail: string;
+    clipcascade: string;
 }
 
 export interface AppConfig {

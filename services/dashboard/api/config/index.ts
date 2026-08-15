@@ -36,6 +36,7 @@ const filesServiceName = process.env.NEXTCLOUD_SERVICE_NAME || 'cloud';
 const calServiceName = process.env.NEXTCLOUD_SERVICE_NAME || 'cloud';
 const immichServiceName = process.env.IMMICH_SERVICE_NAME || 'photos';
 const mailServiceName = process.env.MAIL_SERVICE_NAME || 'mail';
+const clipcascadeServiceName = process.env.CLIPCASCADE_SERVICE_NAME || 'clip';
 
 const DASHBOARD_WEB_HOSTNAME = `${dashboardServiceName}.${homelabHostname}`;
 const AUTHENTIK_WEB_HOSTNAME = `${authentikServiceName}.${homelabHostname}`;
@@ -48,6 +49,7 @@ const DAV_WEB_HOSTNAME = `${filesServiceName}.${homelabHostname}`;
 const CAL_WEB_HOSTNAME = `${calServiceName}.${homelabHostname}`;
 const IMMICH_WEB_HOSTNAME = `${immichServiceName}.${homelabHostname}`;
 const MAIL_WEB_HOSTNAME = `${mailServiceName}.${homelabHostname}`;
+const CLIPCASCADE_WEB_HOSTNAME = `${clipcascadeServiceName}.${homelabHostname}`;
 
 export interface DefaultSettings {
     scanTimeout: number;
@@ -163,6 +165,7 @@ const config = {
     calWebHostname: CAL_WEB_HOSTNAME,
     immichWebHostname: IMMICH_WEB_HOSTNAME,
     mailWebHostname: MAIL_WEB_HOSTNAME,
+    clipcascadeWebHostname: CLIPCASCADE_WEB_HOSTNAME,
     homelabHostname: homelabHostname,
     secretsDir: SECRETS_DIR,
     rustdeskPubKeyPath:

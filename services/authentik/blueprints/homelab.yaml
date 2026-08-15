@@ -715,6 +715,17 @@ entries:
       meta_description: Self-hosted push notification server
       icon: icons/gotify_logo.png
 
+  # ClipCascade (bookmark only)
+  - model: authentik_core.application
+    identifiers:
+      slug: clipcascade-app
+    attrs:
+      name: ClipCascade
+      slug: clipcascade-app
+      meta_launch_url: !Format ["https://%s.%s", !Env CLIPCASCADE_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
+      open_in_new_tab: true
+      meta_description: Self-hosted cross-platform clipboard synchronization
+
 
   # =================================================================
   # Access Policies (Bind Groups to Applications)
@@ -747,6 +758,21 @@ entries:
   - model: authentik_policies.policybinding
     identifiers:
       target: !Find [authentik_core.application, [slug, gotify-app]]
+      group: !Find [authentik_core.group, [name, homelab-admins]]
+    attrs:
+      order: 1
+
+  # ClipCascade (visible to users and admins)
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, clipcascade-app]]
+      group: !Find [authentik_core.group, [name, homelab-users]]
+    attrs:
+      order: 0
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !Find [authentik_core.application, [slug, clipcascade-app]]
       group: !Find [authentik_core.group, [name, homelab-admins]]
     attrs:
       order: 1
