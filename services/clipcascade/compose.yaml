@@ -8,6 +8,7 @@ services:
       - ${PROJECT_ROOT}/services/clipcascade/volumes/database:/database
     environment:
       - CC_MAX_MESSAGE_SIZE_IN_MiB=5
+      - CC_SIGNUP_ENABLED=false
       - TZ=${TZ}
     networks:
       - homelab-net
