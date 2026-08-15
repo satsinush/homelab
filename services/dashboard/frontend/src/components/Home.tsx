@@ -75,6 +75,7 @@ import DockhandLogo from '../assets/dockhand_logo.png';
 import NextcloudLogo from '../assets/nextcloud_logo.png';
 import ImmichLogo from '../assets/immich_logo.png';
 import StalwartLogo from '../assets/stalwart_logo.png';
+import ClipCascadeLogo from '../assets/clipcascade_logo.png';
 
 const LOGO_BY_ID: Record<string, string> = {
     'external-pihole': PiHoleLogo,
@@ -86,6 +87,7 @@ const LOGO_BY_ID: Record<string, string> = {
     'external-nextcloud': NextcloudLogo,
     'external-immich': ImmichLogo,
     'external-stalwart': StalwartLogo,
+    'external-clipcascade': ClipCascadeLogo,
 };
 
 import {

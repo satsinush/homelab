@@ -725,6 +725,7 @@ entries:
       meta_launch_url: !Format ["https://%s.%s", !Env CLIPCASCADE_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
       open_in_new_tab: true
       meta_description: Self-hosted cross-platform clipboard synchronization
+      icon: icons/clipcascade_logo.png
 
 
   # =================================================================

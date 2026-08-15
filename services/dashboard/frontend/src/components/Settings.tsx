@@ -35,7 +35,8 @@ import {
     SettingsBrightness as DeviceIcon,
     Settings as SettingsIcon,
     InfoOutlined as InfoIcon,
-    Sync as SyncIcon
+    Sync as SyncIcon,
+    Notifications as NotificationsIcon
 } from '@mui/icons-material';
 import PageHeader from './PageHeader';
 import { tryApiCall } from '../utils/api';
@@ -322,6 +323,88 @@ const Settings = () => {
                                                 }}
                                                 fullWidth
                                                 helperText="How long to cache device status"
+                                                slotProps={{
+                                                    input: {
+                                                        sx: {
+                                                            '& input[type=number]': { MozAppearance: 'textfield' },
+                                                            '& input[type=number]::-webkit-outer-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                                                            '& input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                                                        },
+                                                    }
+                                                }}
+                                            />
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+
+                            {/* Notification Settings */}
+                            <Grid size={{ xs: 12, md: 6 }}>
+                                <Card>
+                                    <CardContent>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                            <NotificationsIcon sx={{ mr: 1, color: 'primary.main' }} />
+                                            <Typography variant="h6">Notification Configuration</Typography>
+                                        </Box>
+                                        <Stack spacing={2}>
+                                            <TextField
+                                                label="Minimum Notification Cooldown (hours)"
+                                                type="number"
+                                                value={serverSettings.notificationCooldownHours === undefined || isNaN(Number(serverSettings.notificationCooldownHours)) ? '' : serverSettings.notificationCooldownHours}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val === '') {
+                                                        handleServerSettingChange('notificationCooldownHours', '');
+                                                    } else {
+                                                        const num = parseInt(val, 10);
+                                                        if (!isNaN(num)) {
+                                                            handleServerSettingChange('notificationCooldownHours', num);
+                                                        }
+                                                    }
+                                                }}
+                                                onBlur={() => {
+                                                    let num = parseInt(String(serverSettings.notificationCooldownHours), 10);
+                                                    if (isNaN(num) || num < 1) {
+                                                        num = 24;
+                                                    }
+                                                    handleServerSettingChange('notificationCooldownHours', num);
+                                                }}
+                                                fullWidth
+                                                helperText="Minimum hours between any notifications to prevent alert storms (default: 24h)"
+                                                slotProps={{
+                                                    input: {
+                                                        sx: {
+                                                            '& input[type=number]': { MozAppearance: 'textfield' },
+                                                            '& input[type=number]::-webkit-outer-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                                                            '& input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
+                                                        },
+                                                    }
+                                                }}
+                                            />
+                                            <TextField
+                                                label="Reminder Frequency (days)"
+                                                type="number"
+                                                value={serverSettings.notificationReminderDays === undefined || isNaN(Number(serverSettings.notificationReminderDays)) ? '' : serverSettings.notificationReminderDays}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val === '') {
+                                                        handleServerSettingChange('notificationReminderDays', '');
+                                                    } else {
+                                                        const num = parseInt(val, 10);
+                                                        if (!isNaN(num)) {
+                                                            handleServerSettingChange('notificationReminderDays', num);
+                                                        }
+                                                    }
+                                                }}
+                                                onBlur={() => {
+                                                    let num = parseInt(String(serverSettings.notificationReminderDays), 10);
+                                                    if (isNaN(num) || num < 1) {
+                                                        num = 7;
+                                                    }
+                                                    handleServerSettingChange('notificationReminderDays', num);
+                                                }}
+                                                fullWidth
+                                                helperText="How often to re-notify for lingering unresolved package updates (default: 7 days / 1 week)"
                                                 slotProps={{
                                                     input: {
                                                         sx: {

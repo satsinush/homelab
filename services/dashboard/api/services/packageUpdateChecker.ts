@@ -1,12 +1,12 @@
 import SystemController from '../controllers/systemController';
 import PackageUpdateNotifications from '../models/PackageUpdateNotifications';
+import Settings from '../models/Settings';
 import AlertsService from './alertsService';
 import { getErrorMessage } from '../utils/errors';
 
 /** Wall-clock slots: after pacman-sync at :15 every 6h. */
 const CHECK_HOURS = [0, 6, 12, 18] as const;
 const CHECK_MINUTE = 30;
-const REMINDER_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 type UpdatablePackage = {
     name: string;
@@ -20,6 +20,7 @@ class PackageUpdateChecker {
     private systemController: SystemController;
     private notificationService: AlertsService;
     private store: PackageUpdateNotifications;
+    private settingsModel: Settings;
     private timeoutId: NodeJS.Timeout | null;
     private isRunning: boolean;
     private nextCheckAt: number | null;
@@ -28,6 +29,7 @@ class PackageUpdateChecker {
         this.systemController = new SystemController();
         this.notificationService = new AlertsService();
         this.store = new PackageUpdateNotifications();
+        this.settingsModel = new Settings();
         this.timeoutId = null;
         this.isRunning = false;
         this.nextCheckAt = null;
@@ -136,24 +138,48 @@ class PackageUpdateChecker {
             const changed: UpdatablePackage[] = [];
             const dueForReminder: UpdatablePackage[] = [];
 
+            const cooldownHours = this.settingsModel.getNotificationCooldownHours();
+            const cooldownMs = cooldownHours * 60 * 60 * 1000;
+
+            const reminderDays = this.settingsModel.getNotificationReminderDays();
+            const reminderMs = reminderDays * 24 * 60 * 60 * 1000;
+
+            // Check when the last package notification of ANY kind was sent
+            let mostRecentNotifiedAt = 0;
+            for (const row of known.values()) {
+                if (row.lastNotifiedAt > mostRecentNotifiedAt) {
+                    mostRecentNotifiedAt = row.lastNotifiedAt;
+                }
+            }
+
+            const timeSinceLastNotification = now - mostRecentNotifiedAt;
+            const inCooldown = mostRecentNotifiedAt > 0 && timeSinceLastNotification < cooldownMs;
+
             for (const pkg of packagesWithUpdates) {
                 const ver = this.availableVersion(pkg);
                 const row = known.get(pkg.name);
                 if (!row || row.notifiedVersion !== ver) {
                     changed.push(pkg);
-                } else if (now - row.lastNotifiedAt >= REMINDER_AFTER_MS) {
+                } else if (now - row.lastNotifiedAt >= reminderMs) {
                     dueForReminder.push(pkg);
                 }
             }
 
             if (changed.length > 0) {
+                if (inCooldown) {
+                    console.log(
+                        `Found ${changed.length} new/changed package(s), but notification is suppressed due to cooldown (${Math.round((cooldownMs - timeSinceLastNotification) / (1000 * 60 * 60))}h remaining of ${cooldownHours}h minimum cooldown)`
+                    );
+                    return;
+                }
+
                 await this.notificationService.sendPackageUpdateNotification(
                     updatesAvailable,
                     packagesWithUpdates
                 );
-                // Bump only new/changed packages so unrelated pending keep their reminder clocks.
+                // Bump tracked packages so reminder clocks and last notification times are recorded.
                 this.store.upsertMany(
-                    changed.map(pkg => ({
+                    packagesWithUpdates.map(pkg => ({
                         name: pkg.name,
                         notifiedVersion: this.availableVersion(pkg),
                         lastNotifiedAt: now,
@@ -167,12 +193,19 @@ class PackageUpdateChecker {
             }
 
             if (dueForReminder.length > 0) {
+                if (inCooldown) {
+                    console.log(
+                        `${dueForReminder.length} package(s) due for reminder, but notification is suppressed due to cooldown`
+                    );
+                    return;
+                }
+
                 await this.notificationService.sendPackageUpdateNotification(
                     updatesAvailable,
                     packagesWithUpdates
                 );
                 this.store.upsertMany(
-                    dueForReminder.map(pkg => ({
+                    packagesWithUpdates.map(pkg => ({
                         name: pkg.name,
                         notifiedVersion: this.availableVersion(pkg),
                         lastNotifiedAt: now,
@@ -186,7 +219,7 @@ class PackageUpdateChecker {
             }
 
             console.log(
-                `${updatesAvailable} updates available (same versions, none due for weekly reminder)`
+                `${updatesAvailable} updates available (none new, none due for ${reminderDays}d reminder)`
             );
         } catch (error: unknown) {
             console.error('Package update check failed:', getErrorMessage(error));

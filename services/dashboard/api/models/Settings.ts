@@ -68,6 +68,18 @@ class Settings {
         return (this.serverSettings.scanTimeout as number) || 30000;
     }
 
+    // Get notification cooldown in hours (default 24h)
+    getNotificationCooldownHours(): number {
+        const val = this.serverSettings.notificationCooldownHours;
+        return typeof val === 'number' && !isNaN(val) && val >= 1 ? val : 24;
+    }
+
+    // Get notification reminder interval in days (default 7 days / 1 week)
+    getNotificationReminderDays(): number {
+        const val = this.serverSettings.notificationReminderDays;
+        return typeof val === 'number' && !isNaN(val) && val >= 1 ? val : 7;
+    }
+
     // Get services list from settings
     getServices(): unknown[] {
         return (this.serverSettings.services as unknown[]) || [];

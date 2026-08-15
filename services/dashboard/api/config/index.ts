@@ -54,6 +54,8 @@ const CLIPCASCADE_WEB_HOSTNAME = `${clipcascadeServiceName}.${homelabHostname}`;
 export interface DefaultSettings {
     scanTimeout: number;
     cacheTimeout: number;
+    notificationCooldownHours: number;
+    notificationReminderDays: number;
     packageUpdateCheck: {
         enabled: boolean;
         intervalHours: number;
@@ -64,6 +66,8 @@ export interface DefaultSettings {
 const DEFAULT_SETTINGS: DefaultSettings = {
     scanTimeout: 30000,
     cacheTimeout: 300000,
+    notificationCooldownHours: 24,
+    notificationReminderDays: 7,
     packageUpdateCheck: {
         enabled: true,
         intervalHours: 1,

@@ -258,8 +258,8 @@ export const BUILTIN_HOME_LINKS: BuiltinHomeLink[] = [
         kind: 'external',
         url: (h) => `https://${h.clipcascade || ''}`,
         color: 'primary',
-        iconKey: 'custom',
-        iconToken: 'mui:Assignment',
+        iconKey: 'logo',
+        logoAlt: 'ClipCascade',
     },
 ];
 
