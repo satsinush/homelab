@@ -43,6 +43,7 @@ services:
     restart: unless-stopped
     command: server
     environment:
+      AUTHENTIK_SESSION_COOKIE_AGE: 2592000
       AUTHENTIK_REDIS__HOST: authentik-redis
       AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
       AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_PG_USER:-authentik}
@@ -130,6 +131,7 @@ services:
     restart: unless-stopped
     command: worker
     environment:
+      AUTHENTIK_SESSION_COOKIE_AGE: 2592000
       AUTHENTIK_REDIS__HOST: authentik-redis
       AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
       AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_PG_USER:-authentik}

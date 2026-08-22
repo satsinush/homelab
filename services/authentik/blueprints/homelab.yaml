@@ -58,6 +58,14 @@ entries:
       title: "Welcome to Authentik!"
       name: "Welcome to Authentik!"
 
+  # Configure user login stage session lifetime to 30 days
+  - model: authentik_stages_user_login.userloginstage
+    identifiers:
+      name: default-authentication-login
+    attrs:
+      session_duration: "days=30"
+      remember_me_offset: "days=30"
+
   # =================================================================
   # Predefined Roles
   # =================================================================
@@ -416,6 +424,8 @@ entries:
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
       signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      access_token_validity: "days=30"
+      refresh_token_validity: "days=30"
       grant_types:
         - authorization_code
         - refresh_token
@@ -452,6 +462,8 @@ entries:
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
       signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
       # Leave encryption_key unset — Headscale does not support JWE id_tokens.
+      access_token_validity: "days=30"
+      refresh_token_validity: "days=30"
       grant_types:
         - authorization_code
         - refresh_token
@@ -489,6 +501,8 @@ entries:
       # Unbind this app only — keeps the Authentik SSO session for other apps.
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
       signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      access_token_validity: "days=30"
+      refresh_token_validity: "days=30"
       grant_types:
         - authorization_code
         - refresh_token
@@ -524,6 +538,8 @@ entries:
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
       signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      access_token_validity: "days=30"
+      refresh_token_validity: "days=30"
       grant_types:
         - authorization_code
         - refresh_token
@@ -563,6 +579,8 @@ entries:
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
       signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      access_token_validity: "days=30"
+      refresh_token_validity: "days=30"
       grant_types:
         - authorization_code
         - refresh_token
@@ -644,6 +662,7 @@ entries:
     attrs:
       name: pihole-proxy
       mode: forward_single
+      access_token_validity: "days=30"
       external_host: !Format ["https://%s.%s", !Env PIHOLE_SERVICE_NAME, !Env HOMELAB_HOSTNAME]
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
@@ -682,6 +701,8 @@ entries:
       authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-explicit-consent]]
       invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
       signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      access_token_validity: "days=30"
+      refresh_token_validity: "days=30"
       grant_types:
         - authorization_code
         - refresh_token
