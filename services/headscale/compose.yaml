@@ -41,7 +41,7 @@ services:
       start_period: 20s
     depends_on:
       authentik-server:
-        condition: service_started
+        condition: service_healthy
 
   # Host-network Tailscale node that advertises the LAN so remote clients can
   # reach 10.x devices. Auth key is written by headscale/setup.py postsetup.
