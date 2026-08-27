@@ -48,6 +48,7 @@ def _write_config(env: dict) -> None:
         "HEADSCALE_SERVICE_NAME",
         "HEADSCALE_WEB_HOSTNAME",
         "HOMELAB_HOSTNAME",
+        "DNS_DOMAIN",
         "AUTHENTIK_SERVICE_NAME",
         "HOMELAB_IP_ADDRESS",
         "HEADSCALE_BASE_DOMAIN",

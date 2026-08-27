@@ -63,7 +63,8 @@ dns:
   nameservers:
     global:
       - ${HOMELAB_VPN_IP_ADDRESS}
-  search_domains: []
+  search_domains:
+    - ${DNS_DOMAIN}
   extra_records: []
 
 unix_socket: /var/run/headscale/headscale.sock
