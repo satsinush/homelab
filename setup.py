@@ -59,6 +59,11 @@ def _traefik_ip_for_subnet(subnet: str) -> str:
     return str(network.network_address + 100)
 
 
+def _vpn_ip_for_prefix(prefix: str) -> str:
+    network = ipaddress.IPv4Network(prefix)
+    return str(network.network_address + 1)
+
+
 def _ensure_docker_network(env: dict) -> None:
     from setup.utils import run_cmd
 
@@ -460,6 +465,7 @@ def ensure_env_file() -> dict:
             "DOCKER_SUBNET": docker_subnet,
             "TRAEFIK_IP_ADDRESS": _traefik_ip_for_subnet(docker_subnet),
             "HEADSCALE_IPV4_PREFIX": headscale_prefix,
+            "HOMELAB_VPN_IP_ADDRESS": _vpn_ip_for_prefix(headscale_prefix),
             "HOST_API_URL": detect_host_api_url(),
         }
     )
@@ -484,6 +490,7 @@ def ensure_bootstrap_and_locale(env: dict) -> dict:
     os.chmod("./volumes/secrets", 0o700)
 
     docker_subnet = env.get("DOCKER_SUBNET") or "10.10.30.0/24"
+    headscale_prefix = env.get("HEADSCALE_IPV4_PREFIX") or "100.64.0.0/24"
     updates: dict[str, str] = {}
     if not env.get("PROJECT_ROOT"):
         updates["PROJECT_ROOT"] = os.getcwd()
@@ -491,6 +498,8 @@ def ensure_bootstrap_and_locale(env: dict) -> dict:
         updates["HEADSCALE_BASE_DOMAIN"] = f"ts.{env.get('DNS_DOMAIN') or 'home.arpa'}"
     if not env.get("TRAEFIK_IP_ADDRESS"):
         updates["TRAEFIK_IP_ADDRESS"] = _traefik_ip_for_subnet(docker_subnet)
+    if not env.get("HOMELAB_VPN_IP_ADDRESS"):
+        updates["HOMELAB_VPN_IP_ADDRESS"] = _vpn_ip_for_prefix(headscale_prefix)
     if not env.get("HOST_API_URL"):
         updates["HOST_API_URL"] = detect_host_api_url()
     if not env.get("HOMELAB_LANGUAGE") or not env.get("HOMELAB_LOCALE"):

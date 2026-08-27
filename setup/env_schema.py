@@ -45,6 +45,7 @@ ENV_DEFAULTS: dict[str, str] = {
     "DOCKER_SUBNET": "10.10.30.0/24",
     "TRAEFIK_IP_ADDRESS": "10.10.30.2",
     "HEADSCALE_IPV4_PREFIX": "100.64.0.0/24",
+    "HOMELAB_VPN_IP_ADDRESS": "100.64.0.1",
     "HOST_API_URL": "http://host.docker.internal:5001",
     "HOMELAB_USERNAME": "",
     "HOMELAB_EMAIL": "",

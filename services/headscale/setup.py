@@ -54,6 +54,7 @@ def _write_config(env: dict) -> None:
         "DOCKER_SUBNET",
         "LAN_SUBNET",
         "HEADSCALE_IPV4_PREFIX",
+        "HOMELAB_VPN_IP_ADDRESS",
     ):
         if env.get(key):
             os.environ[key] = env[key]
