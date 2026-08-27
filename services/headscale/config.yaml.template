@@ -71,7 +71,13 @@ dns:
   search_domains:
     - ${HOMELAB_HOSTNAME}
     - ${DNS_DOMAIN}
-  extra_records: []
+  extra_records:
+    - name: ${HOMELAB_HOSTNAME}
+      type: A
+      value: ${HOMELAB_IP_ADDRESS}
+    - name: "*.${HOMELAB_HOSTNAME}"
+      type: A
+      value: ${HOMELAB_IP_ADDRESS}
 
 unix_socket: /var/run/headscale/headscale.sock
 unix_socket_permission: "0770"
