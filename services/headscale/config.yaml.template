@@ -63,7 +63,13 @@ dns:
   nameservers:
     global:
       - ${HOMELAB_VPN_IP_ADDRESS}
+    split:
+      ${HOMELAB_HOSTNAME}:
+        - ${HOMELAB_VPN_IP_ADDRESS}
+      ${DNS_DOMAIN}:
+        - ${HOMELAB_VPN_IP_ADDRESS}
   search_domains:
+    - ${HOMELAB_HOSTNAME}
     - ${DNS_DOMAIN}
   extra_records: []
 
